@@ -424,9 +424,9 @@ CRUNCH_QUALITY = 64
 TOTAL_MEMORY = 67108864 # May need to adjust this for very large levels
 
 client: client.bc
-	cd .. ; cd .. ; python $(EMSCRIPTEN)/tools/file_packager.py base.data --use-preload-plugins  --preload $(BASE_FILES) > game/preload_base.js
-	cd .. ; cd .. ; python $(EMSCRIPTEN)/tools/file_packager.py character.data --use-preload-plugins  --preload $(CHARACTER_FILES) > game/preload_character.js
-	cd .. ; cd .. ; python $(EMSCRIPTEN)/tools/file_packager.py low.data --use-preload-plugins  --preload $(COLOS_FILES) > game/preload_low.js
+	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py base.data --use-preload-plugins  --preload $(BASE_FILES) > game/preload_base.js
+	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py character.data --use-preload-plugins  --preload $(CHARACTER_FILES) > game/preload_character.js
+	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py low.data --use-preload-plugins  --preload $(COLOS_FILES) > game/preload_low.js
 	#cd .. ; cd .. ; python $(EMSCRIPTEN)/tools/file_packager.py medium.data --use-preload-plugins  --preload $(TWO_TOWERS_FILES) > game/preload_medium.js
 	#cd .. ; cd .. ; python $(EMSCRIPTEN)/tools/file_packager.py high.data --use-preload-plugins  --preload $(ZOOM_FILES) > game/preload_high.js
 	#cd .. ; cd .. ; python $(EMSCRIPTEN)/tools/file_packager.py four.data --use-preload-plugins  --preload $(CYBER1_FILES) > game/preload_four.js
