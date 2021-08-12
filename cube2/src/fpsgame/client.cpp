@@ -1048,6 +1048,7 @@ namespace game
 
         while(p.remaining()) {
             type = getint(p);
+            #if __DEBUG__
             switch (type) {
                 case N_CONNECT: conoutf("receive= N_CONNECT"); break;
                 case N_SERVINFO: conoutf("receive= N_SERVINFO"); break;
@@ -1163,6 +1164,7 @@ namespace game
                 case                     N_DEMOPACKET: conoutf("receive= N_DEMOPACKET"); break;
                 default: conoutf("receive= UNKNOWN (%d)", type);
             }
+            #endif
             switch(type) {
                 case N_SERVINFO:                   // welcome messsage from the server
                     {
