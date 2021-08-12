@@ -1155,13 +1155,26 @@ namespace game
                 break;
             }
 
-            case N_MAPRELOAD:          // server requests next map
+            case N_GAMESPEED:
             {
-                defformatstring(nextmapalias)("nextmap_%s%s", (cmode ? cmode->prefixnextmap() : ""), getclientmap());
-                const char *map = getalias(nextmapalias);     // look up map in the cycle
-                addmsg(N_MAPCHANGE, "rsi", *map ? map : getclientmap(), nextmode);
+                int val = clamp(getint(p), 10, 1000), cn = getint(p);
+                fpsent *a = cn >= 0 ? getclient(cn) : NULL;
+                //if(!demopacket) gamespeed = val;
+                //extern int slowmosp;
+                //if(m_sp && slowmosp) break;
+                if(a) conoutf("%s set gamespeed to %d", colorname(a), val);
+                else conoutf("gamespeed is %d", val);
                 break;
             }
+
+            // XXX QServCollect do we need this?
+            //case N_MAPRELOAD:          // server requests next map
+            //{
+                //defformatstring(nextmapalias)("nextmap_%s%s", (cmode ? cmode->prefixnextmap() : ""), getclientmap());
+                //const char *map = getalias(nextmapalias);     // look up map in the cycle
+                //addmsg(N_MAPCHANGE, "rsi", *map ? map : getclientmap(), nextmode);
+                //break;
+            //}
 
             case N_INITCLIENT:            // another client either connected or changed name/team
             {
@@ -1677,7 +1690,8 @@ namespace game
                 break;
 
             default:
-                neterr("type", cn < 0);
+                conoutf("got unknown message type=%d", type);
+                //neterr("type", cn < 0);
                 return;
         }
         if(initmap)

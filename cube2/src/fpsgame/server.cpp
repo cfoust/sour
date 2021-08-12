@@ -1059,7 +1059,9 @@ namespace server
         // only allow edit messages in coop-edit mode
         if(type>=N_EDITENT && type<=N_EDITVAR && !m_edit) return -1;
         // server only messages
-        static const int servtypes[] = { N_SERVINFO, N_INITCLIENT, N_WELCOME, N_MAPRELOAD, N_SERVMSG, N_DAMAGE, N_HITPUSH, N_SHOTFX, N_EXPLODEFX, N_DIED, N_SPAWNSTATE, N_FORCEDEATH, N_ITEMACC, N_ITEMSPAWN, N_TIMEUP, N_CDIS, N_CURRENTMASTER, N_PONG, N_RESUME, N_BASESCORE, N_BASEINFO, N_BASEREGEN, N_ANNOUNCE, N_SENDDEMOLIST, N_SENDDEMO, N_DEMOPLAYBACK, N_SENDMAP, N_DROPFLAG, N_SCOREFLAG, N_RETURNFLAG, N_RESETFLAG, N_INVISFLAG, N_CLIENT, N_AUTHCHAL, N_INITAI, N_EXPIRETOKENS, N_DROPTOKENS };
+        //static const int servtypes[] = { N_SERVINFO, N_INITCLIENT, N_WELCOME, N_MAPRELOAD, N_SERVMSG, N_DAMAGE, N_HITPUSH, N_SHOTFX, N_EXPLODEFX, N_DIED, N_SPAWNSTATE, N_FORCEDEATH, N_ITEMACC, N_ITEMSPAWN, N_TIMEUP, N_CDIS, N_CURRENTMASTER, N_PONG, N_RESUME, N_BASESCORE, N_BASEINFO, N_BASEREGEN, N_ANNOUNCE, N_SENDDEMOLIST, N_SENDDEMO, N_DEMOPLAYBACK, N_SENDMAP, N_DROPFLAG, N_SCOREFLAG, N_RETURNFLAG, N_RESETFLAG, N_INVISFLAG, N_CLIENT, N_AUTHCHAL, N_INITAI, N_EXPIRETOKENS, N_DROPTOKENS };
+        static const int servtypes[] = { N_SERVINFO, N_INITCLIENT, N_WELCOME, N_MAPCHANGE, N_SERVMSG, N_DAMAGE, N_HITPUSH, N_SHOTFX, N_EXPLODEFX, N_DIED, N_SPAWNSTATE, N_FORCEDEATH, N_TEAMINFO, N_ITEMACC, N_ITEMSPAWN, N_TIMEUP, N_CDIS, N_CURRENTMASTER, N_PONG, N_RESUME, N_BASESCORE, N_BASEINFO, N_BASEREGEN, N_ANNOUNCE, N_SENDDEMOLIST, N_SENDDEMO, N_DEMOPLAYBACK, N_SENDMAP, N_DROPFLAG, N_SCOREFLAG, N_RETURNFLAG, N_RESETFLAG, N_INVISFLAG, N_CLIENT, N_AUTHCHAL, N_INITAI, N_EXPIRETOKENS, N_DROPTOKENS, N_STEALTOKENS, N_DEMOPACKET };
+
         if(ci) 
         {
             loopi(sizeof(servtypes)/sizeof(int)) if(type == servtypes[i]) return -1;
@@ -1517,7 +1519,8 @@ namespace server
             else
             {
                 mapreload = true;
-                if(clients.length()) sendf(-1, 1, "ri", N_MAPRELOAD);
+                // XXX QServCollect do we need this?
+                //if(clients.length()) sendf(-1, 1, "ri", N_MAPRELOAD);
             }
         }
     }
@@ -2635,10 +2638,12 @@ namespace server
                     spinfo->state.lasttimeplayed = lastmillis;
                     aiman::addclient(spinfo);
                     if(spinfo->clientmap[0] || spinfo->mapcrc) checkmaps();
-                    sendf(-1, 1, "ri", N_MAPRELOAD);
+                    // XXX QServCollect do we need this?
+                    //sendf(-1, 1, "ri", N_MAPRELOAD);
                 }
                 sendf(-1, 1, "ri3", N_SPECTATOR, spectator, val);
-                if(!val && mapreload && !spinfo->privilege && !spinfo->local) sendf(spectator, 1, "ri", N_MAPRELOAD);
+                // XXX QServCollect do we need this?
+                //if(!val && mapreload && !spinfo->privilege && !spinfo->local) sendf(spectator, 1, "ri", N_MAPRELOAD);
                 break;
             }
 
