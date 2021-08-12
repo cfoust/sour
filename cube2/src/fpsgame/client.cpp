@@ -1448,6 +1448,8 @@ namespace game
                 case N_DIED:
                     {
                         int vcn = getint(p), acn = getint(p), frags = getint(p);
+                        /// XXX QServCollect this was tfrags
+                        getint(p);
                         fpsent *victim = getclient(vcn),
                                *actor = getclient(acn);
                         if(!actor) break;
