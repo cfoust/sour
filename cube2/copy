@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Copy assets from 
+
+for file in $(cat ../mapstuff/$1.texlist); do
+  if ! [ -d "$(dirname $file )" ]; then
+    mkdir -p "$(dirname $file )"
+  fi
+	cp "/usr/share/games/sauerbraten/$file" "$file"
+done
