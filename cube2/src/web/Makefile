@@ -424,7 +424,39 @@ BASE_FILES = data/ \
              packages/textures/terrain_soc/package.cfg \
              packages/than_ind/package.cfg \
              packages/tomek/package.cfg \
-             packages/trak5/package.cfg
+             packages/trak5/package.cfg \
+             packages/models/mrfixit/backward.md5anim \
+             packages/models/mrfixit/chainsaw_attack.md5anim \
+             packages/models/mrfixit/chainsaw_idle.md5anim \
+             packages/models/mrfixit/dead2.md5anim \
+             packages/models/mrfixit/dead.md5anim \
+             packages/models/mrfixit/dying2.md5anim \
+             packages/models/mrfixit/dying.md5anim \
+             packages/models/mrfixit/edit.md5anim \
+             packages/models/mrfixit/forward.md5anim \
+             packages/models/mrfixit/gl_idle.md5anim \
+             packages/models/mrfixit/gl_shoot.md5anim \
+             packages/models/mrfixit/idle.md5anim \
+             packages/models/mrfixit/jump.md5anim \
+             packages/models/mrfixit/lag.md5anim \
+             packages/models/mrfixit/left.md5anim \
+             packages/models/mrfixit/lose.md5anim \
+             packages/models/mrfixit/minigun_idle.md5anim \
+             packages/models/mrfixit/minigun_shoot.md5anim \
+             packages/models/mrfixit/pain2.md5anim \
+             packages/models/mrfixit/pain.md5anim \
+             packages/models/mrfixit/right.md5anim \
+             packages/models/mrfixit/rl_idle.md5anim \
+             packages/models/mrfixit/rl_shoot.md5anim \
+             packages/models/mrfixit/shoot.md5anim \
+             packages/models/mrfixit/shotgun_idle.md5anim \
+             packages/models/mrfixit/shotgun_shoot.md5anim \
+             packages/models/mrfixit/sink.md5anim \
+             packages/models/mrfixit/sniper_idle.md5anim \
+             packages/models/mrfixit/sniper_shoot.md5anim \
+             packages/models/mrfixit/swim.md5anim \
+             packages/models/mrfixit/taunt.md5anim \
+             packages/models/mrfixit/win.md5anim
 
 SILLY_FILES = packages/base/silly.ogz \
               packages/base/silly.cfg \
