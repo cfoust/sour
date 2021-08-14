@@ -1,0 +1,56 @@
+Ogro's Army Supply Base
+Sauerbraten Edition
+
+v1.5
+
+By David "Drakker" Pelletier
+Cube version: January 2004 (originaly started in 2002)
+Sauerbraten version: November-December 2007, Updated April 2009
+
+Special thanks, in no specific order, to: Kurtis84, SATAN|||, Paklet, Pushplay, Eihrul, Aardappel and a lot of others.
+
+Licence: Free to distribute unmodifed as you see fit, as long as this file is packaged along with the map (ogrosupply.ogz and ogrosupply.cfg) and is unmodified. Have fun modifying it, but if you distribute a modified version, make sure it's very obivious that it's not the original version, use a different file name, provide a link to the original version and give due credits.
+
+
+Changes in Sauerbraten Edition v1.5
+
+-Fixed the capture through wall in the yellow armor room
+   -Moved the whole room
+   -Changed the stairs leading there
+-Fixed the capture through wall in the small room with a window facing the main outside area
+   -Added a second floor, ladders and a duct
+-Made a little more room around the capture base in the stairs, it's a little less claustrophobic now
+-Newbified the lava room, should make it easier to navigate
+-Abused the small cubes, particles, sounds and new models
+-Some ammo balance
+-Lots of visual tweaks that do not affect gameplay
+-Added support for CTF and Protect
+-Added some cover outside
+-Tweaked the lightning a bit
+-Added scenery
+-One new texture for a well in sight easter egg
+-Quad and health boost are gone, replaced by a green and a yellow armour
+-New skybox by SkiingPenguins
+
+
+
+Changes in Sauerbraten Edition v1.0
+
+-Added ground area around the base, you can now jump out under the arches.
+-Added a network of tunnels under the main base.
+-Blown a hole through the brick wall.
+-Built the area behind the big garage like door.
+-Removed all teleports.
+-Lava, because evreyone loves lava.
+-Moved some powerups around, might need some more tweaking.
+
+
+Changes in Cube v1.1
+
+-Blown a hole in the big garage like door with a teleport that leads to the blue room.
+-Added a teleport to the small corridors with the windows that leads to the outside section.
+-Changed a lot of powerups and ammoes, balance should be better now.
+-Lowered crates piles so you can pick up powerups from any side without having to jump 18+ times.
+-Made fog a bit thicker so the sand looks red from the inside and the inside looks creepier from the outside.
+
+Original version didn't have a version number

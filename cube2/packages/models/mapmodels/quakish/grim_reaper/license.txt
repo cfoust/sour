@@ -1,0 +1,24 @@
+As long as I haven't got any answer on my question to Barry if the models can be release with a "BY NC SA"-license on it, this should do...
+
+As I once found in the readme of a Quake3World map.
+"- All costum textures, sounds and mapobjects in this map are property of their respective
+  owners"
+
+This means:
+
+You are allowed;
+- To use these models at any time for maps, mods, etc.
+- To set up an own configuration-file which fits your particular map, mod, etc.
+
+You are NOT allowed;
+- To modify, copy or distribute the meshes or skins of any model.
+- To publish the meshes or skins of any model as your own work or with an other license.
+
+You should only publish the models (which should include BOTH files) if you stated these models are made by "Barry Collins" (in the readme or configuration-file of your map at least).
+
+If your not feeling anything for this, contact him on his website "http://www.greymattercandy.com/".
+
+Have a nice day,
+
+Suicizer
+

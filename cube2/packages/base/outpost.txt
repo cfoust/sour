@@ -1,0 +1,53 @@
+Martian Outpost - formerly known as rabe-sauer2, a cube2-map by rabe, 2012-08-21
+Final version!
+
+Content.
+outpost.cfg
+outpost.jpg
+outpost.ogz
+outpost.wpt
+outpost_README.txt
+
+This README sums up some of the thoughts/discussions during the creation process.
+
+Title.
+Since it's my second sauerbraten-map, it was called rabe-sauer2 as a working title. After finishing the map, eihrul came up with the name "outpost" and the maptitle "Martian Outpost", which fits the theme well, i think.
+
+Gametypes.
+This map is made for duel/ffa/insta. I prefer playing duels on it, 4 players should be the very maximum.
+
+Layout.
+I made a more or less traditional pit-like map. Orientation should be pretty easy. The ledges and rooms arranged around the pit have different levels though to make it a bit more interesting. Most of the boards, slides and crates do actually have a function for movement/jumps/shortcuts. Take some time to discover possibilities to bunnyhop and weaponjump, in my opinion the flow is pretty good.
+
+Weapons & Playerstarts.
+There are narrow and more open places/long sights. So every weapon got its use on this map. There are 3 shells, 3 rifles, 2 grenades, 2 bullets and 2 rockets. I put all those weapons right in the middle of the rooms and platforms, easy to pickup, so players don't have to run into walls/cramped corners or jump on small ledges just for a simple weapon-pickup. There are 12  playerstarts spread over the map. They are all close to weapon-pickups, so players can get hold of a first weapon within one single step/jump, so they cannot get spawnraped that easy. 
+
+Items.
+I experimented a lot on this one and finally came to the conclusion, that a "complex"-like itemset (all 3 big items, few health) is more interesting than a "douze"-like itemset (one big item, lots of health). So i decided to use quad and boost and the yellow armor, but only very few health-items (2). So players do not constantly recharge health and they actually die, when getting shot. Also the gameplay is not only focused on 1 single big item. Quad is placed in a risky and relatively difficult to reach place, so I think it's not overpowered.
+
+Geometry.
+All in all rather simple. I tried to repeat the same rounded forms in different variations. Besides that there are some pipes, crates and ramps. I know there could be more geometrical detail and the 'round cubes' could be even more round, but i tried to have an eye on filesize and performance also. Keep in mind, that this is not an artistic, but a duel-map. Nieb came up with the idea of altering the height of some of the roofs/buildings. I experimented a little bit, but dropped the idea: the lightning/shadows changed too much and the walls looked to high and a little boring.
+
+Textures & details.
+Same as above. I decided not to use too many textures and mapmodels/particles. I always liked the visuals of "complex" and "academy". So i mixed them up a little. Thanks to suicizer for the idea of blendmapping the floor and adding some random, broken stuff.
+
+Lightning.
+Skylight, Mars-skybox and a sunlight-entity with a little red touch. A little fog. That is basicly it. I just put some lights in some rooms/corners, that seemed to dark to me, and some little lights in front of the tech1soc/032lig12ya texture.
+
+Clipping.
+Everything except the roof (and roof-constructions) is accessible. You cannot fly/fall out of the map. Besides that I clipped/noclipped some corners/trims and spaces to improve the flow/jumps and erase some camping-spots, which would definitely make gameplay worse. Thanks to suicizer and razgriz for showing me, how to nearly properly clip raound stuff with the skytexture and alpha-cubes. I hope it feels natural and flowy.
+
+Performance & Filesize.
+The .ogz is around 1000kb big (or small). The wtr-value says something like around 37k. Around 14500 lightmaps. On my 4-year-old macbook the map runs stable at 125fps (with shaders turned off). With the helping hand of RaZgRiZ (Thanks!) I tried to skytexture as many unseen faces as possible to reduce lightmaps. Unfortunately there are still some unseen faces left non-skytextured. Skytexturing them somehow causes light-errors on the seen faces right next to them (e.g. the broken parts of the floor). So I left them textured normally.
+
+Bots.
+As you can see, a waypoint-file is included. It's working, but sometimes the bots get stuck under the centered ramp or the ramp at the yellow armor. The only way to avoid that would be clipping the space under the ramps, what i do not want to do. so, I have to live with that.
+
+License.
+If you want to use work with/on this map, just ask me, before doing so.
+
+Thanks.
+Everyone, who gave me feedback on quadropolis.us, irc or ingame and helped to improve this map. Especially suicizer, razgriz, nieb, eihrul and all cm|members.
+
+Contact.
+rabe, #hypertriangle on quakenet

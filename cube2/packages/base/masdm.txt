@@ -1,0 +1,25 @@
+////////////////////////////////////////////////////////////////
+Made for: Cube 2: Sauerbraten
+Map Title: masdm
+Author(s): cm|CubicMatter
+Build Time: Don't even know
+Version: Final Release
+Current Release Date: December 2012
+Custom Texture/Skybox Authors: N/A
+Suggested Game Modes: FFA, Capture, Effic(team), Insta(team), Collect(and the variants), CTF(and the variants(only small matches recommended)).
+////////////////////////////////////////////////////////////////
+About the Map: 
+Made by cm| clan, its a wintery town.
+////////////////////////////////////////////////////////////////
+Special Thanks: 
+To those who helped test it.
+////////////////////////////////////////////////////////////////
+Version: 
+Forgot to keep track of the edits. Lets just say a few months went by and then HeWho went through and fixed some stuff and made the map playable in Capture, Collect, and Ctf.
+////////////////////////////////////////////////////////////////
+License: 
+
+This work is licensed under a Creative Commons 
+Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+
+http://creativecommons.org/licenses/by-nc-sa/3.0/

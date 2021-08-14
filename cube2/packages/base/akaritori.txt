@@ -1,0 +1,49 @@
+=====================================================================
+File Details:
+
+Game:                Sauerbraten (www.sauerbraten.org)
+Map Name:            Akaritori (skylight)
+Version:             1.1 - Current edition (1 may 2010)
+Building Time:       ±105 working hours (so far)
+Release Date:        may 2010
+Author:              Robert "BlikjeBier" van der Veeke
+E-Mail:              rjvveeke@caiw.nl
+WebSite:             http://home.kabelfoon.nl/~rjvveeke
+                     (website is in Dutch)
+=====================================================================
+Description:         Medium/large map, 5-8 players
+
+Textures:            My own (Akaritori)
+
+Music:               Marc "Fanatic" Pullen 
+                     (Original Sauerbraten Soundtrack)
+                     (http://fanaticalproductions.net)
+
+=====================================================================
+Map's Story:         None, no really.
+=====================================================================
+Developer Notes:     1.0 First public release
+                     1.1 Seccond release, small improvements
+=====================================================================
+Instalation:         Unzip directly to 
+			   "Sauerbraten" folder.
+
+Mannually:           "akaritori.cfg", "akaritori.jpg" and 
+                     "akaritori.ogz" should go into 
+                     "Sauerbraten\packages\base" folder.
+                     The akaritori-folder should go into the folder
+                     "Sauerbraten\packages\blikjebier.
+                     If this folder "blikjebier" is not present than
+                     please update to the current version of
+                     Saurbraten at http://sauerbraten.org/
+=====================================================================
+Copyright & Permissions:
+
+Sauerbraten Engine/Game by Wouter van Oortmerssen aka Aardappel. (www.sauerbraten.org)
+
+This level is copyrighted by Robert van der Veeke, 2010.
+Authors may NOT use this level as a base to build additional levels.
+
+You are NOT allowed to commercially exploit this level, i.e. put it on a CD or any other electronic medium that is sold for money without my explicit permission!
+
+If you have a mapping website, and you want to upload this map in it, or if you're making a map pack and want to include this map, you're totally free to do so. Always remember to include all files unmodified. Especially this readme file.

@@ -1,0 +1,47 @@
+////////////////////////////////////////////////////////////////
+Made for: Cube 2: Sauerbraten 
+Map Title: rm5
+Author(s): HeWho
+Build Time: ±24 hours
+Version: Final Release
+Current Release Date: August 2012
+Custom Texture/Skybox Authors: N/A
+Suggested Game Modes: FFA, Insta(team), and Effic(team).
+////////////////////////////////////////////////////////////////
+About the Map: 
+-General: Tried to make this map as balanced as possible.
+-Layout Type: Small Arena.
+-Ideal number of Players: I would suggest limiting it to 6 players.
+Goals: Build a playable map with a nice balanced layout.
+////////////////////////////////////////////////////////////////
+Special Thanks: 
+- To SomeDude for fixing some clipping, geometry, and texture 
+errors; and helping play test the first version of the map.
+- To Nieb for tweaking the lighting, adding and modyfing terrain, 
+changing part of the teleport, adding a blendmap, sky texturing 
+the outsides of the map, and giving advice on weapon placement.
+- To RaZgRiZ and Suicizer for suggestions and ideas.
+- Thanks to the Cubic Matter clan and Friends for helping beta 
+test the map and providing critisicm.
+- I would also like to thank SimonOC for the wonderful textures.  
+////////////////////////////////////////////////////////////////
+Version: Beta: June 14, 2012
+	 Alpha 1.0: June 18, 2012 : Changed minor texture errors
+	 Alpha 1.1: June 19, 2012 : Added maptitle and minor fixes
+	 Alpha 2.0: June 25, 2012 : Major Overhaul with help from Nieb
+	 Alpha 2.1: June 26, 2012 : More fixes with weapons and lights
+	 Alpha 3.0: June 27, 2012 : Final spawn, light, geometry, 
+				    and clip adjustments
+	 Alpha 3.1: June 27, 2012 : Glow Shader added
+	 Alpha 3.2: July 5, 2012: adjusted weapons, lights, clipping
+				      geometry, and textures.
+	 Alpha 3.3: July 13, 2012: adjusted lights, clipping, 
+	 			       blendmap, and added a pedestal
+	Final Release: August 26th, 2012: re-vamped the entire map.
+////////////////////////////////////////////////////////////////
+License: 
+
+This work is licensed under a Creative Commons 
+Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+
+http://creativecommons.org/licenses/by-nc-sa/3.0/

@@ -1,8 +1,7 @@
-This is the readme for the /packages directory.
+This directory contains "packages" of textures and other materials
+for use with the engine, in their respective subdirectories.
 
-Overview
-========
-
-Licenses for the files inside each specific directory appear
-inside each directory.
+In most cases these are modified/selected sets by me, refer to
+the original readme's how to obtain the full sets, and copyright /
+author information.
 

@@ -1,0 +1,32 @@
+////////////////////////////////////////////////////////////////
+Made for: Cube 2: Sauerbraten
+Map Title: depot
+Author(s): ac, Boxx, and HeWho
+Build Time: ?
+Version: Final Release
+Current Release Date: December 2012
+Custom Texture/Skybox Authors: N/A
+Suggested Game Modes: FFA, Collect(and the variations), Capture(and the variations), Insta(and the variations, Effic(and the variations, and Hold(and the variations).
+////////////////////////////////////////////////////////////////
+About the Map: The Sauerbraten Depository, the weapons you see in maps are all shipped out through this depot!
+////////////////////////////////////////////////////////////////
+Special Thanks: 
+- To ac for starting this great project.
+- To cm|CubicMatter for helping test.
+////////////////////////////////////////////////////////////////
+Version: 
+	Alpha 1: Rough drafts of all map
+	Alpha 2: Details of all but upper building
+	Beta 1: Details of all.
+	Beta 2: Addition of terrain and weapons.
+	Beta 3: Changed some stuff and added bases.
+	Beta 4: Added trim to all of map
+	Final Release: Fixed lighting, fixed bases, fixed waypoints, changed operation tower, raised upper depot, fixed collector placements, fixed trimming, fixed texture errors, fixed clip/no-clip
+
+////////////////////////////////////////////////////////////////
+License: 
+
+This work is licensed under a Creative Commons 
+Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+
+http://creativecommons.org/licenses/by-nc-sa/3.0/

@@ -1,0 +1,26 @@
+Powerplant
+Sauerbraten Edition
+
+v2.0
+
+by David "Drakker" Pelletier
+Cube version: Started in late 2002 as a Cube speedmap with Pushplay, completed v1.0 in 2002, v1.1 in january 2004.
+Sauerbraten version: January 2009.
+
+Special thanks, in no specific order, to: Kurtis84, Pushplay, Eihrul, Aardappel and a lot of others.
+
+Licence: Free to distribute unmodifed as you see fit, as long as this file is packaged along with the map (powerplant.ogz and powerplant.cfg) and is unmodified. Have fun modifying it, but if you distribute a modified version, make sure it's very obivious that it's not the original version, use a different file name, provide a link to the original version and give due credits.
+
+
+Changes in Sauerbraten Edition v2.0
+
+-Completly retextured.
+-Improved the layout.
+-Adjusted ammoes placement for Sauerbraten's gameplay.
+
+Changes in v1.1
+
+-Totaly new lights.
+-That's it. :)
+
+Original version didn't have a version number.

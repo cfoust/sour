@@ -1,0 +1,53 @@
+=====================================================================
+File Details:
+
+Game:                Sauerbraten (www.sauerbraten.org)
+Map Name:            Shindou (tremor, shock)
+Version:             1.0 - Sauerbraten 2006_09_12
+Building Time:       ±16 working hours
+                     ±1 hour for the Skybox 
+Release Date:        oktober 2006
+Author:              Robert "BlikjeBier" van der Veeke
+E-Mail:              -- // -- contact me through Quadrapolis
+WebSite:             -- // --
+=====================================================================
+Description:         Small map, 4-8 players, a small retro-stylish
+                     complex with marble walls and such, 
+                     under water also.
+
+Textures:            All included with Sauerbraten
+                     Kevin 'Rorshach' Johnstone
+                     (rorshach@polycount.com)
+                     Than (than@planetquake.com)
+
+Skybox:              Robert "BlikjeBier" van der Veeke
+
+Music:               Marc "Fanatic" Pullen 
+                     (Original Sauerbraten Soundtrack)
+                     (http://fanaticalproductions.net)
+
+=====================================================================
+Map's Story:         None
+=====================================================================
+Developer Notes:     1.0 First public release
+=====================================================================
+Instalation:         Unzip directly to Sauerbraten main folder.
+
+Mannually:           "BlikjeBier" folder goes inside 
+                     "Sauerbtraten\packages\" folder.
+
+                     "Shindou.cfg" and "Shindou.ogz" should go into
+                     "Sauerbtraten\packages\base" folder.
+=====================================================================
+Copyright & Permissions:
+
+Sauerbraten Engine/Game by Wouter van Oortmerssen aka Aardappel. (www.sauerbraten.org)
+
+This level is copyrighted by Robert van der Veeke, 2006.
+Authors may NOT use this level as a base to build additional levels.
+
+You are NOT allowed to commercially exploit this level, i.e. put it on a CD or any other electronic medium that is sold for money without my explicit permission!
+
+You MAY use this map's Skybox as long as you give credit to author, and include the original readme files.
+
+If you have a mapping website, and you want to upload this map in it, or if you're making a map pack and want to include this map, you're totally free to do so. Always remember to include all files unmodified. Especially this readme file.
