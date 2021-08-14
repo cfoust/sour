@@ -558,16 +558,16 @@ COMPLEX_FILES = packages/base/complex.cfg \
 							packages/tech1soc/032-15a.jpg \
 							packages/tech1soc/zdet_trim2a.jpg
 
-FRANKIE_MODEL_FILES = packages/models/frankie/
-
-HUDGUNS_FILES = packages/models/hudguns/ \
-                packages/models/snoutx10k/hudguns
-
-SNOUTX10K_MODEL_FILES = packages/models/vwep/ \
-	                      packages/models/snoutx10k/
-
-CHARACTER_FILES = $(SNOUTX10K_MODEL_FILES) \
-                  $(HUDGUNS_FILES)
+CHARACTER_FILES = packages/models/vwep/ \
+				      packages/models/hudguns/ \
+				      packages/models/snoutx10k/ \
+				      packages/models/snoutx10k/hudguns/ \
+				      packages/models/inky/ \
+				      packages/models/inky/hudguns/ \
+				      packages/models/ogro2/ \
+				      packages/models/ogro2/hudguns/ \
+				      packages/models/captaincannon/ \
+				      packages/models/captaincannon/hudguns/
 
 TOTAL_MEMORY = 201326592 # May need to adjust this for very large levels
 
