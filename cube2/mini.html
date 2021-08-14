@@ -122,32 +122,44 @@
         font-family: "Lucida Console", Monaco, monospace;
         outline: none;
       }
+
+      body {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+      }
+
+      .container {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+
+			.stuff {
+        position: absolute;
+				top: 15px;
+				right: 15px;
+			}
     </style>
   </head>
   <body>
-    <div class="spinner" id="spinner"></div>
-    <div class="emscripten" id="status">Downloading...</div>
+    <div id="box" class="container">
+      <div class="stuff">
+        <div class="spinner" id="spinner"></div>
+        <div class="emscripten" id="status">Downloading...</div>
 
-    <span id="controls">
-      <span
-        ><input
-          type="button"
-          value="Fullscreen"
-          onclick="Module.goFullScreen()"
-        />
-      </span>
-    </span>
+        <div class="emscripten">
+          <progress value="0" max="100" id="progress" hidden="1"></progress>
+        </div>
+      </div>
 
-    <div class="emscripten">
-      <progress value="0" max="100" id="progress" hidden="1"></progress>
-    </div>
-
-    <div class="emscripten_border">
       <canvas
-        class="emscripten"
-        id="canvas"
-        oncontextmenu="event.preventDefault()"
-      ></canvas>
+          class="game"
+          id="canvas"
+          oncontextmenu="event.preventDefault()"
+          ></canvas>
     </div>
 
     <script type="text/javascript">
@@ -251,8 +263,13 @@
     </script>
 
     <script>
-      Module.desiredWidth = 640;
-      Module.desiredHeight = 480;
+      const box = document.getElementById("box");
+      Module.desiredWidth = box.clientWidth;
+      Module.desiredHeight = box.clientHeight
+      window.onresize = () => {
+        Module.setCanvasSize(window.innerWidth, window.innerHeight)
+      }
+
       Module.autoexec = function () {
         Module.setStatus("");
       };
