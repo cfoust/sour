@@ -437,49 +437,6 @@ MD_FILES = packages/base/md.ogz \
            packages/base/md.cfg \
            $(FANTASY_TEXTURES)
 
-# Tip: use 'listtex' in the engine to check which textures are actually used! That is how these lists were generated.
-TWO_TOWERS_FILES =  packages/base/two_towers.ogz \
-                    packages/base/two_towers.cfg \
-                    packages/base/two_towers.wpt \
-                    packages/gk/fantasy/skyfantasyJPG/ \
-                    `find packages/gk/fantasy -name "*.cfg"` \
-                    packages/gk/fantasy/rock_formation_gk_v01/rock_formation_gk_v01_cc.dds \
-                    packages/gk/fantasy/rock_formation_gk_v01/rock_formation_gk_v01_nm.dds \
-                    packages/gk/fantasy/rock_formation_gk_v02/rock_formation_gk_v02_cc.dds \
-                    packages/gk/fantasy/rock_formation_gk_v02/rock_formation_gk_v02_nm.dds \
-                    packages/gk/fantasy/castell_wall_gk_v01/castell_wall_gk_v01_cc.dds \
-                    packages/gk/fantasy/castell_wall_gk_v01/castell_wall_gk_v01_nm.dds \
-                    packages/gk/fantasy/castell_wall_gk_v01/castell_wall_gk_v01_cc.dds \
-                    packages/gk/fantasy/castell_wall_gk_v01/castell_wall_gk_v01_nm.dds \
-                    packages/gk/fantasy/castell_wall_gk_v02/castell_wall_gk_v02_cc.dds \
-                    packages/gk/fantasy/castell_wall_gk_v02/castell_wall_gk_v02_nm.dds \
-                    packages/gk/fantasy/castell_wall_trim_gk_v01/castell_wall_trim_gk_v01_cc.dds \
-                    packages/gk/fantasy/castell_wall_trim_gk_v01/castell_wall_trim_gk_v01_nm.dds \
-                    packages/gk/fantasy/castell_wall_trim_gk_v01/castell_wall_trim_gk_v01_cc.dds \
-                    packages/gk/fantasy/castell_wall_trim_gk_v01/castell_wall_trim_gk_v01_nm.dds \
-                    packages/gk/fantasy/stone_ground_gk_v01/stone_ground_gk_v01_cc.dds \
-                    packages/gk/fantasy/stone_ground_gk_v01/stone_ground_gk_v01_nm.dds \
-                    packages/gk/fantasy/stone_ground_tiles_gk_v01/stone_ground_tiles_gk_v01_cc.dds \
-                    packages/gk/fantasy/stone_ground_tiles_gk_v01/stone_ground_tiles_gk_v01_nm.dds \
-                    packages/gk/fantasy/wooden_roof_tiles_gk_v01/wooden_roof_tiles_gk_v01_cc.dds \
-                    packages/gk/fantasy/wooden_roof_tiles_gk_v01/wooden_roof_tiles_gk_v01_nm.dds \
-                    packages/gk/fantasy/wooden_roof_tiles_gk_v01/wooden_roof_tiles_gk_v01_cc.dds \
-                    packages/gk/fantasy/wooden_roof_tiles_gk_v01/wooden_roof_tiles_gk_v01_nm.dds \
-                    packages/gk/fantasy/wooden_planks_gk_v01/wooden_planks_gk_v01_cc.dds \
-                    packages/gk/fantasy/wooden_planks_gk_v01/wooden_planks_gk_v01_nm.dds \
-                    packages/gk/fantasy/wooden_planks_gk_v01/wooden_planks_gk_v01_cc.dds \
-                    packages/gk/fantasy/wooden_planks_gk_v01/wooden_planks_gk_v01_nm.dds \
-                    packages/gk/fantasy/castell_plaster_gk_v01/castell_plaster_gk_v01_cc.dds \
-                    packages/gk/fantasy/castell_plaster_gk_v01/castell_plaster_gk_v01_nm.dds \
-                    packages/gk/fantasy/iron_plates_gk_v01/iron_plates_gk_v01_cc.dds \
-                    packages/gk/fantasy/iron_plates_gk_v01/iron_plates_gk_v01_nm.dds \
-                    packages/gk/fantasy/iron_plates_gk_v01/iron_plates_gk_v01_cc.dds \
-                    packages/gk/fantasy/iron_plates_gk_v01/iron_plates_gk_v01_nm.dds \
-                    packages/gk/fantasy/iron_trim_gk_v01/iron_trim_gk_v01_cc.dds \
-                    packages/gk/fantasy/iron_trim_gk_v01/iron_trim_gk_v01_nm.dds \
-                    packages/gk/fantasy/iron_trim_gk_v01/iron_trim_gk_v01_cc.dds \
-                    packages/gk/fantasy/iron_trim_gk_v01/iron_trim_gk_v01_nm.dds
-
 ZOOM_TEXTURES = `find packages/gk/future/skysfJPG/ -name "*.jpg"` \
                 `find packages/gk/future/ -name "*.cfg"` \
                 packages/gk/future/panel_gk_000/panel_gk_000_cc.dds \
@@ -567,79 +524,6 @@ FFPIT_FILES = packages/models/ffpit/md5.cfg \
               `find packages/models/ffpit/ -name "*.dds"` \
               `find packages/models/ffpit/ -name "*.md5mesh"`
 
-COLOS_FILES = packages/base/colos.ogz \
-              packages/base/colos.cfg \
-              packages/base/colos.wpt \
-              $(FFFLAG_FILES) \
-              $(FFPIT_FILES) \
-              packages/gk/fantasy/skyfantasyJPG/ \
-              `find packages/gk/fantasy -name "*.cfg"` \
-              packages/gk/fantasy/rock_formation_gk_v01/rock_formation_gk_v01_cc.dds \
-              packages/gk/fantasy/rock_formation_gk_v01/rock_formation_gk_v01_nm.dds \
-              packages/gk/fantasy/castell_wall_gk_v01/castell_wall_gk_v01_cc.dds \
-              packages/gk/fantasy/castell_wall_gk_v01/castell_wall_gk_v01_nm.dds \
-              packages/gk/fantasy/castell_wall_gk_v02/castell_wall_gk_v02_cc.dds \
-              packages/gk/fantasy/castell_wall_gk_v02/castell_wall_gk_v02_nm.dds \
-              packages/gk/fantasy/castell_wall_trim_gk_v01/castell_wall_trim_gk_v01_cc.dds \
-              packages/gk/fantasy/castell_wall_trim_gk_v01/castell_wall_trim_gk_v01_nm.dds \
-              packages/gk/fantasy/castell_wall_trim_gk_v01/castell_wall_trim_gk_v01_cc.dds \
-              packages/gk/fantasy/castell_wall_trim_gk_v01/castell_wall_trim_gk_v01_nm.dds \
-              packages/gk/fantasy/stone_ground_tiles_gk_v01/stone_ground_tiles_gk_v01_cc.dds \
-              packages/gk/fantasy/stone_ground_tiles_gk_v01/stone_ground_tiles_gk_v01_nm.dds \
-              packages/gk/fantasy/wooden_planks_gk_v01/wooden_planks_gk_v01_cc.dds \
-              packages/gk/fantasy/wooden_planks_gk_v01/wooden_planks_gk_v01_nm.dds \
-              packages/gk/fantasy/castell_plaster_gk_v01/castell_plaster_gk_v01_cc.dds \
-              packages/gk/fantasy/castell_plaster_gk_v01/castell_plaster_gk_v01_nm.dds \
-              packages/gk/fantasy/iron_plates_gk_v01/iron_plates_gk_v01_cc.dds \
-              packages/gk/fantasy/iron_plates_gk_v01/iron_plates_gk_v01_nm.dds \
-              packages/gk/fantasy/iron_plates_gk_v01/iron_plates_gk_v01_cc.dds \
-              packages/gk/fantasy/iron_plates_gk_v01/iron_plates_gk_v01_nm.dds \
-              packages/gk/fantasy/iron_trim_gk_v01/iron_trim_gk_v01_cc.dds \
-              packages/gk/fantasy/iron_trim_gk_v01/iron_trim_gk_v01_nm.dds \
-              packages/gk/fantasy/iron_trim_gk_v01/iron_trim_gk_v01_cc.dds \
-              packages/gk/fantasy/iron_trim_gk_v01/iron_trim_gk_v01_nm.dds \
-              packages/gk/fantasy/iron_intersection_gk_v01/iron_intersection_gk_v01_cc.dds \
-              packages/gk/fantasy/iron_intersection_gk_v01/iron_intersection_gk_v01_nm.dds
-
-#COMPLEX_FILES = packages/base/complex.cfg \
-              #packages/base/complex.jpg \
-              #packages/base/complex.ogz \
-              #packages/dg/mad065.jpg \
-              #packages/dg/mad067.jpg \
-              #packages/dg/mur013.jpg \
-              #packages/dg/mur073.jpg \
-              #packages/dg/muv204.jpg \
-              #packages/dg/trail.jpg \
-              #packages/golgotha/water2.jpg \
-              #packages/payne/Box12b.jpg \
-              #packages/rorschach/128_tar_metflr01.jpg \
-              #packages/rorschach/1_concrete01.jpg \
-              #packages/rorschach/1r_squ_pan04b.jpg \
-              #packages/rorschach/2_064_red_girder02.jpg \
-              #packages/rorschach/2_256_red_thin02.jpg \
-              #packages/rorschach/2_32_red_thin02.jpg \
-              #packages/rorschach/2_conc_celing01.jpg \
-              #packages/rorschach/2_conc_floorpat02_s.jpg \
-              #packages/rorschach/2_c_thinredtrim03.jpg \
-              #packages/rorschach/2_c_tiles01.jpg \
-              #packages/rorschach/2_floor02.jpg \
-              #packages/rorschach/2_redtrim03.jpg \
-              #packages/rorschach/2_whitetrim03.jpg \
-              #packages/rorschach/3r_light01b.jpg \
-              #packages/rorschach/3r_metblock01.jpg \
-              #packages/rorschach/4_met05b.jpg \
-              #packages/rorschach/hh3_m_light03.jpg \
-              #packages/rorschach/j128_metpan01.jpg \
-              #packages/subverse/metal_scratch_tile.jpg \
-              #packages/tech1soc/032-10b.jpg \
-              #packages/tech1soc/032-15a.jpg \
-              #packages/tech1soc/zdet_trim2a.jpg \
-              #packages/textures/waterdudv.jpg \
-              #packages/textures/waterfalldudv.jpg \
-              #packages/textures/waterfall.jpg \
-              #packages/textures/waterfalln.jpg \
-              #packages/textures/watern.jpg \
-
 COMPLEX_FILES = packages/base/complex.cfg \
 							packages/base/complex.jpg \
 							packages/base/complex.ogz \
@@ -673,44 +557,6 @@ COMPLEX_FILES = packages/base/complex.cfg \
 							packages/tech1soc/032-10b.jpg \
 							packages/tech1soc/032-15a.jpg \
 							packages/tech1soc/zdet_trim2a.jpg
-							#packages/textures/waterdudv.jpg \
-							#packages/textures/waterfalldudv.jpg \
-							#packages/textures/waterfall.jpg \
-							#packages/textures/waterfalln.jpg \
-							#packages/textures/watern.jpg
-
-CAVE_FILES = packages/base/cave.ogz \
-             packages/base/cave.cfg \
-             $(FANTASY_TEXTURES) \
-             $(EXTRA_FANTASY_TEXTURES)
-
-MD3_FILES = packages/base/md3.ogz \
-            packages/base/md3.cfg \
-            $(FANTASY_TEXTURES)
-
-TT_FILES = packages/base/tt.ogz \
-           packages/base/tt.cfg \
-           `find packages/gk/fantasy/skyfantasyJPG/ -name "*.jpg"`
-
-CB_TEXTURES = packages/gk/cyber/ \
-              packages/gk/cyber/cybersky/
-
-CB_FILES = $(CB_TEXTURES) \
-           packages/base/cb.ogz \
-           packages/base/cb.cfg
-
-CB2_FILES = $(CB_TEXTURES) \
-            packages/base/cb2.ogz \
-            packages/base/cb2.cfg
-
-CW_FILES = $(CB_TEXTURES) \
-            packages/base/gk_cyber_world.ogz \
-            packages/base/gk_cyber_world.cfg
-
-CYBER1_FILES = $(CB_TEXTURES) \
-               packages/base/cyber1.ogz \
-               packages/base/cyber1.cfg \
-               packages/base/cyber1.wpt
 
 FRANKIE_MODEL_FILES = packages/models/frankie/
 
@@ -723,24 +569,12 @@ SNOUTX10K_MODEL_FILES = packages/models/vwep/ \
 CHARACTER_FILES = $(SNOUTX10K_MODEL_FILES) \
                   $(HUDGUNS_FILES)
 
-FIREWORKS_FILES = $(BASE_FILES) \
-                  packages/base/fireworks.ogz \
-                  packages/sounds/olpc/MichaelBierylo/sfx_DoorSlam.wav \
-                  packages/yo_frankie \
-	                packages/skyboxes/philo/
-
-CRUNCH_QUALITY = 64
-
 TOTAL_MEMORY = 201326592 # May need to adjust this for very large levels
 
 client: client.bc
 	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py base.data --use-preload-plugins  --preload $(BASE_FILES) > game/preload_base.js
 	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py character.data --use-preload-plugins  --preload $(CHARACTER_FILES) > game/preload_character.js
-	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py low.data --use-preload-plugins --preload $(COMPLEX_FILES) > game/preload_low.js
-	#cd .. ; cd .. ; python $(EMSCRIPTEN)/tools/file_packager.py medium.data --use-preload-plugins  --preload $(TWO_TOWERS_FILES) > game/preload_medium.js
-	#cd .. ; cd .. ; python $(EMSCRIPTEN)/tools/file_packager.py high.data --use-preload-plugins  --preload $(ZOOM_FILES) > game/preload_high.js
-	#cd .. ; cd .. ; python $(EMSCRIPTEN)/tools/file_packager.py four.data --use-preload-plugins  --preload $(CYBER1_FILES) > game/preload_four.js
-	#cd .. ; cd .. ; python $(EMSCRIPTEN)/tools/file_packager.py five.data --use-preload-plugins  --preload $(ZOOMOUT_FILES) > game/preload_five.js
+	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py complex.data --use-preload-plugins --preload $(COMPLEX_FILES) > game/preload_complex.js
 	cd .. ; cd .. ; $(CXX) $(CXXFLAGS) src/web/client.bc -o bb.html --shell-file mini.html -s DISABLE_EXCEPTION_CATCHING=1 -s EXPORTED_FUNCTIONS="['_main', '__ZN4game18setplayermodelinfoEPKcS1_S1_S1_S1_S1_S1_S1_S1_S1_S1_S1_b', '__Z7executePKc', '__Z10executestrPKc', '_setforcecamera', '_bb_splash', '_bb_playsoundname']" src/web/enet/.libs/libenet.a -s TOTAL_MEMORY=$(TOTAL_MEMORY) -s LEGACY_GL_EMULATION=1 -Oz -s USE_ZLIB=1 -s NO_EXIT_RUNTIME=1 -s FORCE_FILESYSTEM=1 -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["cwrap"]' --profiling # --closure 1 -s IGNORE_CLOSURE_COMPILER_ERRORS=1
 
 server.bc:	libenet $(SERVER_OBJS)
