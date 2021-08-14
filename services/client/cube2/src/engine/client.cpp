@@ -100,7 +100,9 @@ void connectserv(const char *servername, int serverport, const char *serverpassw
         }
 #else
         // hardcoded connect to 127.0.0.1 FIXME
-        address.host = 0x0100007f;
+        //address.host = 0x0100007f;
+		char * servername = emscripten_run_script_string("window.location.hostname");
+		enet_address_set_host(&address, servername);
 #endif
 
     }
