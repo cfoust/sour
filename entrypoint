@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+run_proxy() {
+  wsproxy 28785
+}
+
+run_server() {
+  cd /qserv
+  qserv
+}
+
+run_site() {
+  cd /app
+	python -m SimpleHTTPServer 1234
+}
+
+run_proxy &
+run_server &
+run_site &
+cat
