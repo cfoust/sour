@@ -1,0 +1,178 @@
+*** This model was downloaded at: http://www.turbosquid.com/3d-models/max-battle-axe/231341
+
+*** It is subject to the following license agreement:
+
+End User And Seller Agreement
+
+Turbo Squid, Inc. and its affiliates and related companies (collectively "TurboSquid"), operate turbosquid.com and gamasutraexchange.com (each referred to as "Website"). The terms and conditions set forth herein (the "Terms") constitute a legally binding agreement between TurboSquid and you ("You" or "Your") regarding the terms on which TurboSquid offers You access to its Website and Service. Your use of the Website or Service constitutes acceptance of these Terms.
+
+I. DEFINITIONS
+
+1. "Client Application" refers to TurboSquid software available for download at the TurboSquid web site or any other authorized download site, which allows Members to browse, purchase, upload, and download all Content published at TurboSquid. Client Application also refers to any software application that allows Members to download, purchase, create, alter or otherwise modify Content for use within a video game.
+
+2. "Content" refers to any material published at TurboSquid including but not limited to wire files, models, textures, plug-ins, video games, video game modifications, motion files, collections, packages, materials, scripts, shapes, custom UI skins, tutorials, frequently asked questions, words, music, films, images, and software.
+
+3. "For Sale" includes all Content that requires a purchase of license rights, as distinguished from Content available for free download.
+
+4. "Incorporated Content" refers to Content that cannot be extracted from an application or product and used as stand-alone Content without the use of reverse engineering tools or techniques. For avoidance of doubt, Incorporated Content is the use of Content that is not intended to allow further distribution of the Content outside of the application or product containing the Incorporated Content.
+
+5. "Member" refers to any person who creates a user account at TurboSquid.
+
+6. "Service" refers to transmission, license, or purchase of Content to and from TurboSquid via the TurboSquid Website, a Client Application, or any approved web portal either currently in existence or in the future.
+
+7. "Valid Sale" refers to a sale of license rights in Content or other property via TurboSquid, where the appropriate share of proceeds is received by a Seller who published the Content. Content For Sale via TurboSquid which is returned is not an example of a Valid Sale.
+
+8. "Seller" refers to the submitting individual or business who publishes Content at TurboSquid.
+
+II. LICENSE AGREEMENT BETWEEN SELLER AND MEMBER
+
+A. License Grant for transmission of Content from Seller to Member
+
+For any transmission of Content from a Seller to another Member, whether the transmission was the result of a license or free download, the following terms apply unless more restrictive terms are specified in the text description of the Content in compliance with the requirements for providing more restrictive terms set-forth below:
+
+1. Ownership.
+
+Unless explicitly provided for by a separate agreement, which separate agreement must be available to the Member and which must be subject to acceptance by Member before or at the point of sale, the Seller retains, subject to any license agreement between the Seller and TurboSquid, copyright in Content purchased or downloaded by any Member via TurboSquid. In using the TurboSquid systems, You agree that any additional EULA, license or Seller requirements inserted into Seller products that fail to inform clients of restrictions prior to purchase are invalid, void ab initio, and without effect as they relate to those purchases.
+
+2. Valid License.
+
+Any license rights relating to Content For Sale via TurboSquid are contingent upon the transfer of money from the Member to the Seller. All license rights terminate immediately and without notice if a sale is reversed for any reason.
+
+3. Rights Granted.
+
+For any Sellers who provide TurboSquid with any type of Content for free distribution or sale, the following terms apply:
+
+Seller hereby grants to TurboSquid, and by the act of delivering Content to us, grant a non-exclusive, worldwide, license in any medium now known or hereinafter invented to: (a) reproduce, set prices for, sell, and distribute net proceeds from any sale, in whole or in part on Seller’s behalf; and to publicly perform, publicly display, digitally perform, or transmit for promotional and commercial purposes; (b) create and use samples of the Content for the purpose of demonstrating or promoting Seller products or services or those of TurboSquid; (c) use any trademarks, service marks or trade names incorporated in the Content in connection with Seller material; and (d) use the name and likeness of any individuals represented in the Content only in connection with Your material.
+
+The Seller grants to the Member who either purchases license rights to Content via a Valid Sale, or downloads freely available Content submitted by the Seller, a non-exclusive, worldwide, license in any medium now known or hereinafter invented to: (a) reproduce, post, promote, license, sell, publicly perform, publicly display, digitally perform, or transmit for promotional and commercial purposes; (b) use any trademarks, service marks or trade names incorporated in the Content in connection with Seller material; and (c) use the name and likeness of any individuals represented in the Content only in connection with Your material. The Member license to Content in this paragraph is limited to Incorporated Content. Such use or republication, including sale or distribution of Content that is not Incorporated Content is prohibited. For illustration, approved distribution or use of Content as Incorporated Content includes, but is not limited to:
+
+(i) As rendered still images or moving images; resold as part of a feature film, broadcast, or stock photography.
+
+(ii) As part of a game if the Content is contained inside a proprietary format and displays inside the game during play.
+
+(iii) As Content published within a book, poster, t-shirt or other item.
+
+(iv) As part of a physical object such as a toy, doll, or model.
+
+4. Rights Not Granted.
+
+Absent a written grant of rights greater than that contained in paragraph 3 above, all other rights or sub-divisions of rights generally included in copyright are excluded from this license and remain the property of Seller.
+
+5. Resale.
+
+The resale or redistribution by the Member of any Content obtained from TurboSquid, whether For Sale or freely available for download, whether part of a Valid Sale or not, is expressly prohibited unless it is Incorporated Content as licensed above.
+
+6. Returned Content.
+
+In the event a Member returns any Content, whether acquired by Valid Sale or freely available for download, all license rights granted herein terminate and the Member must immediately destroy any and all copies contained on any type of media under the control or possession of the Member.
+
+B. GENERAL TERMS
+
+In addition to the above terms that apply to certain contexts, the following terms apply to all types of Content.
+
+1. Ownership.
+
+Seller retains ownership of the copyrights and all other rights in Seller Content, subject to the non-exclusive rights granted to us under this agreement. Seller is free to grant similar rights to others during and after the term of this agreement.
+
+2. Termination.
+
+The license grant contained in this agreement can be terminated using the guidelines below. TurboSquid reserves the right, notwithstanding the guidelines below, to terminate this agreement at any time and without notice if any Content submitted violates the representations and warranties of paragraph three (3) below. This agreement may be terminated at any time by either party upon written notice via email or regular mail. Nothing in this agreement shall be construed to mean that a Seller may not submit or delete Content from the material submitted by such Seller as part of general maintenance of such Seller’s account.
+
+3. Representations and Warranties.
+
+Seller represents and warrants that: (a) the Content is Your original work, and contains no copyrighted material of any kind that Seller is not the exclusive owner of, including but not limited to: music and/or synchronization rights, images (moving or still) of any kind, writings of any kind, and model clearances/releases; (b) Seller has full right and power to enter into and perform this agreement, and have secured all third party consents necessary to enter into this agreement; (c) the Content does not and will not infringe on any third party's copyright, patent, trademark, trade secret or other proprietary rights, rights of publicity or privacy, or moral rights; (d) the Content does not and will not violate any law, statute, ordinance or regulation; (e) the Content is not and will not be defamatory, libelous, pornographic, obscene or evocative of racial hatred of any kind; (f) the Content does not and will not contain any viruses or other programming routines that detrimentally interfere with computer systems or data; (g) the Content does not contain any material that, as a condition of use, requires additional license restrictions such as requiring the publication of source code or Content that limits commercial exploitation of Incorporated Content; and (h) all factual assertions that Seller has made and will make to us are true and complete. Seller agrees to execute and deliver documents to us, upon our reasonable request, that evidence or effectuate our rights under this agreement.
+
+4. Determining Type of Content.
+
+TurboSquid implements and maintains business practices which enable us to accurately categorize Content that Sellers deliver to us. If TurboSquid makes an error in good faith, however and consequently exceed our license rights, Seller’s sole and exclusive remedy will be for us to take all reasonable steps to promptly correct the error as soon as TurboSquid become aware of the error.
+
+5. Royalty Payments & Commission.
+
+Seller will be entitled to a royalty of 50% (unless otherwise specified) of all proceeds from the Valid Sale of Seller’s Content paid by check monthly. The remaining 50% of all proceeds from Valid Sale’s is deducted by TurboSquid as a commission. Seller hereby authorizes TurboSquid to collect and distribute such royalties and commissions.
+
+III. GENERAL TERMS APPLICABLE TO ALL MEMBERS, SELLERS, AND OTHER PARTIES USING TURBOSQUID IN ANY WAY
+
+1. INDEMNITY.
+
+You agree to indemnify and hold TurboSquid and its subsidiaries, affiliates, shareholders, officers, directors, agents, licensors, suppliers, alliance members, other partners, employees and representatives ("TurboSquid Parties") harmless from any claim or demand, including reasonable attorneys' fees, made by any third party due to, or arising out of Your Content, Your use of or connection to the Website (including any use by You on behalf of Your employer), Your use of the TurboSquid Client Application, Your violation of the Terms, or Your violation of any rights of another.
+
+2. MODIFICATION AND TERMINATION OF SERVICES; AMENDMENT OF TERMS..
+
+TurboSquid reserves the right at any time to modify, suspend or terminate the Services (or any part thereof), and/or Your use of or access to them, with or without notice. TurboSquid may also delete, or bar access to or use of, all related information and files. TurboSquid will not be liable to You or any third-party for any modification, suspension, or termination of the Services, or loss of related information. TurboSquid may amend these Terms at any time without notice, as all terms and conditions will be posted on this URL and should be consulted by You prior to use.
+
+3. DISCLAIMER OF WARRANTIES..
+
+YOUR USE OF THE WEBSITE AND THE TURBOSQUID CLIENT APPLICATION ARE AT YOUR SOLE RISK UNLESS OTHERWISE EXPLICITLY STATED. THE WEBSITE AND APPLICATION, INCLUDING THE INFORMATION, SERVICES AND CONTENT (AS DEFINED ABOVE), ARE PROVIDED ON AN "AS IS" "AS AVAILABLE" AND "WITH ALL FAULTS" BASIS. TURBOSQUID DISCLAIMS ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS, AND WARRANTIES OF ANY KIND, INCLUDING ANY IMPLIED WARRANTY OR CONDITION OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A PARTICULAR PURPOSE, OR NONINFRINGEMENT. TURBOSQUID MAKES NO REPRESENTATIONS, WARRANTIES, CONDITIONS OR GUARANTEES AS TO THE USEFULNESS QUALITY, SUITABILITY, TRUTH, ACCURACY OR COMPLETENESS OF THE WEBSITE OR APPLICATION.
+
+TURBOSQUID MAKES NO WARRANTY OR REPRESENTATION THAT: (a) THE WEBSITE OR APPLICATION WILL BE UNINTERRUPTED, TIMELY, SECURE, OR ERROR-FREE; (b) THE RESULTS THAT MAY BE OBTAINED FROM THE USE OF THE WEBSITE OR USE OF APPLICATION WILL BE ACCURATE OR RELIABLE; (c) THE QUALITY OF ANY PRODUCTS, SERVICES, CONTENT, INFORMATION, OR OTHER MATERIAL PURCHASED OR OBTAINED FROM THE WEBSITE OR WITH THE APPLICATION WILL MEET YOUR EXPECTATIONS OR REQUIREMENTS; OR (d) ANY ERRORS IN THE WEBSITE OR APPLICATION WILL BE CORRECTED.
+
+TURBOSQUID MAKES NO WARRANTIES EITHER EXPRESS OR IMPLIED IN CONJUNCTION WITH ANY CONTENT PUBLISHED AT TURBOSQUID. TURBOSQUID WILL NOT BE LIABLE TO A MEMBER OR ANY OTHER THIRD PARTY CLAIMING THROUGH IT FOR INDIRECT, INCIDENTAL, SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF, OR RELATING TO THE USE OF EITHER THE TURBOSQUID WEBSITE, THE TURBOSQUID CLIENT APPLICATIONS OR ANY CONTENT PUBLISHED AT TURBOSQUID, WHETHER FRAMED AS A BREACH OF WARRANTY, IN TORT, CONTRACT, FAILURE OF ESSENTIAL PURPOSE, OR OTHERWISE.
+
+YOU ASSUME ALL RISK FOR ANY DAMAGE TO YOUR COMPUTER SYSTEM OR LOSS OF DATA THAT RESULTS FROM USE OF THE APPLICATOIN OR BY OBTAINING ANY CONTENT FROM THE WEBSITE, INCLUDING ANY DAMAGES RESULTING FROM COMPUTER VIRUSES.
+
+4. LIMITATION OF LIABILITY.
+
+TO THE FULLEST EXTENT PERMITTED BY LAW, THE TURBOSQUID PARTIES SHALL NOT LIABLE FOR ANY DIRECT, INDIRECT, PUNITIVE, SPECIAL, INCIDENTAL, CONSEQUENTIAL, OR EXEMPLARY DAMAGES (INCLUDING, WITHOUT LIMITATION, LOSS OF BUSINESS, REVENUE, PROFITS, GOODWILL, USE, DATA, ELECTRONICALLY TRANSMITTED ORDERS, OR OTHER ECONOMIC ADVANTAGE) ARISING OUT OF OR IN CONNECTION WITH THE APPLICATION OR WEBSITE, EVEN IF THE TURBOSQUID PARTIES HAVE PREVIOUSLY BEEN ADVISED OF, OR REASONABLY COULD HAVE FORESEEN, THE POSSIBILITY OF SUCH DAMAGES, HOWEVER THEY ARISE, WHETHER IN BREACH OF CONTRACT OR IN TORT (INCLUDING NEGLIGENCE), INCLUDING WITHOUT LIMITATION DAMAGES DUE TO: (a) THE USE OF OR THE INABILITY TO USE THE APPLICATION OR WEBSITE; (b) THE COST OF PROCUREMENT OF SUBSTITUTE GOODS AND SERVICES RESULTING FROM ANY GOODS, DATA, INFORMATION OR SERVICES PURCHASED OR OBTAINED, OR MESSAGES RECEIVED OR TRANSACTIONS ENTERED INTO, THROUGH OR FROM THE APPLICATION OR WEBSITE; (c) STATEMENTS OR CONDUCT OF ANY THIRD PARTY ON THE WEBSITE, INCLUDING WITHOUT LIMITATION UNAUTHORIZED ACCESS TO OR ALTERATION OF TRANSMISSIONS OR DATA, MALICIOUS OR CRIMINAL BEHAVIOR, OR FALSE OR FRAUDULENT TRANSACTIONS; OR (d) CONTENT OR INFORMATION YOU MAY DOWNLOAD, USE, MODIFY OR DISTRIBUTE.
+
+TO THE EXTENT THAT ANY JURISDICTION DOES NOT ALLOW THE EXCLUSION OR LIMITATION OF DIRECT, INCIDENTAL OR CONSEQUENTIAL DAMAGES, PORTIONS OF THE ABOVE LIMITATION OR EXCLUSION MAY NOT APPLY.
+
+5. OTHER TERMS GENERALLY APPLICABLE TO ALL.
+
+A. The Terms constitute the entire agreement between You and TurboSquid relating to their subject matter, and cancel and supersede any prior versions of the Terms. No modification to the Terms will be binding, unless in writing and signed by an authorized TurboSquid representative. You must not assign or otherwise transfer the Terms or any right granted hereunder. You also may be subject to additional terms and conditions that may apply when You use TurboSquid or third-party products or services.
+
+B. You agree that any material breach of these Terms will result in irreparable harm to TurboSquid for which damages would be an inadequate remedy and, therefore, in addition to its rights and remedies otherwise available at law, TurboSquid will be entitled to equitable relief, including both a preliminary and permanent injunction, if such a breach occurs. You waive any requirement for the posting of a bond or other security if TurboSquid seeks such an injunction.
+
+C. Services, Content, and product derived or obtained from this Website may be subject to the U.S. export laws and the export or import laws of other countries. You agree to comply strictly with all such laws and, in particular, shall: (a) obtain any export, re-export, or import authorizations required by U.S. or Your local laws; (b) not use Services, Content, or direct product from this Website to design, develop or produce missile, chemical/biological, or nuclear weaponry; and (c) not provide Services, Content, or direct product from this Website to prohibited countries and entities identified in the U.S. export regulations.
+
+D. You agree to refrain from the practice commonly referred to as "deep linking" whereby You use the Content from TurboSquid with any other web site via active linking or data mining.
+
+E. This agreement will be governed by Louisiana law, excluding conflict of law principles. Any action or proceeding arising out of or related to this agreement must be brought in a state or Federal court located in Orleans Parish, Louisiana, and both parties irrevocably submit to the exclusive jurisdiction of such courts. All notices, requests and other communications under this agreement must be in writing (e-mail messages shall be deemed writings).
+
+F. Any notice required by this Agreement or given in connection with it, shall be in writing and delivered by mail.
+
+    Turbo Squid, Inc.
+    c/o Customer Support
+    400 Poydras Street, Suite 1500
+    New Orleans, LA 70130 USA
+
+G. TurboSquid reserves the right to change the terms of this agreement with or without notice at any time.
+
+H. TurboSquid Seller and Member accounts may only be used by the licensee. They may not be transferred or accessed by any other party without the explicit written permission of TurboSquid.
+
+IV. TURBOSQUID WEBSITE AND TURBOSQUID CLIENT APPLICATIONS END USER LICENSE AGREEMENT
+
+YOU SHOULD CAREFULLY READ THE FOLLOWING TERMS AND CONDITIONS BEFORE USING THE TURBOSQUID WEBSITE AND/OR A TURBOSQUID CLIENT APPLICATION, WHICH CAN BE DOWNLOADED FROM THE TURBOSQUID WEB SITE OR AFFILIATE’S SITE, ALONG WITH ANY ACCOMPANYING DOCUMENTATION, AND THE TERMS AND CONDITIONS OF THE TURBOSQUID SERVICES.
+
+YOUR USE OF TURBOSQUID SERVICES MEANS THAT YOU ACCEPT THESE TERMS AND CONDITIONS. IF YOU DO NOT AGREE WITH THESE TERMS AND CONDITIONS YOU SHOULD NOT USE THE TURBOSQUID SERVICES. BY INSTALLING, DOWNLOADING, COPYING A TURBOSQUID CLIENT APPLICATION, OR OTHERWISE USING TURBOSQUID SERVICES, YOU ACKNOWLEDGE THAT YOU HAVE READ THESE TERMS AND CONDITIONS, UNDERSTAND THEM, AND AGREE TO BE BOUND BY THEM. IF YOU DO NOT AGREE TO THESE TERMS AND CONDITIONS, YOU SHOULD NOT USE THIS CLIENT APPLICATION OR TURBOSQUID SERVICES.
+
+1. SINGLE COPY SOFTWARE LICENSE.
+
+The TurboSquid Client Application is copyrighted and protected by law and international treaty. You may download the TurboSquid Client Application through a web browser or install from a CD-ROM onto a single computer for Your personal, non-commercial internal use only, unless specifically licensed to do otherwise by TurboSquid This is a license, not a transfer of title, and You may not nor permit anyone else to (a) modify the TurboSquid Client Application or use it for any commercial purpose or public display, performance, sale or rental; (b) de-compile, reverse engineer, or disassemble, modify, or create derivative works based on the TurboSquid Client Application or the documentation in whole or in part; (c) remove any copyright or other TurboSquid proprietary notices; (d) transfer the TurboSquid Client Application to another person. You agree to prevent any copying of the TurboSquid Client Application that You download for Your use from this web site.
+
+2. OWNERSHIP.
+
+The TurboSquid Client Application and all TurboSquid information on the Website is copyrighted proprietary material of TurboSquid and may not be copied, reproduced, modified, published, uploaded, posted, transmitted, or distributed in any way, without TurboSquid's prior written permission. Except as expressly provided herein, TurboSquid and its suppliers do not grant any express or implied right to You under any patents, copyrights, trademarks, or trade secret information of TurboSquid or its suppliers.
+
+3. ACCOUNT INFORMATION.
+
+In consideration of Your use of the Website, You agree to: (a) provide accurate, current, and complete Member account information about You as may be prompted by the registration and/or login form on the Website (the "Registration Data"); (b) maintain the security of Your password and identification; (c) maintain and promptly update the Registration Data, and any information You provide to TurboSquid, to keep it accurate, current and complete; and (d) accept all risks of unauthorized access to information and Registration Data. You have sole responsibility for adequate protection and backup of data and/or equipment used in connection with the Website.
+
+4. FORUMS AND POSTINGS.
+
+You are entirely responsible for all Content that You upload, post or otherwise transmit via the Website. You must at all times comply with the Forums Code of Conduct. In addition to the Code of Conduct, and without limiting same, You agree not to upload, post or otherwise transmit via the Website Content that: (a) is inaccurate, harmful, obscene, pornographic, defamatory, racist, violent, offensive, harassing, or otherwise objectionable to TurboSquid or other users of the Website; (b) includes unauthorized disclosure of personal information; (c) violates or infringes anyone's intellectual property rights; or (d) contains software viruses or any other computer code, files or programs designed to interrupt, destroy or limit the functionality of any computer software or hardware or telecommunications equipment. TurboSquid reserves the right to edit or remove Content that violates these Terms or that contains third-party commercial advertisements.
+
+You agree that for Content posted on the Website Forums, TurboSquid shall be free to use or disseminate such Content on an unrestricted basis for any purpose, and You grant TurboSquid and all other users of the Website an irrevocable, worldwide, royalty-free, nonexclusive license to use, reproduce, modify, distribute, transmit, display, perform, adapt, resell and publish such Content (including in digital form). You represent and warrant that You have proper authorization for the worldwide transfer and processing among TurboSquid, its affiliates, and third-party providers of any information that You may provide on the Website.
+
+5. IMPROPER USE OF TURBOSQUID SYSTEMS.
+
+You agree that You will not use the Website to: (a) transmit spam, bulk or unsolicited communications; (b) pretend to be TurboSquid or someone else, or spoof TurboSquid's or someone else's identity; (c) forge headers or otherwise manipulate identifiers (including URLs) in order to disguise the origin of any Content transmitted through the Services; (d) misrepresent Your affiliation with a person or entity; (e) disrupt the normal flow of dialogue or otherwise act in a manner that negatively affects other users' ability to use the Website; (f) engage in activities that would violate any fiduciary relationship, any applicable local, state, national or international law, or any regulations having the force of law, including but not limited to attempting to compromise the security of any networked account or site, operating an illegal lottery or gambling operation, stalking, or making threats of harm; or (g) collect or store personal data about other users unless specifically authorized by such users.
+
+6. CONTENT SUBMITTED TO TURBOSQUID.
+
+TurboSquid does not claim ownership of the Content You place on the Website and shall have no obligation of any kind with respect to such Content. Any Content You provide in connection with this Website shall be deemed to be provided on a nonconfidential basis.
+
+7. TERMINATION OF THIS LICENSE.
+
+TurboSquid may terminate this license at any time if You are in breach of these terms and conditions of use. Upon such termination You must and agree to immediately destroy all copies of the TurboSquid Client Application and all of its accompanying documentation.
+    
+

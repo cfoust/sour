@@ -1,0 +1,64 @@
+README for Core Transfer + License
+
+--------------------------------------------------------------------------
+
+First off, the license.. BY NC SA
+
+You are free to use and distribute this map for NON-PROFIT purposes. You must also acknowledge me (Kedric Bradley) as the creator of whatever content in this folder you distribute. You may not, then, take credit for this work. You can also alter this work so long as you do not alter the license or disassociate this license to the derivative work. If you contact me, you can request to have any of these conditions waived with good reason.
+
+Link to this license:
+
+<a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/2.5/ca/"><img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by-nc-sa/2.5/ca/88x31.png" /></a><br /><span xmlns:dc="http://purl.org/dc/elements/1.1/" property="dc:title">Core Transfer</span> by <span xmlns:cc="http://creativecommons.org/ns#" property="cc:attributionName">Kedric Bradley</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/2.5/ca/">Creative Commons Attribution-Noncommercial-Share Alike 2.5 Canada License</a>.
+
+--------------------------------------------------------------------------
+
+GAMEPLAY:
+
+I set up this map with the idea of keeping all parts different in use. The buildings are all useful in different ways - the computer room is a desolate corner of the map used mainly for hiding; the sniper tower is, of course, used for sniping; the main observation building (where you can access the rooftop) is a means by which you can go in most any direction; the particle accelerator room is another good hiding spot with a fast getaway via teleport to a good sniper spot; and the equipment room is a basic room with a washroom that is good for hiding in.
+
+The flags (for ctf) are set up in very balanced locations: On the metal platform near the observation area, and in the equipment room. Both sides, then, have multiple hiding spots and sniping spots, and many ways of getting around.
+
+The river travels throughout the whole map. If you notice, the cracks in the rock can actually be accessed so you can get anywhere through the water. Under water is where you will find the health boost. The water is not an ideal spot to be because it is dark and difficult to see through. Still, on the equipment room side of the map, it provides an interesting spot to camp where I put a hole in the rock and you can peer through.
+
+The trees all have clipping in them for logic's sake: Now you can climb the branches. They are not particularly useful for gameplay except as covering, though.
+
+The hill part of the map (which the bridge crosses over) is of particular value in gameplay where you use different ammo. I set up a lot of grenades at the top so people can completely barricade the top with grenades, whereas at the bottom are a lot of bullets so the grenade-throwers can be killed.
+
+Of course, the bridge is of importance. It is one of the mid-points in the map where players go. A teleporter at each side of the map allows players from both teams to practically access it (teleporters are the only way of getting in). Also, both teams have a teleporter to the bridge in their spawn room. It's a useful camping area except for the fact that it is so easy to get to. That's why I put the quad there. There will be severe competition to get the quad. It's also why I only put grenades in the bridge. To get out, simply jump out the windows.
+
+I put no playerstarts underwater as that severely slows the gameplay down. It is already slow; I timed the travel from one flag to the other through the cave and it is about 22 seconds. In other maps, the time is around 15 seconds, and at that time the gameplay is slow (think Hallo where few points are scored: it's 16 seconds from flag to flag. Compare this to capture-night, where the time is 11 seconds: the gameplay is very fast). Therefore, communication is necessary to succeed in this map but there is a lot of cover for the fast player.
+
+The bases are set up evenly in the map, and are titled. These all provide different gameplay: the underwater one is difficult to get to and from; the riverside one is hard to defend as it's open, but has rockets; the particle accelerator one is in an open spot (as the last one); the equipment room one is easy to defend but has poor ammo; the rooftop one has rifle ammo and is semi-difficult to reach; and the computer room one is somewhat isolated.
+
+
+So, hopefully you all enjoy this map. It's huge and hard on old computers (mine is doing poorly on this) but recent hardware should do fine. Something like 8 on 8 should be pretty good for this map but more than that is even better. It's mainly designed for ctf but I believe it to be good for capture as well.
+
+--------------------------------------------------------------------------
+
+STORY: 
+
+This map is themed as a sort of sci-fi mining map. The workers would all enter the area through a tunnel (in-game, it's the spawn room). Then they would enter the equipment room where lockers and a washroom are. These are the last pieces of technology reminiscent of their old lives, for now they enter a high-tech colony of mining. 
+
+Next, the workers all travelled into their respective positions - in the particle accelerator, working out scientific phenomena; in the computer room, monitoring progress of other workers and writing logs; in the bridge, overseeing others and transporting materials to and from the area; underwater (after equipping in the water equipment room), observing marine life and mining; or in the main outpost, communicating with other colonies and earth.
+
+This colony has largely been established, carved right out of the rocks. It still needs development, however, and the original developers saw it logical to mine through the rocks instead of outright demolishing them.
+
+The mining material is a blue, shining rock. This rock is useful for a couple of properties: Its luminescence and the energy that can be derived from it. So, it is used as a cheap lightsource around the colony (even underwater, where it is mined). The main power source for the entire colony is within the underwater power core, which is fuelled infinitely by a massive blue stone.
+
+---------------------------------------------------------------------------
+
+UPDATE:
+
+A lot changed from the last version. Architecture, layout, and textures were all changed. Lighting was fixed and even texture blending was applied. I removed a lot of useless things (like the underwater caves) and improved the flow (such as by making the backpath a bit longer). I also balanced the sides a bit better and removed a few rather unfair things, like the fence doors. Enjoy the (hopefully) final product!
+
+----------------------------------------------------------------------------
+
+CREDITS
+
+I don't know who submitted this skybox but it's in my folder for some reason, and not in others'. So I included it in the map. Whoever made it, talk to me to claim credit.
+
+Also, the people who I talked to while making the map about making it, thanks. Also, those who tested it out I thank. Daemonhunter for initial playtesting/critique, blahville for setting up a playtest with multiple guys and giving critique, and Ace and pyrokinetic for figuring out ALL the small problems :P
+
+Also, the guys who played on my map (I didn't write the names down but you know who you are) thanks to you all.
+
+That's about it. Enjoy the map.

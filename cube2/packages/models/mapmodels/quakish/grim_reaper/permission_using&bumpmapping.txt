@@ -1,0 +1,31 @@
+On Tues, Jan 24, 2012 at 20:46, Barry Collins <barrycollins@gmail.com> wrote:
+
+Hey Frank Van Son.
+ 
+Wow, what a blast from the past!
+I did not even know those existed anymore! hah, Yea, please do, go right ahead, use them and send me some screenshots, I havnt looked at those things in forever.
+Thank you for going through the effort of tracking me down. hah wow, blast from the past.
+ 
+Talk to you soon, and thanks for the kind words, Go right ahead and spiff'em up with bump maps etc as you see fit.
+ 
+Take care.
+
+Barry Collins
+
+On Mon, Jan 23, 2012 at 11:41 AM, frank van son <supersauer@live.nl> wrote:
+
+    Dear Barry Collins,
+
+    I've made a map with a non-commercial game called Sauerbraten (look at "sauerbraten.org" for more info) and would like to use some of your models (Adamantius, Vehementi and The Grimoire Confligere). This map  has a fair chance to get into an official release of the particular game, but of course with such beautifull models added, it would increase the experience of being on a nice looking map.
+    I'm not sure if you truly are the author of those models, as the email address and website stated in the readme-file, went down a long time ago.
+
+    So I would actually like to ask, am I allowed to use (and include) them into the map's zip file and finally, into the release of this game?
+    I would also like to ask, am I allowed to add bump-mapped textures (based on the original skin) to the models, to make them look even better?
+
+    If necessary, I will put down your name inside the map's configuration file, so you would get the honour you deserve.
+
+    Thank you for your time.
+
+    With hopeful regards,
+
+    Suicizer

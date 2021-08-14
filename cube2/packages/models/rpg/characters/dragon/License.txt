@@ -1,0 +1,25 @@
+NOTICE!
+
+This license supercedes all previous licenses of artistic content presented to Wouter Van Oortmerssen and the Sauerbraten Art Team.
+They have the sole right, besides the author, John A. Siar, to alter, use, and distribute all content presented to them by
+the author for use in the Sauerbraten game engine and any non-commercial projects related to the Sauerbraten game engine.
+The list includes, but is not limited to;
+
+all animation .md3 files presented by the author
+native gimp .xcf files for use in texture creation
+configuration files for animation
+skins and textures
+
+
+No money may be made from these items in any way without first contacting the author at johnny3d AT promail DOT ca.
+If there is a discrepancy as to the license or use of the content contact the author.  Each individual license of each
+item is active provided they do not conflict with the above license.  In the case of a conflict this license immediately
+overrides any other.  
+
+
+For a complete list of each item contact the author.  All items are copyright John A. Siar and must follow the above license
+and each non-conflicting individual licenses included with any of the items, less the above license is used.  
+
+
+John A. Siar
+9/17/06 

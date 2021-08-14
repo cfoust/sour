@@ -1,0 +1,6 @@
+Bear Model
+
+md3 modeling and animation and textures by John A. Siar geargolem@titanium3d.com
+
+
+The md3, cfg and jpgs here are released under the Creative Commons License,  Attribution-NoDerivs-Noncommercial 1.0  http://creativecommons.org/licenses/by-nd-nc/1.0/

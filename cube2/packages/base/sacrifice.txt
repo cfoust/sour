@@ -1,0 +1,11 @@
+Sacrifice to the Northern Gods
+
+v1.0 
+
+By David "Drakker" Pelletier
+April 2009
+
+A big CTF / Capture map. Designed around a mostly but not completely mirrored layout.
+
+
+Licence: Free to distribute unmodifed as you see fit, as long as this file is packaged along with the map (sacrifice.ogz and sacrifice.cfg) and is unmodified. Have fun modifying it, but if you distribute a modified version, make sure it's very obivious that it's not the original version, use a different file name, provide a link to the original version and give due credits.

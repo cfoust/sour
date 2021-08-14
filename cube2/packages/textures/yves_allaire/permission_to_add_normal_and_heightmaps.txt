@@ -1,0 +1,36 @@
+On Thu, Jul 1, 2010 at 5:34 PM, Yves Allaire <info@evillair.net> wrote:
+
+Hi,
+
+ Yeah sure, feel free to do that.
+
+Regards,
+Yves Allaire
+
+
+On Thu, Jul 1, 2010 at 2:41 PM, Suicizer <supersauer@live.nl> wrote:
+
+    This is an enquiry e-mail via http://www.evillair.net/v2 from:
+    Suicizer <supersauer@live.nl>
+
+    Dear Yves Allaire,
+    im still font of the textures and was wondering if i could add normal en heightmaps into the texture packs (so that the textures can "shine", at least in cube engine 2).
+    Can i have permission to make and add those height and normalmaps?
+
+    here is an example of what i truly mean:
+    http://www.mediafire.com/imageview.php?quickkey=2mu32ojjgky&thumb=4
+    (here your texture)
+
+    http://www.mediafire.com/imageview.php?quickkey=byrtxmxgdzb&thumb=4
+    (here the normalmapped version of your texture)
+
+    http://www.mediafire.com/imageview.php?quickkey=jyj5q2hzyww&thumb=4
+    (here the heightmapped version of your texture)
+
+    i hope you understand what i mean now.
+
+    thanks already!
+
+    with kind regards,
+
+    Suicizer.
