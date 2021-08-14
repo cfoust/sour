@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="geoiposx" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Release">
+				<Option output="bin/Release/geoiposx" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output="obj/Release/" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Option createDefFile="1" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add directory="../../geoip" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+		</Compiler>
+		<Unit filename="../GeoIP.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../GeoIP.h" />
+		<Unit filename="../GeoIPCity.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../GeoIPCity.h" />
+		<Unit filename="../GeoIPUpdate.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../GeoIPUpdate.h" />
+		<Unit filename="../GeoIP_internal.h" />
+		<Unit filename="../global.h" />
+		<Unit filename="../md5.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../md5.h" />
+		<Unit filename="../regionName.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../timeZone.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
