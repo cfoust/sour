@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+for mapfile in complex douze ot academy metl2 metl3 justice turbine; do
+  strace -e trace=open,openat,close,read -o $mapfile.strace \
+    sauerbraten \
+    -l$mapfile \
+    -x"sleep 10000 [ quit ]"
+
+  cat $mapfile.strace | perl -n -e'/sauerbraten\/(.+)"/ && print "$1\n"' | sort -u > $mapfile.tex
+  rm $mapfile.strace
+done
+
+#base=$(cat complex.tex)
+
+#for mapfile in douze ot academy metl2 metl3 justice turbine; do
+  #base=$(comm -12 <(echo "$base") $mapfile.tex)
+#done
+
+#echo "$base"
+
+for mapfile in complex douze ot academy metl2 metl3 justice turbine; do
+  comm -13 common.tex $mapfile.tex > $mapfile.texlist
+done
