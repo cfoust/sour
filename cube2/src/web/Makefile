@@ -182,17 +182,249 @@ BASE_FILES = data/ \
              packages/fonts/ \
              packages/icons/ \
              packages/particles/ \
-             packages/sounds/aard/ \
-             packages/sounds/q009/ \
-             packages/sounds/yo_frankie/ \
+             packages/sounds \
+             packages/skyboxes \
              packages/gk/lava/lava_cc.dds \
              packages/gk/lava/lava_nm.dds \
              packages/caustics/ \
              packages/models/debris/ \
              packages/models/projectiles/ \
              packages/brushes/ \
-             packages/hud/
-             #packages/music/ \
+             packages/hud/ \
+						 packages/music/ \
+             packages/aftas/package.cfg \
+             packages/brushes/circle_128_hard.png \
+             packages/brushes/circle_128_soft.png \
+             packages/brushes/circle_128_solid.png \
+             packages/brushes/circle_16_hard.png \
+             packages/brushes/circle_16_soft.png \
+             packages/brushes/circle_16_solid.png \
+             packages/brushes/circle_32_hard.png \
+             packages/brushes/circle_32_soft.png \
+             packages/brushes/circle_32_solid.png \
+             packages/brushes/circle_64_hard.png \
+             packages/brushes/circle_64_soft.png \
+             packages/brushes/circle_64_solid.png \
+             packages/brushes/circle_8_hard.png \
+             packages/brushes/circle_8_soft.png \
+             packages/brushes/circle_8_solid.png \
+             packages/brushes/gradient_128.png \
+             packages/brushes/gradient_16.png \
+             packages/brushes/gradient_32.png \
+             packages/brushes/gradient_64.png \
+             packages/brushes/noise_128.png \
+             packages/brushes/noise_64.png \
+             packages/brushes/square_16_hard.png \
+             packages/brushes/square_16_solid.png \
+             packages/brushes/square_32_hard.png \
+             packages/brushes/square_32_solid.png \
+             packages/brushes/square_64_hard.png \
+             packages/brushes/square_64_solid.png \
+             packages/dg/package.cfg \
+             packages/egyptsoc/package.cfg \
+             packages/fonts/default0.png \
+             packages/fonts/default1.png \
+             packages/fonts/default2.png \
+             packages/fonts/default.cfg \
+             packages/gibbie/package.cfg \
+             packages/gor/package.cfg \
+             packages/g_pack/package2.cfg \
+             packages/g_pack/package.cfg \
+             packages/hud/digit_blue.png \
+             packages/hud/digit_font.cfg \
+             packages/hud/digit_grey.png \
+             packages/hud/digit_red.png \
+             packages/hud/items.png \
+             packages/ik2k/package.cfg \
+             packages/ikbase/package.cfg \
+             packages/jf1/package.cfg \
+             packages/loopix/package.cfg \
+             packages/lunaran/package.cfg \
+             packages/mitaman/package.cfg \
+             packages/models/ammo/bullets/masks.jpg \
+             packages/models/ammo/bullets/md3.cfg \
+             packages/models/ammo/bullets/skin.jpg \
+             packages/models/ammo/cartridges/masks.jpg \
+             packages/models/ammo/cartridges/md3.cfg \
+             packages/models/ammo/cartridges/skin.jpg \
+             packages/models/ammo/grenades/masks.jpg \
+             packages/models/ammo/grenades/md3.cfg \
+             packages/models/ammo/grenades/skin.jpg \
+             packages/models/ammo/rockets/masks.jpg \
+             packages/models/ammo/rockets/md3.cfg \
+             packages/models/ammo/rockets/skin.jpg \
+             packages/models/ammo/rrounds/masks.jpg \
+             packages/models/ammo/rrounds/md3.cfg \
+             packages/models/ammo/rrounds/skin.jpg \
+             packages/models/ammo/shells/masks.jpg \
+             packages/models/ammo/shells/md3.cfg \
+             packages/models/ammo/shells/skin.jpg \
+             packages/models/ammo/tris.md3 \
+             packages/models/armor/green/skin.jpg \
+             packages/models/armor/masks.jpg \
+             packages/models/armor/tris.md3 \
+             packages/models/armor/yellow/skin.jpg \
+             packages/models/barreldebris/debris01/debris1.md3 \
+             packages/models/barreldebris/debris01/md3.cfg \
+             packages/models/barreldebris/debris02/debris2.md3 \
+             packages/models/barreldebris/debris02/md3.cfg \
+             packages/models/barreldebris/debris03/debris3.md3 \
+             packages/models/barreldebris/debris03/md3.cfg \
+             packages/models/barreldebris/debris04/debris4.md3 \
+             packages/models/barreldebris/debris04/md3.cfg \
+             packages/models/barreldebris/skin.jpg \
+             packages/models/boost/masks.jpg \
+             packages/models/boost/md3.cfg \
+             packages/models/boost/skin.jpg \
+             packages/models/boost/tris.md3 \
+             packages/models/debris/debris01/tris.md2 \
+             packages/models/debris/debris02/tris.md2 \
+             packages/models/debris/debris03/tris.md2 \
+             packages/models/debris/debris04/tris.md2 \
+             packages/models/debris/masks.jpg \
+             packages/models/debris/md2.cfg \
+             packages/models/debris/skin.jpg \
+             packages/models/gibs/gib01/skin.jpg \
+             packages/models/gibs/gib01/tris.md2 \
+             packages/models/gibs/gib02/skin.jpg \
+             packages/models/gibs/gib02/tris.md2 \
+             packages/models/gibs/gib03/skin.jpg \
+             packages/models/gibs/gib03/tris.md2 \
+             packages/models/gibs/md2.cfg \
+             packages/models/health/masks.jpg \
+             packages/models/health/md3.cfg \
+             packages/models/health/skin.jpg \
+             packages/models/health/tris.md3 \
+             packages/models/mrfixit/anims.cfg \
+             packages/models/mrfixit/armor/blue/ \
+             packages/models/mrfixit/armor/saberblue.dds \
+             packages/models/mrfixit/armor/sabergold.dds \
+             packages/models/mrfixit/armor/sabergold_NRM.dds \
+             packages/models/mrfixit/armor/sabergold_SPEC.dds \
+             packages/models/mrfixit/armor/sabergold_SPEC.jpg \
+             packages/models/mrfixit/armor/saberjade.dds \
+             packages/models/mrfixit/Body.dds \
+             packages/models/mrfixit/bodymasks.dds \
+             packages/models/mrfixit/bodymasks.png \
+             packages/models/mrfixit/bodynorm.dds \
+             packages/models/mrfixit/Head.dds \
+             packages/models/mrfixit/headmasks.dds \
+             packages/models/mrfixit/headmasks.png \
+             packages/models/mrfixit/headnorm.dds \
+             packages/models/mrfixit/horns/horns.dds \
+             packages/models/mrfixit/horns/horns_norms.dds \
+             packages/models/mrfixit/hudguns/fixit_hands.dds \
+             packages/models/mrfixit/hudguns/fixit_hands_mask.dds \
+             packages/models/mrfixit/hudguns/fixit_hands_mask.png \
+             packages/models/mrfixit/hudguns/fixit_hands_normals.dds \
+             packages/models/mrfixit/ragdoll.cfg \
+             packages/models/projectiles/grenade/masks.jpg \
+             packages/models/projectiles/grenade/md3.cfg \
+             packages/models/projectiles/grenade/skin.jpg \
+             packages/models/projectiles/grenade/tris.md3 \
+             packages/models/projectiles/rocket/masks.jpg \
+             packages/models/projectiles/rocket/md3.cfg \
+             packages/models/projectiles/rocket/skin.jpg \
+             packages/models/projectiles/rocket/tris.md3 \
+             packages/models/quad/masks.jpg \
+             packages/models/quad/md3.cfg \
+             packages/models/quad/skin.jpg \
+             packages/models/quad/tris.md3 \
+             packages/models/teleporter/masks.jpg \
+             packages/models/teleporter/md3.cfg \
+             packages/models/teleporter/skin.jpg \
+             packages/models/teleporter/tris.md3 \
+             packages/models/vwep/chaing/m134.png \
+             packages/noctua/package.cfg \
+             packages/painkillah/package.cfg \
+             packages/particles/blood.png \
+             packages/particles/bullet.png \
+             packages/particles/scorch.png \
+             packages/payne/package.cfg \
+             packages/philipk/package.cfg \
+             packages/rorschach/package2.cfg \
+             packages/skyboxes/morning_bk.jpg \
+             packages/skyboxes/morning_dn.jpg \
+             packages/skyboxes/morning_ft.jpg \
+             packages/skyboxes/morning_lf.jpg \
+             packages/skyboxes/morning_rt.jpg \
+             packages/skyboxes/morning_up.jpg \
+             packages/socksky/desert_bk.jpg \
+             packages/socksky/desert_dn.jpg \
+             packages/socksky/desert_ft.jpg \
+             packages/socksky/desert_lf.jpg \
+             packages/socksky/desert_rt.jpg \
+             packages/socksky/desert_up.jpg \
+             packages/socksky/mars_bk.jpg \
+             packages/socksky/mars_dn.jpg \
+             packages/socksky/mars_ft.jpg \
+             packages/socksky/mars_lf.jpg \
+             packages/socksky/mars_rt.jpg \
+             packages/socksky/mars_up.jpg \
+             packages/sounds/aard/die1.wav \
+             packages/sounds/aard/die2.wav \
+             packages/sounds/aard/itempick.wav \
+             packages/sounds/aard/jump.wav \
+             packages/sounds/aard/land.wav \
+             packages/sounds/aard/outofammo.wav \
+             packages/sounds/aard/pain1.wav \
+             packages/sounds/aard/pain2.wav \
+             packages/sounds/aard/pain3.wav \
+             packages/sounds/aard/pain4.wav \
+             packages/sounds/aard/pain5.wav \
+             packages/sounds/aard/pain6.wav \
+             packages/sounds/aard/weapload.wav \
+             packages/sounds/blindabuser/health_boost_in_10_seconds.ogg \
+             packages/sounds/blindabuser/health_boost.ogg \
+             packages/sounds/blindabuser/quad_damage_in_10_seconds.ogg \
+             packages/sounds/blindabuser/quad_damage.ogg \
+             packages/sounds/free/acid5.wav \
+             packages/sounds/free/acid6.wav \
+             packages/sounds/free/hit.ogg \
+             packages/sounds/free/itemback.wav \
+             packages/sounds/free/itempick.wav \
+             packages/sounds/free/punch1.wav \
+             packages/sounds/free/splash1.wav \
+             packages/sounds/free/splash2.wav \
+             packages/sounds/free/tick.wav \
+             packages/sounds/q009/glauncher.ogg \
+             packages/sounds/q009/grenade2.ogg \
+             packages/sounds/q009/grenade3.ogg \
+             packages/sounds/q009/grenade.ogg \
+             packages/sounds/q009/jumppad2.wav \
+             packages/sounds/q009/minigun2.ogg \
+             packages/sounds/q009/minigun3.ogg \
+             packages/sounds/q009/minigun.ogg \
+             packages/sounds/q009/pistol2.ogg \
+             packages/sounds/q009/pistol3.ogg \
+             packages/sounds/q009/pistol.ogg \
+             packages/sounds/q009/ren2.ogg \
+             packages/sounds/q009/ren3.ogg \
+             packages/sounds/q009/ren.ogg \
+             packages/sounds/q009/rifle2.ogg \
+             packages/sounds/q009/rifle3.ogg \
+             packages/sounds/q009/rifle.ogg \
+             packages/sounds/q009/rlauncher2.ogg \
+             packages/sounds/q009/rlauncher3.ogg \
+             packages/sounds/q009/rlauncher.ogg \
+             packages/sounds/q009/shotgun2.ogg \
+             packages/sounds/q009/shotgun3.ogg \
+             packages/sounds/q009/shotgun.ogg \
+             packages/sounds/q009/teleport.ogg \
+             packages/sounds/soundsnap/burn.ogg \
+             packages/sounds/soundsnap/chainsaw_attack.ogg \
+             packages/sounds/soundsnap/chainsaw_idle.ogg \
+             packages/subverse/package.cfg \
+             packages/tech1soc/package.cfg \
+             packages/textures/medieval_soc/package.cfg \
+             packages/textures/nieb/autumn/package.cfg \
+             packages/textures/nieb/garden/package.cfg \
+             packages/textures/nieb/package.cfg \
+             packages/textures/notexture.png \
+             packages/textures/terrain_soc/package.cfg \
+             packages/than_ind/package.cfg \
+             packages/tomek/package.cfg \
+             packages/trak5/package.cfg
 
 SILLY_FILES = packages/base/silly.ogz \
               packages/base/silly.cfg \
@@ -369,6 +601,84 @@ COLOS_FILES = packages/base/colos.ogz \
               packages/gk/fantasy/iron_intersection_gk_v01/iron_intersection_gk_v01_cc.dds \
               packages/gk/fantasy/iron_intersection_gk_v01/iron_intersection_gk_v01_nm.dds
 
+#COMPLEX_FILES = packages/base/complex.cfg \
+              #packages/base/complex.jpg \
+              #packages/base/complex.ogz \
+              #packages/dg/mad065.jpg \
+              #packages/dg/mad067.jpg \
+              #packages/dg/mur013.jpg \
+              #packages/dg/mur073.jpg \
+              #packages/dg/muv204.jpg \
+              #packages/dg/trail.jpg \
+              #packages/golgotha/water2.jpg \
+              #packages/payne/Box12b.jpg \
+              #packages/rorschach/128_tar_metflr01.jpg \
+              #packages/rorschach/1_concrete01.jpg \
+              #packages/rorschach/1r_squ_pan04b.jpg \
+              #packages/rorschach/2_064_red_girder02.jpg \
+              #packages/rorschach/2_256_red_thin02.jpg \
+              #packages/rorschach/2_32_red_thin02.jpg \
+              #packages/rorschach/2_conc_celing01.jpg \
+              #packages/rorschach/2_conc_floorpat02_s.jpg \
+              #packages/rorschach/2_c_thinredtrim03.jpg \
+              #packages/rorschach/2_c_tiles01.jpg \
+              #packages/rorschach/2_floor02.jpg \
+              #packages/rorschach/2_redtrim03.jpg \
+              #packages/rorschach/2_whitetrim03.jpg \
+              #packages/rorschach/3r_light01b.jpg \
+              #packages/rorschach/3r_metblock01.jpg \
+              #packages/rorschach/4_met05b.jpg \
+              #packages/rorschach/hh3_m_light03.jpg \
+              #packages/rorschach/j128_metpan01.jpg \
+              #packages/subverse/metal_scratch_tile.jpg \
+              #packages/tech1soc/032-10b.jpg \
+              #packages/tech1soc/032-15a.jpg \
+              #packages/tech1soc/zdet_trim2a.jpg \
+              #packages/textures/waterdudv.jpg \
+              #packages/textures/waterfalldudv.jpg \
+              #packages/textures/waterfall.jpg \
+              #packages/textures/waterfalln.jpg \
+              #packages/textures/watern.jpg \
+
+COMPLEX_FILES = packages/base/complex.cfg \
+							packages/base/complex.jpg \
+							packages/base/complex.ogz \
+							packages/dg/mad065.jpg \
+							packages/dg/mad067.jpg \
+							packages/dg/mur013.jpg \
+							packages/dg/mur073.jpg \
+							packages/dg/muv204.jpg \
+							packages/dg/trail.jpg \
+							packages/golgotha/water2.jpg \
+							packages/payne/Box12b.jpg \
+							packages/rorschach/128_tar_metflr01.jpg \
+							packages/rorschach/1_concrete01.jpg \
+							packages/rorschach/1r_squ_pan04b.jpg \
+							packages/rorschach/2_064_red_girder02.jpg \
+							packages/rorschach/2_256_red_thin02.jpg \
+							packages/rorschach/2_32_red_thin02.jpg \
+							packages/rorschach/2_conc_celing01.jpg \
+							packages/rorschach/2_conc_floorpat02_s.jpg \
+							packages/rorschach/2_c_thinredtrim03.jpg \
+							packages/rorschach/2_c_tiles01.jpg \
+							packages/rorschach/2_floor02.jpg \
+							packages/rorschach/2_redtrim03.jpg \
+							packages/rorschach/2_whitetrim03.jpg \
+							packages/rorschach/3r_light01b.jpg \
+							packages/rorschach/3r_metblock01.jpg \
+							packages/rorschach/4_met05b.jpg \
+							packages/rorschach/hh3_m_light03.jpg \
+							packages/rorschach/j128_metpan01.jpg \
+							packages/subverse/metal_scratch_tile.jpg \
+							packages/tech1soc/032-10b.jpg \
+							packages/tech1soc/032-15a.jpg \
+							packages/tech1soc/zdet_trim2a.jpg
+							#packages/textures/waterdudv.jpg \
+							#packages/textures/waterfalldudv.jpg \
+							#packages/textures/waterfall.jpg \
+							#packages/textures/waterfalln.jpg \
+							#packages/textures/watern.jpg
+
 CAVE_FILES = packages/base/cave.ogz \
              packages/base/cave.cfg \
              $(FANTASY_TEXTURES) \
@@ -421,12 +731,12 @@ FIREWORKS_FILES = $(BASE_FILES) \
 
 CRUNCH_QUALITY = 64
 
-TOTAL_MEMORY = 67108864 # May need to adjust this for very large levels
+TOTAL_MEMORY = 201326592 # May need to adjust this for very large levels
 
 client: client.bc
 	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py base.data --use-preload-plugins  --preload $(BASE_FILES) > game/preload_base.js
 	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py character.data --use-preload-plugins  --preload $(CHARACTER_FILES) > game/preload_character.js
-	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py low.data --use-preload-plugins  --preload $(COLOS_FILES) > game/preload_low.js
+	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py low.data --use-preload-plugins --preload $(COMPLEX_FILES) > game/preload_low.js
 	#cd .. ; cd .. ; python $(EMSCRIPTEN)/tools/file_packager.py medium.data --use-preload-plugins  --preload $(TWO_TOWERS_FILES) > game/preload_medium.js
 	#cd .. ; cd .. ; python $(EMSCRIPTEN)/tools/file_packager.py high.data --use-preload-plugins  --preload $(ZOOM_FILES) > game/preload_high.js
 	#cd .. ; cd .. ; python $(EMSCRIPTEN)/tools/file_packager.py four.data --use-preload-plugins  --preload $(CYBER1_FILES) > game/preload_four.js
