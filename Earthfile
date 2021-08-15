@@ -41,4 +41,8 @@ docker:
   COPY services/server/config /qserv/config
   COPY entrypoint /bin/entrypoint
   CMD ["/bin/entrypoint"]
-  SAVE IMAGE blah/sour:cpp
+  SAVE IMAGE sour:latest
+
+push:
+  FROM +docker
+  SAVE IMAGE --push registry.digitalocean.com/cfoust/sour:latest
