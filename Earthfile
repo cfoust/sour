@@ -43,6 +43,12 @@ docker:
   CMD ["/bin/entrypoint"]
   SAVE IMAGE sour:latest
 
+watch:
+    FROM earthly/dind:alpine
+    WITH DOCKER --load sour:latest=+docker
+        RUN docker run --rm -t -p 1234:1234 -p 28785:28785 sour:latest
+    END
+
 push:
   FROM +docker
   SAVE IMAGE --push registry.digitalocean.com/cfoust/sour:latest
