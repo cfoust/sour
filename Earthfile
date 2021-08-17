@@ -10,7 +10,7 @@ proxy:
     FROM +cpp
     COPY services/proxy .
     RUN make
-    SAVE ARTIFACT wsproxy AS LOCAL "wsproxy"
+    SAVE ARTIFACT wsproxy AS LOCAL "build/wsproxy"
 
 server:
     FROM +cpp
@@ -19,7 +19,7 @@ server:
     # cache cmake temp files to prevent rebuilding .o files
     # when the .cpp files don't change
     RUN --mount=type=cache,target=/code/CMakeFiles make
-    SAVE ARTIFACT qserv AS LOCAL "qserv"
+    SAVE ARTIFACT qserv AS LOCAL "build/qserv"
 
 client:
     FROM emscripten/emsdk:1.40.0
@@ -29,7 +29,7 @@ client:
     RUN mkdir site && \
         cp -r cube2/*.html cube2/game cube2/js cube2/*.js cube2/*.wasm cube2/*.data site && \
         mv site/bb.html site/index.html
-    SAVE ARTIFACT site /site AS LOCAL "site"
+    SAVE ARTIFACT site /site AS LOCAL "build/site"
 
 docker:
   FROM ubuntu:20.10
@@ -42,12 +42,6 @@ docker:
   COPY entrypoint /bin/entrypoint
   CMD ["/bin/entrypoint"]
   SAVE IMAGE sour:latest
-
-watch:
-    FROM earthly/dind:alpine
-    WITH DOCKER --load sour:latest=+docker
-        RUN docker run --rm -t -p 1234:1234 -p 28785:28785 sour:latest
-    END
 
 push:
   FROM +docker
