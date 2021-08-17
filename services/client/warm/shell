@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+echo '--network=host node:14.17.5 /bin/bash'
