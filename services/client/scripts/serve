@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# esbuild does not support bundling html files, so this script symlinks it when
+# necessary.
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+DIST_DIR="$SCRIPT_DIR/../dist"
+SRC_DIR="$SCRIPT_DIR/../src"
+
+mkdir -p "$DIST_DIR"
+
+# Ensures that a symlink exists from $2 to $1.
+ensure_link() {
+  if [ ! -L "$2" ] || [ ! "$(readlink $2)" -ef "$1" ]; then
+    rm -rf "$2"
+    ln -s "$1" "$2"
+  fi
+}
+
+ensure_link "$SRC_DIR/index.html" "$DIST_DIR/index.html"
+cd "$SCRIPT_DIR/../"
+yarn serve:site
