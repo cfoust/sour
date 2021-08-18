@@ -25,8 +25,8 @@ const theme = extendTheme({ colors })
 function App() {
   return (
     <Box w="100%" h="100%" background="yellow.400">
-      <Flex h="100%" align="center" justify="center">
-        <VStack>
+      <Flex align="center" justify="center">
+        <VStack paddingTop="20%" >
           <Heading>🍋Sour</Heading>
           <Button>Join game</Button>
         </VStack>
