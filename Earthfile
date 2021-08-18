@@ -27,7 +27,19 @@ game:
     COPY services/game/cube2 cube2
     RUN cd cube2/src/web && emmake make client -j8
     RUN mkdir dist && \
-        cp -r cube2/*.html cube2/game cube2/js cube2/*.js cube2/*.wasm cube2/*.data dist
+        cd cube2 && \
+        cp -r \
+          js/api.js \
+          js/zee.js \
+          game/zee-worker.js \
+          game/gl-matrix.js \
+          game/setup_low.js \
+          game/preload_base.js \
+          game/preload_character.js \
+          game/preload_complex.js \
+          *.data \
+          sauerbraten.* \
+          ../dist
     SAVE ARTIFACT dist /dist AS LOCAL "build/game"
 
 client:
