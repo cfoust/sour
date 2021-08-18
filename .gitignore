@@ -2,3 +2,4 @@ build
 qserv
 wsproxy
 site
+*CMakeFiles*

@@ -21,15 +21,22 @@ server:
     RUN --mount=type=cache,target=/code/CMakeFiles make
     SAVE ARTIFACT qserv AS LOCAL "build/qserv"
 
-client:
+game:
     FROM emscripten/emsdk:1.40.0
     WORKDIR /cube2
-    COPY services/client/cube2 cube2
+    COPY services/game/cube2 cube2
     RUN cd cube2/src/web && emmake make client -j8
-    RUN mkdir site && \
-        cp -r cube2/*.html cube2/game cube2/js cube2/*.js cube2/*.wasm cube2/*.data site && \
-        mv site/bb.html site/index.html
-    SAVE ARTIFACT site /site AS LOCAL "build/site"
+    RUN mkdir dist && \
+        cp -r cube2/*.html cube2/game cube2/js cube2/*.js cube2/*.wasm cube2/*.data dist
+    SAVE ARTIFACT dist /dist AS LOCAL "build/game"
+
+client:
+    FROM node:14.17.5
+    WORKDIR /client
+    COPY services/client .
+    RUN --mount=type=cache,target=/code/node_modules yarn install
+    RUN rm -r dist && yarn build && cp src/index.html dist
+    SAVE ARTIFACT dist /dist AS LOCAL "build/client"
 
 docker:
   FROM ubuntu:20.10
@@ -37,7 +44,8 @@ docker:
   RUN apt-get update && apt-get install -y python
   COPY +server/qserv /bin/qserv
   COPY +proxy/wsproxy /bin/wsproxy
-  COPY +client/site /app/
+  COPY +game/dist /app/
+  COPY +client/dist /app/
   COPY services/server/config /qserv/config
   COPY entrypoint /bin/entrypoint
   CMD ["/bin/entrypoint"]
