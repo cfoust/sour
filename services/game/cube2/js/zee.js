@@ -2,7 +2,7 @@
 // Pre-unzip ogz files, we can do this in parallel in a worker during preload
 
 (function() {
-  var zeeWorker = new Worker('zee-worker.js');
+  var zeeWorker = new Worker('game/zee-worker.js');
 
   var zeeCallbacks = [];
 

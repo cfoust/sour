@@ -1,3 +1,4 @@
+import start from './unsafe-startup'
 import * as React from 'react'
 import ReactDOM from 'react-dom'
 import {
@@ -11,6 +12,8 @@ import {
   Heading,
   Spacer,
 } from '@chakra-ui/react'
+
+start()
 
 const colors = {
   brand: {
@@ -26,7 +29,7 @@ function App() {
   return (
     <Box w="100%" h="100%" background="yellow.400">
       <Flex align="center" justify="center">
-        <VStack paddingTop="20%" >
+        <VStack paddingTop="20%">
           <Heading>🍋Sour</Heading>
           <Button>Join game</Button>
         </VStack>
