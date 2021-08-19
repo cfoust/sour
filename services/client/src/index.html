@@ -24,23 +24,6 @@
   <body style="height: 100vh; min-height: 100vh;">
     <div id="root" style="height: 100vh; min-height: 100vh;"></div>
 
-    <div id="box" class="container">
-      <div class="stuff">
-        <div class="spinner" id="spinner"></div>
-        <div class="emscripten" id="status">Downloading...</div>
-
-        <div class="emscripten">
-          <progress value="0" max="100" id="progress" hidden="1"></progress>
-        </div>
-      </div>
-
-      <canvas
-          class="game"
-          id="canvas"
-          oncontextmenu="event.preventDefault()"
-          ></canvas>
-    </div>
-
     <script>
       // Nothing like a good old-fashioned global scope that Emscripten's
       // modules strictly depend on
