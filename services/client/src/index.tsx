@@ -49,25 +49,16 @@ const ControlContainer = styled.div`
 function App() {
   const [showGame, setShowGame] = React.useState<boolean>(false)
 
+  React.useLayoutEffect(() => {
+    const box = document.getElementById('box')
+    if (box == null) return
+    Module.desiredWidth = box.clientWidth
+    Module.desiredHeight = box.clientHeight
+  }, [])
+
   return (
     <OuterContainer>
-      <GameContainer>
-        <div className="stuff">
-          <div className="spinner" id="spinner"></div>
-          <div className="emscripten" id="status">
-            Downloading...
-          </div>
-
-          <div className="emscripten">
-            <progress
-              value="0"
-              max="100"
-              id="progress"
-              hidden={true}
-            ></progress>
-          </div>
-        </div>
-
+      <GameContainer id="box">
         <canvas
           className="game"
           id="canvas"
