@@ -1,3 +1,4 @@
+import styled from '@emotion/styled'
 import start from './unsafe-startup'
 import * as React from 'react'
 import ReactDOM from 'react-dom'
@@ -25,10 +26,32 @@ const colors = {
 
 const theme = extendTheme({ colors })
 
+const OuterContainer = styled.div`
+  width: 100%;
+  height: 100%;
+  position: absolute;
+`
+
+const GameContainer = styled.div`
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  z-index: 0;
+`
+
+const ControlContainer = styled.div`
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  z-index: 1;
+`
+
 function App() {
+  const [showGame, setShowGame] = React.useState<boolean>(false)
+
   return (
-    <div>
-      <div id="box" className="container">
+    <OuterContainer>
+      <GameContainer>
         <div className="stuff">
           <div className="spinner" id="spinner"></div>
           <div className="emscripten" id="status">
@@ -51,16 +74,20 @@ function App() {
           ref={(canvas) => (Module.canvas = canvas)}
           onContextMenu={(event) => event.preventDefault()}
         ></canvas>
-      </div>
-      <Box w="100%" h="100%" background="yellow.400">
-        <Flex align="center" justify="center">
-          <VStack paddingTop="20%">
-            <Heading>🍋Sour</Heading>
-            <Button onClick={() => {}}>Join game</Button>
-          </VStack>
-        </Flex>
-      </Box>
-    </div>
+      </GameContainer>
+      {!showGame && (
+        <ControlContainer>
+          <Box w="100%" h="100%" background="yellow.400">
+            <Flex align="center" justify="center">
+              <VStack paddingTop="20%">
+                <Heading>🍋Sour</Heading>
+                <Button onClick={() => setShowGame(true)}>Join game</Button>
+              </VStack>
+            </Flex>
+          </Box>
+        </ControlContainer>
+      )}
+    </OuterContainer>
   )
 }
 
