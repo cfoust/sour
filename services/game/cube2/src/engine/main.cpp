@@ -1127,7 +1127,6 @@ int main(int argc, char **argv)
     setupscreen(usedcolorbits, useddepthbits, usedfsaa);
 
     logoutf("init: video: misc");
-    SDL_WM_SetCaption("Cube 2: Sauerbraten", NULL);
     keyrepeat(false);
     SDL_ShowCursor(0);
 
