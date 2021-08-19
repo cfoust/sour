@@ -65,14 +65,10 @@ export default function start() {
   Module.setStatus('Downloading...')
   window.onerror = function () {
     Module.setStatus('Exception thrown, see JavaScript console')
-    spinnerElement.style.display = 'none'
+    //spinnerElement.style.display = 'none'
     Module.setStatus = function (text) {
       if (text) Module.printErr('[post-exception status] ' + text)
     }
-  }
-
-  window.onresize = () => {
-    Module.setCanvasSize(window.innerWidth, window.innerHeight)
   }
 
   Module.autoexec = function () {
