@@ -19,22 +19,22 @@ export default function start() {
     },
     setStatus: function (text) {
       //if (!Module.setStatus.last)
-        //Module.setStatus.last = { time: Date.now(), text: '' }
+      //Module.setStatus.last = { time: Date.now(), text: '' }
       //if (text === Module.setStatus.text) return
       //var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/)
       //var now = Date.now()
       //if (m && now - Date.now() < 30) return // if this is a progress update, skip it if too soon
       //if (m) {
-        //text = m[1]
-        //progressElement.value = parseInt(m[2]) * 100
-        //progressElement.max = parseInt(m[4]) * 100
-        //progressElement.hidden = false
-        //spinnerElement.hidden = false
+      //text = m[1]
+      //progressElement.value = parseInt(m[2]) * 100
+      //progressElement.max = parseInt(m[4]) * 100
+      //progressElement.hidden = false
+      //spinnerElement.hidden = false
       //} else {
-        //progressElement.value = null
-        //progressElement.max = null
-        //progressElement.hidden = true
-        //if (!text) spinnerElement.style.display = 'none'
+      //progressElement.value = null
+      //progressElement.max = null
+      //progressElement.hidden = true
+      //if (!text) spinnerElement.style.display = 'none'
       //}
       //statusElement.innerHTML = text
     },
@@ -71,19 +71,16 @@ export default function start() {
     }
   }
 
-  //const box = document.getElementById("box");
-  //Module.desiredWidth = box.clientWidth;
-  //Module.desiredHeight = box.clientHeight
-  //window.onresize = () => {
-    //Module.setCanvasSize(window.innerWidth, window.innerHeight)
-  //}
+  window.onresize = () => {
+    Module.setCanvasSize(window.innerWidth, window.innerHeight)
+  }
 
   Module.autoexec = function () {
-    Module.setStatus("");
-  };
+    Module.setStatus('')
+  }
   Module.postLoadWorld = function () {
-    Module.tweakDetail();
-    BananaBread.execute("sensitivity 10");
-    BananaBread.execute("clearconsole");
-  };
+    Module.tweakDetail()
+    BananaBread.execute('sensitivity 10')
+    BananaBread.execute('clearconsole')
+  }
 }
