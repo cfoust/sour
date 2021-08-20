@@ -1,23 +1,14 @@
 #!/usr/bin/env bash
 
-for mapfile in complex douze ot academy metl2 metl3 justice turbine; do
+MAPS="complex douze ot academy metl2 metl3 justice turbine hashi mbt2 fanatic_quake dock renegade curvy_castle nmp8 tartech aard3c skrdm1 bvdm_01 outpost park tumwalk industry injustice mbt10 curvedm kalking1 hog2 kffa fragplaza collusion duel8 alithia island frozen memento neondevastation alloy ruine DM_BS1 shinmei1 osiris sdm1 powerplant oasis metl4 ruby shindou dune gubo teahupoo rm5 depot masdm orbe torment legazzo fury mbt9 refuge shadowed dirtndust force killfactory moonlite castle_trap orion ogrosupply nucleus elegy shiva arbana simplicity pitch_black duel7 suburb roughinery stemple tejen pgdm deathtek hades corruption paradigm lostinspace sauerstruck phosgene neonpanic akaritori konkuri-to katrez_d oddworld guacamole wake5 frostbyte thor aqueducts ksauer1 kmap5 thetowers darkdeath wdcd"
+
+for mapfile in complex neonpanic douze island turbine injustice; do
   strace -e trace=open,openat,close,read -o $mapfile.strace \
     sauerbraten \
     -l$mapfile \
     -x"sleep 10000 [ quit ]"
 
   cat $mapfile.strace | perl -n -e'/sauerbraten\/(.+)"/ && print "$1\n"' | sort -u > $mapfile.tex
-  rm $mapfile.strace
-done
-
-#base=$(cat complex.tex)
-
-#for mapfile in douze ot academy metl2 metl3 justice turbine; do
-  #base=$(comm -12 <(echo "$base") $mapfile.tex)
-#done
-
-#echo "$base"
-
-for mapfile in complex douze ot academy metl2 metl3 justice turbine; do
-  comm -13 common.tex $mapfile.tex > $mapfile.texlist
+  comm -13 common.texlist $mapfile.tex > $mapfile.texlist
+  rm $mapfile.strace $mapfile.tex
 done
