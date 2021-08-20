@@ -17,6 +17,7 @@ import {
 
 import type { GameState } from './types'
 import { GameStateType } from './types'
+import StatusOverlay from './Loading'
 
 start()
 
@@ -158,11 +159,8 @@ function App() {
       {state.type !== GameStateType.Connected && (
         <LoadingContainer>
           <Box w="100%" h="100%">
-            <Flex align="center" justify="center">
-              <VStack paddingTop="20%">
-                <Heading>🍋Sour</Heading>
-              </VStack>
-            </Flex>
+            <Heading>🍋Sour</Heading>
+            <StatusOverlay state={state} />
           </Box>
         </LoadingContainer>
       )}
