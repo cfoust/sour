@@ -3,11 +3,6 @@ export default function start() {
     ...Module,
     preRun: [],
     postRun: [],
-    print: (function () {
-      return function (text) {
-        console.log(text)
-      }
-    })(),
     printErr: function (text) {
       text = Array.prototype.slice.call(arguments).join(' ')
       if (0) {
@@ -63,20 +58,8 @@ export default function start() {
     },
   }
   Module.setStatus('Downloading...')
-  window.onerror = function () {
-    Module.setStatus('Exception thrown, see JavaScript console')
-    //spinnerElement.style.display = 'none'
-    Module.setStatus = function (text) {
-      if (text) Module.printErr('[post-exception status] ' + text)
-    }
-  }
 
   Module.autoexec = function () {
     Module.setStatus('')
-  }
-  Module.postLoadWorld = function () {
-    Module.tweakDetail()
-    BananaBread.execute('sensitivity 10')
-    BananaBread.execute('clearconsole')
   }
 }

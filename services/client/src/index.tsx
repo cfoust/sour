@@ -15,6 +15,9 @@ import {
   Spacer,
 } from '@chakra-ui/react'
 
+import type { GameState } from './types'
+import { GameStateType } from './types'
+
 start()
 
 const colors = {
@@ -31,7 +34,7 @@ const OuterContainer = styled.div`
   width: 100%;
   height: 100%;
   position: absolute;
-  background-color: --chakra-colors-yellow-400;
+  background-color: var(--chakra-colors-yellow-400);
 `
 
 const GameContainer = styled.div`
@@ -41,7 +44,7 @@ const GameContainer = styled.div`
   z-index: 0;
 `
 
-const ControlContainer = styled.div`
+const LoadingContainer = styled.div`
   backdrop-filter: blur(5px);
   width: 100%;
   height: 100%;
@@ -51,18 +54,62 @@ const ControlContainer = styled.div`
 
 const DOWNLOAD_REGEX = /Downloading data... \((\d+)\/(\d+)\)/
 
+const handleDownload = (
+  text: string,
+  handler: (downloadedBytes: number, totalBytes: number) => void
+) => {
+  const result = DOWNLOAD_REGEX.exec(text)
+  if (result == null) return
+  const [, completedText, totalText] = result
+  const downloadedBytes = parseInt(completedText)
+  const totalBytes = parseInt(totalText)
+  handler(downloadedBytes, totalBytes)
+}
+
+const MAIN_LOOP_REGEX = /main loop blocker "(\w+)" took 1 ms/
+
+const handleBlocker = (text: string, handler: (func: string) => void) => {
+  const result = MAIN_LOOP_REGEX.exec(text)
+  if (result == null) return
+  const [, func] = result
+  handler(func)
+}
+
 function App() {
-  const [showGame, setShowGame] = React.useState<boolean>(false)
+  const [state, setState] = React.useState<GameState>({
+    type: GameStateType.PageLoading,
+  })
   const { width, height, ref: containerRef } = useResizeDetector()
 
   React.useEffect(() => {
     Module.setStatus = (text) => {
-      const result = DOWNLOAD_REGEX.exec(text)
-      if (result == null) return
-      const [, completedText, totalText] = result
-      const completedBytes = parseInt(completedText)
-      const totalBytes = parseInt(totalText)
-      console.log(completedBytes / totalBytes)
+      // Sometimes we get download progress this way, handle it here
+      handleDownload(text, (downloadedBytes, totalBytes) =>
+        setState({
+          type: GameStateType.Downloading,
+          downloadedBytes,
+          totalBytes,
+        })
+      )
+    }
+
+    Module.postLoadWorld = function () {
+      Module.tweakDetail()
+      BananaBread.execute('sensitivity 10')
+      BananaBread.execute('clearconsole')
+      setState({
+        type: GameStateType.Connected,
+      })
+    }
+
+    Module.print = (text) => {
+      if (text === 'init: sdl') {
+        setState({
+          type: GameStateType.Running,
+        })
+      }
+
+      console.log(text)
     }
   }, [])
 
@@ -102,22 +149,22 @@ function App() {
       <GameContainer ref={containerRef}>
         <canvas
           className="game"
+          style={{ opacity: state.type !== GameStateType.Connected ? 0 : 1 }}
           id="canvas"
           ref={(canvas) => (Module.canvas = canvas)}
           onContextMenu={(event) => event.preventDefault()}
         ></canvas>
       </GameContainer>
-      {!showGame && (
-        <ControlContainer>
+      {state.type !== GameStateType.Connected && (
+        <LoadingContainer>
           <Box w="100%" h="100%">
             <Flex align="center" justify="center">
               <VStack paddingTop="20%">
                 <Heading>🍋Sour</Heading>
-                <Button onClick={() => setShowGame(true)}>Join game</Button>
               </VStack>
             </Flex>
           </Box>
-        </ControlContainer>
+        </LoadingContainer>
       )}
     </OuterContainer>
   )
