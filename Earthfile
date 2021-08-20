@@ -34,9 +34,7 @@ game:
           game/zee-worker.js \
           game/gl-matrix.js \
           game/setup_low.js \
-          game/preload_base.js \
-          game/preload_character.js \
-          game/preload_complex.js \
+          game/preload_*.js \
           *.data \
           sauerbraten.* \
           ../dist

@@ -590,6 +590,41 @@ COMPLEX_FILES = packages/base/complex.cfg \
 							packages/tech1soc/032-15a.jpg \
 							packages/tech1soc/zdet_trim2a.jpg
 
+ISLAND_FILES = packages/base/island.cfg \
+							 packages/base/island.jpg \
+							 packages/base/island.ogz \
+							 packages/dg/mur078.jpg \
+							 packages/egyptsoc/032-03a.jpg \
+							 packages/egyptsoc/128-04a.jpg \
+							 packages/egyptsoc/block01a.jpg \
+							 packages/egyptsoc/block10c.jpg \
+							 packages/egyptsoc/s064-03a.jpg \
+							 packages/egyptsoc/stone01a.jpg \
+							 packages/egyptsoc/stone01b.jpg \
+							 packages/egyptsoc/v064-02a.jpg \
+							 packages/egyptsoc/v064-03c.jpg \
+							 packages/ik2k/env/iklake_bk.jpg \
+							 packages/ik2k/env/iklake_dn.jpg \
+							 packages/ik2k/env/iklake_ft.jpg \
+							 packages/ik2k/env/iklake_lf.jpg \
+							 packages/ik2k/env/iklake_rt.jpg \
+							 packages/ik2k/env/iklake_up.jpg \
+							 packages/ik2k/ik_cliff256.jpg \
+							 packages/ik2k/ik_floor_brick128b.jpg \
+							 packages/ik2k/ik_ground_deadgrass128.jpg \
+							 packages/ik2k/ik_ground_lawn128.jpg \
+							 packages/ik2k/ik_sky_day_back.jpg \
+							 packages/models/dcp/mushroom/masks.jpg \
+							 packages/models/dcp/mushroom/md2.cfg \
+							 packages/models/dcp/mushroom/skin.jpg \
+							 packages/models/dcp/mushroom/tris.md2 \
+							 packages/models/dcp/palmtree/masks.jpg \
+							 packages/models/dcp/palmtree/md2.cfg \
+							 packages/models/dcp/palmtree/skin.jpg \
+							 packages/models/dcp/palmtree/tris.md2 \
+							 packages/payne/Tile28b.jpg \
+							 packages/than_ind/floor02.jpg
+
 CHARACTER_FILES = packages/models/vwep/ \
 				      packages/models/hudguns/ \
 				      packages/models/snoutx10k/ \
@@ -607,6 +642,7 @@ client: client.bc
 	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py base.data --use-preload-plugins  --preload $(BASE_FILES) > game/preload_base.js
 	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py character.data --use-preload-plugins  --preload $(CHARACTER_FILES) > game/preload_character.js
 	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py complex.data --use-preload-plugins --preload $(COMPLEX_FILES) > game/preload_complex.js
+	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py island.data --use-preload-plugins --preload $(ISLAND_FILES) > game/preload_island.js
 	cd .. ; cd .. ; $(CXX) $(CXXFLAGS) src/web/client.bc -o sauerbraten.js -lidbfs.js -s DISABLE_EXCEPTION_CATCHING=1 -s EXPORTED_FUNCTIONS="['_main', '__ZN4game18setplayermodelinfoEPKcS1_S1_S1_S1_S1_S1_S1_S1_S1_S1_S1_b', '__Z7executePKc', '__Z10executestrPKc', '_setforcecamera', '_bb_splash', '_bb_playsoundname']" src/web/enet/.libs/libenet.a -s TOTAL_MEMORY=$(TOTAL_MEMORY) -s LEGACY_GL_EMULATION=1 -Oz -s USE_ZLIB=1 -s NO_EXIT_RUNTIME=1 -s FORCE_FILESYSTEM=1 -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["cwrap"]' --profiling # --closure 1 -s IGNORE_CLOSURE_COMPILER_ERRORS=1
 
 server.bc:	libenet $(SERVER_OBJS)
