@@ -534,13 +534,7 @@ int playsound(int n, const vec *loc, extentity *ent, int loops, int fade, int ch
     }
     soundchannel &chan = newchannel(chanid, &slot, loc, ent, radius);
     updatechannel(chan);
-    int playing = -1;
-    if(fade) 
-    {
-        Mix_Volume(chanid, chan.volume);
-        playing = expire >= 0 ? Mix_FadeInChannelTimed(chanid, slot.sample->chunk, loops, fade, expire) : Mix_FadeInChannel(chanid, slot.sample->chunk, loops, fade);
-    }
-    else playing = expire >= 0 ? Mix_PlayChannelTimed(chanid, slot.sample->chunk, loops, expire) : Mix_PlayChannel(chanid, slot.sample->chunk, loops);
+    int playing = expire >= 0 ? Mix_PlayChannelTimed(chanid, slot.sample->chunk, loops, expire) : Mix_PlayChannel(chanid, slot.sample->chunk, loops);
     if(playing >= 0) syncchannel(chan); 
     else freechannel(chanid);
     SDL_UnlockAudio();
@@ -560,11 +554,8 @@ bool stopsound(int n, int chanid, int fade)
 {
     if(!channels.inrange(chanid) || !channels[chanid].inuse || !gamesounds.inrange(n) || !gamesounds[n].hasslot(channels[chanid].slot, gameslots)) return false;
     if(dbgsound) conoutf("stopsound: %s", channels[chanid].slot->sample->name);
-    if(!fade || !Mix_FadeOutChannel(chanid, fade))
-    {
-        Mix_HaltChannel(chanid);
-        freechannel(chanid);
-    }
+    Mix_HaltChannel(chanid);
+    freechannel(chanid);
     return true;
 }
 
