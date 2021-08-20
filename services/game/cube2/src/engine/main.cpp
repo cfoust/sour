@@ -1024,6 +1024,12 @@ int main(int argc, char **argv)
     emscripten_hide_mouse(); // we render our own cursor
     // Debugging: Start logging to off
     //emscripten_run_script("GL.debug = Runtime.debug = false;");
+    EM_ASM(
+        FS.mkdir('/persist');
+        FS.mount(IDBFS, {}, '/persist');
+        FS.syncfs(true, function (err) {
+        });
+    );
 #endif
 
     setlogfile(NULL);
