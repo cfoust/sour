@@ -2079,7 +2079,7 @@ void writecfg(const char *name)
 
 #if __EMSCRIPTEN__
     EM_ASM(
-        FS.syncfs(false, function (err) { console.error(err) });
+        FS.syncfs(false, function (err) { });
     );
 #endif
 }
