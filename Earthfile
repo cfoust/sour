@@ -26,7 +26,7 @@ game:
     WORKDIR /cube2
     COPY services/game/cube2 cube2
     RUN cd cube2/src/web && emmake make client -j8
-    RUN mkdir dist && \
+    RUN mkdir -p dist/game && \
         cd cube2 && \
         cp -r \
           js/api.js \
@@ -56,7 +56,7 @@ docker:
   RUN apt-get update && apt-get install -y python
   COPY +server/qserv /bin/qserv
   COPY +proxy/wsproxy /bin/wsproxy
-  COPY +game/dist /app/
+  COPY +game/dist /app/game/
   COPY +client/dist /app/
   COPY services/server/config /qserv/config
   COPY entrypoint /bin/entrypoint
