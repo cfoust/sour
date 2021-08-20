@@ -2076,6 +2076,12 @@ void writecfg(const char *name)
     f->printf("\n");
     writecompletions(f);
     delete f;
+
+#if __EMSCRIPTEN__
+    EM_ASM(
+        FS.syncfs(false, function (err) { console.error(err) });
+    );
+#endif
 }
 
 COMMAND(writecfg, "s");
