@@ -1,3 +1,4 @@
+data/logo_1024.png
 packages/base/turbine.cfg
 packages/base/turbine.jpg
 packages/base/turbine.ogz
@@ -19,7 +20,24 @@ packages/models/dcp/blade_y/model.obj
 packages/models/dcp/blade_y/obj.cfg
 packages/models/dcp/vent/masks.jpg
 packages/models/dcp/vent/skin.jpg
-packages/particles/smoke.png
+packages/models/mrfixit/armor/blue/
+packages/models/mrfixit/armor/green/md5.cfg
+packages/models/mrfixit/armor/sabreskull.md5mesh
+packages/models/mrfixit/armor/yellow/md5.cfg
+packages/models/mrfixit/horns/md5.cfg
+packages/models/mrfixit/horns/quadhorns.md5mesh
+packages/models/mrfixit/hudguns/chaing/md5.cfg
+packages/models/mrfixit/hudguns/fist/md5.cfg
+packages/models/mrfixit/hudguns/fixit_hands.md5mesh
+packages/models/mrfixit/hudguns/gl/md5.cfg
+packages/models/mrfixit/hudguns/md5.cfg
+packages/models/mrfixit/hudguns/pistol/md5.cfg
+packages/models/mrfixit/hudguns/rifle/md5.cfg
+packages/models/mrfixit/hudguns/rocket/md5.cfg
+packages/models/mrfixit/hudguns/shotg/md5.cfg
+packages/models/mrfixit/md5.cfg
+packages/models/mrfixit/mrfixit.md5mesh
+packages/models/vwep/chaing/m134.png
 packages/payne/Box12b.jpg
 packages/tech1soc/032-10a.jpg
 packages/tech1soc/032-10b.jpg
@@ -58,4 +76,3 @@ packages/tech1soc/s256-01d.jpg
 packages/tech1soc/s256-02a.jpg
 packages/tech1soc/sqrlig02wb.jpg
 packages/tech1soc/sqrlig03bc.jpg
-packages/textures/nieb/rock01.jpg
