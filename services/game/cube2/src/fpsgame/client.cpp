@@ -69,6 +69,7 @@ namespace game
         {
             filtertext(player1->name, name, false, MAXNAMELEN);
             if(!player1->name[0]) copystring(player1->name, "unnamed");
+            conoutf("setting name to: %s", player1->name);
             addmsg(N_SWITCHNAME, "rs", player1->name);
         }
         else conoutf("your name is: %s", colorname(player1));
