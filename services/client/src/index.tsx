@@ -92,6 +92,7 @@ function App() {
           totalBytes,
         })
       )
+      console.log(text)
     }
 
     Module.postLoadWorld = function () {
