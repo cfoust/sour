@@ -33,6 +33,9 @@ export default function StatusOverlay(props: Props) {
   return (
     <Flex align="center" justify="center">
       <VStack paddingTop="20%">
+        {state.type === GameStateType.PageLoading && (
+          <Heading>Waiting for asset index...</Heading>
+        )}
         {state.type === GameStateType.Downloading && (
           <Downloading state={state} />
         )}
