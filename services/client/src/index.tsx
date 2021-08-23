@@ -18,6 +18,7 @@ import {
 import type { GameState } from './types'
 import { GameStateType } from './types'
 import StatusOverlay from './Loading'
+import NAMES from './names'
 
 start()
 
@@ -109,6 +110,12 @@ function App() {
         setState({
           type: GameStateType.Running,
         })
+      }
+
+      // Randomly assign a new name if the user joins without one
+      if (text === 'setting name to: unnamed') {
+        const name = NAMES[Math.floor(Math.random() * NAMES.length)]
+        BananaBread.execute(`name ${name}`)
       }
 
       console.log(text)
