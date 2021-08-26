@@ -178,7 +178,7 @@ else
 client.bc:	libenet $(CLIENT_OBJS)
 	$(CXX) $(CXXFLAGS) -o client.bc $(CLIENT_OBJS) $(CLIENT_LIBS)
 
-BASE_FILES = `cat mapfiles/common.minimal.txt`
+BASE_FILES = `comm -23 mapfiles/common.txt mapfiles/blacklist.txt`
 MAP_FILES = `cat mapfiles/loaded.txt`
 
 TOTAL_MEMORY = 301989888 # May need to adjust this for very large levels
