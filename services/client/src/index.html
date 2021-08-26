@@ -30,6 +30,7 @@
       var Module = typeof Module !== 'undefined' ? Module : {};
       Module.preRun = [];
       Module.postRun = [];
+      Module.logReadFiles = true;
       Module.locateFile = (file) => `/game/${file}`;
     </script>
     <script src="index.js"></script>
@@ -38,8 +39,8 @@
     <script async src="game/zee.js"></script>
     <script async src="game/gl-matrix.js"></script>
     <script async src="game/setup_low.js"></script>
-    <script async src="game/preload_base.js"></script>
-    <script async src="game/preload_maps.js"></script>
+		<script async src="game/preload_base.js"></script>
+		<script async src="game/preload_maps.js"></script>
     <script async type="text/javascript" src="game/sauerbraten.js"></script>
   </body>
 </html>

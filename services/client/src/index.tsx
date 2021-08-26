@@ -86,14 +86,14 @@ function App() {
   React.useEffect(() => {
     Module.setStatus = (text) => {
       // Sometimes we get download progress this way, handle it here
-      handleDownload(text, (downloadedBytes, totalBytes) =>
-        setState({
-          type: GameStateType.Downloading,
-          downloadedBytes,
-          totalBytes,
-        })
-      )
-      console.log(text)
+      //handleDownload(text, (downloadedBytes, totalBytes) =>
+        //setState({
+          //type: GameStateType.Downloading,
+          //downloadedBytes,
+          //totalBytes,
+        //})
+      //)
+      //console.log(text)
     }
 
     Module.postLoadWorld = function () {
