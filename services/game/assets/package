@@ -25,7 +25,7 @@ package_files() {
     extension="${infile##*.}"
     size=$(wc -c "$infile" | cut -f1 -d' ')
 
-    if [ -f "$outfile" ]; then
+    if ! [ -f "$infile" ] || [ -f "$outfile" ]; then
       continue
     fi
 
@@ -57,13 +57,18 @@ package_files() {
 
 package_map() {
   target="$1"
-  unpacked=$(python3 "$SCRIPT_DIR/unpack.py" "$target")
-  du -sch $unpacked
+
+  mapname="$(basename -s .cfg "$target")"
+  maplist="mapfiles/maps/$mapname.list"
+
+  if ! [ -f "$maplist" ]; then
+    return
+  fi
+
+  package_files "$mapname" $(cat $maplist)
 }
 
-#package_files base $(cat common.trimmed.txt)
-
-#package_map "packages/base/injustice.cfg"
+package_files base $(cat mapfiles/common.trimmed.list)
 
 for file in $(find packages/base/ -name '*.cfg'); do
   package_map "$file"
