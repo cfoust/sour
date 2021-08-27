@@ -94,14 +94,13 @@ function App() {
 
     Module.setStatus = (text) => {
       // Sometimes we get download progress this way, handle it here
-      //handleDownload(text, (downloadedBytes, totalBytes) =>
-      //setState({
-      //type: GameStateType.Downloading,
-      //downloadedBytes,
-      //totalBytes,
-      //})
-      //)
-      //console.log(text)
+      handleDownload(text, (downloadedBytes, totalBytes) =>
+        setState({
+          type: GameStateType.Downloading,
+          downloadedBytes,
+          totalBytes,
+        })
+      )
     }
 
     Module.postLoadWorld = function () {
@@ -113,7 +112,7 @@ function App() {
       })
     }
 
-    Module.postRun.push(function () {
+    Module.postRun.push(() => {
       const _removeRunDependency = Module.removeRunDependency
       Module.removeRunDependency = (file) => {
         let newSubscribers = []
@@ -142,6 +141,12 @@ function App() {
       if (text.startsWith('load data for world: ')) {
         const map = text.split(': ')[1]
         loadMap(map)
+
+        setState({
+          type: GameStateType.MapChange,
+          map,
+        })
+
         removeSubscribers.push((file) => {
           if (!file.endsWith(`${map}.data`)) return false
           setTimeout(() => {
@@ -192,11 +197,20 @@ function App() {
       <GameContainer ref={containerRef}>
         <canvas
           className="game"
+          style={{ opacity: state.type !== GameStateType.Connected ? 0 : 1 }}
           id="canvas"
           ref={(canvas) => (Module.canvas = canvas)}
           onContextMenu={(event) => event.preventDefault()}
         ></canvas>
       </GameContainer>
+      {state.type !== GameStateType.Connected && (
+        <LoadingContainer>
+          <Box w="100%" h="100%">
+            <Heading>🍋Sour</Heading>
+            <StatusOverlay state={state} />
+          </Box>
+        </LoadingContainer>
+      )}
     </OuterContainer>
   )
 }

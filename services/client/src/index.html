@@ -27,10 +27,10 @@
     <script>
       // Nothing like a good old-fashioned global scope that Emscripten's
       // modules strictly depend on
-      var Module = typeof Module !== 'undefined' ? Module : {};
-      Module.preRun = [];
-      Module.postRun = [];
-      Module.logReadFiles = true;
+      var Module = typeof Module !== 'undefined' ? Module : {}
+      Module.preRun = []
+      Module.postRun = []
+      Module.logReadFiles = true
       Module.locateFile = (file) => {
         if (file.endsWith('.data')) return `/assets/${file}`
         if (file.endsWith('.wasm')) return `/game/${file}`
@@ -43,8 +43,7 @@
     <script async src="game/zee.js"></script>
     <script async src="game/gl-matrix.js"></script>
     <script async src="game/setup_low.js"></script>
-		<script async src="assets/preload_base.js"></script>
-    <script async src="assets/preload_lostinspace.js"></script>
+    <script async src="assets/preload_base.js"></script>
     <script async type="text/javascript" src="game/sauerbraten.js"></script>
   </body>
 </html>
