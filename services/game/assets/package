@@ -17,6 +17,8 @@ package_files() {
 
   target_dir="$WORKING_DIR/$target"
 
+  echo "Packaging $target.data"
+
 	# Preprocess the files
 	for infile in $files; do
     outfile="$target_dir/$infile"
@@ -50,6 +52,19 @@ package_files() {
 					"$OUTPUT_DIR/$target.data" \
 					--use-preload-plugins \
 					--preload $files > "$OUTPUT_DIR/preload_$target.js"
+  cd "$SCRIPT_DIR"
 }
 
-package_files base $(cat common.trimmed.txt)
+package_map() {
+  target="$1"
+  unpacked=$(python3 "$SCRIPT_DIR/unpack.py" "$target")
+  du -sch $unpacked
+}
+
+#package_files base $(cat common.trimmed.txt)
+
+#package_map "packages/base/injustice.cfg"
+
+for file in $(find packages/base/ -name '*.cfg'); do
+  package_map "$file"
+done
