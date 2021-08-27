@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+for file in $(comm -23 mapfiles/common.txt mapfiles/blacklist.txt); do
+  extension="${file##*.}"
+
+  if [ "$extension" == "dds" ] || [ "$extension" == "png" ] || [ "$extension" == "jpg" ]; then
+    convert "$file" -resize 50% "$file"
+  fi
+done

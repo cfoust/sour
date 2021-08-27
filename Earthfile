@@ -21,6 +21,14 @@ server:
     RUN --mount=type=cache,target=/code/CMakeFiles make
     SAVE ARTIFACT qserv AS LOCAL "build/qserv"
 
+assets:
+    FROM emscripten/emsdk:1.40.0
+    WORKDIR /tmp
+    RUN apt-get update && apt-get install -y imagemagick
+    COPY services/game/assets assets
+    RUN --mount=type=cache,target=/tmp/assets/working cd assets && ./package
+    SAVE ARTIFACT assets/output /tmp/assets/output AS LOCAL "build/assets"
+
 game:
     FROM emscripten/emsdk:1.40.0
     WORKDIR /cube2
@@ -34,8 +42,6 @@ game:
           game/zee-worker.js \
           game/gl-matrix.js \
           game/setup_low.js \
-          game/preload_*.js \
-          *.data \
           sauerbraten.* \
           ../dist
     SAVE ARTIFACT dist /dist AS LOCAL "build/game"

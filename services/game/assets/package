@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# The actual output directory
+OUTPUT_DIR="$SCRIPT_DIR/output"
+mkdir -p "$OUTPUT_DIR"
+
+# Contains all of the interim calculations
+WORKING_DIR="$SCRIPT_DIR/working"
+mkdir -p "$WORKING_DIR"
+
+package_files() {
+  target="$1"
+	shift 2
+	files="$@"
+
+  target_dir="$WORKING_DIR/$target"
+
+	# Preprocess the files
+	for infile in $files; do
+    outfile="$target_dir/$infile"
+    extension="${infile##*.}"
+    size=$(wc -c "$infile" | cut -f1 -d' ')
+
+    if [ -f "$outfile" ]; then
+      continue
+    fi
+
+    mkdir -p "$(dirname "$outfile")"
+
+    if [ "$extension" != "dds" ] && [ "$extension" != "jpg" ] && [ "$extension" != "png" ]; then
+      cp "$infile" "$outfile"
+      continue
+    fi
+
+    if [[ "$size" -lt 128000 ]]; then
+      cp "$infile" "$outfile"
+      continue
+    fi
+
+    # Simplify the file
+    convert "$infile" -resize 50% "$outfile"
+    convert "$outfile" -resize 50% "$outfile"
+	done
+
+	# Package the files up
+  cd "$target_dir"
+  python3 "/emsdk/upstream/emscripten/tools/file_packager.py" \
+					"$OUTPUT_DIR/$target.data" \
+					--use-preload-plugins \
+					--preload $files > "$OUTPUT_DIR/preload_$target.js"
+}
+
+package_files base $(cat common.trimmed.txt)
