@@ -70,7 +70,7 @@ const handleDownload = (
 
 function loadMap(name: string) {
   var js = document.createElement('script')
-  js.src = `/assets/preload_${name}.js`
+  js.src = `${ASSET_PREFIX}/preload_${name}.js`
   document.body.appendChild(js)
 }
 

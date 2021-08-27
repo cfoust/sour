@@ -13,6 +13,8 @@ type ModuleType = {
 }
 declare const Module: ModuleType
 
+declare const ASSET_PREFIX: string
+
 type BananaBreadType = {
   execute: (command: string) => void
 }
