@@ -68,6 +68,12 @@ const handleDownload = (
   handler(downloadedBytes, totalBytes)
 }
 
+function loadMap(name: string) {
+  var js = document.createElement('script')
+  js.src = `/assets/preload_${name}.js`
+  document.body.appendChild(js)
+}
+
 const MAIN_LOOP_REGEX = /main loop blocker "(\w+)" took 1 ms/
 
 const handleBlocker = (text: string, handler: (func: string) => void) => {
@@ -84,14 +90,16 @@ function App() {
   const { width, height, ref: containerRef } = useResizeDetector()
 
   React.useEffect(() => {
+    let removeSubscribers: Array<(arg0: string) => boolean> = []
+
     Module.setStatus = (text) => {
       // Sometimes we get download progress this way, handle it here
       //handleDownload(text, (downloadedBytes, totalBytes) =>
-        //setState({
-          //type: GameStateType.Downloading,
-          //downloadedBytes,
-          //totalBytes,
-        //})
+      //setState({
+      //type: GameStateType.Downloading,
+      //downloadedBytes,
+      //totalBytes,
+      //})
       //)
       //console.log(text)
     }
@@ -105,6 +113,19 @@ function App() {
       })
     }
 
+    Module.postRun.push(function () {
+      const _removeRunDependency = Module.removeRunDependency
+      Module.removeRunDependency = (file) => {
+        let newSubscribers = []
+        for (const callback of removeSubscribers) {
+          if (!callback(file)) newSubscribers.push(callback)
+        }
+        removeSubscribers = newSubscribers
+
+        _removeRunDependency(file)
+      }
+    })
+
     Module.print = (text) => {
       if (text === 'init: sdl') {
         setState({
@@ -116,6 +137,19 @@ function App() {
       if (text === 'setting name to: unnamed') {
         const name = NAMES[Math.floor(Math.random() * NAMES.length)]
         BananaBread.execute(`name ${name}`)
+      }
+
+      if (text.startsWith('load data for world: ')) {
+        const map = text.split(': ')[1]
+        loadMap(map)
+        removeSubscribers.push((file) => {
+          if (!file.endsWith(`${map}.data`)) return false
+          setTimeout(() => {
+            BananaBread.execute(`reallyloadworld ${map}`)
+          }, 1000)
+
+          return true
+        })
       }
 
       console.log(text)
@@ -158,20 +192,11 @@ function App() {
       <GameContainer ref={containerRef}>
         <canvas
           className="game"
-          style={{ opacity: state.type !== GameStateType.Connected ? 0 : 1 }}
           id="canvas"
           ref={(canvas) => (Module.canvas = canvas)}
           onContextMenu={(event) => event.preventDefault()}
         ></canvas>
       </GameContainer>
-      {state.type !== GameStateType.Connected && (
-        <LoadingContainer>
-          <Box w="100%" h="100%">
-            <Heading>🍋Sour</Heading>
-            <StatusOverlay state={state} />
-          </Box>
-        </LoadingContainer>
-      )}
     </OuterContainer>
   )
 }

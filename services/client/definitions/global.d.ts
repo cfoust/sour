@@ -8,6 +8,7 @@ type ModuleType = {
   setCanvasSize: ((width: number, height: number) => void) | null
   setStatus: (text: string) => void
   print: (text: string) => void
+  removeRunDependency: (file: string) => void
 }
 declare const Module: ModuleType
 
