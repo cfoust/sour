@@ -27,7 +27,7 @@ assets:
     RUN apt-get update && apt-get install -y imagemagick
     COPY services/game/assets assets
     RUN --mount=type=cache,target=/tmp/assets/working cd assets && ./package
-    SAVE ARTIFACT assets/output /tmp/assets/output AS LOCAL "build/assets"
+    SAVE ARTIFACT assets/output AS LOCAL "build/assets"
 
 game:
     FROM emscripten/emsdk:1.40.0
@@ -46,7 +46,7 @@ game:
           game/setup_low.js \
           sauerbraten.* \
           ../dist
-    SAVE ARTIFACT dist /dist AS LOCAL "build/game"
+    SAVE ARTIFACT dist AS LOCAL "build/game"
 
 client:
     FROM node:14.17.5
@@ -54,9 +54,9 @@ client:
     COPY services/client .
     RUN --mount=type=cache,target=/code/node_modules yarn install
     RUN rm -r dist && yarn build && cp src/index.html src/favicon.ico dist
-    SAVE ARTIFACT dist /dist AS LOCAL "build/client"
+    SAVE ARTIFACT dist AS LOCAL "build/client"
 
-docker:
+image-slim:
   FROM ubuntu:20.10
   # For the SimpleHTTPServer
   RUN apt-get update && apt-get install -y python
@@ -67,8 +67,17 @@ docker:
   COPY services/server/config /qserv/config
   COPY entrypoint /bin/entrypoint
   CMD ["/bin/entrypoint"]
+  SAVE IMAGE sour:slim
+
+image:
+  FROM +image-slim
+  COPY +assets/output /app/assets/
   SAVE IMAGE sour:latest
 
+push-slim:
+  FROM +image-slim
+  SAVE IMAGE --push registry.digitalocean.com/cfoust/sour:latest
+
 push:
-  FROM +docker
+  FROM +image
   SAVE IMAGE --push registry.digitalocean.com/cfoust/sour:latest

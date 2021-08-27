@@ -1,6 +1,15 @@
 export default function start() {
+  const base = document.createElement('script')
+  base.src = `${ASSET_PREFIX}/preload_base.js`
+  document.body.appendChild(base)
+
   Module = {
     ...Module,
+    locateFile: (file) => {
+      if (file.endsWith('.data')) return `${ASSET_PREFIX}/${file}`
+      if (file.endsWith('.wasm')) return `/game/${file}`
+      return null
+    },
     preRun: [],
     postRun: [],
     printErr: function (text) {
@@ -41,8 +50,8 @@ export default function start() {
   }
 
   window.onerror = function (_, __, ___, ____, error) {
-    console.log(error);
-    return true;
+    console.log(error)
+    return true
   }
 
   Module['removeRunDependency'] = null
