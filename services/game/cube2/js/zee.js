@@ -21,10 +21,6 @@
     zeeCallbacks.push(callback);
   }
 
-  Module.postRun.push(function() {
-    zeeWorker.terminate();
-  });
-
   if (!Module.preloadPlugins) Module.preloadPlugins = [];
 
   Module.preloadPlugins.push({
