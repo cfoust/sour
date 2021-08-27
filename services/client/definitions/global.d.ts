@@ -9,6 +9,7 @@ type ModuleType = {
   setStatus: (text: string) => void
   print: (text: string) => void
   removeRunDependency: (file: string) => void
+  postRun: Array<(() => void)>
 }
 declare const Module: ModuleType
 
