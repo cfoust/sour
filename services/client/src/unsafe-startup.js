@@ -12,7 +12,9 @@ export default function start() {
         return
       console.error(text)
     },
-    setStatus: function (text) {},
+    setStatus: function (text) {
+      console.log(text)
+    },
     totalDependencies: 0,
     monitorRunDependencies: function (left) {
       this.totalDependencies = Math.max(this.totalDependencies, left)
@@ -37,6 +39,14 @@ export default function start() {
       }
     },
   }
+
+  window.onerror = function (_, __, ___, ____, error) {
+    console.log(error);
+    return true;
+  }
+
+  Module['removeRunDependency'] = null
+
   Module.setStatus('Downloading...')
 
   Module.autoexec = function () {
