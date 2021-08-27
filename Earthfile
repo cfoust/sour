@@ -36,6 +36,8 @@ game:
     RUN cd cube2/src/web && emmake make client -j8
     RUN mkdir -p dist/game && \
         cd cube2 && \
+        # Need to get rid of some unseemly behavior
+        patch sauerbraten.js file_create.patch && \
         cp -r \
           js/api.js \
           js/zee.js \
