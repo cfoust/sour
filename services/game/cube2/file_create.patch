@@ -1,0 +1,8 @@
+3369c3369,3373
+<      FS.createDataFile(parent, name, byteArray, canRead, canWrite, canOwn);
+---
+>       try {
+>         FS.createDataFile(parent, name, byteArray, canRead, canWrite, canOwn);
+>       } catch (err) {
+>         if (!(err instanceof FS.ErrnoError)) throw err;
+>       }

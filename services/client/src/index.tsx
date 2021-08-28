@@ -68,6 +68,12 @@ const handleDownload = (
   handler(downloadedBytes, totalBytes)
 }
 
+function loadMap(name: string) {
+  var js = document.createElement('script')
+  js.src = `${ASSET_PREFIX}/preload_${name}.js`
+  document.body.appendChild(js)
+}
+
 const MAIN_LOOP_REGEX = /main loop blocker "(\w+)" took 1 ms/
 
 const handleBlocker = (text: string, handler: (func: string) => void) => {
@@ -84,6 +90,8 @@ function App() {
   const { width, height, ref: containerRef } = useResizeDetector()
 
   React.useEffect(() => {
+    let removeSubscribers: Array<(arg0: string) => boolean> = []
+
     Module.setStatus = (text) => {
       // Sometimes we get download progress this way, handle it here
       handleDownload(text, (downloadedBytes, totalBytes) =>
@@ -93,7 +101,6 @@ function App() {
           totalBytes,
         })
       )
-      console.log(text)
     }
 
     Module.postLoadWorld = function () {
@@ -104,6 +111,19 @@ function App() {
         type: GameStateType.Connected,
       })
     }
+
+    Module.postRun.push(() => {
+      const _removeRunDependency = Module.removeRunDependency
+      Module.removeRunDependency = (file) => {
+        let newSubscribers = []
+        for (const callback of removeSubscribers) {
+          if (!callback(file)) newSubscribers.push(callback)
+        }
+        removeSubscribers = newSubscribers
+
+        _removeRunDependency(file)
+      }
+    })
 
     Module.print = (text) => {
       if (text === 'init: sdl') {
@@ -116,6 +136,25 @@ function App() {
       if (text === 'setting name to: unnamed') {
         const name = NAMES[Math.floor(Math.random() * NAMES.length)]
         BananaBread.execute(`name ${name}`)
+      }
+
+      if (text.startsWith('load data for world: ')) {
+        const map = text.split(': ')[1]
+        loadMap(map)
+
+        setState({
+          type: GameStateType.MapChange,
+          map,
+        })
+
+        removeSubscribers.push((file) => {
+          if (!file.endsWith(`${map}.data`)) return false
+          setTimeout(() => {
+            BananaBread.execute(`reallyloadworld ${map}; spawnitems`)
+          }, 1000)
+
+          return true
+        })
       }
 
       console.log(text)

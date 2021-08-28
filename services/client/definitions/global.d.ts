@@ -8,8 +8,12 @@ type ModuleType = {
   setCanvasSize: ((width: number, height: number) => void) | null
   setStatus: (text: string) => void
   print: (text: string) => void
+  removeRunDependency: (file: string) => void
+  postRun: Array<(() => void)>
 }
 declare const Module: ModuleType
+
+declare const ASSET_PREFIX: string
 
 type BananaBreadType = {
   execute: (command: string) => void

@@ -19,5 +19,6 @@ ensure_link() {
 ensure_link "$SRC_DIR/index.html" "$DIST_DIR/index.html"
 ensure_link "$SRC_DIR/favicon.ico" "$DIST_DIR/favicon.ico"
 ensure_link "$SRC_DIR/../../../build/game" "$DIST_DIR/game"
+ensure_link "$SRC_DIR/../../../build/assets" "$DIST_DIR/assets"
 cd "$SCRIPT_DIR/../"
 yarn serve:site
