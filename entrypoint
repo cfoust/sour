@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Update the asset prefix in the source code
+ASSET_PREFIX=${ASSET_PREFIX:-/assets}
+(cd /app/ && sed -i -e "s{__ASSET_PREFIX__{$ASSET_PREFIX{g" index.js)
+
 run_proxy() {
   wsproxy 28785
 }

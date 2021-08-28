@@ -178,14 +178,12 @@ else
 client.bc:	libenet $(CLIENT_OBJS)
 	$(CXX) $(CXXFLAGS) -o client.bc $(CLIENT_OBJS) $(CLIENT_LIBS)
 
-BASE_FILES = `cat mapfiles/common.txt`
+BASE_FILES = `comm -23 mapfiles/common.txt mapfiles/blacklist.txt`
 MAP_FILES = `cat mapfiles/loaded.txt`
 
 TOTAL_MEMORY = 301989888 # May need to adjust this for very large levels
 
 client: client.bc
-	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py base.data --use-preload-plugins --preload $(BASE_FILES) > game/preload_base.js
-	cd .. ; cd .. ; python3 $(EMSCRIPTEN)/tools/file_packager.py map.data --use-preload-plugins --preload $(MAP_FILES) > game/preload_maps.js
 	cd .. ; cd .. ; $(CXX) $(CXXFLAGS) src/web/client.bc -o sauerbraten.js -lidbfs.js -s DISABLE_EXCEPTION_CATCHING=1 -s EXPORTED_FUNCTIONS="['_main', '__ZN4game18setplayermodelinfoEPKcS1_S1_S1_S1_S1_S1_S1_S1_S1_S1_S1_b', '__Z7executePKc', '__Z10executestrPKc', '_setforcecamera', '_bb_splash', '_bb_playsoundname']" src/web/enet/.libs/libenet.a -s TOTAL_MEMORY=$(TOTAL_MEMORY) -s LEGACY_GL_EMULATION=1 -Oz -s USE_ZLIB=1 -s NO_EXIT_RUNTIME=1 -s FORCE_FILESYSTEM=1 -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["cwrap"]' --profiling # --closure 1 -s IGNORE_CLOSURE_COMPILER_ERRORS=1
 
 server.bc:	libenet $(SERVER_OBJS)
