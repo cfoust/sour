@@ -150,7 +150,7 @@ function App() {
         removeSubscribers.push((file) => {
           if (!file.endsWith(`${map}.data`)) return false
           setTimeout(() => {
-            BananaBread.execute(`reallyloadworld ${map}`)
+            BananaBread.execute(`reallyloadworld ${map}; spawnitems`)
           }, 1000)
 
           return true
