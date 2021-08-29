@@ -58,12 +58,14 @@ client:
 
 image-slim:
   FROM ubuntu:20.10
-  # For the SimpleHTTPServer
-  RUN apt-get update && apt-get install -y python
+  # We would just use nginx:stable-alpine but the other services use some
+  # dynamic libraries.
+  RUN apt-get update && apt-get install -y nginx
   COPY +server/qserv /bin/qserv
   COPY +proxy/wsproxy /bin/wsproxy
   COPY +game/dist /app/game/
   COPY +client/dist /app/
+  COPY services/client/nginx.conf /etc/nginx/conf.d/default.conf
   COPY services/server/config /qserv/config
   COPY entrypoint /bin/entrypoint
   CMD ["/bin/entrypoint"]

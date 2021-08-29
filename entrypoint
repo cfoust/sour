@@ -14,8 +14,7 @@ run_server() {
 }
 
 run_site() {
-  cd /app
-	python -m SimpleHTTPServer 1234
+  nginx -g 'daemon off;'
 }
 
 run_proxy &
