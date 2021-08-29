@@ -105,7 +105,7 @@ function App() {
 
     Module.postLoadWorld = function () {
       Module.tweakDetail()
-      BananaBread.execute('sensitivity 10')
+      BananaBread.execute('spawnitems')
       BananaBread.execute('clearconsole')
       setState({
         type: GameStateType.Connected,
