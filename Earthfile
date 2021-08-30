@@ -56,15 +56,24 @@ client:
     RUN rm -r dist && yarn build && cp src/index.html src/favicon.ico dist
     SAVE ARTIFACT dist AS LOCAL "build/client"
 
+spatial:
+    FROM node:14.17.5
+    WORKDIR /spatial
+    COPY services/spatial .
+    RUN --mount=type=cache,target=/code/node_modules yarn install
+    RUN yarn build
+    SAVE ARTIFACT dist AS LOCAL "build/spatial"
+
 image-slim:
   FROM ubuntu:20.10
   # We would just use nginx:stable-alpine but the other services use some
   # dynamic libraries.
-  RUN apt-get update && apt-get install -y nginx
+  RUN apt-get update && apt-get install -y nginx nodejs
   COPY +server/qserv /bin/qserv
   COPY +proxy/wsproxy /bin/wsproxy
   COPY +game/dist /app/game/
   COPY +client/dist /app/
+  COPY +spatial/dist /app/spatial/
   COPY services/client/nginx.conf /etc/nginx/conf.d/default.conf
   COPY services/server/config /qserv/config
   COPY entrypoint /bin/entrypoint

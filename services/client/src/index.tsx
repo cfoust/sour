@@ -75,15 +75,6 @@ function loadMap(name: string) {
   document.body.appendChild(js)
 }
 
-const MAIN_LOOP_REGEX = /main loop blocker "(\w+)" took 1 ms/
-
-const handleBlocker = (text: string, handler: (func: string) => void) => {
-  const result = MAIN_LOOP_REGEX.exec(text)
-  if (result == null) return
-  const [, func] = result
-  handler(func)
-}
-
 function App() {
   const [state, setState] = React.useState<GameState>({
     type: GameStateType.PageLoading,

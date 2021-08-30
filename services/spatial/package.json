@@ -3,7 +3,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+  "scripts": {
+    "build": "esbuild --bundle index.js --outdir=dist --platform=node"
+  },
+  "devDependencies": {
+    "esbuild": "0.12.20"
+  },
   "dependencies": {
-    "ws": "^8.2.1"
+    "ws": "8.2.1"
   }
 }

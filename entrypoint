@@ -13,11 +13,17 @@ run_server() {
   qserv
 }
 
+run_spatial() {
+  cd /app/spatial
+  node index.js
+}
+
 run_site() {
   nginx -g 'daemon off;'
 }
 
 run_proxy &
 run_server &
+run_spatial &
 run_site &
 cat
