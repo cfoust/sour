@@ -125,6 +125,25 @@ function App() {
       }
     })
 
+    Module.onPlayerMove = (cn, pos, mypos) => {
+    }
+
+    Module.onPlayerJoin = (cn) => {
+      console.log('join', cn)
+    }
+
+    Module.onClientNumber = (cn) => {
+      console.log('my', cn)
+    }
+
+    Module.onPlayerName = (cn, name) => {
+      console.log('name', cn, name)
+    }
+
+    Module.onPlayerLeave = (cn) => {
+      console.log('leave', cn)
+    }
+
     Module.print = (text) => {
       if (text === 'init: sdl') {
         setState({

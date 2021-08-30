@@ -1,4 +1,5 @@
 #include "game.h"
+#include <emscripten.h>
 
 namespace game
 {
@@ -933,6 +934,10 @@ namespace game
         }
     }
 
+    EM_JS(void, spatial_on_move, (int cn, float x, float y, float z, float xi, float yi, float zi), {
+        Module['onPlayerMove'](cn, [x, y, z], [xi, yi, zi]);
+    });
+
     void parsepositions(ucharbuf &p)
     {
         int type;
@@ -1008,6 +1013,15 @@ namespace game
                 }
                 else d->smoothmillis = 0;
                 if(d->state==CS_LAGGED || d->state==CS_SPAWNING) d->state = CS_ALIVE;
+                spatial_on_move(
+                    cn,
+                    d->o.x,
+                    d->o.y,
+                    d->o.z,
+                    player1->o.x,
+                    player1->o.y,
+                    player1->o.z
+                );
                 break;
             }
 
@@ -1067,6 +1081,22 @@ namespace game
 
     extern int deathscore;
 
+    EM_JS(void, spatial_on_join, (int cn), {
+        Module['onPlayerJoin'](cn);
+    });
+
+    EM_JS(void, spatial_on_name, (int cn, char * name), {
+        Module['onPlayerName'](cn, UTF8ToString(name));
+    });
+
+    EM_JS(void, spatial_on_my_cn, (int cn), {
+        Module['onClientNumber'](cn);
+    });
+
+    EM_JS(void, spatial_on_leave, (int cn), {
+        Module['onPlayerLeave'](cn);
+    });
+
     void parsemessages(int cn, fpsent *d, ucharbuf &p)
     {
         static char text[MAXTRANS];
@@ -1090,6 +1120,7 @@ namespace game
                     getstring(servinfo, p, sizeof(servinfo));
                     getstring(servauth, p, sizeof(servauth));
                     sendintro();
+                    spatial_on_my_cn(mycn);
                     break;
                 }
 
@@ -1203,8 +1234,10 @@ namespace game
                     {
                         conoutf("connected: %s", colorname(d, text));
                         if(needclipboard >= 0) needclipboard++;
+                        spatial_on_join(cn);
                     }
                     copystring(d->name, text, MAXNAMELEN+1);
+                    spatial_on_name(cn, text);
                     getstring(text, p);
                     filtertext(d->team, text, false, MAXTEAMLEN);
                     d->playermodel = getint(p);
@@ -1221,6 +1254,7 @@ namespace game
                     {
                         if(!isignored(d->clientnum)) conoutf("%s is now known as %s", colorname(d), colorname(d, text));
                         copystring(d->name, text, MAXNAMELEN+1);
+                        spatial_on_name(d->clientnum, text);
                     }
                 }
                 break;
@@ -1237,8 +1271,12 @@ namespace game
                 }
 
             case N_CDIS:
-                clientdisconnected(getint(p));
-                break;
+                {
+                    int cn = getint(p);
+                    clientdisconnected(cn);
+                    spatial_on_leave(cn);
+                    break;
+                }
 
             case N_SPAWN:
                 {
