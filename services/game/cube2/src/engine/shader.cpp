@@ -128,14 +128,14 @@ static bool compileasmshader(GLenum type, GLuint &idx, const char *def, const ch
         conoutf(CON_ERROR, "COMPILE ERROR (%s:%s) - %s", tname, name, glGetString(GL_PROGRAM_ERROR_STRING_ARB));
         if(err>=0 && err<(int)strlen(def))
         {
-            FILE *l = getlogfile();
-            if(l)
-            {
-                fwrite(def, 1, err, l);
-                def += err;
-                fputs(" <<HERE>> \n", l);
-                fputs(def, l);
-            }
+			FILE *l = getlogfile();
+			if(l)
+			{
+				fwrite(def, 1, err, l);
+				def += err;
+				fputs(" <<HERE>> \n", l);
+				fputs(def, l);
+			}
         }
     }
     else if(msg && !native) conoutf(CON_ERROR, "%s:%s EXCEEDED NATIVE LIMITS", tname, name);
@@ -287,53 +287,61 @@ static void linkglslprogram(Shader &s, bool msg = true)
 
 bool checkglslsupport()
 {
-    const GLchar *vsstr = 
-        "void main(void) {\n"
-        "    gl_Position = ftransform();\n"
-        "}\n";
-#if 0
-    /* check if GLSL profile supports loops
-     */
-    const GLchar *psstr = 
-        "uniform int N;\n"
-        "uniform vec4 delta;\n"
-        "void main(void) {\n"
-        "   vec4 test = vec4(0.0, 0.0, 0.0, 0.0);\n"
-        "   for(int i = 0; i < N; i++)  test += delta;\n"
-        "   gl_FragColor = test;\n"
-        "}\n";
-#else
-    const GLchar *psstr =
+    const GLchar *source =
         "void main(void) {\n"
         "   gl_FragColor = vec4(0.0);\n"
         "}\n";
-#endif
-    GLuint vsobj = glCreateShader_(GL_VERTEX_SHADER), psobj = glCreateShader_(GL_FRAGMENT_SHADER);
-    GLuint program = glCreateProgram_();
-    GLint success = 0;
-    if(vsobj && psobj && program)
-    {
-        glShaderSource_(vsobj, 1, &vsstr, NULL);
-        glCompileShader_(vsobj);
-        glGetShaderiv_(vsobj, GL_COMPILE_STATUS, &success);
-        if(success)
-        {
-            glShaderSource_(psobj, 1, &psstr, NULL);
-            glCompileShader_(psobj);
-            glGetShaderiv_(psobj, GL_COMPILE_STATUS, &success);
-            if(success)
-            {
-                glAttachShader_(program, vsobj);
-                glAttachShader_(program, psobj);
-                glLinkProgram_(program);
-                glGetProgramiv_(program, GL_LINK_STATUS, &success);
-            }
-        }
-    }
-    if(vsobj) glDeleteShader_(vsobj);
-    if(psobj) glDeleteShader_(psobj);
-    if(program) glDeleteProgram_(program);
-    return success!=0;
+	GLuint obj = glCreateShader_(GL_FRAGMENT_SHADER);
+	glShaderSource_(obj, 1, &source, NULL);
+	glCompileShader_(obj);
+	GLint success;
+	glGetShaderiv_(obj, GL_COMPILE_STATUS, &success);
+	if(!success)
+	{
+		conoutf(CON_WARN, "Cannot compile fragment shader");
+		glDeleteShader_(obj);
+		return false;
+	}
+
+	// EMSCRIPTEN: WebGL needs both vertex *and* fragment shaders
+	const GLcharARB *source2 =
+		"attribute vec4 vPosition;    \n"
+		"void main()                  \n"
+		"{                            \n"
+		"   gl_Position = vPosition;  \n"
+		"}                            \n";
+	GLuint obj2 = glCreateShader_(GL_VERTEX_SHADER);
+	glShaderSource_(obj2, 1, &source2, NULL);
+	glCompileShader_(obj2);
+	glGetShaderiv_(obj2, GL_COMPILE_STATUS, &success);
+	if(!success)
+	{
+		conoutf(CON_WARN, "Cannot compile vertex shader");
+		glDeleteShader_(obj);
+		glDeleteShader_(obj2);
+		return false;
+	}
+
+	// EMSCRIPTEN end (also lines dealing with obj2 below)
+	GLuint program = glCreateProgram_();
+	if(!program)
+	{
+		conoutf(CON_WARN, "Cannot create program");
+		glDeleteShader_(obj);
+		glDeleteShader_(obj2);
+		glDeleteProgram_(program);
+		return false;
+	} 
+	glAttachShader_(program, obj);
+	glAttachShader_(program, obj2);
+	glLinkProgram_(program); 
+	glGetProgramiv_(program, GL_LINK_STATUS, &success);
+	if (!success) conoutf(CON_WARN, "Cannot link program");
+
+	glDeleteShader_(obj);
+	glDeleteShader_(obj2);
+	glDeleteProgram_(program);
+	return success!=0;
 }
 
 #define ALLOCEXTPARAM 0xFF
@@ -923,6 +931,7 @@ void setupshaders()
 {
     if(renderpath==R_ASMSHADER || renderpath==R_ASMGLSLANG)
     {
+		conoutf("renderpath==R_ASMSHADER || renderpath==R_ASMGLSLANG");
         GLint val;
         glGetProgramivARB_(GL_VERTEX_PROGRAM_ARB, GL_MAX_PROGRAM_ENV_PARAMETERS_ARB, &val);
         maxvpenvparams = val;
@@ -935,6 +944,7 @@ void setupshaders()
     }
     if(renderpath==R_GLSLANG || renderpath==R_ASMGLSLANG)
     {
+		conoutf("renderpath==R_GLSLANG || renderpath==R_ASMGLSLANG");
         GLint val;
         glGetIntegerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS, &val);
         maxvsuniforms = val/4;

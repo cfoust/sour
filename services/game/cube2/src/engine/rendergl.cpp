@@ -235,6 +235,9 @@ void gl_checkextensions()
     if(sscanf(version, " %u.%u", &glmajorversion, &glminorversion) != 2) glversion = 100;
     else glversion = glmajorversion*100 + glminorversion*10;
 
+	// XXX EMSCRIPTEN
+	glversion = 200;
+
     //extern int shaderprecision;
     // default to low precision shaders on certain cards, can be overridden with -f3
     // char *weakcards[] = { "GeForce FX", "Quadro FX", "6200", "9500", "9550", "9600", "9700", "9800", "X300", "X600", "FireGL", "Intel", "Chrome", NULL } 
@@ -793,6 +796,7 @@ void gl_init(int w, int h, int bpp, int depth, int fsaa)
         renderpath = R_FIXEDFUNCTION;
     }
     else renderpath = hasGLSL ? ((forceglsl && (forceglsl > 0 || glslversion >= 130)) || !hasVP || !hasFP ? (forceglsl ? R_GLSLANG : R_FIXEDFUNCTION) : R_ASMGLSLANG) : R_ASMSHADER;
+	conoutf("hasGLSL=%d forceglsl=%d glslversion=%d hasVP=%d hasFP=%d", hasGLSL, forceglsl, glslversion, hasVP, hasFP);
 
     extern void setupshaders();
     setupshaders();
