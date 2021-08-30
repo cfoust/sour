@@ -1,11 +1,5 @@
 // the interface the game uses to access the engine
 
-#if !STANDALONE
-#include <emscripten.h>
-#else
-#define EMSCRIPTEN_KEEPALIVE
-#endif
-
 extern int curtime;                     // current frame time
 extern int lastmillis;                  // last time
 extern int totalmillis;                 // total elapsed time
@@ -14,13 +8,15 @@ extern int gamespeed, paused;
 
 enum
 {
-    MATF_VOLUME_SHIFT = 0,
-    MATF_CLIP_SHIFT   = 3,
-    MATF_FLAG_SHIFT   = 5,
+    MATF_INDEX_SHIFT  = 0,
+    MATF_VOLUME_SHIFT = 2,
+    MATF_CLIP_SHIFT   = 5,
+    MATF_FLAG_SHIFT   = 8,
 
+    MATF_INDEX  = 3 << MATF_INDEX_SHIFT,
     MATF_VOLUME = 7 << MATF_VOLUME_SHIFT,
-    MATF_CLIP   = 3 << MATF_CLIP_SHIFT,
-    MATF_FLAGS  = 7 << MATF_FLAG_SHIFT
+    MATF_CLIP   = 7 << MATF_CLIP_SHIFT,
+    MATF_FLAGS  = 0xFF << MATF_FLAG_SHIFT
 };
 
 enum // cube empty-space materials
@@ -148,6 +144,9 @@ extern const char *escapestring(const char *s);
 extern const char *escapeid(const char *s);
 static inline const char *escapeid(ident &id) { return escapeid(id.name); }
 extern bool validateblock(const char *s);
+extern void explodelist(const char *s, vector<char *> &elems, int limit = -1);
+extern char *indexlist(const char *s, int pos);
+extern int listlen(const char *s);
 
 // console
 
@@ -377,7 +376,7 @@ extern void setbbfrommodel(dynent *d, const char *mdl);
 extern const char *mapmodelname(int i);
 extern model *loadmodel(const char *name, int i = -1, bool msg = false);
 extern void preloadmodel(const char *name);
-extern void flushpreloadedmodels(void (*func)(void *)); // XXX EMSCRIPTEN - continuation style for asynchronicity
+extern void flushpreloadedmodels();
 
 // ragdoll
 
@@ -390,7 +389,7 @@ extern void cleanragdoll(dynent *d);
 
 extern int maxclients;
 
-enum { DISC_NONE = 0, DISC_EOP, DISC_CN, DISC_KICK, DISC_TAGT, DISC_IPBAN, DISC_PRIVATE, DISC_MAXCLIENTS, DISC_TIMEOUT, DISC_OVERFLOW, DISC_NUM };
+enum { DISC_NONE = 0, DISC_EOP, DISC_LOCAL, DISC_KICK, DISC_TAGT, DISC_IPBAN, DISC_PRIVATE, DISC_MAXCLIENTS, DISC_TIMEOUT, DISC_OVERFLOW, DISC_PASSWORD, DISC_NUM };
 
 extern void *getclientinfo(int i);
 extern ENetPeer *getclientpeer(int i);
@@ -398,6 +397,7 @@ extern ENetPacket *sendf(int cn, int chan, const char *format, ...);
 extern ENetPacket *sendfile(int cn, int chan, stream *file, const char *format = "", ...);
 extern void sendpacket(int cn, int chan, ENetPacket *packet, int exclude = -1);
 extern void flushserver(bool force);
+extern int getservermtu();
 extern int getnumclients();
 extern uint getclientip(int n);
 extern void putint(ucharbuf &p, int n);
@@ -418,6 +418,7 @@ extern void sendstring(const char *t, vector<uchar> &p);
 extern void getstring(char *t, ucharbuf &p, int len = MAXTRANS);
 extern void filtertext(char *dst, const char *src, bool whitespace = true, int len = sizeof(string)-1);
 extern void localconnect();
+extern const char *disconnectreason(int reason);
 extern void disconnect_client(int n, int reason);
 extern void kicknonlocalclients(int reason = DISC_NONE);
 extern bool hasnonlocalclients();
@@ -490,6 +491,8 @@ struct g3d_gui
 	virtual void tab(const char *name = NULL, int color = 0) = 0;
     virtual int image(Texture *t, float scale, bool overlaid = false) = 0;
     virtual int texture(VSlot &vslot, float scale, bool overlaid = true) = 0;
+    virtual int playerpreview(int model, int team, int weap, float scale, bool overlaid = false) { return 0; }
+    virtual int modelpreview(const char *name, int anim, float scale, bool overlaid = false) { return 0; }
     virtual void slider(int &val, int vmin, int vmax, int color, const char *label = NULL) = 0;
     virtual void separator() = 0;
 	virtual void progress(float percent) = 0;

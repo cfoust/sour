@@ -125,13 +125,13 @@ struct ragdolldata
     {
         vec oldpos, pos, newpos;
         float weight;
-        bool collided;
+        bool collided, stuck;
 
-        vert() : pos(0, 0, 0), newpos(0, 0, 0), weight(0), collided(false) {}
+        vert() : pos(0, 0, 0), newpos(0, 0, 0), weight(0), collided(false), stuck(true) {}
     };
 
     ragdollskel *skel;
-    int millis, collidemillis, collisions, floating, lastmove;
+    int millis, collidemillis, collisions, floating, lastmove, unsticks;
     vec offset, center;
     float radius, timestep, scale;
     vert *verts;
@@ -145,6 +145,7 @@ struct ragdolldata
           collisions(0),
           floating(0),
           lastmove(lastmillis),
+          unsticks(INT_MAX),
           timestep(0),
           scale(scale),
           verts(new vert[skel->verts.length()]), 
@@ -227,6 +228,7 @@ struct ragdolldata
     void constrainrot();
     void calcrotfriction();
     void applyrotfriction(float ts);
+    void tryunstick(float speed);
 
     static inline bool collidevert(const vec &pos, const vec &dir, float radius)
     {
@@ -366,6 +368,34 @@ void ragdolldata::applyrotfriction(float ts)
     }
 }
 
+void ragdolldata::tryunstick(float speed)
+{
+    vec unstuck(0, 0, 0);
+    int stuck = 0;
+    loopv(skel->verts)
+    {
+        vert &v = verts[i];
+        if(v.stuck)
+        {
+            if(!collidevert(v.pos, vec(0, 0, 0), skel->verts[i].radius)) { stuck++; continue; }
+            v.stuck = false;
+        }
+        unstuck.add(v.pos);
+    }
+    unsticks = 0;
+    if(!stuck || stuck >= skel->verts.length()) return;
+    unstuck.div(skel->verts.length() - stuck);
+    loopv(skel->verts)
+    {
+        vert &v = verts[i];
+        if(v.stuck)
+        {
+            v.pos.add(vec(unstuck).sub(v.pos).rescale(speed));
+            unsticks++;
+        }
+    }
+}
+
 extern vec wall;
 
 void ragdolldata::updatepos()
@@ -409,6 +439,7 @@ FVAR(ragdollbodyfricscale, 0, 2, 10);
 FVAR(ragdollwaterfric, 0, 0.85f, 1);
 FVAR(ragdollgroundfric, 0, 0.8f, 1);
 FVAR(ragdollairfric, 0, 0.996f, 1);
+FVAR(ragdollunstick, 0, 10, 1e3f);
 VAR(ragdollexpireoffset, 0, 1500, 30000);
 VAR(ragdollwaterexpireoffset, 0, 3000, 30000);
 
@@ -457,6 +488,8 @@ void ragdolldata::move(dynent *pl, float ts)
         }   
     }
 
+    if(unsticks && ragdollunstick) tryunstick(ts*ragdollunstick);
+ 
     timestep = ts;
     if(collisions)
     {

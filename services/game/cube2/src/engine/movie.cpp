@@ -1140,7 +1140,7 @@ namespace recorder
     void drawhud()
     {
         int w = screen->w, h = screen->h;
-
+        if(forceaspect) w = int(ceil(h*forceaspect));
         gettextres(w, h);
 
         glMatrixMode(GL_PROJECTION);

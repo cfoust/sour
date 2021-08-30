@@ -285,6 +285,124 @@ struct gui : g3d_gui
         return layout(size+SHADOW, size+SHADOW);
     }
 
+    int playerpreview(int model, int team, int weap, float sizescale, bool overlaid)
+    {
+        autotab();
+        if(sizescale==0) sizescale = 1;
+        int size = (int)(sizescale*2*FONTH)-SHADOW;
+        if(visible())
+        {
+            bool hit = ishit(size+SHADOW, size+SHADOW);
+            float xs = size, ys = size, xi = curx, yi = cury;
+            if(overlaid && hit && actionon)
+            {
+                glDisable(GL_TEXTURE_2D);
+                notextureshader->set();
+                glColor4f(0, 0, 0, 0.75f);
+                rect_(xi+SHADOW, yi+SHADOW, xs, ys, -1);
+                glEnable(GL_TEXTURE_2D);
+                defaultshader->set();
+            }
+            int x1 = int(floor(screen->w*(xi*scale.x+origin.x))), y1 = int(floor(screen->h*(1 - ((yi+ys)*scale.y+origin.y)))),
+                x2 = int(ceil(screen->w*((xi+xs)*scale.x+origin.x))), y2 = int(ceil(screen->h*(1 - (yi*scale.y+origin.y))));
+            glViewport(x1, y1, x2-x1, y2-y1);
+            glScissor(x1, y1, x2-x1, y2-y1);
+            glEnable(GL_SCISSOR_TEST);
+            glDisable(GL_BLEND);
+            modelpreview::start(overlaid);
+            game::renderplayerpreview(model, team, weap);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glEnable(GL_BLEND);
+            modelpreview::end();
+            glDisable(GL_SCISSOR_TEST);
+            glViewport(0, 0, screen->w, screen->h);
+            if(overlaid)
+            {
+                if(hit)
+                {
+                    glDisable(GL_TEXTURE_2D);
+                    notextureshader->set();
+                    glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+                    glColor3f(1, 0.5f, 0.5f);
+                    rect_(xi, yi, xs, ys, -1);
+                    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                    glEnable(GL_TEXTURE_2D);
+                    defaultshader->set();
+                }
+                if(!overlaytex) overlaytex = textureload("data/guioverlay.png", 3);
+                glColor3fv(light.v);
+                glBindTexture(GL_TEXTURE_2D, overlaytex->id);
+                rect_(xi, yi, xs, ys, 0);
+            }
+        }
+        return layout(size+SHADOW, size+SHADOW);
+    }
+
+    int modelpreview(const char *name, int anim, float sizescale, bool overlaid)
+    {
+        autotab();
+        if(sizescale==0) sizescale = 1;
+        int size = (int)(sizescale*2*FONTH)-SHADOW;
+        if(visible())
+        {
+            bool hit = ishit(size+SHADOW, size+SHADOW);
+            float xs = size, ys = size, xi = curx, yi = cury;
+            if(overlaid && hit && actionon)
+            {
+                glDisable(GL_TEXTURE_2D);
+                notextureshader->set();
+                glColor4f(0, 0, 0, 0.75f);
+                rect_(xi+SHADOW, yi+SHADOW, xs, ys, -1);
+                glEnable(GL_TEXTURE_2D);
+                defaultshader->set();
+            }
+            int x1 = int(floor(screen->w*(xi*scale.x+origin.x))), y1 = int(floor(screen->h*(1 - ((yi+ys)*scale.y+origin.y)))),
+                x2 = int(ceil(screen->w*((xi+xs)*scale.x+origin.x))), y2 = int(ceil(screen->h*(1 - (yi*scale.y+origin.y))));
+            glViewport(x1, y1, x2-x1, y2-y1);
+            glScissor(x1, y1, x2-x1, y2-y1);
+            glEnable(GL_SCISSOR_TEST);
+            glDisable(GL_BLEND);
+            modelpreview::start(overlaid);
+            model *m = loadmodel(name);
+            if(m)
+            {
+                entitylight light;
+                light.color = vec(1, 1, 1);
+                light.dir = vec(0, -1, 2).normalize();
+                vec center, radius;
+                m->boundbox(0, center, radius);
+                float dist =  2.0f*max(radius.magnitude2(), 1.1f*radius.z),
+                      yaw = fmod(lastmillis/10000.0f*360.0f, 360.0f);
+                vec o(-center.x, dist - center.y, -0.1f*dist - center.z);
+                rendermodel(&light, name, anim, o, yaw, 0, 0, NULL, NULL, 0);
+            }
+            modelpreview::end();
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glEnable(GL_BLEND);
+            glDisable(GL_SCISSOR_TEST);
+            glViewport(0, 0, screen->w, screen->h);
+            if(overlaid)
+            {
+                if(hit)
+                {
+                    glDisable(GL_TEXTURE_2D);
+                    notextureshader->set();
+                    glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+                    glColor3f(1, 0.5f, 0.5f);
+                    rect_(xi, yi, xs, ys, -1);
+                    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                    glEnable(GL_TEXTURE_2D);
+                    defaultshader->set();
+                }
+                if(!overlaytex) overlaytex = textureload("data/guioverlay.png", 3);
+                glColor3fv(light.v);
+                glBindTexture(GL_TEXTURE_2D, overlaytex->id);
+                rect_(xi, yi, xs, ys, 0);
+            }
+        }
+        return layout(size+SHADOW, size+SHADOW);
+    }
+
     void slider(int &val, int vmin, int vmax, int color, const char *label)
     {
         autotab();
@@ -482,25 +600,15 @@ struct gui : g3d_gui
         float xs = t->xs*scale, ys = t->ys*scale;
         x += int((size-xs)/2);
         y += int((size-ys)/2);
-        if(hit && actionon)
-        {
-            glDisable(GL_TEXTURE_2D);
-            notextureshader->set();
-            glColor4f(0, 0, 0, 0.75f);
-            rect_(x+SHADOW, y+SHADOW, xs, ys);
-            glEnable(GL_TEXTURE_2D);
-            defaultshader->set();
-        }
-        static const float tc[4][2] = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 1 } };
         const vec &color = hit ? vec(1, 0.5f, 0.5f) : (overlaid ? vec(1, 1, 1) : light);
         glBindTexture(GL_TEXTURE_2D, t->id);
+        if(hit && actionon)
+        {
+            glColor4f(0, 0, 0, 0.75f);
+            rect_(x+SHADOW, y+SHADOW, xs, ys, 0);
+        }
         glColor3fv(color.v);
-        glBegin(GL_TRIANGLE_STRIP);
-        glTexCoord2fv(tc[0]); glVertex2f(x,    y);
-        glTexCoord2fv(tc[1]); glVertex2f(x+xs, y);
-        glTexCoord2fv(tc[3]); glVertex2f(x,    y+ys);
-        glTexCoord2fv(tc[2]); glVertex2f(x+xs, y+ys);
-        glEnd();
+        rect_(x, y, xs, ys, 0);
 
         if(overlaid)
         {
@@ -604,7 +712,6 @@ struct gui : g3d_gui
         if(visible())
         {
             if(!slidertex) slidertex = textureload("data/guislider.png", 3);
-            glEnable(GL_TEXTURE_2D);
             glBindTexture(GL_TEXTURE_2D, slidertex->id);
             if(percent < 0.99f) 
             {
@@ -765,7 +872,7 @@ struct gui : g3d_gui
         if(tcurrent) h += ((skiny[5]-skiny[1])-(skiny[3]-skiny[2]))*SKIN_SCALE + FONTH-2*INSERT;
         else h += (skiny[6]-skiny[3])*SKIN_SCALE;
 
-        float aspect = float(screen->h)/float(screen->w), fit = 1.0f;
+        float aspect = forceaspect ? 1.0f/forceaspect : float(screen->h)/float(screen->w), fit = 1.0f;
         if(w*aspect*basescale>1.0f) fit = 1.0f/(w*aspect*basescale);
         if(h*basescale*fit>maxscale) fit *= maxscale/(h*basescale*fit);
         origin = vec(0.5f-((w-xsize)/2 - (skinx[2]-skinx[1])*SKIN_SCALE)*aspect*scale.x*fit, 0.5f + (0.5f*h-(skiny[9]-skiny[7])*SKIN_SCALE)*scale.y*fit, 0);
@@ -1067,7 +1174,7 @@ void g3d_limitscale(float scale)
     gui::maxscale = scale;
 }
 
-static inline bool g3d_sort(const gui &a, const gui &b) { return a.dist > b.dist; }
+static inline bool g3d_sort(const gui &a, const gui &b) { return a.dist < b.dist; }
 
 bool g3d_windowhit(bool on, bool act)
 {

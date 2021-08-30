@@ -103,6 +103,7 @@ namespace aiman
 
                 clientinfo *owner = findaiclient();
                 ci->ownernum = owner ? owner->clientnum : -1;
+                if(owner) owner->bots.add(ci);
                 ci->aireinit = 2;
                 dorefresh = true;
                 return true;
@@ -169,12 +170,12 @@ namespace aiman
 		}
 	}
 
-	void shiftai(clientinfo *ci, clientinfo *owner)
+	void shiftai(clientinfo *ci, clientinfo *owner = NULL)
 	{
         clientinfo *prevowner = (clientinfo *)getclientinfo(ci->ownernum);
         if(prevowner) prevowner->bots.removeobj(ci);
 		if(!owner) { ci->aireinit = 0; ci->ownernum = -1; }
-		else { ci->aireinit = 2; ci->ownernum = owner->clientnum; owner->bots.add(ci); }
+		else if(ci->clientnum != owner->clientnum) { ci->aireinit = 2; ci->ownernum = owner->clientnum; owner->bots.add(ci); }
         dorefresh = true;
 	}
 

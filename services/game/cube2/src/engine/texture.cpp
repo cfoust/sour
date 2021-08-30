@@ -420,9 +420,11 @@ VARFP(trilinear, 0, 1, 1, initwarning("texture filtering", INIT_LOAD));
 VARFP(bilinear, 0, 1, 1, initwarning("texture filtering", INIT_LOAD));
 VARFP(aniso, 0, 0, 16, initwarning("texture filtering", INIT_LOAD));
 
+extern int usetexcompress;
+
 void setuptexcompress()
 {
-    if(!hasTC) return;
+    if(!hasTC || !usetexcompress) return;
 
     GLenum hint = GL_DONT_CARE;
     switch(texcompressquality)
@@ -435,21 +437,14 @@ void setuptexcompress()
 
 GLenum compressedformat(GLenum format, int w, int h, int force = 0)
 {
-    if(hasTC && texcompress && force >= 0 && (force || max(w, h) >= texcompress)) switch(format)
+    if(hasTC && usetexcompress && texcompress && force >= 0 && (force || max(w, h) >= texcompress)) switch(format)
     {
         case GL_RGB5:
         case GL_RGB8:
-#ifdef __APPLE__
         case GL_LUMINANCE:
-        case GL_RGB: return GL_COMPRESSED_RGB_ARB;
+        case GL_RGB: return usetexcompress > 1 ? GL_COMPRESSED_RGB_S3TC_DXT1_EXT : GL_COMPRESSED_RGB_ARB;
         case GL_LUMINANCE_ALPHA:
-        case GL_RGBA: return GL_COMPRESSED_RGBA_ARB;
-#else
-        case GL_LUMINANCE:
-        case GL_RGB: return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
-        case GL_LUMINANCE_ALPHA:
-        case GL_RGBA: return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
-#endif
+        case GL_RGBA: return usetexcompress > 1 ? GL_COMPRESSED_RGBA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_ARB;
     }
     return format;
 }
@@ -474,7 +469,7 @@ void resizetexture(int w, int h, bool mipmap, bool canreduce, GLenum target, int
 {
     int hwlimit = target==GL_TEXTURE_CUBE_MAP_ARB ? hwcubetexsize : hwtexsize,
         sizelimit = mipmap && maxtexsize ? min(maxtexsize, hwlimit) : hwlimit;
-    if(compress > 0 && !hasTC)
+    if(compress > 0 && (!hasTC || !usetexcompress))
     {
         w = max(w/compress, 1);
         h = max(h/compress, 1);
@@ -1303,7 +1298,7 @@ bool settexture(const char *name, int clamp)
 
 vector<VSlot *> vslots;
 vector<Slot *> slots;
-MSlot materialslots[MATF_VOLUME+1];
+MSlot materialslots[(MATF_VOLUME|MATF_INDEX)+1];
 Slot dummyslot;
 VSlot dummyvslot(&dummyslot);
 
@@ -1326,7 +1321,7 @@ COMMAND(texturereset, "i");
 void materialreset()
 {
     if(!(identflags&IDF_OVERRIDDEN) && !game::allowedittoggle()) return;
-    loopi(MATF_VOLUME+1) materialslots[i].reset();
+    loopi((MATF_VOLUME|MATF_INDEX)+1) materialslots[i].reset();
 }
 
 COMMAND(materialreset, "");
@@ -1339,7 +1334,7 @@ void clearslots()
     resetslotshader();
     slots.deletecontents();
     vslots.deletecontents();
-    loopi(MATF_VOLUME+1) materialslots[i].reset();
+    loopi((MATF_VOLUME|MATF_INDEX)+1) materialslots[i].reset();
     clonedvslots = 0;
 }
 
@@ -2055,7 +2050,7 @@ void linkslotshaders()
 {
     loopv(slots) if(slots[i]->loaded) linkslotshader(*slots[i]);
     loopv(vslots) if(vslots[i]->linked) linkvslotshader(*vslots[i]);
-    loopi(MATF_VOLUME+1) if(materialslots[i].loaded) 
+    loopi((MATF_VOLUME|MATF_INDEX)+1) if(materialslots[i].loaded) 
     {
         linkslotshader(materialslots[i]);
         linkvslotshader(materialslots[i]);
@@ -2107,16 +2102,12 @@ Texture *loadthumbnail(Slot &slot)
     {
         ImageData s, g, l;
         texturedata(s, NULL, &slot.sts[0], false);
-        if(vslot.colorscale != vec(1, 1, 1)) texmad(s, vslot.colorscale, vec(0, 0, 0));
         if(glow >= 0) texturedata(g, NULL, &slot.sts[glow], false);
-        if(layer) 
-        {
-            texturedata(l, NULL, &layer->slot->sts[0], false);
-            if(layer->colorscale != vec(1, 1, 1)) texmad(l, layer->colorscale, vec(0, 0, 0));
-        }
+        if(layer) texturedata(l, NULL, &layer->slot->sts[0], false);
         if(!s.data) t = slot.thumbnail = notexture;
         else
         {
+            if(vslot.colorscale != vec(1, 1, 1)) texmad(s, vslot.colorscale, vec(0, 0, 0));
             int xs = s.w, ys = s.h;
             if(s.w > 64 || s.h > 64) scaleimage(s, min(s.w, 64), min(s.h, 64));
             if(g.data)
@@ -2126,6 +2117,7 @@ Texture *loadthumbnail(Slot &slot)
             }
             if(l.data)
             {
+                if(layer->colorscale != vec(1, 1, 1)) texmad(l, layer->colorscale, vec(0, 0, 0));
                 if(l.w != s.w/2 || l.h != s.h/2) scaleimage(l, s.w/2, s.h/2);
                 forcergbimage(s);
                 forcergbimage(l); 
@@ -2184,9 +2176,12 @@ void forcecubemapload(GLuint tex)
     if(!blend) glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glBegin(GL_POINTS);
-    glColor4f(1, 1, 1, 0);
-    glTexCoord3f(0, 0, 1);
-    glVertex2f(0, 0);
+    loopi(3)
+    {
+        glColor4f(1, 1, 1, 0);
+        glTexCoord3f(0, 0, 1);
+        glVertex2f(0, 0);
+    }
     glEnd();
     if(!blend) glDisable(GL_BLEND);
     glDisable(GL_TEXTURE_CUBE_MAP_ARB);
@@ -2375,7 +2370,7 @@ GLuint genenvmap(const vec &o, int envmapsize, int blur)
     glGenTextures(1, &tex);
     glViewport(0, 0, rendersize, rendersize);
     float yaw = 0, pitch = 0;
-    uchar *pixels = new uchar[3*rendersize*rendersize], *blurbuf = blur > 0 ? new uchar[3*rendersize*rendersize] : NULL;
+    uchar *pixels = new uchar[3*rendersize*rendersize*2];
     glPixelStorei(GL_PACK_ALIGNMENT, texalign(pixels, rendersize, 3));
     loopi(6)
     {
@@ -2397,17 +2392,22 @@ GLuint genenvmap(const vec &o, int envmapsize, int blur)
         }
         glFrontFace((side.flipx==side.flipy)!=side.swapxy ? GL_CW : GL_CCW);
         drawcubemap(rendersize, o, yaw, pitch, side);
-        glReadPixels(0, 0, rendersize, rendersize, GL_RGB, GL_UNSIGNED_BYTE, pixels);
-        if(blurbuf)
+        uchar *src = pixels, *dst = &pixels[3*rendersize*rendersize];
+        glReadPixels(0, 0, rendersize, rendersize, GL_RGB, GL_UNSIGNED_BYTE, src);
+        if(rendersize > texsize)
         {
-            blurtexture(blur, 3, rendersize, rendersize, blurbuf, pixels);
-            swap(blurbuf, pixels);
+            scaletexture(src, rendersize, rendersize, 3, 3*rendersize, dst, texsize, texsize);
+            swap(src, dst);
         }
-        createtexture(tex, texsize, texsize, pixels, 3, 2, GL_RGB5, side.target, rendersize, rendersize);
+        if(blur > 0)
+        {
+            blurtexture(blur, 3, texsize, texsize, src, dst);
+            swap(src, dst);
+        }
+        createtexture(tex, texsize, texsize, src, 3, 2, GL_RGB5, side.target);
     }
     glFrontFace(GL_CW);
     delete[] pixels;
-    if(blurbuf) delete[] blurbuf;
     glViewport(0, 0, screen->w, screen->h);
     clientkeepalive();
     forcecubemapload(tex);
@@ -2506,7 +2506,7 @@ void cleanuptextures()
     clearenvmaps();
     loopv(slots) slots[i]->cleanup();
     loopv(vslots) vslots[i]->cleanup();
-    loopi(MATF_VOLUME+1) materialslots[i].cleanup();
+    loopi((MATF_VOLUME|MATF_INDEX)+1) materialslots[i].cleanup();
     enumerate(textures, Texture, tex, cleanuptexture(&tex));
 }
 
@@ -2522,7 +2522,6 @@ bool reloadtexture(Texture &tex)
     if(tex.id) return true;
     switch(tex.type&Texture::TYPE)
     {
-        case Texture::STUB:
         case Texture::IMAGE:
         {
             int compress = 0;
@@ -2670,7 +2669,7 @@ bool loaddds(const char *filename, ImageData &image)
 
 void gendds(char *infile, char *outfile)
 {
-    if(!hasTC) { conoutf(CON_ERROR, "OpenGL driver does not support texture compression"); return; }
+    if(!hasS3TC || usetexcompress <= 1) { conoutf(CON_ERROR, "OpenGL driver does not support S3TC texture compression"); return; }
 
     glHint(GL_TEXTURE_COMPRESSION_HINT_ARB, GL_NICEST);
 

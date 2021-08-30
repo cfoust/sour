@@ -375,7 +375,7 @@ namespace entities
 
     static const int triggertypes[NUMTRIGGERTYPES] =
     {
-        0,
+        -1,
         TRIG_ONCE,                    // 1
         TRIG_RUMBLE,                  // 2
         TRIG_TOGGLE,                  // 3
@@ -390,26 +390,26 @@ namespace entities
         TRIG_DISAPPEAR,               // 12
         TRIG_DISAPPEAR | TRIG_RUMBLE, // 13
         TRIG_DISAPPEAR | TRIG_COLLIDE | TRIG_LOCKED, // 14
-        0 /* reserved 15 */,
-        0 /* reserved 16 */,
-        0 /* reserved 17 */,
-        0 /* reserved 18 */,
-        0 /* reserved 19 */,
-        0 /* reserved 20 */,
-        0 /* reserved 21 */,
-        0 /* reserved 22 */,
-        0 /* reserved 23 */,
-        0 /* reserved 24 */,
-        0 /* reserved 25 */,
-        0 /* reserved 26 */,
-        0 /* reserved 27 */,
-        0 /* reserved 28 */,
+        -1 /* reserved 15 */,
+        -1 /* reserved 16 */,
+        -1 /* reserved 17 */,
+        -1 /* reserved 18 */,
+        -1 /* reserved 19 */,
+        -1 /* reserved 20 */,
+        -1 /* reserved 21 */,
+        -1 /* reserved 22 */,
+        -1 /* reserved 23 */,
+        -1 /* reserved 24 */,
+        -1 /* reserved 25 */,
+        -1 /* reserved 26 */,
+        -1 /* reserved 27 */,
+        -1 /* reserved 28 */,
         TRIG_DISAPPEAR | TRIG_RUMBLE | TRIG_ENDSP, // 29
-        0 /* reserved 30 */,
-        0 /* reserved 31 */,
+        -1 /* reserved 30 */,
+        -1 /* reserved 31 */,
     };
 
-    #define validtrigger(type) (triggertypes[(type) & (NUMTRIGGERTYPES-1)]!=0)
+    #define validtrigger(type) (triggertypes[(type) & (NUMTRIGGERTYPES-1)]>=0)
     #define checktriggertype(type, flag) (triggertypes[(type) & (NUMTRIGGERTYPES-1)] & (flag))
 
     static inline void setuptriggerflags(fpsentity &e)

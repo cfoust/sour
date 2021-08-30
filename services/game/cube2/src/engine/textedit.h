@@ -329,22 +329,22 @@ struct editor
         lines.remove(start, count);
     }
             
-    void del() // removes the current selection (if any)
+    bool del() // removes the current selection (if any)
     {
         int sx, sy, ex, ey;
         if(!region(sx, sy, ex, ey)) 
         { 
             mark(false); 
-            return; 
+            return false; 
         }
         if(sy == ey) 
         {
-            if(sx == 0 || ex == lines[ey].len) removelines(sy, 1);
+            if(sx == 0 && ex == lines[ey].len) removelines(sy, 1);
             else lines[sy].del(sx, ex - sx);
         }
         else
         {
-            if(ey > sy+2) { removelines(sy+1, ey-(sy+2)); ey = sy+1; }
+            if(ey > sy+1) { removelines(sy+1, ey-(sy+1)); ey = sy+1; }
             if(ex == lines[ey].len) removelines(ey, 1); else lines[ey].del(0, ex);
             if(sx == 0) removelines(sy, 1); else lines[sy].del(sx, lines[sy].len - sx);
         }
@@ -352,6 +352,13 @@ struct editor
         mark(false);
         cx = sx;
         cy = sy;
+        editline &current = currentline();
+        if(cx >= current.len && cy < lines.length() - 1)
+        {
+            current.append(lines[cy+1].text);
+            removelines(cy + 1, 1);
+        }
+        return true;
     }
         
     void insert(char ch) 
@@ -472,30 +479,30 @@ struct editor
                 cx++;
                 break;
             case SDLK_DELETE:
-            {
-                del();
-                editline &current = currentline();
-                if(cx < current.len) current.del(cx, 1);
-                else if(cy < lines.length()-1)
-                {   //combine with next line
-                    current.append(lines[cy+1].text);
-                    removelines(cy+1, 1);
+                if(!del())
+                {
+                    editline &current = currentline();
+                    if(cx < current.len) current.del(cx, 1);
+                    else if(cy < lines.length()-1)
+                    {   //combine with next line
+                        current.append(lines[cy+1].text);
+                        removelines(cy+1, 1);
+                    }
                 }
                 break;
-            }
             case SDLK_BACKSPACE:
-            {
-                del();
-                editline &current = currentline();
-                if(cx > 0) current.del(--cx, 1); 
-                else if(cy > 0)
-                {   //combine with previous line
-                    cx = lines[cy-1].len;
-                    lines[cy-1].append(current.text);
-                    removelines(cy--, 1);
+                if(!del())
+                {
+                    editline &current = currentline();
+                    if(cx > 0) current.del(--cx, 1); 
+                    else if(cy > 0)
+                    {   //combine with previous line
+                        cx = lines[cy-1].len;
+                        lines[cy-1].append(current.text);
+                        removelines(cy--, 1);
+                    }
                 }
                 break;
-            }
             case SDLK_LSHIFT:
             case SDLK_RSHIFT:
                 break;
@@ -687,7 +694,7 @@ static editor *useeditor(const char *name, int mode, bool focus, const char *ini
 
 #define TEXTCOMMAND(f, s, d, body) ICOMMAND(f, s, d,\
     editor *top = currentfocus();\
-    if(!top) return;\
+    if(!top || identflags&IDF_OVERRIDDEN) return;\
     body\
 )
 

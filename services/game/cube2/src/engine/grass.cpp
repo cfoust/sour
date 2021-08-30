@@ -159,7 +159,10 @@ static void gengrassquads(grassgroup *&group, const grasswedge &w, const grasstr
             group = &grassgroups.add();
             group->tri = &g;
             group->tex = tex->id;
-            group->lmtex = lightmaptexs.inrange(g.lmid) ? lightmaptexs[g.lmid].id : notexture->id;
+            extern bool brightengeom;
+            extern int fullbright;
+            int lmid = brightengeom && (g.lmid < LMID_RESERVED || (fullbright && editmode)) ? LMID_BRIGHT : g.lmid;
+            group->lmtex = lightmaptexs.inrange(lmid) ? lightmaptexs[lmid].id : notexture->id;
             group->offset = grassverts.length();
             group->numquads = 0;
             if(lastgrassanim!=lastmillis) animategrass();

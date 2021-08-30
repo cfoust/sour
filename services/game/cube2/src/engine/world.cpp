@@ -534,11 +534,12 @@ void renderentring(const extentity &e, float radius, int axis)
 {
     if(radius <= 0) return;
     glBegin(GL_LINE_LOOP);
-    loopi(16)
+    loopi(15)
     {
         vec p(e.o);
-        p[axis>=2 ? 1 : 0] += radius*cosf(2*M_PI*i/16.0f);
-        p[axis>=1 ? 2 : 1] += radius*sinf(2*M_PI*i/16.0f);
+        const vec2 &sc = sincos360[i*(360/15)];
+        p[axis>=2 ? 1 : 0] += radius*sc.x;
+        p[axis>=1 ? 2 : 1] += radius*sc.y;
         glVertex3fv(p.v);
     }
     glEnd();
@@ -627,7 +628,7 @@ void renderentradius(extentity &e, bool color)
                 float radius = e.attached->attr1;
                 if(!radius) radius = 2*e.o.dist(e.attached->o);
                 vec dir = vec(e.o).sub(e.attached->o).normalize();
-                float angle = max(1, min(90, int(e.attr1)));
+                float angle = clamp(int(e.attr1), 1, 89);
                 renderentattachment(e);
                 renderentcone(*e.attached, dir, radius, angle); 
             }
@@ -1268,7 +1269,7 @@ void shrinkmap()
     conoutf("shrunk map to size %d", worldscale);
 }
 
-void newmap(int *i) { bool force = !isconnected() && !haslocalclients(); if(force) game::forceedit(""); if(emptymap(*i, force, NULL)) game::newmap(max(*i, 0)); }
+void newmap(int *i) { bool force = !isconnected(); if(force) game::forceedit(""); if(emptymap(*i, force, NULL)) game::newmap(max(*i, 0)); }
 void mapenlarge() { if(enlargemap(false)) game::newmap(-1); }
 COMMAND(newmap, "i");
 COMMAND(mapenlarge, "");

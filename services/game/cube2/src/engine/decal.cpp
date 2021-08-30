@@ -404,7 +404,7 @@ struct decalrenderer
             ivec vo = ivec(o).mask(~0xFFF).shl(3);
             loopj(numverts) pos[j] = verts[j].getxyz().add(vo).tovec().mul(1/8.0f);
             planes[0].cross(pos[0], pos[1], pos[2]).normalize();
-            if(numverts >= 4 && !(cu.merged&(1<<orient)) && !flataxisface(cu, orient) && faceconvexity(verts, numverts))
+            if(numverts >= 4 && !(cu.merged&(1<<orient)) && !flataxisface(cu, orient) && faceconvexity(verts, numverts, size))
             {
                 planes[1].cross(pos[0], pos[2], pos[3]).normalize();
                 numplanes++;
@@ -530,7 +530,7 @@ struct decalrenderer
                 if(cu[i].children) findescaped(cu[i].children, co, size>>1, cu[i].escaped);
                 else
                 {
-                    int vismask = cu[i].escaped&cu[i].merged;
+                    int vismask = cu[i].visible&cu[i].merged;
                     if(vismask) loopj(6) if(vismask&(1<<j)) gentris(cu[i], j, co, size);
                 }
             } 
@@ -550,7 +550,7 @@ struct decalrenderer
                 if(cu[i].children) gentris(cu[i].children, co, size>>1, cu[i].escaped);
                 else 
                 {
-                    int vismask = cu[i].visible|cu[i].merged;
+                    int vismask = cu[i].visible;
                     if(vismask) loopj(6) if(vismask&(1<<j)) gentris(cu[i], j, co, size);
                 }
             }
@@ -560,7 +560,7 @@ struct decalrenderer
                 if(cu[i].children) findescaped(cu[i].children, co, size>>1, cu[i].escaped);
                 else
                 {
-                    int vismask = cu[i].escaped&cu[i].merged;
+                    int vismask = cu[i].visible&cu[i].merged;
                     if(vismask) loopj(6) if(vismask&(1<<j)) gentris(cu[i], j, co, size);
                 }
             } 

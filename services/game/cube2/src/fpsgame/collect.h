@@ -639,8 +639,6 @@ struct collectclientmode : clientmode
         findplayerspawn(d, -1, collectteambase(d->team));
     }
 
-    const char *prefixnextmap() { return "ctf_"; }
-
     bool aicheck(fpsent *d, ai::aistate &b)
     {
         if(ai::badhealth(d)) return false;

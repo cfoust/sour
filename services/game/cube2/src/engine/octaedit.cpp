@@ -25,7 +25,7 @@ void boxs3D(const vec &o, vec s, int g)
 {
     s.mul(g);
     loopi(6)
-        boxs(i, o, s);    
+        boxs(i, o, s);
 }
 
 void boxsgrid(int orient, vec o, vec s, int g)
@@ -36,7 +36,7 @@ void boxsgrid(int orient, vec o, vec s, int g)
           oy = o[C[d]],
           xs = s[R[d]],
           ys = s[C[d]],
-          f = !outline ? 0 : (dc>0 ? 0.2f : -0.2f);    
+          f = !outline ? 0 : (dc>0 ? 0.2f : -0.2f);
 
     o[D[d]] += dc * s[D[d]]*g + f;
 
@@ -119,8 +119,12 @@ void cancelsel()
 
 void toggleedit(bool force)
 {
-    if(player->state!=CS_ALIVE && player->state!=CS_DEAD && player->state!=CS_EDITING) return; // do not allow dead players to edit to avoid state confusion
-    if(!editmode && !game::allowedittoggle()) return;         // not in most multiplayer modes
+    if(!force)
+    {
+        if(!isconnected()) return;
+        if(player->state!=CS_ALIVE && player->state!=CS_DEAD && player->state!=CS_EDITING) return; // do not allow dead players to edit to avoid state confusion
+        if(!game::allowedittoggle()) return;         // not in most multiplayer modes
+    }
     if(!(editmode = !editmode))
     {
         player->state = player->editstate;
@@ -156,8 +160,6 @@ bool noedit(bool view, bool msg)
     return !viewable;
 }
 
-extern void createheightmap();
-
 void reorient()
 {
     sel.cx = 0;
@@ -169,7 +171,7 @@ void reorient()
 
 void selextend()
 {
-    if(noedit(true)) return;    
+    if(noedit(true)) return;
     loopi(3)
     {
         if(cur[i]<sel.o[i])
@@ -258,7 +260,7 @@ void editmoveplane(const vec &o, const vec &ray, int d, float off, vec &handle, 
     float dist = 0.0f;
 
     if(pl.rayintersect(player->o, ray, dist))
-    {        
+    {
         dest = ray;
         dest.mul(dist);
         dest.add(player->o);
@@ -288,9 +290,9 @@ void rendereditcursor()
 
     bool hidecursor = g3d_windowhit(true, false) || blendpaintmode, hovering = false;
     hmapsel = false;
-           
+
     if(moving)
-    {       
+    {
         ivec e;
         static vec v, handle;
         editmoveplane(sel.o.tovec(), camdir, od, sel.o[D[od]]+odc*sel.grid*sel.s[D[od]], handle, v, !havesel);
@@ -305,42 +307,42 @@ void rendereditcursor()
         sel.o[R[od]] = e[R[od]];
         sel.o[C[od]] = e[C[od]];
     }
-    else 
+    else
     if(entmoving)
     {
-        entdrag(camdir);       
+        entdrag(camdir);
     }
     else
-    {  
+    {
         ivec w;
         float sdist = 0, wdist = 0, t;
         int entorient = 0, ent = -1;
-       
-        wdist = rayent(player->o, camdir, 1e16f, 
+
+        wdist = rayent(player->o, camdir, 1e16f,
                        (editmode && showmat ? RAY_EDITMAT : 0)   // select cubes first
                        | (!dragging && entediting ? RAY_ENTS : 0)
-                       | RAY_SKIPFIRST 
+                       | RAY_SKIPFIRST
                        | (passthroughcube==1 ? RAY_PASS : 0), gridsize, entorient, ent);
-     
+
         if((havesel || dragging) && !passthroughsel && !hmapedit)     // now try selecting the selection
             if(rayrectintersect(sel.o.tovec(), vec(sel.s.tovec()).mul(sel.grid), player->o, camdir, sdist, orient))
             {   // and choose the nearest of the two
-                if(sdist < wdist) 
+                if(sdist < wdist)
                 {
                     wdist = sdist;
                     ent   = -1;
                 }
             }
-       
+
         if((hovering = hoveringonent(hidecursor ? -1 : ent, entorient)))
         {
-           if(!havesel) 
+           if(!havesel)
            {
                selchildcount = 0;
                sel.s = ivec(0, 0, 0);
            }
         }
-        else 
+        else
         {
             vec w = vec(camdir).mul(wdist+0.05f).add(player->o);
             if(!insideworld(w))
@@ -353,24 +355,24 @@ void rendereditcursor()
                     loopi(3) w[i] = clamp(player->o[i], 0.0f, float(worldsize));
                 }
             }
-            cube *c = &lookupcube(int(w.x), int(w.y), int(w.z));            
+            cube *c = &lookupcube(int(w.x), int(w.y), int(w.z));
             if(gridlookup && !dragging && !moving && !havesel && hmapedit!=1) gridsize = lusize;
             int mag = lusize / gridsize;
             normalizelookupcube(int(w.x), int(w.y), int(w.z));
-            if(sdist == 0 || sdist > wdist) rayrectintersect(lu.tovec(), vec(gridsize), player->o, camdir, t=0, orient); // just getting orient     
+            if(sdist == 0 || sdist > wdist) rayrectintersect(lu.tovec(), vec(gridsize), player->o, camdir, t=0, orient); // just getting orient
             cur = lu;
             cor = vec(w).mul(2).div(gridsize);
             od = dimension(orient);
             d = dimension(sel.orient);
-            
+
             if(hmapedit==1 && dimcoord(horient) == (camdir[dimension(horient)]<0))
             {
-                hmapsel = isheightmap(horient, dimension(horient), false, c);     
+                hmapsel = isheightmap(horient, dimension(horient), false, c);
                 if(hmapsel)
                     od = dimension(orient = horient);
             }
 
-            if(dragging) 
+            if(dragging)
             {
                 updateselection();
                 sel.cx   = min(cor[R[d]], lastcor[R[d]]);
@@ -417,8 +419,8 @@ void rendereditcursor()
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
-    
-    // cursors    
+
+    // cursors
 
     lineshader->set();
 
@@ -448,16 +450,16 @@ void rendereditcursor()
         co[R[d]] += 0.5f*(sel.cx*gridsize);
         co[C[d]] += 0.5f*(sel.cy*gridsize);
         cs[R[d]]  = 0.5f*(sel.cxs*gridsize);
-        cs[C[d]]  = 0.5f*(sel.cys*gridsize);       
+        cs[C[d]]  = 0.5f*(sel.cys*gridsize);
         cs[D[d]] *= gridsize;
         boxs(sel.orient, co, cs);
         if(hmapedit==1)         // 3D selection box
             glColor3ub(0,120,0);
-        else 
+        else
             glColor3ub(0,0,120);
         boxs3D(sel.o.tovec(), sel.s.tovec(), sel.grid);
     }
-   
+
     disablepolygonoffset(GL_POLYGON_OFFSET_LINE);
 
     notextureshader->set();
@@ -488,7 +490,7 @@ void readychanges(block3 &b, cube *c, const ivec &cor, int size)
                 int hasmerges = c[i].ext->va->hasmerges;
                 destroyva(c[i].ext->va);
                 c[i].ext->va = NULL;
-                if(hasmerges) invalidatemerges(c[i], o, size, true); 
+                if(hasmerges) invalidatemerges(c[i], o, size, true);
             }
             freeoctaentities(c[i]);
             c[i].ext->tjoints = -1;
@@ -549,7 +551,6 @@ static inline void copycube(const cube &src, cube &dst)
 {
     dst = src;
     dst.visible = 0;
-    dst.collide = 0;
     dst.merged = 0;
     dst.ext = NULL; // src cube is responsible for va destruction
     if(src.children)
@@ -676,7 +677,7 @@ void pruneundos(int maxremain)                          // bound memory
         freeundo(u);
     }
     //conoutf(CON_DEBUG, "undo: %d of %d(%%%d)", totalundos, undomegs<<20, totalundos*100/(undomegs<<20));
-    while(!redos.empty()) 
+    while(!redos.empty())
     {
         undoblock *u = redos.popfirst();
         totalundos -= u->size;
@@ -731,7 +732,7 @@ void makeundo()                        // stores state of selected cubes before 
 void swapundo(undolist &a, undolist &b, const char *s)
 {
     if(noedit() || (nompedit && multiplayer())) return;
-    if(a.empty()) { conoutf(CON_WARN, "nothing more to %s", s); return; }	
+    if(a.empty()) { conoutf(CON_WARN, "nothing more to %s", s); return; }
 	int ts = a.last->timestamp;
     selinfo l = sel;
 	while(!a.empty() && ts==a.last->timestamp)
@@ -758,7 +759,7 @@ void swapundo(undolist &a, undolist &b, const char *s)
 		freeundo(u);
 	}
     commitchanges();
-    if(!hmapsel) 
+    if(!hmapsel)
     {
         sel = l;
         reorient();
@@ -769,10 +770,14 @@ void swapundo(undolist &a, undolist &b, const char *s)
 void editundo() { swapundo(undos, redos, "undo"); }
 void editredo() { swapundo(redos, undos, "redo"); }
 
+// guard against subdivision
+#define protectsel(f) { undoblock *_u = newundocube(sel); f; if(_u) { pasteundo(_u); freeundo(_u); } }
+
 vector<editinfo *> editinfos;
 editinfo *localedit = NULL;
 
-static void packcube(cube &c, vector<uchar> &buf)
+template<class B>
+static void packcube(cube &c, B &buf)
 {
     if(c.children)
     {
@@ -789,11 +794,11 @@ static void packcube(cube &c, vector<uchar> &buf)
     }
 }
 
-static bool packeditinfo(editinfo *e, vector<uchar> &buf)
+template<class B>
+static bool packblock(block3 &b, B &buf)
 {
-    if(!e || !e->copy || e->copy->size() <= 0 || e->copy->size() > (1<<20)) return false;
-    block3 &b = *e->copy;
-    block3 hdr = b; 
+    if(b.size() <= 0 || b.size() > (1<<20)) return false;
+    block3 hdr = b;
     lilswap(hdr.o.v, 3);
     lilswap(hdr.s.v, 3);
     lilswap(&hdr.grid, 1);
@@ -804,7 +809,8 @@ static bool packeditinfo(editinfo *e, vector<uchar> &buf)
     return true;
 }
 
-static void unpackcube(cube &c, ucharbuf &buf)
+template<class B>
+static void unpackcube(cube &c, B &buf)
 {
     int mat = buf.get();
     if(mat == 0xFF)
@@ -821,10 +827,10 @@ static void unpackcube(cube &c, ucharbuf &buf)
     }
 }
 
-static bool unpackeditinfo(editinfo *&e, ucharbuf &buf)
+template<class B>
+static bool unpackblock(block3 *&b, B &buf)
 {
-    if(!e) e = editinfos.add(new editinfo);
-    if(e->copy) { freeblock(e->copy); e->copy = NULL; }
+    if(b) { freeblock(b); b = NULL; }
     block3 hdr;
     buf.get((uchar *)&hdr, sizeof(hdr));
     lilswap(hdr.o.v, 3);
@@ -832,12 +838,11 @@ static bool unpackeditinfo(editinfo *&e, ucharbuf &buf)
     lilswap(&hdr.grid, 1);
     lilswap(&hdr.orient, 1);
     if(hdr.size() > (1<<20)) return false;
-    e->copy = (block3 *)new uchar[sizeof(block3)+hdr.size()*sizeof(cube)];
-    block3 &b = *e->copy;
-    b = hdr; 
-    cube *c = b.c(); 
-    memset(c, 0, b.size()*sizeof(cube));
-    loopi(b.size()) unpackcube(c[i], buf);
+    b = (block3 *)new uchar[sizeof(block3)+hdr.size()*sizeof(cube)];
+    *b = hdr;
+    cube *c = b->c();
+    memset(c, 0, b->size()*sizeof(cube));
+    loopi(b->size()) unpackcube(c[i], buf);
     return true;
 }
 
@@ -859,14 +864,14 @@ static bool compresseditinfo(const uchar *inbuf, int inlen, uchar *&outbuf, int 
 static bool uncompresseditinfo(const uchar *inbuf, int inlen, uchar *&outbuf, int &outlen)
 {
     if(compressBound(outlen) > (1<<20)) return false;
-    uLongf len = outlen;            
+    uLongf len = outlen;
     outbuf = new uchar[len];
     if(uncompress((Bytef *)outbuf, &len, (const Bytef *)inbuf, inlen) != Z_OK)
     {
         delete[] outbuf;
         outbuf = NULL;
         return false;
-    } 
+    }
     outlen = len;
     return true;
 }
@@ -874,7 +879,7 @@ static bool uncompresseditinfo(const uchar *inbuf, int inlen, uchar *&outbuf, in
 bool packeditinfo(editinfo *e, int &inlen, uchar *&outbuf, int &outlen)
 {
     vector<uchar> buf;
-    if(!packeditinfo(e, buf)) return false;
+    if(!e || !e->copy || !packblock(*e->copy, buf)) return false;
     inlen = buf.length();
     return compresseditinfo(buf.getbuf(), buf.length(), outbuf, outlen);
 }
@@ -885,13 +890,14 @@ bool unpackeditinfo(editinfo *&e, const uchar *inbuf, int inlen, int outlen)
     uchar *outbuf = NULL;
     if(!uncompresseditinfo(inbuf, inlen, outbuf, outlen)) return false;
     ucharbuf buf(outbuf, outlen);
-    if(!unpackeditinfo(e, buf))
+    if(!e) e = editinfos.add(new editinfo);
+    if(!unpackblock(e->copy, buf))
     {
         delete[] outbuf;
         return false;
     }
     delete[] outbuf;
-    return true;     
+    return true;
 }
 
 void freeeditinfo(editinfo *&e)
@@ -903,8 +909,94 @@ void freeeditinfo(editinfo *&e)
     e = NULL;
 }
 
-// guard against subdivision
-#define protectsel(f) { undoblock *_u = newundocube(sel); f; if(_u) { pasteundo(_u); freeundo(_u); } }
+struct octabrushheader
+{
+    char magic[4];
+    int version;
+};
+
+struct octabrush : editinfo
+{
+    char *name;
+
+    octabrush() : name(NULL) {}
+    ~octabrush() { DELETEA(name); if(copy) freeblock(copy); }
+};
+
+static inline bool htcmp(const char *key, const octabrush &b) { return !strcmp(key, b.name); }
+
+static hashset<octabrush> octabrushes;
+
+void delbrush(char *name)
+{
+    if(octabrushes.remove(name))
+        conoutf("deleted brush %s", name);
+}
+COMMAND(delbrush, "s");
+
+void savebrush(char *name)
+{
+    if(!name[0] || noedit(true) || (nompedit && multiplayer())) return;
+    octabrush *b = octabrushes.access(name);
+    if(!b)
+    {
+        b = &octabrushes[name];
+        b->name = newstring(name);
+    }
+    if(b->copy) freeblock(b->copy);
+    protectsel(b->copy = blockcopy(block3(sel), sel.grid));
+    changed(sel);
+    defformatstring(filename)(strpbrk(name, "/\\") ? "packages/%s.obr" : "packages/brush/%s.obr", name);
+    path(filename);
+    stream *f = opengzfile(filename, "wb");
+    if(!f) { conoutf(CON_ERROR, "could not write brush to %s", filename); return; }
+    octabrushheader hdr;
+    memcpy(hdr.magic, "OEBR", 4);
+    hdr.version = 0;
+    lilswap(&hdr.version, 1);
+    f->write(&hdr, sizeof(hdr));
+    streambuf<uchar> s(f);
+    if(!packblock(*b->copy, s)) { delete f; conoutf(CON_ERROR, "could not pack brush %s", filename); return; }
+    delete f;
+    conoutf("wrote brush file %s", filename);
+}
+COMMAND(savebrush, "s");
+
+void pasteblock(block3 &b, selinfo &sel)
+{
+    sel.s = b.s;
+    int o = sel.orient;
+    sel.orient = b.orient;
+    cube *s = b.c();
+    loopselxyz(if(!isempty(*s) || s->children || s->material != MAT_AIR) pastecube(*s, c); s++); // 'transparent'. old opaque by 'delcube; paste'
+    sel.orient = o;
+}
+
+void pastebrush(char *name)
+{
+    if(!name[0] || noedit() || (nompedit && multiplayer())) return;
+    octabrush *b = octabrushes.access(name);
+    if(!b)
+    {
+        defformatstring(filename)(strpbrk(name, "/\\") ? "packages/%s.obr" : "packages/brush/%s.obr", name);
+        path(filename);
+        stream *f = opengzfile(filename, "rb");
+        if(!f) { conoutf(CON_ERROR, "could not read brush %s", filename); return; }
+        octabrushheader hdr;
+        if(f->read(&hdr, sizeof(hdr)) != sizeof(octabrushheader) || memcmp(hdr.magic, "OEBR", 4)) { delete f; conoutf(CON_ERROR, "brush %s has malformatted header", filename); return; }
+        lilswap(&hdr.version, 1);
+        if(hdr.version != 0) { delete f; conoutf(CON_ERROR, "brush %s uses unsupported version", filename); return; }
+        streambuf<uchar> s(f);
+        block3 *copy = NULL;
+        if(!unpackblock(copy, s)) { delete f; conoutf(CON_ERROR, "could not unpack brush %s", filename); return; }
+        delete f;
+        b = &octabrushes[name];
+        b->name = newstring(name);
+        b->copy = copy;
+    }
+    pasteblock(*b->copy, sel);
+}
+COMMAND(pastebrush, "s");
 
 void mpcopy(editinfo *&e, selinfo &sel, bool local)
 {
@@ -920,15 +1012,7 @@ void mppaste(editinfo *&e, selinfo &sel, bool local)
 {
     if(e==NULL) return;
     if(local) game::edittrigger(sel, EDIT_PASTE);
-    if(e->copy)
-    {
-        sel.s = e->copy->s;
-        int o = sel.orient;
-        sel.orient = e->copy->orient;
-        cube *s = e->copy->c();
-        loopselxyz(if(!isempty(*s) || s->children || s->material != MAT_AIR) pastecube(*s, c); s++); // 'transparent'. old opaque by 'delcube; paste'
-        sel.orient = o;
-    }
+    if(e->copy) pasteblock(*e->copy, sel);
 }
 
 void copy()
@@ -962,7 +1046,7 @@ static VSlot *editingvslot = NULL;
 void compacteditvslots()
 {
     if(editingvslot && editingvslot->layer) compactvslot(editingvslot->layer);
-    loopv(editinfos) 
+    loopv(editinfos)
     {
         editinfo *e = editinfos[i];
         compactvslots(e->copy->c(), e->copy->size());
@@ -1013,7 +1097,7 @@ vector<int> htextures;
 COMMAND(clearbrush, "");
 COMMAND(brushvert, "iii");
 ICOMMAND(hmapcancel, "", (), htextures.setsize(0); );
-ICOMMAND(hmapselect, "", (), 
+ICOMMAND(hmapselect, "", (),
     int t = lookupcube(cur.x, cur.y, cur.z).texture[orient];
     int i = htextures.find(t);
     if(i<0)
@@ -1023,7 +1107,7 @@ ICOMMAND(hmapselect, "", (),
 );
 
 inline bool ishtexture(int t)
-{    
+{
     loopv(htextures)
         if(t == htextures[i])
             return false;
@@ -1032,38 +1116,38 @@ inline bool ishtexture(int t)
 
 VARP(bypassheightmapcheck, 0, 0, 1);    // temp
 
-inline bool isheightmap(int o, int d, bool empty, cube *c) 
+inline bool isheightmap(int o, int d, bool empty, cube *c)
 {
     return havesel ||
            (empty && isempty(*c)) ||
            ishtexture(c->texture[o]);
 }
 
-namespace hmap 
+namespace hmap
 {
 #   define PAINTED     1
 #   define NOTHMAP     2
 #   define MAPPED      16
     uchar  flags[MAXBRUSH][MAXBRUSH];
     cube   *cmap[MAXBRUSHC][MAXBRUSHC][4];
-    int    mapz[MAXBRUSHC][MAXBRUSHC];    
+    int    mapz[MAXBRUSHC][MAXBRUSHC];
     int    map [MAXBRUSH][MAXBRUSH];
-    
-    selinfo changes;    
+
+    selinfo changes;
     bool selecting;
     int d, dc, dr, dcr, biasup, br, hws, fg;
     int gx, gy, gz, mx, my, mz, nx, ny, nz, bmx, bmy, bnx, bny;
     uint fs;
     selinfo hundo;
-    
-    cube *getcube(ivec t, int f) 
+
+    cube *getcube(ivec t, int f)
     {
-        t[d] += dcr*f*gridsize;    
+        t[d] += dcr*f*gridsize;
         if(t[d] > nz || t[d] < mz) return NULL;
         cube *c = &lookupcube(t.x, t.y, t.z, gridsize);
         if(c->children) forcemip(*c, false);
-        discardchildren(*c, true);    
-        if(!isheightmap(sel.orient, d, true, c)) return NULL;        
+        discardchildren(*c, true);
+        if(!isheightmap(sel.orient, d, true, c)) return NULL;
         if     (t.x < changes.o.x) changes.o.x = t.x;
         else if(t.x > changes.s.x) changes.s.x = t.x;
         if     (t.y < changes.o.y) changes.o.y = t.y;
@@ -1092,9 +1176,9 @@ namespace hmap
           map[x][y] = v + (z*8);
       flags[x][y] |= MAPPED;
     }
-    
+
     void select(int x, int y, int z)
-    {        
+    {
         if((NOTHMAP & flags[x][y]) || (PAINTED & flags[x][y])) return;
         ivec t(d, x+gx, y+gy, dc ? z : hws-z);
         t.shl(gridpower);
@@ -1103,12 +1187,12 @@ namespace hmap
         hundo.o = t;
         hundo.o[D[d]] -= dcr*gridsize*2;
         makeundoex(hundo);
-        
-        cube **c = cmap[x][y];     
+
+        cube **c = cmap[x][y];
         loopk(4) c[k] = NULL;
         c[1] = getcube(t, 0);
-        if(!c[1] || !isempty(*c[1])) 
-        {   // try up             
+        if(!c[1] || !isempty(*c[1]))
+        {   // try up
             c[2] = c[1];
             c[1] = getcube(t, 1);
             if(!c[1] || isempty(*c[1])) {
@@ -1117,45 +1201,45 @@ namespace hmap
                 z++, t[d]+=fg;
         }
         else // drop down
-        { 
-            z--; 
-            t[d]-= fg; 
+        {
+            z--;
+            t[d]-= fg;
             c[0] = c[1];
-            c[1] = getcube(t, 0);            
+            c[1] = getcube(t, 0);
         }
-        
+
         if(!c[1] || isempty(*c[1])) { flags[x][y] |= NOTHMAP; return; }
 
         flags[x][y] |= PAINTED;
         mapz [x][y]  = z;
-        
+
         if(!c[0]) c[0] = getcube(t, 1);
         if(!c[2]) c[2] = getcube(t, -1);
         c[3] = getcube(t, -2);
         c[2] = !c[2] || isempty(*c[2]) ? NULL : c[2];
         c[3] = !c[3] || isempty(*c[3]) ? NULL : c[3];
-        
-        uint face = getface(c[1], d);          
-        if(face == 0x08080808 && (!c[0] || !isempty(*c[0]))) { flags[x][y] |= NOTHMAP; return; }              
+
+        uint face = getface(c[1], d);
+        if(face == 0x08080808 && (!c[0] || !isempty(*c[0]))) { flags[x][y] |= NOTHMAP; return; }
         if(c[1]->faces[R[d]] == F_SOLID)   // was single
-            face += 0x08080808;      
+            face += 0x08080808;
         else                               // was pair
             face += c[2] ? getface(c[2], d) : 0x08080808;
-        face += 0x08080808;                // c[3]        
+        face += 0x08080808;                // c[3]
         uchar *f = (uchar*)&face;
         addpoint(x,   y,   z, f[0]);
         addpoint(x+1, y,   z, f[1]);
         addpoint(x,   y+1, z, f[2]);
         addpoint(x+1, y+1, z, f[3]);
-                
+
         if(selecting) // continue to adjacent cubes
-        {        
+        {
             if(x>bmx) select(x-1, y, z);
             if(x<bnx) select(x+1, y, z);
             if(y>bmy) select(x, y-1, z);
             if(y<bny) select(x, y+1, z);
         }
-    }       
+    }
 
     void ripple(int x, int y, int z, bool force)
     {
@@ -1184,12 +1268,12 @@ namespace hmap
                 } \
             } \
         } while(0)
-        
+
         if(biasup)
             pullhmap(0, >, <, 1, 0, -);
         else
-            pullhmap(worldsize, <, >, 0, 8, +);     
-   
+            pullhmap(worldsize, <, >, 0, 8, +);
+
         cube **c  = cmap[x][y];
         int e[2][2];
         int notempty = 0;
@@ -1197,9 +1281,9 @@ namespace hmap
         loopk(4) if(c[k]) {
             loopi(2) loopj(2) {
                 e[i][j] = min(8, map[x+i][y+j] - (mapz[x][y]+3-k)*8);
-                notempty |= e[i][j] > 0;         
+                notempty |= e[i][j] > 0;
             }
-            if(notempty) 
+            if(notempty)
             {
                 c[k]->texture[sel.orient] = c[1]->texture[sel.orient];
                 solidfaces(*c[k]);
@@ -1215,7 +1299,7 @@ namespace hmap
                     edgeset(cubeedge(*c[k], d, i, j), dc, dc ? f : 8-f);
                 }
             }
-            else 
+            else
                 emptyfaces(*c[k]);
         }
 
@@ -1223,15 +1307,15 @@ namespace hmap
         if(x>mx) ripple(x-1, y, mapz[x][y], true);
         if(x<nx) ripple(x+1, y, mapz[x][y], true);
         if(y>my) ripple(x, y-1, mapz[x][y], true);
-        if(y<ny) ripple(x, y+1, mapz[x][y], true);    
-               
+        if(y<ny) ripple(x, y+1, mapz[x][y], true);
+
 #define DIAGONAL_RIPPLE(a,b,exp) if(exp) { \
             if(flags[x a][ y] & PAINTED) \
                 ripple(x a, y b, mapz[x a][y], true); \
             else if(flags[x][y b] & PAINTED) \
                 ripple(x a, y b, mapz[x][y b], true); \
         }
-        
+
         DIAGONAL_RIPPLE(-1, -1, (x>mx && y>my)); // do diagonals because adjacents
         DIAGONAL_RIPPLE(-1, +1, (x>mx && y<ny)); //    won't unless changed
         DIAGONAL_RIPPLE(+1, +1, (x<nx && y<ny));
@@ -1243,7 +1327,7 @@ namespace hmap
     void paint()
     {
         loopbrush(1)
-            map[x][y] -= dr * brush[x][y];        
+            map[x][y] -= dr * brush[x][y];
     }
 
     void smooth()
@@ -1263,13 +1347,13 @@ namespace hmap
     }
 
     void rippleandset()
-    {              
+    {
         loopbrush(0)
-            ripple(x, y, gz, false);        
+            ripple(x, y, gz, false);
     }
 
-    void run(int dir, int mode) 
-    {                 
+    void run(int dir, int mode)
+    {
         d  = dimension(sel.orient);
         dc = dimcoord(sel.orient);
         dcr= dc ? 1 : -1;
@@ -1284,12 +1368,12 @@ namespace hmap
         gx = (cur[R[d]] >> gridpower) + cx - MAXBRUSH2;
         gy = (cur[C[d]] >> gridpower) + cy - MAXBRUSH2;
         gz = (cur[D[d]] >> gridpower);
-        fs = dc ? 4 : 0;  
+        fs = dc ? 4 : 0;
         fg = dc ? gridsize : -gridsize;
         mx = max(0, -gx); // ripple range
         my = max(0, -gy);
-        nx = min(MAXBRUSH-1, hws-gx) - 1; 
-        ny = min(MAXBRUSH-1, hws-gy) - 1; 
+        nx = min(MAXBRUSH-1, hws-gx) - 1;
+        ny = min(MAXBRUSH-1, hws-gy) - 1;
         if(havesel)
         {   // selection range
             bmx = mx = max(mx, (sel.o[R[d]]>>gridpower)-gx);
@@ -1304,7 +1388,7 @@ namespace hmap
             bmx = max(mx, brushminx);
             bmy = max(my, brushminy);
             bnx = min(nx, brushmaxx-1);
-            bny = min(ny, brushmaxy-1);   
+            bny = min(ny, brushmaxy-1);
         }
         nz = worldsize-gridsize;
         mz = 0;
@@ -1312,12 +1396,12 @@ namespace hmap
         hundo.orient = sel.orient;
         hundo.grid = gridsize;
         forcenextundo();
-                    
+
         changes.grid = gridsize;
         changes.s = changes.o = cur;
         memset(map, 0, sizeof map);
         memset(flags, 0, sizeof flags);
-        
+
         selecting = true;
         select(clamp(MAXBRUSH2-cx, bmx, bnx),
                clamp(MAXBRUSH2-cy, bmy, bny),
@@ -1325,7 +1409,7 @@ namespace hmap
         selecting = false;
         if(paintme)
             paint();
-        else 
+        else
             smooth();
         rippleandset();                       // pull up points to cubify, and set
         changes.s.sub(changes.o).shr(gridpower).add(1);
@@ -1333,9 +1417,9 @@ namespace hmap
     }
 }
 
-void edithmap(int dir, int mode) {    
-    if((nompedit && multiplayer()) || !hmapsel || gridsize < 8) return;    
-    hmap::run(dir, mode);        
+void edithmap(int dir, int mode) {
+    if((nompedit && multiplayer()) || !hmapsel || gridsize < 8) return;
+    hmap::run(dir, mode);
 }
 
 ///////////// main cube edit ////////////////
@@ -1363,11 +1447,11 @@ void linkedpush(cube &c, int d, int x, int y, int dc, int dir)
     }
 }
 
-static uchar getmaterial(cube &c)
+static ushort getmaterial(cube &c)
 {
     if(c.children)
     {
-        uchar mat = getmaterial(c.children[7]);
+        ushort mat = getmaterial(c.children[7]);
         loopi(7) if(mat != getmaterial(c.children[i])) return MAT_AIR;
         return mat;
     }
@@ -1398,7 +1482,7 @@ void mpeditface(int dir, int mode, selinfo &sel, bool local)
 
     loopselxyz(
         if(c.children) solidfaces(c);
-        uchar mat = getmaterial(c);
+        ushort mat = getmaterial(c);
         discardchildren(c, true);
         c.material = mat;
         if(mode==1) // fill command
@@ -1459,9 +1543,9 @@ void editface(int *dir, int *mode)
 {
     if(noedit(moving!=0)) return;
     if(hmapedit!=1)
-        mpeditface(*dir, *mode, sel, true);        
-    else 
-        edithmap(*dir, *mode);       
+        mpeditface(*dir, *mode, sel, true);
+    else
+        edithmap(*dir, *mode);
 }
 
 VAR(selectionsurf, 0, 0, 1);
@@ -1472,7 +1556,7 @@ void pushsel(int *dir)
     int d = dimension(orient);
     int s = dimcoord(orient) ? -*dir : *dir;
     sel.o[d] += s*sel.grid;
-    if(selectionsurf==1) 
+    if(selectionsurf==1)
     {
         player->o[d] += s*sel.grid;
         player->resetinterp();
@@ -1485,7 +1569,7 @@ void mpdelcube(selinfo &sel, bool local)
     loopselxyz(discardchildren(c, true); emptyfaces(c));
 }
 
-void delcube() 
+void delcube()
 {
     if(noedit()) return;
     mpdelcube(sel, true);
@@ -1726,7 +1810,7 @@ void vshaderparam(const char *name, float *x, float *y, float *z, float *w)
     mpeditvslot(ds, allfaces, sel, true);
 }
 COMMAND(vshaderparam, "sffff");
- 
+
 void mpedittex(int tex, int allfaces, selinfo &sel, bool local)
 {
     if(local)
@@ -1743,7 +1827,7 @@ void filltexlist()
 {
     if(texmru.length()!=vslots.length())
     {
-        loopvrev(texmru) if(texmru[i]>=vslots.length()) 
+        loopvrev(texmru) if(texmru[i]>=vslots.length())
         {
             if(curtexindex > i) curtexindex--;
             else if(curtexindex == i) curtexindex = -1;
@@ -1756,19 +1840,19 @@ void filltexlist()
 void compactmruvslots()
 {
     remappedvslots.setsize(0);
-    loopvrev(texmru) 
+    loopvrev(texmru)
     {
         if(vslots.inrange(texmru[i]))
         {
             VSlot &vs = *vslots[texmru[i]];
-            if(vs.index >= 0) 
+            if(vs.index >= 0)
             {
                 texmru[i] = vs.index;
                 continue;
             }
         }
         if(curtexindex > i) curtexindex--;
-        else if(curtexindex == i) curtexindex = -1;    
+        else if(curtexindex == i) curtexindex = -1;
         texmru.remove(i);
     }
     if(vslots.inrange(lasttex))
@@ -1784,7 +1868,7 @@ void edittex(int i, bool save = true)
 {
     lasttex = i;
     lasttexmillis = totalmillis;
-    if(save) 
+    if(save)
     {
         loopvj(texmru) if(texmru[j]==lasttex) { curtexindex = j; break; }
     }
@@ -1857,7 +1941,7 @@ void replacetexcube(cube &c, int oldtex, int newtex)
 void mpreplacetex(int oldtex, int newtex, bool insel, selinfo &sel, bool local)
 {
     if(local) game::edittrigger(sel, EDIT_REPLACE, oldtex, newtex, insel ? 1 : 0);
-    if(insel) 
+    if(insel)
     {
         loopselxyz(replacetexcube(c, oldtex, newtex));
     }
@@ -1983,13 +2067,29 @@ void rotate(int *cw)
 COMMAND(flip, "");
 COMMAND(rotate, "i");
 
-void setmat(cube &c, uchar mat, uchar matmask, uchar filtermat, uchar filtermask)
+enum { EDITMATF_EMPTY = 0x10000, EDITMATF_NOTEMPTY = 0x20000, EDITMATF_SOLID = 0x30000, EDITMATF_NOTSOLID = 0x40000 };
+static const struct { const char *name; int filter; } editmatfilters[] = 
+{ 
+    { "empty", EDITMATF_EMPTY },
+    { "notempty", EDITMATF_NOTEMPTY },
+    { "solid", EDITMATF_SOLID },
+    { "notsolid", EDITMATF_NOTSOLID }
+};
+
+void setmat(cube &c, ushort mat, ushort matmask, ushort filtermat, ushort filtermask, int filtergeom)
 {
     if(c.children)
-        loopi(8) setmat(c.children[i], mat, matmask, filtermat, filtermask);
+        loopi(8) setmat(c.children[i], mat, matmask, filtermat, filtermask, filtergeom);
     else if((c.material&filtermask) == filtermat)
     {
-        if(mat!=MAT_AIR) 
+        switch(filtergeom)
+        {
+            case EDITMATF_EMPTY: if(isempty(c)) break; return;
+            case EDITMATF_NOTEMPTY: if(!isempty(c)) break; return;
+            case EDITMATF_SOLID: if(isentirelysolid(c)) break; return;
+            case EDITMATF_NOTSOLID: if(!isentirelysolid(c)) break; return;
+        }
+        if(mat!=MAT_AIR)
         {
             c.material &= matmask;
             c.material |= mat;
@@ -2002,19 +2102,28 @@ void mpeditmat(int matid, int filter, selinfo &sel, bool local)
 {
     if(local) game::edittrigger(sel, EDIT_MAT, matid, filter);
 
-    uchar matmask = matid&MATF_VOLUME ? 0 : (matid&MATF_CLIP ? ~MATF_CLIP : ~matid), 
-          filtermat = filter < 0 ? 0 : filter,
-          filtermask = filter < 0 ? 0 : (filter&MATF_VOLUME ? MATF_VOLUME : (filter&MATF_CLIP ? MATF_CLIP : filter));
-    if(isclipped(matid&MATF_VOLUME)) matid |= MAT_CLIP;
-    if(isdeadly(matid&MATF_VOLUME)) matid |= MAT_DEATH;
-    if(matid < 0 && filter >= 0)
+    ushort filtermat = 0, filtermask = 0, matmask;
+    int filtergeom = 0;
+    if(filter >= 0)
+    {
+        filtermat = filter&0xFFFF;
+        filtermask = filtermat&(MATF_VOLUME|MATF_INDEX) ? MATF_VOLUME|MATF_INDEX : (filtermat&MATF_CLIP ? MATF_CLIP : filtermat);
+        filtergeom = filter&~0xFFFF;
+    }
+    if(matid < 0)
     {
         matid = 0;
         matmask = filtermask;
-        if(isclipped(filter&MATF_VOLUME)) matmask &= ~MATF_CLIP; 
-        if(isdeadly(filter&MATF_VOLUME)) matmask &= ~MAT_DEATH; 
+        if(isclipped(filtermat&MATF_VOLUME)) matmask &= ~MATF_CLIP;
+        if(isdeadly(filtermat&MATF_VOLUME)) matmask &= ~MAT_DEATH;
     }
-    loopselxyz(setmat(c, matid, matmask, filtermat, filtermask));
+    else
+    {
+        matmask = matid&(MATF_VOLUME|MATF_INDEX) ? 0 : (matid&MATF_CLIP ? ~MATF_CLIP : ~matid);
+        if(isclipped(matid&MATF_VOLUME)) matid |= MAT_CLIP;
+        if(isdeadly(matid&MATF_VOLUME)) matid |= MAT_DEATH;
+    }
+    loopselxyz(setmat(c, matid, matmask, filtermat, filtermask, filtergeom));
 }
 
 void editmat(char *name, char *filtername)
@@ -2023,8 +2132,13 @@ void editmat(char *name, char *filtername)
     int filter = -1;
     if(filtername[0])
     {
-        filter = findmaterial(filtername);
-        if(filter < 0) { conoutf(CON_ERROR, "unknown material \"%s\"", filtername); return; }
+        loopi(sizeof(editmatfilters)/sizeof(editmatfilters[0])) if(!strcmp(editmatfilters[i].name, filtername)) { filter = editmatfilters[i].filter; break; }
+        if(filter < 0) filter = findmaterial(filtername);
+        if(filter < 0)
+        {
+            conoutf(CON_ERROR, "unknown material \"%s\"", filtername); 
+            return; 
+        }
     }
     int id = -1;
     if(name[0] || filter < 0)
@@ -2047,45 +2161,45 @@ static int lastthumbnail = 0;
 
 VARP(texgui2d, 0, 1, 1);
 
-struct texturegui : g3d_callback 
+struct texturegui : g3d_callback
 {
     bool menuon;
     vec menupos;
     int menustart, menutab;
-   
-    texturegui() : menustart(-1) {} 
+
+    texturegui() : menustart(-1) {}
 
     void gui(g3d_gui &g, bool firstpass)
     {
         int origtab = menutab, numtabs = max((slots.length() + texguiwidth*texguiheight - 1)/(texguiwidth*texguiheight), 1);
         g.start(menustart, 0.04f, &menutab);
         loopi(numtabs)
-        {   
+        {
             g.tab(!i ? "Textures" : NULL, 0xAAFFAA);
             if(i+1 != origtab) continue; //don't load textures on non-visible tabs!
-            loop(h, texguiheight) 
+            loop(h, texguiheight)
             {
                 g.pushlist();
-                loop(w, texguiwidth) 
+                loop(w, texguiwidth)
                 {
                     extern VSlot dummyvslot;
                     int ti = (i*texguiheight+h)*texguiwidth+w;
-                    if(ti<slots.length()) 
+                    if(ti<slots.length())
                     {
                         Slot &slot = lookupslot(ti, false);
                         VSlot &vslot = *slot.variants;
                         if(slot.sts.empty()) continue;
                         else if(!slot.loaded && !slot.thumbnail)
                         {
-                            if(totalmillis-lastthumbnail<texguitime) 
+                            if(totalmillis-lastthumbnail<texguitime)
                             {
                                 g.texture(dummyvslot, 1.0, false); //create an empty space
-                                continue; 
+                                continue;
                             }
-                            loadthumbnail(slot); 
+                            loadthumbnail(slot);
                             lastthumbnail = totalmillis;
                         }
-                        if(g.texture(vslot, 1.0f, true)&G3D_UP && (slot.loaded || slot.thumbnail!=notexture)) 
+                        if(g.texture(vslot, 1.0f, true)&G3D_UP && (slot.loaded || slot.thumbnail!=notexture))
                             edittex(vslot.index);
                     }
                     else
@@ -2101,17 +2215,17 @@ struct texturegui : g3d_callback
 
     void showtextures(bool on)
     {
-        if(on != menuon && (menuon = on)) 
-        { 
-            if(menustart <= lasttexmillis) 
+        if(on != menuon && (menuon = on))
+        {
+            if(menustart <= lasttexmillis)
                 menutab = 1+clamp(lookupvslot(lasttex, false).slot->index, 0, slots.length()-1)/(texguiwidth*texguiheight);
-            menupos = menuinfrontofplayer(); 
-            menustart = starttime(); 
+            menupos = menuinfrontofplayer();
+            menustart = starttime();
         }
     }
 
     void show()
-    {   
+    {
         if(!menuon) return;
         filltexlist();
         extern int usegui2d;
@@ -2120,15 +2234,15 @@ struct texturegui : g3d_callback
     }
 } gui;
 
-void g3d_texturemenu() 
-{ 
-    gui.show(); 
+void g3d_texturemenu()
+{
+    gui.show();
 }
 
-void showtexgui(int *n) 
-{ 
+void showtexgui(int *n)
+{
     if(!editmode) { conoutf(CON_ERROR, "operation only allowed in edit mode"); return; }
-    gui.showtextures(*n==0 ? !gui.menuon : *n==1); 
+    gui.showtextures(*n==0 ? !gui.menuon : *n==1);
 }
 
 // 0/noargs = toggle, 1 = on, other = off - will autoclose if too far away or exit editmode
@@ -2146,7 +2260,7 @@ void rendertexturepanel(int w, int h)
 
         static Shader *rgbonlyshader = NULL;
         if(!rgbonlyshader) rgbonlyshader = lookupshaderbyname("rgbonly");
-        
+
         rgbonlyshader->set();
 
         loopi(7)

@@ -956,8 +956,6 @@ struct ctfclientmode : clientmode
             findplayerspawn(d, -1, m_hold ? 0 : ctfteamflag(d->team));
     }
 
-    const char *prefixnextmap() { return m_hold ? "capture_" : "ctf_"; }
-
 	bool aihomerun(fpsent *d, ai::aistate &b)
 	{
 	    if(m_protect || m_hold)
