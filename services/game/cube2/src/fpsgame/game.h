@@ -347,7 +347,7 @@ static const struct guninfo { short sound, attackdelay, damage, spread, projspee
     { S_SG,       1400,  10, 400, 0,   0, 20, 1024, "shotgun",         "shotg" },  // *SGRAYS
     { S_CG,        100,  30, 100, 0,   0, 7, 1024,  "chaingun",        "chaing"},
     { S_RLFIRE,    800, 120, 0,   80,  0, 10, 1024, "rocketlauncher",  "rocket"},
-    { S_RIFLE,    1500, 200, 0,   0,   0, 30, 2048, "rifle",           "rifle" },
+    { S_RIFLE,    1500, 100, 0,   0,   0, 30, 2048, "rifle",           "rifle" },
     { S_FLAUNCH,   500,  75, 0,   270, 0, 10, 1024, "grenadelauncher", "gl" },
     { S_PISTOL,    500,  35, 50,  0,   0,  7, 1024, "pistol",          "pistol" },
     { S_FLAUNCH,   200,  20, 0,   50,  PART_FIREBALL1,  1, 1024, "fireball",  NULL },
