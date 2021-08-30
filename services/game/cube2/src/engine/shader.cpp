@@ -783,7 +783,7 @@ void Shader::bindprograms()
 
 VARFN(shaders, useshaders, -1, 1, 1, initwarning("shaders"));
 VARF(shaderprecision, 0, 0, 2, initwarning("shader quality"));
-VARF(forceglsl, -1, -1, 1, initwarning("shaders"));
+VARF(forceglsl, -1, 1, 1, initwarning("shaders"));
 
 bool Shader::compile()
 {
