@@ -164,6 +164,7 @@ extern void conoutf(const char *s, ...);
 extern void conoutf(int type, const char *s, ...);
 extern void conoutfv(int type, const char *fmt, va_list args);
 
+extern FILE *getlogfile();
 extern void setlogfile(const char *fname);
 extern void closelogfile();
 extern void logoutfv(const char *fmt, va_list args);
@@ -376,7 +377,7 @@ extern void setbbfrommodel(dynent *d, const char *mdl);
 extern const char *mapmodelname(int i);
 extern model *loadmodel(const char *name, int i = -1, bool msg = false);
 extern void preloadmodel(const char *name);
-extern void flushpreloadedmodels();
+extern void flushpreloadedmodels(void (*func)(void *)); // XXX EMSCRIPTEN - continuation style for asynchronicity
 
 // ragdoll
 
@@ -431,7 +432,7 @@ extern bool requestmasterf(const char *fmt, ...);
 extern void sendclientpacket(ENetPacket *packet, int chan);
 extern void flushclient();
 extern void disconnect(bool async = false, bool cleanup = true);
-extern bool isconnected(bool attempt = false);
+extern bool isconnected(bool attempt = false, bool local = true);
 extern const ENetAddress *connectedpeer();
 extern bool multiplayer(bool msg = true);
 extern void neterr(const char *s, bool disc = true);
