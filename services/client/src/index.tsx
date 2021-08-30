@@ -2,6 +2,7 @@ import styled from '@emotion/styled'
 import { useResizeDetector } from 'react-resize-detector'
 import start from './unsafe-startup'
 import * as React from 'react'
+import * as R from 'ramda'
 import ReactDOM from 'react-dom'
 import {
   Center,
@@ -15,7 +16,7 @@ import {
   Spacer,
 } from '@chakra-ui/react'
 
-import type { GameState } from './types'
+import type { GameState, EntityState, User } from './types'
 import { GameStateType } from './types'
 import StatusOverlay from './Loading'
 import NAMES from './names'
@@ -89,6 +90,29 @@ function App() {
   })
   const { width, height, ref: containerRef } = useResizeDetector()
 
+  const entityState = React.useRef<Maybe<EntityState>>(null)
+
+  const setEntityState = React.useCallback(
+    (setter: (state: EntityState) => EntityState) => {
+      const { current } = entityState
+      entityState.current = setter(
+        current == null
+          ? {
+              me: {
+                id: 0,
+                name: '',
+                position: [0, 0, 0],
+                speaking: false,
+                muted: false,
+              },
+              users: [],
+            }
+          : current
+      )
+    },
+    []
+  )
+
   React.useEffect(() => {
     let removeSubscribers: Array<(arg0: string) => boolean> = []
 
@@ -126,22 +150,80 @@ function App() {
     })
 
     Module.onPlayerMove = (cn, pos, mypos) => {
+      setEntityState((state) => {
+        return {
+          me: {
+            ...state.me,
+            position: mypos,
+          },
+          users: R.map(
+            (user: User) => ({
+              ...user,
+              position: user.id === cn ? pos : user.position,
+            }),
+            state.users
+          ),
+        }
+      })
     }
 
     Module.onPlayerJoin = (cn) => {
-      console.log('join', cn)
+      setEntityState((state) => ({
+        ...state,
+        users: [
+          ...state.users,
+          {
+            id: cn,
+            name: '',
+            position: [0, 0, 0],
+            speaking: false,
+            muted: false,
+          },
+        ],
+      }))
     }
 
     Module.onClientNumber = (cn) => {
-      console.log('my', cn)
+      setEntityState((state) => ({
+        ...state,
+        me: {
+          ...state.me,
+          id: cn,
+        },
+      }))
     }
 
     Module.onPlayerName = (cn, name) => {
-      console.log('name', cn, name)
+      setEntityState((state) => {
+        const { me, users } = state
+        if (me.id === cn) {
+          return {
+            ...state,
+            me: {
+              ...me,
+              name,
+            },
+          }
+        }
+
+        return {
+          ...state,
+          users: R.map(
+            (user: User) => ({
+              ...user,
+              name: user.id === cn ? name : user.name,
+            }),
+            state.users
+          ),
+        }
+      })
     }
 
     Module.onPlayerLeave = (cn) => {
-      console.log('leave', cn)
+      setEntityState((state) => ({
+        ...state,
+        users: R.filter((user) => user.id !== cn, state.users),
+      }))
     }
 
     Module.print = (text) => {

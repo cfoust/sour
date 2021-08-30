@@ -1,3 +1,26 @@
+export type ClientID = number
+
+export type User = {
+  id: ClientID
+  // The visible username of the user
+  name: string
+  // The location of the user in the game world
+  position: Vec3
+  // Whether this user is speaking.
+  speaking: boolean
+  // Whether this user is muted.
+  muted: boolean
+}
+
+// Contains the position of entities
+export type EntityState = {
+  // The current user
+  me: User,
+
+  // Everyone else
+  users: User[],
+}
+
 export enum GameStateType {
   PageLoading,
   // Waiting for files to download

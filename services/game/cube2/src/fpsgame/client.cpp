@@ -1121,6 +1121,7 @@ namespace game
                     getstring(servauth, p, sizeof(servauth));
                     sendintro();
                     spatial_on_my_cn(mycn);
+                    spatial_on_name(mycn, player1->name);
                     break;
                 }
 
