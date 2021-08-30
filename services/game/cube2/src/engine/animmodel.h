@@ -268,18 +268,19 @@ struct animmodel : model
                 setshaderparams(b, as, m!=notexture);
                 setshader(b, as, m!=notexture);
             }
+            int activetmu = 0;
             if(s!=lasttex)
             {
-                if(enableglow) glActiveTexture_(GL_TEXTURE1_ARB);
+                if(enableglow) { glActiveTexture_(GL_TEXTURE1_ARB); activetmu = 1; }
                 glBindTexture(GL_TEXTURE_2D, s->id);
-                if(enableglow) glActiveTexture_(GL_TEXTURE0_ARB);
                 lasttex = s;
             }
             if(n && n!=lastnormalmap)
             {
                 glActiveTexture_(GL_TEXTURE3_ARB);
+                activetmu = 3;
                 glBindTexture(GL_TEXTURE_2D, n->id);
-                glActiveTexture_(GL_TEXTURE0_ARB);
+                lastnormalmap = n;
             }
             if(s->type&Texture::ALPHA)
             {
@@ -311,9 +312,9 @@ struct animmodel : model
             }
             if(m!=lastmasks && m!=notexture)
             {
-                if(!enableglow) glActiveTexture_(GL_TEXTURE1_ARB);
+                if(!enableglow) { glActiveTexture_(GL_TEXTURE1_ARB); activetmu = 1; }
+                else if(activetmu != 0) { glActiveTexture_(GL_TEXTURE0_ARB); activetmu = 0; }
                 glBindTexture(GL_TEXTURE_2D, m->id);
-                if(!enableglow) glActiveTexture_(GL_TEXTURE0_ARB);
                 lastmasks = m;
             }
             if((renderpath!=R_FIXEDFUNCTION || m!=notexture) && envmaptmu>=0 && envmapmax>0)
@@ -322,6 +323,7 @@ struct animmodel : model
                 if(!enableenvmap || lastenvmaptex!=emtex)
                 {
                     glActiveTexture_(GL_TEXTURE0_ARB+envmaptmu);
+                    activetmu = envmaptmu;
                     if(!enableenvmap)
                     {
                         glEnable(GL_TEXTURE_CUBE_MAP_ARB);
@@ -338,10 +340,10 @@ struct animmodel : model
                         if(!enablerescale) { glEnable(hasRN ? GL_RESCALE_NORMAL_EXT : GL_NORMALIZE); enablerescale = true; }
                     }
                     if(lastenvmaptex!=emtex) { glBindTexture(GL_TEXTURE_CUBE_MAP_ARB, emtex); lastenvmaptex = emtex; }
-                    glActiveTexture_(GL_TEXTURE0_ARB);
                 }
             }
-            else if(enableenvmap) disableenvmap();
+            else if(enableenvmap) { disableenvmap(); activetmu = 0; }
+            if(activetmu != 0) glActiveTexture_(GL_TEXTURE0_ARB);
         }
     };
 

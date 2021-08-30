@@ -8,16 +8,6 @@ struct vboinfo
     uchar *data;
 };
 
-static inline uint hthash(GLuint key)
-{
-    return key;
-}
-
-static inline bool htcmp(GLuint x, GLuint y)
-{
-    return x==y;
-}
-
 hashtable<GLuint, vboinfo> vbos;
 
 VAR(printvbo, 0, 0, 1);
@@ -284,7 +274,7 @@ struct vacollect : verthash
                 LightMapTexture &lmtex = lightmaptexs[k.lmid];
                 int type = lmtex.type&LM_TYPE;
                 if(k.layer==LAYER_BLEND) type += 2;
-                else if(k.alpha) type = 4 + 2*(k.alpha-1);
+                else if(k.alpha) type += 4 + 2*(k.alpha-1);
                 lastlmid[type] = lmtex.unlitx>=0 ? k.lmid : LMID_AMBIENT;
                 if(firstlmid[type]==LMID_AMBIENT && lastlmid[type]!=LMID_AMBIENT)
                 {
@@ -297,7 +287,7 @@ struct vacollect : verthash
                 Shader *s = lookupvslot(k.tex, false).slot->shader;
                 int type = s->type&SHADER_NORMALSLMS ? LM_BUMPMAP0 : LM_DIFFUSE;
                 if(k.layer==LAYER_BLEND) type += 2;
-                else if(k.alpha) type = 4 + 2*(k.alpha-1);
+                else if(k.alpha) type += 4 + 2*(k.alpha-1);
                 if(lastlmid[type]!=LMID_AMBIENT)
                 {
                     sortval &t = indices[k];
@@ -823,7 +813,7 @@ ushort encodenormal(const vec &n)
 
 vec decodenormal(ushort norm)
 {
-    if(!norm) return vec(0, 0, 0);
+    if(!norm) return vec(0, 0, 1);
     norm--;
     const vec2 &yaw = sincos360[norm%360], &pitch = sincos360[norm/360+270];
     return vec(-yaw.y*pitch.x, yaw.x*pitch.x, pitch.y);
@@ -874,9 +864,9 @@ void addcubeverts(VSlot &vslot, int orient, int size, vec *pos, int convex, usho
         }
         else
         {
-            v.norm = vinfo && vinfo[k].norm && envmap != EMID_NONE ? bvec(decodenormal(vinfo[k].norm)) : bvec(128, 128, 128);
-            v.tangent = bvec(128, 128, 128);
-            v.bitangent = 128;
+            v.norm = vinfo && vinfo[k].norm && envmap != EMID_NONE ? bvec(decodenormal(vinfo[k].norm)) : bvec(128, 128, 255);
+            v.tangent = bvec(255, 128, 128);
+            v.bitangent = 255;
         }
         index[k] = vc.addvert(v);
         if(index[k] < 0) return;
@@ -1062,17 +1052,15 @@ void gencubeedges(cube *c = worldroot, int x = 0, int y = 0, int z = 0, int size
 
 void gencubeverts(cube &c, int x, int y, int z, int size, int csi)
 {
-    c.visible = 0;
-    c.collide = 0;
-    int tj = filltjoints && c.ext ? c.ext->tjoints : -1, vis;
+    int tj = filltjoints && c.ext ? c.ext->tjoints : -1, vis, vismask = 0, collidemask = 0;
     loopi(6) if((vis = visibletris(c, i, x, y, z, size)))
     {
+        vismask |= 1<<i;
+
         // this is necessary for physics to work, even if the face is merged
-        if(collideface(c, i)) c.collide |= 1<<i;
+        if(!collideface(c, i)) collidemask |= 0x80;
 
         if(c.merged&(1<<i)) continue;
-
-        c.visible |= 1<<i;
 
         vec pos[MAXFACEVERTS];
         vertinfo *verts = NULL;
@@ -1082,7 +1070,7 @@ void gencubeverts(cube &c, int x, int y, int z, int size, int csi)
             verts = c.ext->verts() + c.ext->surfaces[i].verts;
             vec vo = ivec(x, y, z).mask(~0xFFF).tovec();
             loopj(numverts) pos[j] = verts[j].getxyz().tovec().mul(1.0f/8).add(vo);
-            if(!(c.merged&(1<<i)) && !flataxisface(c, i)) convex = faceconvexity(verts, numverts);
+            if(!(c.merged&(1<<i)) && !flataxisface(c, i)) convex = faceconvexity(verts, numverts, size);
         }
         else
         {
@@ -1117,8 +1105,10 @@ void gencubeverts(cube &c, int x, int y, int z, int size, int csi)
     }
     else
     {
-        if(visibleface(c, i, x, y, z, size, MAT_AIR, MAT_NOCLIP, MATF_CLIP) && collideface(c, i)) c.collide |= 1<<i;
+        if(visibleface(c, i, x, y, z, size, MAT_AIR, MAT_NOCLIP, MATF_CLIP) && collideface(c, i)) collidemask |= 1<<i;
     }
+    c.visible = vismask;
+    c.merged = (c.merged&vismask) | collidemask;
 }
 
 bool skyoccluded(cube &c, int orient)
@@ -1354,11 +1344,9 @@ static vector<mergedface> vamerges[MAXMERGELEVEL+1];
 int genmergedfaces(cube &c, const ivec &co, int size, int minlevel = -1)
 {
     if(!c.ext || isempty(c)) return -1;
-    int tj = c.ext->tjoints, maxlevel = -1;
-    if(minlevel < 0) c.escaped &= ~c.merged;
-    loopi(6) 
+    int tj = c.ext->tjoints, maxlevel = -1, vismask = c.visible&c.merged;
+    loopi(6) if(vismask&(1<<i)) 
     {
-        if(!(c.merged&(1<<i))) continue;
         surfaceinfo &surf = c.ext->surfaces[i];
         int numverts = surf.numverts&MAXFACEVERTS;
         if(!numverts) 
@@ -1376,8 +1364,6 @@ int genmergedfaces(cube &c, const ivec &co, int size, int minlevel = -1)
         mf.verts = c.ext->verts() + surf.verts; 
         mf.tjoints = -1;
         int level = calcmergedsize(i, co, size, mf.verts, mf.numverts&MAXFACEVERTS);
-        if(minlevel < 0 && 1<<level > size) 
-            c.escaped |= 1<<i;
         if(level > minlevel)
         {
             maxlevel = max(maxlevel, level);
@@ -1425,7 +1411,7 @@ int findmergedfaces(cube &c, const ivec &co, int size, int csi, int minlevel)
         }
         return maxlevel;
     }
-    else if(c.ext && c.merged) return genmergedfaces(c, co, size, minlevel);
+    else if(c.ext && c.visible&c.merged) return genmergedfaces(c, co, size, minlevel);
     else return -1;
 }
 
@@ -1490,7 +1476,7 @@ void rendercube(cube &c, int cx, int cy, int cz, int size, int csi, int &maxleve
     if(!isempty(c)) 
     {
         gencubeverts(c, cx, cy, cz, size, csi);
-        if(c.merged) maxlevel = max(maxlevel, genmergedfaces(c, ivec(cx, cy, cz), size));
+        if(c.visible&c.merged) maxlevel = max(maxlevel, genmergedfaces(c, ivec(cx, cy, cz), size));
     }
     if(c.material != MAT_AIR) genmatsurfs(c, cx, cy, cz, size, vc.matsurfs);
 
@@ -1525,7 +1511,7 @@ void calcmatbb(int cx, int cy, int cz, int size, ivec &bbmin, ivec &bbmax)
     loopv(vc.matsurfs)
     {
         materialsurface &m = vc.matsurfs[i];
-        switch(m.material)
+        switch(m.material&MATF_VOLUME)
         {
             case MAT_WATER:
             case MAT_GLASS:
@@ -1572,7 +1558,7 @@ void setva(cube &c, int cx, int cy, int cz, int size, int csi)
 
     addskyverts(ivec(cx, cy, cz), size);
 
-    if(!vc.emptyva())
+    if(size == min(0x1000, worldsize/2) || !vc.emptyva())
     {
         vtxarray *va = newva(cx, cy, cz, size);
         ext(c).va = va;

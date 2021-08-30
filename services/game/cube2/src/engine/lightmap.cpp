@@ -44,7 +44,7 @@ struct lightmapinfo
     uchar *colorbuf;
     bvec *raybuf;
     bool packed;
-    int type, w, h, bpp, bufsize, surface;
+    int type, w, h, bpp, bufsize, surface, layers;
 };
 
 struct lightmaptask
@@ -539,9 +539,8 @@ static uint generatelumel(lightmapworker *w, const float tolerance, uint lightma
         if(angle <= 0) continue;
         if(light.attached && light.attached->type==ET_SPOTLIGHT)
         {
-            vec spot(vec(light.attached->o).sub(light.o).normalize());
-            float maxatten = 1-cosf(max(1, min(90, int(light.attached->attr1)))*RAD);
-            float spotatten = 1-(1-ray.dot(spot))/maxatten;
+            vec spot = vec(light.attached->o).sub(light.o).normalize();
+            float maxatten = sincos360[clamp(int(light.attached->attr1), 1, 89)].x, spotatten = (ray.dot(spot) - maxatten) / (1 - maxatten);
             if(spotatten <= 0) continue;
             attenuation *= spotatten;
         }
@@ -1180,15 +1179,15 @@ static int packlightmaps(lightmapworker *w = NULL)
             packlightmap(*l, layout);
             int numverts = surf.numverts&MAXFACEVERTS;
             vertinfo *verts = t.ext->verts() + surf.verts;
-            if(surf.numverts&LAYER_DUP)
+            if(l->layers&LAYER_DUP)
             {
                 if(l->type&LM_ALPHA) surf.lmid[0] = layout.lmid;
                 else { surf.lmid[1] = layout.lmid; verts += numverts; }
             }
             else
             {
-                surf.lmid[0] = surf.numverts&LAYER_TOP ? layout.lmid : LMID_AMBIENT;
-                surf.lmid[1] = surf.numverts&LAYER_BOTTOM ? layout.lmid : LMID_AMBIENT;
+                if(l->layers&LAYER_TOP) surf.lmid[0] = layout.lmid;
+                if(l->layers&LAYER_BOTTOM) surf.lmid[1] = layout.lmid;
             }
             ushort offsetx = layout.x*((USHRT_MAX+1)/LM_PACKW), offsety = layout.y*((USHRT_MAX+1)/LM_PACKH);
             loopk(numverts)
@@ -1287,6 +1286,7 @@ static lightmapinfo *alloclightmap(lightmapworker *w)
     l->packed = false;
     l->bufsize = usedspace;
     l->surface = -1;
+    l->layers = 0;
     if(!w->firstlightmap) w->firstlightmap = l;
     if(w->lastlightmap) w->lastlightmap->next = l;
     w->lastlightmap = l;
@@ -1490,7 +1490,7 @@ static lightmapinfo *setupsurfaces(lightmapworker *w, lightmaptask &task)
                     numlitverts += numverts;
                 }
             }
-            else if(!flataxisface(c, i)) convex = faceconvexity(verts, numverts);
+            else if(!flataxisface(c, i)) convex = faceconvexity(verts, numverts, size);
         }
         else
         {
@@ -1568,16 +1568,30 @@ static lightmapinfo *setupsurfaces(lightmapworker *w, lightmaptask &task)
                 }
 
                 w->lastlightmap->surface = i;
-                if(surftype==SURFACE_LIGHTMAP_BLEND) surf.numverts |= LAYER_BLEND;
+                w->lastlightmap->layers = (surftype==SURFACE_LIGHTMAP_BOTTOM ? LAYER_BOTTOM : LAYER_TOP);
+                if(surftype==SURFACE_LIGHTMAP_BLEND) 
+                {
+                    surf.numverts |= LAYER_BLEND;
+                    w->lastlightmap->layers = LAYER_TOP;
+                    if((shader->type^layer->slot->shader->type)&SHADER_NORMALSLMS ||
+                       (shader->type&SHADER_NORMALSLMS && vslot.rotation!=layer->rotation))
+                        break;
+                    w->lastlightmap->layers |= LAYER_BOTTOM;
+                }
                 else
                 {
-                    surf.numverts |= (surftype==SURFACE_LIGHTMAP_BOTTOM ? LAYER_BOTTOM : LAYER_TOP);
+                    if(surftype==SURFACE_LIGHTMAP_BOTTOM) 
+                    { 
+                        surf.numverts |= LAYER_BOTTOM; 
+                        w->lastlightmap->layers = LAYER_BOTTOM; 
+                    }
+                    else 
+                    { 
+                        surf.numverts |= LAYER_TOP; 
+                        w->lastlightmap->layers = LAYER_TOP; 
+                    }
                     if(w->type&LM_ALPHA) removelmalpha(w);
                 } 
-                if(surftype!=SURFACE_LIGHTMAP_BLEND) continue;
-                if((shader->type^layer->slot->shader->type)&SHADER_NORMALSLMS ||
-                   (shader->type&SHADER_NORMALSLMS && vslot.rotation!=layer->rotation)) 
-                    break;
                 continue;
             }
 
@@ -1615,6 +1629,7 @@ static lightmapinfo *setupsurfaces(lightmapworker *w, lightmaptask &task)
                 else if(!(surf.numverts&LAYER_DUP))
                 {
                     surf.numverts |= LAYER_DUP;
+                    w->lastlightmap->layers |= LAYER_DUP;
                     loopk(numverts)
                     {
                         vertinfo &src = curlitverts[k];
@@ -1625,6 +1640,7 @@ static lightmapinfo *setupsurfaces(lightmapworker *w, lightmaptask &task)
                     numlitverts += numverts;
                 }
                 surf.numverts |= LAYER_BOTTOM;
+                w->lastlightmap->layers |= LAYER_BOTTOM;
 
                 w->lastlightmap->surface = i;
                 break;
@@ -2226,7 +2242,7 @@ void setfullbrightlevel(int fullbrightlevel)
 {
     if(lightmaptexs.length() > LMID_BRIGHT)
     {
-        uchar bright[3] = { fullbrightlevel, fullbrightlevel, fullbrightlevel };
+        uchar bright[3] = { uchar(fullbrightlevel), uchar(fullbrightlevel), uchar(fullbrightlevel) };
         createtexture(lightmaptexs[LMID_BRIGHT].id, 1, 1, bright, 0, 1);
     }
     initlights();
@@ -2404,7 +2420,7 @@ void genreservedlightmaptexs()
     createtexture(lightmaptexs[LMID_AMBIENT].id, 1, 1, unlit, 0, 1);
     bvec front(128, 128, 255);
     createtexture(lightmaptexs[LMID_AMBIENT1].id, 1, 1, &front, 0, 1);
-    uchar bright[3] = { fullbrightlevel, fullbrightlevel, fullbrightlevel };
+    uchar bright[3] = { uchar(fullbrightlevel), uchar(fullbrightlevel), uchar(fullbrightlevel) };
     createtexture(lightmaptexs[LMID_BRIGHT].id, 1, 1, bright, 0, 1);
     createtexture(lightmaptexs[LMID_BRIGHT1].id, 1, 1, &front, 0, 1);
     uchar dark[3] = { 0, 0, 0 };
@@ -2659,10 +2675,9 @@ void lightreaching(const vec &target, vec &color, vec &dir, bool fast, extentity
             intensity -= mag / float(e.attr1);
         if(e.attached && e.attached->type==ET_SPOTLIGHT)
         {
-            vec spot(vec(e.attached->o).sub(e.o).normalize());
-            float maxatten = 1-cosf(max(1, min(90, int(e.attached->attr1)))*RAD);
-            float spotatten = 1-(1-ray.dot(spot))/maxatten;
-            if(spotatten<=0) continue;
+            vec spot = vec(e.attached->o).sub(e.o).normalize();
+            float maxatten = sincos360[clamp(int(e.attached->attr1), 1, 89)].x, spotatten = (ray.dot(spot) - maxatten) / (1 - maxatten);
+            if(spotatten <= 0) continue;
             intensity *= spotatten;
         }
 
@@ -2721,10 +2736,9 @@ entity *brightestlight(const vec &target, const vec &dir)
             intensity -= mag / float(e.attr1);
         if(e.attached && e.attached->type==ET_SPOTLIGHT)
         {
-            vec spot(vec(e.attached->o).sub(e.o).normalize());
-            float maxatten = 1-cosf(max(1, min(90, int(e.attached->attr1)))*RAD);
-            float spotatten = 1-(1-ray.dot(spot))/maxatten;
-            if(spotatten<=0) continue;
+            vec spot = vec(e.attached->o).sub(e.o).normalize();
+            float maxatten = sincos360[clamp(int(e.attached->attr1), 1, 89)].x, spotatten = (ray.dot(spot) - maxatten) / (1 - maxatten);
+            if(spotatten <= 0) continue;
             intensity *= spotatten;
         }
 

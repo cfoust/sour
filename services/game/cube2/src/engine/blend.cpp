@@ -85,7 +85,6 @@ void BlendMapNode::splitsolid(uchar &type, uchar val)
 
 uchar BlendMapBranch::shrink(BlendMapNode &child, int quadrant)
 {
-    loopi(4) if(i != quadrant) children[i].cleanup(type[i]);
     uchar childtype = type[quadrant];
     child = children[quadrant];
     type[quadrant] = BM_SOLID;
@@ -485,23 +484,21 @@ struct BlendBrush
     void gentex()
     {
         if(!tex) glGenTextures(1, &tex);
-        uchar *buf = new uchar[2*(w+2)*(h+2)];
-        memset(buf, 0, 2*(w+2));
-        uchar *dst = &buf[2*(w+2)], *src = data;
+        uchar *buf = new uchar[2*w*h];
+        uchar *dst = buf, *src = data;
         loopi(h)
         {
-            *dst++ = 0; 
-            *dst++ = 0;
             loopj(w)
             {
                 *dst++ = 255 - *src;
                 *dst++ = 255 - *src++;
             }
-            *dst++ = 0;
-            *dst++ = 0;
         }
-        memset(dst, 0, 2*(w+2));
-        createtexture(tex, w+2, h+2, buf, 3, 1, GL_LUMINANCE_ALPHA);
+        createtexture(tex, w, h, buf, 3, 1, GL_LUMINANCE_ALPHA);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        GLfloat border[4] = { 0, 0, 0, 0 };
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);
         delete[] buf;
     }
     
@@ -743,10 +740,10 @@ void renderblendbrush()
     if(!blendpaintmode || !brushes.inrange(curbrush)) return;
 
     BlendBrush *brush = brushes[curbrush];
-    int x1 = (int)floor(clamp(worldpos.x, 0.0f, float(worldsize))/(1<<BM_SCALE) - 0.5f*(brush->w+2)) << BM_SCALE,
-        y1 = (int)floor(clamp(worldpos.y, 0.0f, float(worldsize))/(1<<BM_SCALE) - 0.5f*(brush->h+2)) << BM_SCALE,
-        x2 = x1 + ((brush->w+2) << BM_SCALE),
-        y2 = y1 + ((brush->h+2) << BM_SCALE);
+    int x1 = (int)floor(clamp(worldpos.x, 0.0f, float(worldsize))/(1<<BM_SCALE) - 0.5f*brush->w) << BM_SCALE,
+        y1 = (int)floor(clamp(worldpos.y, 0.0f, float(worldsize))/(1<<BM_SCALE) - 0.5f*brush->h) << BM_SCALE,
+        x2 = x1 + (brush->w << BM_SCALE),
+        y2 = y1 + (brush->h << BM_SCALE);
 
     if(max(x1, y1) >= worldsize || min(x2, y2) <= 0 || x1>=x2 || y1>=y2) return;
 

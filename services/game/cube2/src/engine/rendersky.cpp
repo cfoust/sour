@@ -229,30 +229,23 @@ static void initdome(const bvec &color, float minalpha = 0.0f, float maxalpha = 
     if(clipz >= 1)
     {
         domeverts[domenumverts++] = domevert(vec(0.0f, 0.0f, 1.0f), color, minalpha); //build initial 'hres' sided pyramid
-        loopi(hres)
-        {
-            float angle = 2*M_PI*float(i)/hres;
-            domeverts[domenumverts++] = domevert(vec(cosf(angle), sinf(angle), 0.0f), color, maxalpha);
-        }
+        loopi(hres) domeverts[domenumverts++] = domevert(vec(sincos360[(360*i)/hres], 0.0f), color, maxalpha);
         loopi(hres) genface(depth, 0, i+1, 1+(i+1)%hres);
     }
     else if(clipz <= 0)
     {
-        loopi(hres<<depth)
-        {
-            float angle = 2*M_PI*float(i)/(hres<<depth), x = cosf(angle), y = sinf(angle);
-            domeverts[domenumverts++] = domevert(vec(x, y, 0.0f), color, maxalpha);
-        }
+        loopi(hres<<depth) domeverts[domenumverts++] = domevert(vec(sincos360[(360*i)/(hres<<depth)], 0.0f), color, maxalpha);
     }
     else
     {
-        float clipxy = sqrtf(1 - clipz*clipz), xm = cosf(M_PI/hres), ym = sinf(M_PI/hres);
+        float clipxy = sqrtf(1 - clipz*clipz);
+        const vec2 &scm = sincos360[180/hres];
         loopi(hres)
         {
-            float angle = 2*M_PI*float(i)/hres, x = cosf(angle), y = sinf(angle);
-            domeverts[domenumverts++] = domevert(vec(x*clipxy, y*clipxy, clipz), color, minalpha);
-            domeverts[domenumverts++] = domevert(vec(x, y, 0.0f), color, maxalpha);
-            domeverts[domenumverts++] = domevert(vec(x*xm - y*ym, y*xm + x*ym, 0.0f), color, maxalpha);
+            const vec2 &sc = sincos360[(360*i)/hres];
+            domeverts[domenumverts++] = domevert(vec(sc.x*clipxy, sc.y*clipxy, clipz), color, minalpha);
+            domeverts[domenumverts++] = domevert(vec(sc.x, sc.y, 0.0f), color, maxalpha);
+            domeverts[domenumverts++] = domevert(vec(sc.x*scm.x - sc.y*scm.y, sc.y*scm.x + sc.x*scm.y, 0.0f), color, maxalpha);
         }
         loopi(hres)
         {

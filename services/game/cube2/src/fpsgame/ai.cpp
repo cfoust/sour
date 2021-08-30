@@ -204,15 +204,16 @@ namespace ai
         }
     }
 
-    bool checkothers(vector<int> &targets, fpsent *d, int state, int targtype, int target, bool teams)
+    bool checkothers(vector<int> &targets, fpsent *d, int state, int targtype, int target, bool teams, int *members)
     { // checks the states of other ai for a match
         targets.setsize(0);
         loopv(players)
         {
             fpsent *e = players[i];
-            if(e == d || !e->ai || e->state != CS_ALIVE) continue;
             if(targets.find(e->clientnum) >= 0) continue;
             if(teams && d && !isteam(d->team, e->team)) continue;
+            if(members) (*members)++;
+            if(e == d || !e->ai || e->state != CS_ALIVE) continue;
             aistate &b = e->ai->getstate();
             if(state >= 0 && b.type != state) continue;
             if(target >= 0 && b.target != target) continue;
@@ -466,8 +467,11 @@ namespace ai
             if(!ignore) switch(n.state)
             {
                 case AI_S_DEFEND: // don't get into herds
-                    proceed = !checkothers(targets, d, n.state, n.targtype, n.target, true);
+                {
+                    int members = 0;
+                    proceed = !checkothers(targets, d, n.state, n.targtype, n.target, true, &members) && members > 1;
                     break;
+                }
                 default: break;
             }
             if(proceed && makeroute(d, b, n.node))
@@ -519,8 +523,11 @@ namespace ai
             switch(n.state)
             {
                 case AI_S_DEFEND: // don't get into herds
-                    proceed = !checkothers(targets, d, n.state, n.targtype, n.target, true);
+                {
+                    int members = 0;
+                    proceed = !checkothers(targets, d, n.state, n.targtype, n.target, true, &members) && members > 1;
                     break;
+                }
                 default: break;
             }
             if(proceed && makeroute(d, b, n.node))

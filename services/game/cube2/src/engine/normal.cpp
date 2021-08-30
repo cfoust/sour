@@ -166,7 +166,7 @@ void addnormals(cube &c, const ivec &o, int size)
                 vertinfo &v = verts[j];
                 pos[j] = vec(v.x, v.y, v.z).mul(1.0f/8).add(vo);
             }
-            if(!(c.merged&(1<<i)) && !flataxisface(c, i)) convex = faceconvexity(verts, numverts);
+            if(!(c.merged&(1<<i)) && !flataxisface(c, i)) convex = faceconvexity(verts, numverts, size);
         }
         else if(c.merged&(1<<i)) continue;
         else

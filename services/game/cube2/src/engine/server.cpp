@@ -16,6 +16,15 @@ void closelogfile()
     }
 }
 
+FILE *getlogfile()
+{
+#ifdef WIN32
+    return logfile;
+#else
+    return logfile ? logfile : stdout;
+#endif
+}
+
 void setlogfile(const char *fname)
 {
     closelogfile();
@@ -24,7 +33,8 @@ void setlogfile(const char *fname)
         fname = findfile(fname, "w");
         if(fname) logfile = fopen(fname, "w");
     }
-    setvbuf(logfile ? logfile : stdout, NULL, _IOLBF, BUFSIZ);
+    FILE *f = getlogfile();
+    if(f) setvbuf(f, NULL, _IOLBF, BUFSIZ);
 }
 
 void logoutf(const char *fmt, ...)
@@ -286,6 +296,7 @@ void cleanupserver()
 void process(ENetPacket *packet, int sender, int chan);
 //void disconnect_client(int n, int reason);
 
+int getservermtu() { return serverhost ? serverhost->mtu : -1; }
 void *getclientinfo(int i) { return !clients.inrange(i) || clients[i]->type==ST_EMPTY ? NULL : clients[i]->info; }
 ENetPeer *getclientpeer(int i) { return clients.inrange(i) && clients[i]->type==ST_TCPIP ? clients[i]->peer : NULL; }
 int getnumclients()        { return clients.length(); }
@@ -403,7 +414,22 @@ ENetPacket *sendfile(int cn, int chan, stream *file, const char *format, ...)
     return packet->referenceCount > 0 ? packet : NULL;
 }
 
-const char *disc_reasons[] = { "normal", "end of packet", "client num", "kicked/banned", "tag type", "ip is banned", "server is in private mode", "server FULL", "connection timed out", "overflow" };
+const char *disconnectreason(int reason)
+{
+    switch(reason)
+    {
+        case DISC_EOP: return "end of packet";
+        case DISC_LOCAL: return "server is in local mode";
+        case DISC_KICK: return "kicked/banned";
+        case DISC_TAGT: return "tag type";
+        case DISC_PRIVATE: return "server is in private mode";
+        case DISC_MAXCLIENTS: return "server FULL";
+        case DISC_TIMEOUT: return "connection timed out";
+        case DISC_OVERFLOW: return "overflow";
+        case DISC_PASSWORD: return "invalid password";
+        default: return NULL;
+    }
+}
 
 void disconnect_client(int n, int reason)
 {
@@ -411,7 +437,10 @@ void disconnect_client(int n, int reason)
     enet_peer_disconnect(clients[n]->peer, reason);
     server::clientdisconnect(n);
     delclient(clients[n]);
-    defformatstring(s)("client (%s) disconnected because: %s", clients[n]->hostname, disc_reasons[reason]);
+    const char *msg = disconnectreason(reason);
+    string s;
+    if(msg) formatstring(s)("client (%s) disconnected because: %s", clients[n]->hostname, msg);
+    else formatstring(s)("client (%s) disconnected", clients[n]->hostname);
     logoutf("%s", s);
     server::sendservmsg(s);
 }
@@ -1048,7 +1077,8 @@ void logoutfv(const char *fmt, va_list args)
 
 void logoutfv(const char *fmt, va_list args)
 {
-    writelog(logfile ? logfile : stdout, fmt, args);
+    FILE *f = getlogfile();
+    if(f) writelog(f, fmt, args);
 }
 
 #endif
@@ -1100,7 +1130,7 @@ bool servererror(bool dedicated, const char *desc)
   
 bool setuplistenserver(bool dedicated)
 {
-    ENetAddress address = { ENET_HOST_ANY, serverport <= 0 ? server::serverport() : serverport };
+    ENetAddress address = { ENET_HOST_ANY, enet_uint16(serverport <= 0 ? server::serverport() : serverport) };
     if(*serverip)
     {
         if(enet_address_set_host(&address, serverip)<0) conoutf(CON_WARN, "WARNING: server ip not resolved");
@@ -1137,8 +1167,9 @@ void initserver(bool listen, bool dedicated)
 #ifdef WIN32
         setupwindow("Cube 2: Sauerbraten server");
 #endif
-        execfile("server-init.cfg", false);
     }
+    
+    execfile("server-init.cfg", false);
 
     if(listen) setuplistenserver(dedicated);
 

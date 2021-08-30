@@ -70,6 +70,7 @@ namespace game
     extern int numdynents();
     extern void rendergame(bool mainpass);
     extern void renderavatar();
+    extern void renderplayerpreview(int model, int team, int weap);
     extern void writegamedata(vector<char> &extras);
     extern void readgamedata(vector<char> &extras);
     extern int clipconsole(int w, int h);
@@ -80,7 +81,6 @@ namespace game
     extern void setupcamera();
     extern bool detachcamera();
     extern bool collidecamera();
-    extern physent *forcecamera(); // XXX EMSCRIPTEN: Returns the camera we should use, or null to use the default
     extern void adddynlights();
     extern void particletrack(physent *owner, vec &o, vec &d);
     extern void dynlighttrack(physent *owner, vec &o, vec &hud);
@@ -88,12 +88,6 @@ namespace game
     extern void serverinfoendcolumn(g3d_gui *g, int i);
     extern bool serverinfoentry(g3d_gui *g, int i, const char *name, int port, const char *desc, const char *map, int ping, const vector<int> &attr, int np);
     extern bool needminimap();
-    extern void startgame(); // XXX EMSCRIPTEN: Made this public so we can call it asynchronously
-
-    // XXX EMSCRIPTEN: load different player models at runtime
-    extern void setplayermodelinfo(const char *ffa, const char *blueteam, const char *redteam, const char *hudguns,
-                                   const char *vwep, const char *quad, const char *armour0, const char *armour1, const char *armour2,
-                                   const char *ffaicon, const char *blueicon, const char *redicon, bool ragdoll);
 } 
  
 namespace server

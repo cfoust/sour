@@ -15,11 +15,7 @@ typedef signed long long int llong;
 typedef unsigned long long int ullong;
 
 #ifdef _DEBUG
-#ifdef __GNUC__
-#define ASSERT(c) if(!(c)) { asm("int $3"); }
-#else
-#define ASSERT(c) if(!(c)) { __asm int 3 }
-#endif
+#define ASSERT(c) assert(c)
 #else
 #define ASSERT(c) if(c) {}
 #endif
@@ -76,10 +72,10 @@ static inline T min(T a, T b)
 {
     return a < b ? a : b;
 }
-template<class T>
-static inline T clamp(T a, T b, T c)
+template<class T, class U>
+static inline T clamp(T a, U b, U c)
 {
-    return max(b, min(a, c));
+    return max(T(b), min(a, T(c)));
 }
 
 #define rnd(x) ((int)(randomMT()&0xFFFFFF)%(x))
@@ -119,6 +115,7 @@ static inline T clamp(T a, T b, T c)
 #endif
 
 #define strcasecmp _stricmp
+#define strncasecmp _strnicmp
 #define PATHDIV '\\'
 
 #else
@@ -213,6 +210,15 @@ struct databuf
         return read;
     }
 
+    void offset(int n)
+    {
+        n = min(n, maxlen);
+        buf += n;
+        maxlen -= n;
+        len = max(len-n, 0);
+    }
+
+    bool empty() const { return len==0; }
     int length() const { return len; }
     int remaining() const { return maxlen-len; }
     bool overread() const { return (flags&OVERREAD)!=0; }
@@ -669,6 +675,18 @@ static inline bool htcmp(int x, int y)
     return x==y;
 }
 
+#ifndef STANDALONE
+static inline uint hthash(GLuint key)
+{
+    return key;
+}
+
+static inline bool htcmp(GLuint x, GLuint y)
+{
+    return x==y;
+}
+#endif
+
 template<class T> struct hashset
 {
     typedef T elem;
@@ -1058,6 +1076,7 @@ struct stream
     virtual offset rawtell() { return tell(); }
     virtual bool seek(offset pos, int whence = SEEK_SET) { return false; }
     virtual offset size();
+    virtual offset rawsize() { return size(); }
     virtual int read(void *buf, int len) { return 0; }
     virtual int write(const void *buf, int len) { return 0; }
     virtual int getchar() { uchar c; return read(&c, 1) == 1 ? c : -1; }
@@ -1068,10 +1087,12 @@ struct stream
     virtual int printf(const char *fmt, ...);
     virtual uint getcrc() { return 0; }
 
+    template<class T> int put(const T *v, int n) { return write(v, n*sizeof(T))/sizeof(T); } 
     template<class T> bool put(T n) { return write(&n, sizeof(n)) == sizeof(n); }
     template<class T> bool putlil(T n) { return put<T>(lilswap(n)); }
     template<class T> bool putbig(T n) { return put<T>(bigswap(n)); }
 
+    template<class T> int get(T *v, int n) { return read(v, n*sizeof(T))/sizeof(T); }
     template<class T> T get() { T n; return read(&n, sizeof(n)) == sizeof(n) ? n : 0; }
     template<class T> T getlil() { return lilswap(get<T>()); }
     template<class T> T getbig() { return bigswap(get<T>()); }
@@ -1079,6 +1100,20 @@ struct stream
 #ifndef STANDALONE
     SDL_RWops *rwops();
 #endif
+};
+
+template<class T>
+struct streambuf
+{
+    stream *s;
+
+    streambuf(stream *s) : s(s) {}
+    
+    T get() { return s->get<T>(); }
+    int get(T *vals, int numvals) { return s->get(vals, numvals); }
+    void put(const T &val) { s->put(&val, 1); }
+    void put(const T *vals, int numvals) { s->put(vals, numvals); } 
+    int length() { return s->size(); }
 };
 
 enum

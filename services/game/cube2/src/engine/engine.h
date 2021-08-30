@@ -94,6 +94,20 @@ extern PFNGLGETCOMPRESSEDTEXIMAGEARBPROC   glGetCompressedTexImage_;
 // GL_EXT_fog_coord
 extern PFNGLFOGCOORDPOINTEREXTPROC glFogCoordPointer_;
 
+// GL_ARB_map_buffer_range
+#ifndef GL_ARB_map_buffer_range
+#define GL_MAP_READ_BIT                   0x0001
+#define GL_MAP_WRITE_BIT                  0x0002
+#define GL_MAP_INVALIDATE_RANGE_BIT       0x0004
+#define GL_MAP_INVALIDATE_BUFFER_BIT      0x0008
+#define GL_MAP_FLUSH_EXPLICIT_BIT         0x0010
+#define GL_MAP_UNSYNCHRONIZED_BIT         0x0020
+typedef GLvoid* (APIENTRYP PFNGLMAPBUFFERRANGEPROC) (GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access);
+typedef void (APIENTRYP PFNGLFLUSHMAPPEDBUFFERRANGEPROC) (GLenum target, GLintptr offset, GLsizeiptr length);
+#endif
+extern PFNGLMAPBUFFERRANGEPROC         glMapBufferRange_;
+extern PFNGLFLUSHMAPPEDBUFFERRANGEPROC glFlushMappedBufferRange_;
+
 #include "varray.h"
 
 extern dynent *player;
@@ -201,10 +215,12 @@ static inline bool pvsoccluded(const ivec &bborigin, int size)
 }
 
 // rendergl
-extern bool hasVBO, hasDRE, hasOQ, hasTR, hasFBO, hasDS, hasTF, hasBE, hasBC, hasCM, hasNP2, hasTC, hasTE, hasMT, hasD3, hasAF, hasVP2, hasVP3, hasPP, hasMDA, hasTE3, hasTE4, hasVP, hasFP, hasGLSL, hasGM, hasNVFB, hasSGIDT, hasSGISH, hasDT, hasSH, hasNVPCF, hasRN, hasPBO, hasFBB, hasUBO, hasBUE, hasFC, hasTEX;
+extern bool hasVBO, hasDRE, hasOQ, hasTR, hasFBO, hasDS, hasTF, hasBE, hasBC, hasCM, hasNP2, hasTC, hasS3TC, hasFXT1, hasTE, hasMT, hasD3, hasAF, hasVP2, hasVP3, hasPP, hasMDA, hasTE3, hasTE4, hasVP, hasFP, hasGLSL, hasGM, hasNVFB, hasSGIDT, hasSGISH, hasDT, hasSH, hasNVPCF, hasRN, hasPBO, hasFBB, hasUBO, hasBUE, hasMBR, hasFC, hasTEX;
 extern int hasstencil;
+extern int glversion, glslversion;
 
-extern bool envmapping, minimapping, renderedgame;
+extern float curfov, fovy, aspect, forceaspect;
+extern bool envmapping, minimapping, renderedgame, modelpreviewing;
 extern const glmatrixf viewmatrix;
 extern glmatrixf mvmatrix, projmatrix, mvpmatrix, invmvmatrix, invmvpmatrix, fogmatrix, invfogmatrix, envmatrix;
 extern bvec fogcolor;
@@ -226,6 +242,12 @@ extern void recomputecamera();
 extern void findorientation();
 extern void writecrosshairs(stream *f);
 
+namespace modelpreview
+{
+    extern void start(bool background = true);
+    extern void end();
+}
+
 // renderextras
 extern void render3dbox(vec &o, float tofloor, float toceil, float xradius, float yradius = 0);
 
@@ -236,46 +258,47 @@ extern void setcubeext(cube &c, cubeext *ext);
 extern cubeext *newcubeext(cube &c, int maxverts = 0, bool init = true);
 extern void getcubevector(cube &c, int d, int x, int y, int z, ivec &p);
 extern void setcubevector(cube &c, int d, int x, int y, int z, const ivec &p);
-extern int familysize(cube &c);
+extern int familysize(const cube &c);
 extern void freeocta(cube *c);
 extern void discardchildren(cube &c, bool fixtex = false, int depth = 0);
 extern void optiface(uchar *p, cube &c);
 extern void validatec(cube *c, int size = 0);
-extern bool isvalidcube(cube &c);
+extern bool isvalidcube(const cube &c);
 extern ivec lu;
 extern int lusize;
 extern cube &lookupcube(int tx, int ty, int tz, int tsize = 0, ivec &ro = lu, int &rsize = lusize);
-extern cube *neighbourstack[32];
+extern const cube *neighbourstack[32];
 extern int neighbourdepth;
-extern cube &neighbourcube(cube &c, int orient, int x, int y, int z, int size, ivec &ro = lu, int &rsize = lusize);
+extern const cube &neighbourcube(const cube &c, int orient, int x, int y, int z, int size, ivec &ro = lu, int &rsize = lusize);
 extern void resetclipplanes();
-extern int getmippedtexture(cube &p, int orient);
+extern int getmippedtexture(const cube &p, int orient);
 extern void forcemip(cube &c, bool fixtex = true);
 extern bool subdividecube(cube &c, bool fullcheck=true, bool brighten=true);
 extern void edgespan2vectorcube(cube &c);
-extern int faceconvexity(ivec v[4]);
-extern int faceconvexity(ivec v[4], int &vis);
-extern int faceconvexity(vertinfo *verts, int numverts);
-extern int faceconvexity(cube &c, int orient);
-extern void calcvert(cube &c, int x, int y, int z, int size, ivec &vert, int i, bool solid = false);
-extern void calcvert(cube &c, int x, int y, int z, int size, vec &vert, int i, bool solid = false);
-extern uint faceedges(cube &c, int orient);
-extern bool collapsedface(cube &c, int orient);
-extern bool touchingface(cube &c, int orient);
-extern bool flataxisface(cube &c, int orient);
-extern bool collideface(cube &c, int orient);
-extern int genclipplane(cube &c, int i, vec *v, plane *clip);
-extern void genclipplanes(cube &c, int x, int y, int z, int size, clipplanes &p);
-extern bool visibleface(cube &c, int orient, int x, int y, int z, int size, uchar mat = MAT_AIR, uchar nmat = MAT_AIR, uchar matmask = MATF_VOLUME);
-extern int visibletris(cube &c, int orient, int x, int y, int z, int size, uchar nmat = MAT_AIR, uchar matmask = MAT_AIR);
-extern int visibleorient(cube &c, int orient);
-extern void genfaceverts(cube &c, int orient, ivec v[4]);
+extern int faceconvexity(const ivec v[4]);
+extern int faceconvexity(const ivec v[4], int &vis);
+extern int faceconvexity(const vertinfo *verts, int numverts, int size);
+extern int faceconvexity(const cube &c, int orient);
+extern void calcvert(const cube &c, int x, int y, int z, int size, ivec &vert, int i, bool solid = false);
+extern void calcvert(const cube &c, int x, int y, int z, int size, vec &vert, int i, bool solid = false);
+extern uint faceedges(const cube &c, int orient);
+extern bool collapsedface(const cube &c, int orient);
+extern bool touchingface(const cube &c, int orient);
+extern bool flataxisface(const cube &c, int orient);
+extern bool collideface(const cube &c, int orient);
+extern int collidefaces(const cube &c);
+extern int genclipplane(const cube &c, int i, vec *v, plane *clip);
+extern void genclipplanes(const cube &c, int x, int y, int z, int size, clipplanes &p);
+extern bool visibleface(const cube &c, int orient, int x, int y, int z, int size, ushort mat = MAT_AIR, ushort nmat = MAT_AIR, ushort matmask = MATF_VOLUME);
+extern int visibletris(const cube &c, int orient, int x, int y, int z, int size, ushort nmat = MAT_AIR, ushort matmask = MAT_AIR);
+extern int visibleorient(const cube &c, int orient);
+extern void genfaceverts(const cube &c, int orient, ivec v[4]);
 extern int calcmergedsize(int orient, const ivec &co, int size, const vertinfo *verts, int numverts);
 extern void invalidatemerges(cube &c, const ivec &co, int size, bool msg);
 extern void calcmerges();
 
 extern int mergefaces(int orient, facebounds *m, int sz);
-extern void mincubeface(cube &cu, int orient, const ivec &o, int size, const facebounds &orig, facebounds &cf, uchar nmat = MAT_AIR, uchar matmask = MATF_VOLUME);
+extern void mincubeface(const cube &cu, int orient, const ivec &o, int size, const facebounds &orig, facebounds &cf, ushort nmat = MAT_AIR, ushort matmask = MATF_VOLUME);
 
 static inline uchar octantrectangleoverlap(const ivec &c, int size, const ivec &o, const ivec &s)
 {
@@ -369,20 +392,26 @@ extern bool getdynlight(int n, vec &o, float &radius, vec &color);
 extern int showmat;
 
 extern int findmaterial(const char *name);
-extern void genmatsurfs(cube &c, int cx, int cy, int cz, int size, vector<materialsurface> &matsurfs);
+extern void genmatsurfs(const cube &c, int cx, int cy, int cz, int size, vector<materialsurface> &matsurfs);
 extern void rendermatsurfs(materialsurface *matbuf, int matsurfs);
 extern void rendermatgrid(materialsurface *matbuf, int matsurfs);
 extern int optimizematsurfs(materialsurface *matbuf, int matsurfs);
 extern void setupmaterials(int start = 0, int len = 0);
 extern void rendermaterials();
-extern int visiblematerial(cube &c, int orient, int x, int y, int z, int size, uchar matmask = MATF_VOLUME);
+extern int visiblematerial(const cube &c, int orient, int x, int y, int z, int size, ushort matmask = MATF_VOLUME);
 
 // water
-extern int refracting;
+extern int refracting, refractfog;
+extern bvec refractcolor;
 extern bool reflecting, fading, fogging;
 extern float reflectz;
-extern int reflectdist, vertwater, waterrefract, waterreflect, waterfade, caustics, waterfallrefract, waterfog, lavafog;
-extern bvec watercolor, waterfallcolor, lavacolor;
+extern int reflectdist, vertwater, waterrefract, waterreflect, waterfade, caustics, waterfallrefract;
+
+extern const bvec &getwatercolor(int mat);
+extern const bvec &getwaterfallcolor(int mat);
+extern int getwaterfog(int mat);
+extern const bvec &getlavacolor(int mat);
+extern int getlavafog(int mat);
 
 extern void cleanreflections();
 extern void queryreflections();
@@ -432,9 +461,6 @@ extern void clientkeepalive();
 extern hashset<ident> idents;
 extern int identflags;
 
-extern void explodelist(const char *s, vector<char *> &elems, int limit = -1);
-extern char *indexlist(const char *s, int pos);
-
 extern void clearoverrides();
 extern void writecfg(const char *name = NULL);
 
@@ -469,6 +495,8 @@ enum
     CHANGE_SOUND = 1<<1
 };
 extern bool initwarning(const char *desc, int level = INIT_RESET, int type = CHANGE_GFX);
+
+extern bool grabinput, minimized;
 
 extern void pushevent(const SDL_Event &e);
 extern bool interceptkey(int sym);

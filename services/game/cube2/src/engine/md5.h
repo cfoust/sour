@@ -63,7 +63,10 @@ struct md5 : skelmodel, skelloader<md5>
                 {
                     md5weight &w = weightinfo[v.start+k];
                     md5joint &j = joints[w.joint];
-                    pos.add(j.orient.rotate(w.pos).add(j.pos).mul(w.bias));
+                    vec wpos = j.orient.rotate(w.pos);
+                    wpos.add(j.pos);
+                    wpos.mul(w.bias);
+                    pos.add(wpos);
                 }
                 vert &vv = verts[i];
                 vv.pos = pos;
@@ -301,7 +304,7 @@ struct md5 : skelmodel, skelloader<md5>
                     while(f->getline(buf, sizeof(buf)) && buf[0]!='}')
                     {
                         md5hierarchy h;
-                        if(sscanf(buf, " %s %d %d %d", h.name, &h.parent, &h.flags, &h.start)==4)
+                        if(sscanf(buf, " %100s %d %d %d", h.name, &h.parent, &h.flags, &h.start)==4)
                             hierarchy.add(h);
                     }
                 }

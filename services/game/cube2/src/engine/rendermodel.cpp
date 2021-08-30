@@ -278,18 +278,18 @@ void rdtri(int *v1, int *v2, int *v3)
 }
 COMMAND(rdtri, "iii");
 
-void rdjoint(int *n, int *t, char *v1, char *v2, char *v3)
+void rdjoint(int *n, int *t, int *v1, int *v2, int *v3)
 {
     checkragdoll;
     if(*n < 0 || *n >= skel->numbones) return;
     ragdollskel::joint &j = ragdoll->joints.add();
     j.bone = *n;
     j.tri = *t;
-    j.vert[0] = v1[0] ? parseint(v1) : -1;
-    j.vert[1] = v2[0] ? parseint(v2) : -1;
-    j.vert[2] = v3[0] ? parseint(v3) : -1;
+    j.vert[0] = *v1;
+    j.vert[1] = *v2;
+    j.vert[2] = *v3;
 }
-COMMAND(rdjoint, "iisss");
+COMMAND(rdjoint, "iibbb");
    
 void rdlimitdist(int *v1, int *v2, float *mindist, float *maxdist)
 {
@@ -520,9 +520,10 @@ void renderellipse(vec &o, float xradius, float yradius, float yaw)
     glDisable(GL_TEXTURE_2D);
     glColor3f(0.5f, 0.5f, 0.5f);
     glBegin(GL_LINE_LOOP);
-    loopi(16)
+    loopi(15)
     {
-        vec p(xradius*cosf(2*M_PI*i/16.0f), yradius*sinf(2*M_PI*i/16.0f), 0);
+        const vec2 &sc = sincos360[i*(360/15)];
+        vec p(xradius*sc.x, yradius*sc.y, 0);
         p.rotate_around_z((yaw+90)*RAD);
         p.add(o);
         glVertex3fv(p.v);
@@ -797,7 +798,7 @@ void rendermodel(entitylight *light, const char *mdl, int anim, const vec &o, fl
                 }
                 else
                 {
-                    if(fogging && center.z+radius<reflectz-waterfog) return;
+                    if(fogging && center.z+radius<reflectz-refractfog) return;
                     if(!shadow && center.z-radius>=reflectz) return;
                 }
                 if(center.dist(camera1->o)-radius>reflectdist) return;
@@ -1095,6 +1096,7 @@ void renderclient(dynent *d, const char *mdlname, modelattach *attachments, int 
     else flags |= MDL_CULL_DIST;
     if(d->state==CS_LAGGED) fade = min(fade, 0.3f);
     else flags |= MDL_DYNSHADOW;
+    if(modelpreviewing) flags &= ~(MDL_LIGHT | MDL_FULLBRIGHT | MDL_CULL_VFC | MDL_CULL_OCCLUDED | MDL_CULL_QUERY | MDL_CULL_DIST | MDL_DYNSHADOW);
     rendermodel(NULL, mdlname, anim, o, yaw, pitch, flags, d, attachments, basetime, 0, fade);
 }
 

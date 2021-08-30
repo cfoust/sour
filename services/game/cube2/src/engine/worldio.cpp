@@ -56,12 +56,13 @@ bool loadents(const char *fname, vector<entity> &ents, uint *crc)
     string pakname, mapname, mcfgname, ogzname;
     getmapfilenames(fname, NULL, pakname, mapname, mcfgname);
     formatstring(ogzname)("packages/%s.ogz", mapname);
+    path(ogzname);
     stream *f = opengzfile(ogzname, "rb");
     if(!f) return false;
     octaheader hdr;
     if(f->read(&hdr, 7*sizeof(int))!=int(7*sizeof(int))) { conoutf(CON_ERROR, "map %s has malformatted header", ogzname); delete f; return false; }
     lilswap(&hdr.version, 6);
-    if(strncmp(hdr.magic, "OCTA", 4)!=0 || hdr.worldsize <= 0|| hdr.numents < 0) { conoutf(CON_ERROR, "map %s has malformatted header", ogzname); delete f; return false; }
+    if(memcmp(hdr.magic, "OCTA", 4) || hdr.worldsize <= 0|| hdr.numents < 0) { conoutf(CON_ERROR, "map %s has malformatted header", ogzname); delete f; return false; }
     if(hdr.version>MAPVERSION) { conoutf(CON_ERROR, "map %s requires a newer version of Cube 2: Sauerbraten", ogzname); delete f; return false; }
     compatheader chdr;
     if(hdr.version <= 28)
@@ -224,12 +225,12 @@ void savec(cube *c, const ivec &o, int size, stream *f, bool nolms)
         }
         else
         {
-            int oflags = 0, surfmask = 0, totalverts = 0;
+            int oflags = 0, surfmask = 0, totalverts = 0, merged = c[i].visible&c[i].merged;
             if(c[i].material!=MAT_AIR) oflags |= 0x40;
             if(!nolms)
             {
-                if(c[i].merged) oflags |= 0x80;
-                if(c[i].ext) loopj(6)
+                if(merged) oflags |= 0x80;
+                if(c[i].ext) loopj(6) 
                 {
                     const surfaceinfo &surf = c[i].ext->surfaces[j];
                     if(!surf.used()) continue;
@@ -250,9 +251,9 @@ void savec(cube *c, const ivec &o, int size, stream *f, bool nolms)
 
             loopj(6) f->putlil<ushort>(c[i].texture[j]);
 
-            if(oflags&0x40) f->putchar(c[i].material);
-            if(oflags&0x80) f->putchar(c[i].merged);
-            if(oflags&0x20)
+            if(oflags&0x40) f->putlil<ushort>(c[i].material);
+            if(oflags&0x80) f->putchar(merged);
+            if(oflags&0x20) 
             {
                 f->putchar(surfmask);
                 f->putchar(totalverts);
@@ -265,7 +266,7 @@ void savec(cube *c, const ivec &o, int size, stream *f, bool nolms)
                         dim = dimension(j), vc = C[dim], vr = R[dim];
                     if(numverts)
                     {
-                        if(c[i].merged&(1<<j))
+                        if(merged&(1<<j)) 
                         {
                             vertmask |= 0x04;
                             if(layerverts == 4)
@@ -488,6 +489,11 @@ void convertoldsurfaces(cube &c, const ivec &co, int size, surfacecompat *srcsur
     setsurfaces(c, dstsurfs, verts, totalverts);
 }
 
+static inline int convertoldmaterial(int mat)
+{
+    return ((mat&7)<<MATF_VOLUME_SHIFT) | (((mat>>3)&3)<<MATF_CLIP_SHIFT) | (((mat>>5)&7)<<MATF_FLAG_SHIFT);
+}
+ 
 void loadc(stream *f, cube &c, const ivec &co, int size, bool &failed)
 {
     bool haschildren = false;
@@ -514,10 +520,10 @@ void loadc(stream *f, cube &c, const ivec &co, int size, bool &failed)
             int mat = f->getchar();
             if(mapversion < 27)
             {
-                static uchar matconv[] = { MAT_AIR, MAT_WATER, MAT_CLIP, MAT_GLASS|MAT_CLIP, MAT_NOCLIP, MAT_LAVA|MAT_DEATH, MAT_GAMECLIP, MAT_DEATH };
-                mat = size_t(mat) < sizeof(matconv)/sizeof(matconv[0]) ? matconv[mat] : MAT_AIR;
+                static const ushort matconv[] = { MAT_AIR, MAT_WATER, MAT_CLIP, MAT_GLASS|MAT_CLIP, MAT_NOCLIP, MAT_LAVA|MAT_DEATH, MAT_GAMECLIP, MAT_DEATH };
+                c.material = size_t(mat) < sizeof(matconv)/sizeof(matconv[0]) ? matconv[mat] : MAT_AIR;
             }
-            c.material = mat;
+            else c.material = convertoldmaterial(mat);
         }
         surfacecompat surfaces[12];
         normalscompat normals[6];
@@ -600,7 +606,15 @@ void loadc(stream *f, cube &c, const ivec &co, int size, bool &failed)
     }
     else
     {
-        if(octsav&0x40) c.material = f->getchar();
+        if(octsav&0x40) 
+        {
+            if(mapversion <= 32)
+            {
+                int mat = f->getchar();
+                c.material = convertoldmaterial(mat);
+            }
+            else c.material = f->getlil<ushort>();
+        }
         if(octsav&0x80) c.merged = f->getchar();
         if(octsav&0x20)
         {
@@ -1025,7 +1039,7 @@ bool really_load_world(const char *mname, const char *cname)        // still sup
     octaheader &hdr = load_world_hdr;
     if(f->read(&hdr, 7*sizeof(int))!=int(7*sizeof(int))) { conoutf(CON_ERROR, "map %s has malformatted header", ogzname); delete f; return false; }
     lilswap(&hdr.version, 6);
-    if(strncmp(hdr.magic, "OCTA", 4)!=0 || hdr.worldsize <= 0|| hdr.numents < 0) { conoutf(CON_ERROR, "map %s has malformatted header", ogzname); delete f; return false; }
+    if(memcmp(hdr.magic, "OCTA", 4) || hdr.worldsize <= 0|| hdr.numents < 0) { conoutf(CON_ERROR, "map %s has malformatted header", ogzname); delete f; return false; }
     if(hdr.version>MAPVERSION) { conoutf(CON_ERROR, "map %s requires a newer version of Cube 2: Sauerbraten", ogzname); delete f; return false; }
     compatheader chdr;
     if(hdr.version <= 28)
@@ -1097,7 +1111,7 @@ bool really_load_world(const char *mname, const char *cname)        // still sup
         name[min(ilen, MAXSTRLEN-1)] = '\0';
         if(ilen >= MAXSTRLEN) f->seek(ilen - (MAXSTRLEN-1), SEEK_CUR);
         ident *id = getident(name);
-        bool exists = id && id->type == type;
+        bool exists = id && id->type == type && id->flags&IDF_OVERRIDE;
         switch(type)
         {
             case ID_VAR:

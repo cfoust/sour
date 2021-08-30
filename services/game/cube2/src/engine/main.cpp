@@ -1,6 +1,7 @@
 // main.cpp: initialisation & main loop
 
 #include "engine.h"
+#include <emscripten.h>
 
 extern void cleargamma();
 
@@ -152,6 +153,7 @@ void renderbackground(const char *caption, Texture *mapshot, const char *mapname
     stopsounds(); // stop sounds while loading
  
     int w = screen->w, h = screen->h;
+    if(forceaspect) w = int(ceil(h*forceaspect));
     getbackgroundres(w, h);
     gettextres(w, h);
 
@@ -341,6 +343,7 @@ void renderprogress(float bar, const char *text, GLuint tex, bool background)   
     if(background || sdl_backingstore_bug > 0) restorebackground();
 
     int w = screen->w, h = screen->h;
+    if(forceaspect) w = int(ceil(h*forceaspect));
     getbackgroundres(w, h);
     gettextres(w, h);
 
@@ -452,7 +455,7 @@ void keyrepeat(bool on)
                              SDL_DEFAULT_REPEAT_INTERVAL);
 }
 
-static bool grabinput = false, minimized = false;
+bool grabinput = false, minimized = false;
 
 void inputgrab(bool on)
 {
@@ -929,18 +932,34 @@ void stackdumper(unsigned int type, EXCEPTION_POINTERS *ep)
     CONTEXT *context = ep->ContextRecord;
     string out, t;
     formatstring(out)("Cube 2: Sauerbraten Win32 Exception: 0x%x [0x%x]\n\n", er->ExceptionCode, er->ExceptionCode==EXCEPTION_ACCESS_VIOLATION ? er->ExceptionInformation[1] : -1);
-    STACKFRAME sf = {{context->Eip, 0, AddrModeFlat}, {}, {context->Ebp, 0, AddrModeFlat}, {context->Esp, 0, AddrModeFlat}, 0};
     SymInitialize(GetCurrentProcess(), NULL, TRUE);
-
+#ifdef _AMD64_
+	STACKFRAME64 sf = {{context->Rip, 0, AddrModeFlat}, {}, {context->Rbp, 0, AddrModeFlat}, {context->Rsp, 0, AddrModeFlat}, 0};
+    while(::StackWalk64(IMAGE_FILE_MACHINE_AMD64, GetCurrentProcess(), GetCurrentThread(), &sf, context, NULL, ::SymFunctionTableAccess, ::SymGetModuleBase, NULL))
+	{
+		union { IMAGEHLP_SYMBOL64 sym; char symext[sizeof(IMAGEHLP_SYMBOL64) + sizeof(string)]; };
+		sym.SizeOfStruct = sizeof(sym);
+		sym.MaxNameLength = sizeof(symext) - sizeof(sym);
+		IMAGEHLP_LINE64 line;
+		line.SizeOfStruct = sizeof(line);
+        DWORD64 symoff;
+		DWORD lineoff;
+        if(SymGetSymFromAddr64(GetCurrentProcess(), sf.AddrPC.Offset, &symoff, &sym) && SymGetLineFromAddr64(GetCurrentProcess(), sf.AddrPC.Offset, &lineoff, &line))
+#else
+    STACKFRAME sf = {{context->Eip, 0, AddrModeFlat}, {}, {context->Ebp, 0, AddrModeFlat}, {context->Esp, 0, AddrModeFlat}, 0};
     while(::StackWalk(IMAGE_FILE_MACHINE_I386, GetCurrentProcess(), GetCurrentThread(), &sf, context, NULL, ::SymFunctionTableAccess, ::SymGetModuleBase, NULL))
-    {
-        struct { IMAGEHLP_SYMBOL sym; string n; } si = { { sizeof( IMAGEHLP_SYMBOL ), 0, 0, 0, sizeof(string) } };
-        IMAGEHLP_LINE li = { sizeof( IMAGEHLP_LINE ) };
-        DWORD off;
-        if(SymGetSymFromAddr(GetCurrentProcess(), (DWORD)sf.AddrPC.Offset, &off, &si.sym) && SymGetLineFromAddr(GetCurrentProcess(), (DWORD)sf.AddrPC.Offset, &off, &li))
+	{
+		union { IMAGEHLP_SYMBOL sym; char symext[sizeof(IMAGEHLP_SYMBOL) + sizeof(string)]; };
+		sym.SizeOfStruct = sizeof(sym);
+		sym.MaxNameLength = sizeof(symext) - sizeof(sym);
+		IMAGEHLP_LINE line;
+		line.SizeOfStruct = sizeof(line);
+        DWORD symoff, lineoff;
+        if(SymGetSymFromAddr(GetCurrentProcess(), sf.AddrPC.Offset, &symoff, &sym) && SymGetLineFromAddr(GetCurrentProcess(), sf.AddrPC.Offset, &lineoff, &line))
+#endif
         {
-            char *del = strrchr(li.FileName, '\\');
-            formatstring(t)("%s - %s [%d]\n", si.sym.Name, del ? del + 1 : li.FileName, li.LineNumber);
+            char *del = strrchr(line.FileName, '\\');
+            formatstring(t)("%s - %s [%d]\n", sym.Name, del ? del + 1 : line.FileName, line.LineNumber);
             concatstring(out, t);
         }
     }
@@ -1074,11 +1093,18 @@ int main(int argc, char **argv)
             case 's': stencilbits = atoi(&argv[i][2]); break;
             case 'f': 
             {
-                extern int useshaders, shaderprecision, forceglsl; 
-                int n = atoi(&argv[i][2]);
-                useshaders = n > 0 ? 1 : 0;
-                shaderprecision = clamp(n >= 4 ? n - 4 : n - 1, 0, 2);
-                forceglsl = n >= 4 ? 1 : 0; 
+                extern int useshaders, shaderprecision, forceglsl;
+                int sh = -1, prec = shaderprecision;
+                for(int j = 2; argv[i][j]; j++) switch(argv[i][j])
+                {
+                    case 'a': case 'A': forceglsl = 0; sh = 1; break;
+                    case 'g': case 'G': forceglsl = 1; sh = 1; break;
+                    case 'f': case 'F': case '0': sh = 0; break;
+                    case '1': case '2': case '3': if(sh < 0) sh = 1; prec = argv[i][j] - '1'; break;
+                    default: break;
+                }
+                useshaders = sh > 0 ? 1 : 0;
+                shaderprecision = prec;
                 break;
             }
             case 'l': 
@@ -1143,7 +1169,6 @@ int main(int argc, char **argv)
     if(!notexture) fatal("could not find core textures");
 
     logoutf("init: console");
-    identflags &= ~IDF_PERSIST;
     if(!execfile("data/stdlib.cfg", false)) fatal("cannot find data files (you are running from the wrong folder, try .bat file in the main folder)");   // this is the first file we load.
     if(!execfile("data/font.cfg", false)) fatal("cannot find font definitions");
     if(!setfont("default")) fatal("no default font specified");
@@ -1271,7 +1296,7 @@ void main_loop_iter()
             if(curtime>200) curtime = 200;
             if(paused || game::ispaused()) curtime = 0;
         }
-        lastmillis += curtime;
+		lastmillis += curtime;
         totalmillis = millis;
         extern void updatetime();
         updatetime();

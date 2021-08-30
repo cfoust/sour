@@ -1051,7 +1051,7 @@ static void findwaterplanes()
         loopj(va->matsurfs)
         {
             materialsurface &m = va->matbuf[j];
-            if(m.material!=MAT_WATER || m.orient==O_BOTTOM) continue;
+            if((m.material&MATF_VOLUME)!=MAT_WATER || m.orient==O_BOTTOM) { j += m.skip; continue; }
             if(m.orient!=O_TOP)
             {
                 waterfalls.add(&m);

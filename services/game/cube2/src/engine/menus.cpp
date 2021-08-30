@@ -15,14 +15,15 @@ struct menu : g3d_callback
 {
     char *name, *header;
     uint *contents, *init, *onclear;
+    bool showtab;
 
-    menu() : name(NULL), header(NULL), contents(NULL), init(NULL), onclear(NULL) {}
+    menu() : name(NULL), header(NULL), contents(NULL), init(NULL), onclear(NULL), showtab(true) {}
 
     void gui(g3d_gui &g, bool firstpass)
     {
         cgui = &g;
-        cgui->start(menustart, 0.03f, &menutab);
-        cgui->tab(header ? header : name, GUI_TITLE_COLOR);
+        cgui->start(menustart, 0.03f, showtab ? &menutab : NULL);
+        if(showtab) cgui->tab(header ? header : name, GUI_TITLE_COLOR);
         execute(contents);
         cgui->end();
         cgui = NULL;
@@ -30,7 +31,7 @@ struct menu : g3d_callback
 
     virtual void clear() 
     {
-        freecode(onclear);
+        if(onclear) { freecode(onclear); onclear = NULL; }
     }
 };
 
@@ -202,7 +203,7 @@ void clearguis(int level = -1)
            uint *action = m->onclear;
            m->onclear = NULL;
            execute(action);
-           delete[] action;
+           freecode(action);
        }
     }
     cleargui(level);
@@ -212,7 +213,7 @@ void guionclear(char *action)
 {
     if(guistack.empty()) return;
     menu *m = guistack.last();
-    DELETEA(m->onclear);
+    if(m->onclear) { freecode(m->onclear); m->onclear = NULL; } 
     if(action[0]) m->onclear = compilecode(action);
 }
 
@@ -508,7 +509,26 @@ void newgui(char *name, char *contents, char *header, char *init)
         freecode(m->contents);
         freecode(m->init);
     }
-    m->header = header && header[0] ? newstring(header) : NULL;
+    if(header && header[0])
+    {
+        char *end = NULL;
+        int val = strtol(header, &end, 0);
+        if(end && !*end)
+        {
+            m->header = NULL;
+            m->showtab = val != 0;
+        }
+        else
+        {
+            m->header = newstring(header);
+            m->showtab = true;
+        }
+    }
+    else
+    {
+        m->header = NULL;
+        m->showtab = true;
+    }
     m->contents = compilecode(contents);
     m->init = init && init[0] ? compilecode(init) : NULL;
 }
@@ -569,6 +589,52 @@ COMMAND(guikeyfield, "sis");
 COMMAND(guieditor, "siii");
 COMMAND(guicolor, "i");
 COMMAND(guitextbox, "siii");
+
+void guiplayerpreview(int *model, int *team, int *weap, char *action, float *scale, int *overlaid)
+{
+    if(!cgui) return;
+    int ret = cgui->playerpreview(*model, *team, *weap, *scale, *overlaid!=0);
+    if(ret&G3D_UP)
+    {
+        if(*action)
+        {
+            updatelater.add().schedule(action);
+            if(shouldclearmenu) clearlater = true;
+        }
+    }
+}
+COMMAND(guiplayerpreview, "iiisfi");
+
+void guimodelpreview(char *model, char *animspec, char *action, float *scale, int *overlaid)
+{
+    if(!cgui) return;
+    int anim = ANIM_ALL;
+    if(animspec[0])
+    {
+        if(isdigit(animspec[0])) 
+        {
+            anim = parseint(animspec);
+            if(anim >= 0) anim %= ANIM_INDEX;
+            else anim = ANIM_ALL;
+        }
+        else
+        {
+            vector<int> anims;
+            findanims(animspec, anims);
+            if(anims.length()) anim = anims[0];
+        }
+    }
+    int ret = cgui->modelpreview(model, anim|ANIM_LOOP, *scale, *overlaid!=0);
+    if(ret&G3D_UP)
+    {
+        if(*action)
+        {
+            updatelater.add().schedule(action);
+            if(shouldclearmenu) clearlater = true;
+        }
+    }
+}
+COMMAND(guimodelpreview, "sssfi");
 
 struct change
 {
@@ -655,7 +721,7 @@ VAR(mainmenu, 1, 1, 0);
 
 void clearmainmenu()
 {
-    if(mainmenu && (isconnected() || haslocalclients()))
+    if(mainmenu && isconnected())
     {
         mainmenu = 0;
         if(!processingmenu) cleargui();

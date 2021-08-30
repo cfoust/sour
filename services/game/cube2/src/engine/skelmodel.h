@@ -1,6 +1,8 @@
 VARP(gpuskel, 0, 1, 1);
 VARP(matskel, 0, 1, 1);
 
+VAR(maxskelanimdata, 1, 192, 0);
+
 #define BONEMASK_NOT  0x8000
 #define BONEMASK_END  0xFFFF
 #define BONEMASK_BONE 0x7FFF
@@ -145,10 +147,9 @@ struct skelmodel : animmodel
         dualquat *bdata;
         matrix3x4 *mdata;
         int version;
-        GLuint ubuf;
         bool dirty;
  
-        skelcacheentry() : bdata(NULL), mdata(NULL), version(-1), ubuf(0), dirty(false) {}
+        skelcacheentry() : bdata(NULL), mdata(NULL), version(-1), dirty(false) {}
         
         void nextversion()
         {
@@ -412,7 +413,7 @@ struct skelmodel : animmodel
         template<class M>
         void interpverts(const M * RESTRICT mdata1, const M * RESTRICT mdata2, bool norms, bool tangents, void * RESTRICT vdata, skin &s)
         {
-            const int blendoffset = ((skelmeshgroup *)group)->skel->numinterpbones;
+            const int blendoffset = ((skelmeshgroup *)group)->skel->numgpubones;
             mdata2 -= blendoffset;
 
             #define IPLOOP(type, dosetup, dotransform) \
@@ -621,8 +622,9 @@ struct skelmodel : animmodel
 
         bool usegpuskel, usematskel;
         vector<skelcacheentry> skelcache;
+        hashtable<GLuint, int> blendoffsets;
 
-        skeleton() : name(NULL), shared(0), bones(NULL), numbones(0), numinterpbones(0), numgpubones(0), numframes(0), framebones(NULL), ragdoll(NULL), usegpuskel(false), usematskel(false)
+        skeleton() : name(NULL), shared(0), bones(NULL), numbones(0), numinterpbones(0), numgpubones(0), numframes(0), framebones(NULL), ragdoll(NULL), usegpuskel(false), usematskel(false), blendoffsets(32)
         {
         }
 
@@ -636,7 +638,6 @@ struct skelmodel : animmodel
             {
                 DELETEA(skelcache[i].bdata);
                 DELETEA(skelcache[i].mdata);
-                if(skelcache[i].ubuf) glDeleteBuffers_(1, &skelcache[i].ubuf);
             }
         }
 
@@ -946,7 +947,7 @@ struct skelmodel : animmodel
                 default: return 0;
             }
         }
-        int availgpubones() const { return (min(maxgpuparams() - reservevpparams, 256) - 10) / (matskel ? 3 : 2); }
+        int availgpubones() const { return min(maxgpuparams() - reservevpparams - 10, maxskelanimdata) / (matskel ? 3 : 2); }
         bool gpuaccelerate() const { return renderpath!=R_FIXEDFUNCTION && numframes && gpuskel && numgpubones<=availgpubones(); }
 
         float calcdeviation(const vec &axis, const vec &forward, const dualquat &pose1, const dualquat &pose2)
@@ -1216,9 +1217,9 @@ struct skelmodel : animmodel
                 loopj(MAXANIMPARTS) sc.as[j].cur.fr1 = -1;
                 DELETEA(sc.bdata);
                 DELETEA(sc.mdata);
-                if(sc.ubuf) { glDeleteBuffers_(1, &sc.ubuf); sc.ubuf = 0; }
             }
             skelcache.setsize(0);
+            blendoffsets.clear();
             lastsdata = lastbdata = NULL;
             if(full) loopv(users) users[i]->cleanup();
         }
@@ -1238,6 +1239,7 @@ struct skelmodel : animmodel
             loopv(skelcache)
             {
                 skelcacheentry &c = skelcache[i];
+                goto mismatch;
                 loopj(numanimparts) if(c.as[j]!=as[j]) goto mismatch;
                 if(c.pitch != pitch || c.partmask != partmask || c.ragdoll != rdata || (rdata && c.millis < rdata->lastmove)) goto mismatch;
                 match = true;
@@ -1273,78 +1275,55 @@ struct skelmodel : animmodel
             if(!offset) count = numgpubones;
             if(hasPP)
             {
-                if(usematskel) glProgramEnvParameters4fv_(GL_VERTEX_PROGRAM_ARB, 10 + 3*offset, 3*count, sc.mdata[offset].a.v);
-                else glProgramEnvParameters4fv_(GL_VERTEX_PROGRAM_ARB, 10 + 2*offset, 2*count, sc.bdata[offset].real.v);
+                if(usematskel) glProgramEnvParameters4fv_(GL_VERTEX_PROGRAM_ARB, 10 + 3*offset, 3*count, sc.mdata[0].a.v);
+                else glProgramEnvParameters4fv_(GL_VERTEX_PROGRAM_ARB, 10 + 2*offset, 2*count, sc.bdata[0].real.v);
             }
             else if(usematskel) loopi(count)
             {
-                glProgramEnvParameter4fv_(GL_VERTEX_PROGRAM_ARB, 10 + 3*(offset+i), sc.mdata[offset+i].a.v);
-                glProgramEnvParameter4fv_(GL_VERTEX_PROGRAM_ARB, 11 + 3*(offset+i), sc.mdata[offset+i].b.v);
-                glProgramEnvParameter4fv_(GL_VERTEX_PROGRAM_ARB, 12 + 3*(offset+i), sc.mdata[offset+i].c.v);
+                glProgramEnvParameter4fvARB_(GL_VERTEX_PROGRAM_ARB, 10 + 3*(offset+i), sc.mdata[i].a.v);
+                glProgramEnvParameter4fvARB_(GL_VERTEX_PROGRAM_ARB, 11 + 3*(offset+i), sc.mdata[i].b.v);
+                glProgramEnvParameter4fvARB_(GL_VERTEX_PROGRAM_ARB, 12 + 3*(offset+i), sc.mdata[i].c.v);
             }
             else loopi(count)
             {
-                glProgramEnvParameter4fv_(GL_VERTEX_PROGRAM_ARB, 10 + 2*(offset+i), sc.bdata[offset+i].real.v);
-                glProgramEnvParameter4fv_(GL_VERTEX_PROGRAM_ARB, 11 + 2*(offset+i), sc.bdata[offset+i].dual.v);
+                glProgramEnvParameter4fvARB_(GL_VERTEX_PROGRAM_ARB, 10 + 2*(offset+i), sc.bdata[i].real.v);
+                glProgramEnvParameter4fvARB_(GL_VERTEX_PROGRAM_ARB, 11 + 2*(offset+i), sc.bdata[i].dual.v);
             }
             if(offset) lastbdata = usematskel ? (void *)sc.mdata : (void *)sc.bdata;
             else lastsdata = usematskel ? (void *)sc.mdata : (void *)sc.bdata;
         }
 
-        void bindubo(UniformLoc &u, skelcacheentry &sc, skelcacheentry &bc, int count)
+        int getblendoffset(UniformLoc &u)
         {
-            if(hasUBO)
+            int &offset = blendoffsets.access(Shader::lastshader->program, -1);
+            if(offset < 0)
             {
-                if(!lastsdata && lastbdata == &bc.ubuf && !bc.dirty) return;
+                defformatstring(offsetname)("%s[%d]", u.name, (usematskel ? 3 : 2)*numgpubones); 
+                offset = glGetUniformLocation_(Shader::lastshader->program, offsetname);
             }
-            else if(u.version == bc.version && u.data == &bc.ubuf) return;
-            if(!bc.ubuf) { glGenBuffers_(1, &bc.ubuf); bc.dirty = true; }
-            if(bc.dirty)
-            {
-                GLenum target = hasUBO ? GL_UNIFORM_BUFFER : GL_UNIFORM_BUFFER_EXT;
-                glBindBuffer_(target, bc.ubuf);
-                glBufferData_(target, u.size, NULL, GL_STREAM_DRAW_ARB);
-                int bsize = usematskel ? sizeof(matrix3x4) : sizeof(dualquat), boffset = numgpubones*bsize;
-                glBufferSubData_(target, u.offset, boffset, usematskel ? (void *)sc.mdata : (void *)sc.bdata);
-                if(count > 0) glBufferSubData_(target, u.offset + boffset, count*bsize, usematskel ? (void *)&bc.mdata[numgpubones] : (void *)&bc.bdata[numgpubones]);
-                glBindBuffer_(target, 0);
-                bc.dirty = false;
-            }
-            if(hasUBO)
-            {
-                glBindBufferBase_(GL_UNIFORM_BUFFER, u.binding, bc.ubuf);
-                lastsdata = NULL;
-                lastbdata = &bc.ubuf;
-            }
-            else
-            {
-                glUniformBuffer_(Shader::lastshader->program, u.loc, bc.ubuf); 
-                u.version = bc.version;
-                u.data = &bc.ubuf;
-            }
+            return offset;
         }
-
+            
         void setglslbones(UniformLoc &u, skelcacheentry &sc, skelcacheentry &bc, int count)
         {
             if(u.version == bc.version && u.data == (usematskel ? (void *)bc.mdata : (void *)bc.bdata)) return;
-            count += numgpubones;
-            if(usematskel) 
+            if(usematskel)
             {
-                if(count > numgpubones && bc.dirty) 
+                glUniform4fv_(u.loc, 3*numgpubones, sc.mdata[0].a.v);
+                if(count > 0) 
                 {
-                    memcpy(bc.mdata, sc.mdata, numgpubones*sizeof(matrix3x4));
-                    bc.dirty = false;
+                    int offset = getblendoffset(u);
+                    if(offset >= 0) glUniform4fv_(offset, 3*count, bc.mdata[0].a.v);
                 }
-                glUniform4fv_(u.loc, 3*count, bc.mdata[0].a.v);
             }
-            else 
+            else
             {
-                if(count > numgpubones && bc.dirty) 
+                glUniform4fv_(u.loc, 2*numgpubones, sc.bdata[0].real.v);
+                if(count > 0) 
                 {
-                    memcpy(bc.bdata, sc.bdata, numgpubones*sizeof(dualquat));
-                    bc.dirty = false;
+                    int offset = getblendoffset(u);
+                    if(offset >= 0) glUniform4fv_(offset, 2*count, bc.bdata[0].real.v);
                 }
-                glUniform4fv_(u.loc, 2*count, bc.bdata[0].real.v);
             }
             u.version = bc.version;
             u.data = usematskel ? (void *)bc.mdata : (void *)bc.bdata;
@@ -1357,8 +1336,7 @@ struct skelmodel : animmodel
             {
                 if(Shader::lastshader->uniformlocs.length() < 1) return;
                 UniformLoc &u = Shader::lastshader->uniformlocs[0];
-                if(u.size > 0 && (hasUBO || hasBUE)) bindubo(u, sc, bc ? *bc : sc, count);
-                else setglslbones(u, sc, bc ? *bc : sc, count);
+                setglslbones(u, sc, bc ? *bc : sc, count);
             }
             else
             {
@@ -1409,7 +1387,6 @@ struct skelmodel : animmodel
             {
                 DELETEA(blendcache[i].bdata);
                 DELETEA(blendcache[i].mdata);
-                if(blendcache[i].ubuf) glDeleteBuffers_(1, &blendcache[i].ubuf); 
             }
             loopi(MAXVBOCACHE)
             {
@@ -1486,7 +1463,7 @@ struct skelmodel : animmodel
                 loopv(blendcombos)
                 {
                     blendcombo &c = blendcombos[i];
-                    c.interpindex = c.weights[1] ? skel->numinterpbones + vblends++ : -1;
+                    c.interpindex = c.weights[1] ? skel->numgpubones + vblends++ : -1;
                 }
 
                 vertsize = tangents ? sizeof(vvertbump) : (norms ? sizeof(vvertn) : sizeof(vvert));
@@ -1693,9 +1670,9 @@ struct skelmodel : animmodel
         void blendmatbones(const skelcacheentry &sc, blendcacheentry &bc)
         {
             bc.nextversion();
-            if(!bc.mdata) bc.mdata = new matrix3x4[(skel->usegpuskel ? skel->numgpubones : 0) + vblends];
+            if(!bc.mdata) bc.mdata = new matrix3x4[vblends];
             if(lastbdata == bc.mdata) lastbdata = NULL;
-            matrix3x4 *dst = bc.mdata - (skel->usegpuskel ? 0 : skel->numinterpbones);
+            matrix3x4 *dst = bc.mdata - skel->numgpubones;
             loopv(blendcombos)
             {
                 const blendcombo &c = blendcombos[i];
@@ -1707,9 +1684,9 @@ struct skelmodel : animmodel
         void blendbones(const skelcacheentry &sc, blendcacheentry &bc)
         {
             bc.nextversion();
-            if(!bc.bdata) bc.bdata = new dualquat[(skel->usegpuskel ? skel->numgpubones : 0) + vblends];
+            if(!bc.bdata) bc.bdata = new dualquat[vblends];
             if(lastbdata == bc.bdata) lastbdata = NULL;
-            dualquat *dst = bc.bdata - (skel->usegpuskel ? 0 : skel->numinterpbones);
+            dualquat *dst = bc.bdata - skel->numgpubones;
             bool normalize = !skel->usegpuskel || vweights<=1;
             loopv(blendcombos)
             {
@@ -1728,7 +1705,6 @@ struct skelmodel : animmodel
                 blendcacheentry &c = blendcache[i];
                 DELETEA(c.bdata);
                 DELETEA(c.mdata);
-                if(c.ubuf) { glDeleteBuffers_(1, &c.ubuf); c.ubuf = 0; }
                 c.owner = -1;
             }
             loopi(MAXVBOCACHE)
