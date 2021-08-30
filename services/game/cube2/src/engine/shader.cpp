@@ -931,7 +931,6 @@ void setupshaders()
 {
     if(renderpath==R_ASMSHADER || renderpath==R_ASMGLSLANG)
     {
-		conoutf("renderpath==R_ASMSHADER || renderpath==R_ASMGLSLANG");
         GLint val;
         glGetProgramivARB_(GL_VERTEX_PROGRAM_ARB, GL_MAX_PROGRAM_ENV_PARAMETERS_ARB, &val);
         maxvpenvparams = val;
@@ -944,7 +943,6 @@ void setupshaders()
     }
     if(renderpath==R_GLSLANG || renderpath==R_ASMGLSLANG)
     {
-		conoutf("renderpath==R_GLSLANG || renderpath==R_ASMGLSLANG");
         GLint val;
         glGetIntegerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS, &val);
         maxvsuniforms = val/4;

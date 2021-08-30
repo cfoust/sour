@@ -113,8 +113,9 @@ void connectserv(const char *servername, int serverport, const char *serverpassw
         address.host = ENET_HOST_BROADCAST;
     }
 
-    if(!clienthost) 
+    if(!clienthost) {
         clienthost = enet_host_create(NULL, 2, server::numchannels(), rate*1024, rate*1024);
+    }
 
     if(clienthost)
     {
