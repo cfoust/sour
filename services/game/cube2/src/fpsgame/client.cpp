@@ -1255,6 +1255,33 @@ namespace game
                     break;
                 }
 
+            case N_SPAWNSTATE:
+            {
+                int scn = getint(p);
+                fpsent *s = getclient(scn);
+                if(!s) { parsestate(NULL, p); break; }
+                if(s->state==CS_DEAD && s->lastpain) saveragdoll(s);
+                if(s==player1)
+                {
+                    if(editmode) toggleedit();
+                    stopfollowing();
+                }
+                s->respawn();
+                parsestate(s, p);
+                s->state = CS_ALIVE;
+                if(cmode) cmode->pickspawn(s);
+                else findplayerspawn(s);
+                if(s == player1)
+                {
+                    showscores(false);
+                    lasthit = 0;
+                }
+                if(cmode) cmode->respawned(s);
+				ai::spawned(s);
+                addmsg(N_SPAWN, "rcii", s, s->lifesequence, s->gunselect);
+                break;
+            }
+
             case N_SHOTFX:
                 {
                     int scn = getint(p), gun = getint(p), id = getint(p);
