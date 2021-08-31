@@ -32,3 +32,5 @@ type BananaBreadType = {
   execute: (command: string) => void
 }
 declare const BananaBread: BananaBreadType
+
+declare type IntervalID = ReturnType<typeof setInterval>

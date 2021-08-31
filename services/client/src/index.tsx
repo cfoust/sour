@@ -15,10 +15,12 @@ import {
   Heading,
   Spacer,
 } from '@chakra-ui/react'
+import { vec3 } from 'gl-matrix'
 
 import type { GameState, EntityState, User } from './types'
 import { GameStateType } from './types'
 import StatusOverlay from './Loading'
+import PeerManager from './spatial/PeerManager'
 import NAMES from './names'
 
 start()
@@ -82,6 +84,68 @@ function App() {
   const { width, height, ref: containerRef } = useResizeDetector()
 
   const entityState = React.useRef<Maybe<EntityState>>(null)
+
+  const [isVoiceEnabled, setVoiceEnabled] = React.useState<boolean>(true)
+
+  const spatialRef = React.useRef<PeerManager>()
+
+  const destroySpatial = React.useCallback(() => {
+    spatialRef.current?.terminate()
+  }, [])
+
+  const connectToSpatial = React.useCallback((clientId: number) => {
+    if (spatialRef.current != null) destroySpatial()
+    const peer = new PeerManager(clientId, console.log)
+    peer.connect()
+    spatialRef.current = peer
+  }, [])
+
+  // Initialize everything for voice
+  React.useEffect(() => {
+    const myID = entityState.current?.me.id
+    if (!isVoiceEnabled || myID == null) return
+    connectToSpatial(myID)
+  }, [connectToSpatial, isVoiceEnabled])
+
+  React.useEffect(() => {
+    if (!isVoiceEnabled) return
+
+    let stop = false
+    const cb = (delta: number) => {
+      if (stop) return
+      requestAnimationFrame(cb)
+      const { current: state } = entityState
+      const { current: peerManager } = spatialRef
+      if (state == null || peerManager == null) return
+
+      const {
+        me: { position },
+        users: rest,
+      } = state
+
+      const meX = position[0]
+      const meY = position[1] * -1
+
+      let out = vec3.create()
+      for (const client of rest) {
+        const { id, position: userPosition } = client
+        const panner = peerManager.getUser(id)?.panner
+        if (panner == null) continue
+        const [x, y, z] = vec3.scale(
+          vec3.create(),
+          vec3.subtract(out, userPosition, position),
+          0.25
+        )
+        panner.setPosition(x, y, z)
+      }
+    }
+
+    requestAnimationFrame(cb)
+
+    return () => {
+      stop = true
+    }
+  }, [isVoiceEnabled])
 
   const setEntityState = React.useCallback(
     (setter: (state: EntityState) => EntityState) => {
@@ -182,6 +246,7 @@ function App() {
           id: cn,
         },
       }))
+      connectToSpatial(cn)
     }
 
     Module.onPlayerName = (cn, name) => {
@@ -251,7 +316,7 @@ function App() {
 
       console.log(text)
     }
-  }, [])
+  }, [connectToSpatial])
 
   React.useEffect(() => {
     if (width == null || height == null) return
