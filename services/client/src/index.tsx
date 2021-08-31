@@ -77,6 +77,21 @@ function loadMap(name: string) {
   document.body.appendChild(js)
 }
 
+// From https://developer.mozilla.org/en-US/docs/Web/API/PannerNode/orientationX
+// this utility converts amount of rotation around the Y axis
+// (i.e. rotation in the 'horizontal plane') to an orientation vector
+const yRotationToVector = (degrees: number) => {
+  // convert degrees to radians and offset the angle so 0 points towards the listener
+  const radians = (degrees - 90) * (Math.PI / 180)
+  // using cosine and sine here ensures the output values are always normalized
+  // i.e. they range between -1 and 1
+  const x = Math.cos(radians)
+  const z = Math.sin(radians)
+
+  // we hard-code the Y component to 0, as Y is the axis of rotation
+  return [x, 0, z]
+}
+
 function App() {
   const [state, setState] = React.useState<GameState>({
     type: GameStateType.PageLoading,
@@ -119,24 +134,30 @@ function App() {
       if (state == null || peerManager == null) return
 
       const {
-        me: { position },
+        me: { position, heading },
         users: rest,
       } = state
 
-      const meX = position[0]
-      const meY = position[1] * -1
-
       let out = vec3.create()
       for (const client of rest) {
-        const { id, position: userPosition } = client
+        const { id, position: userPosition, heading: userHeading } = client
         const panner = peerManager.getUser(id)?.panner
         if (panner == null) continue
+
         const [x, y, z] = vec3.scale(
           vec3.create(),
           vec3.subtract(out, userPosition, position),
           0.25
         )
-        panner.setPosition(x, y, z)
+
+        const targetHeading = yRotationToVector(userHeading - heading)
+        panner.orientationX.value = targetHeading[0]
+        panner.orientationY.value = targetHeading[1]
+        panner.orientationZ.value = targetHeading[2]
+
+        panner.positionX.value = x
+        panner.positionY.value = y
+        panner.positionZ.value = z
       }
     }
 
@@ -157,6 +178,7 @@ function App() {
                 id: 0,
                 name: '',
                 position: [0, 0, 0],
+                heading: 0,
                 speaking: false,
                 muted: false,
               },
@@ -204,17 +226,19 @@ function App() {
       }
     })
 
-    Module.onPlayerMove = (cn, pos, mypos) => {
+    Module.onPlayerMove = (cn, pos, yaw, mypos, myyaw) => {
       setEntityState((state) => {
         return {
           me: {
             ...state.me,
             position: mypos,
+            heading: myyaw,
           },
           users: R.map(
             (user: User) => ({
               ...user,
               position: user.id === cn ? pos : user.position,
+              heading: user.id === cn ? yaw : user.heading,
             }),
             state.users
           ),
@@ -231,6 +255,7 @@ function App() {
             id: cn,
             name: '',
             position: [0, 0, 0],
+            heading: 0,
             speaking: false,
             muted: false,
           },

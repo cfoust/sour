@@ -6,6 +6,7 @@ export type User = {
   name: string
   // The location of the user in the game world
   position: Vec3
+  heading: number // degrees
   // Whether this user is speaking.
   speaking: boolean
   // Whether this user is muted.

@@ -12,7 +12,7 @@ type ModuleType = {
   desiredWidth: number
   postLoadWorld: () => void
   postRun: Array<(() => void)>
-  onPlayerMove: (client: number, clientPos: Vec3, ourPos: Vec3) => void
+  onPlayerMove: (client: number, clientPos: Vec3, yaw: number, ourPos: Vec3, ourYaw: number) => void
   onPlayerJoin: (client: number) => void
   // When we get our client number assigned
   onClientNumber: (client: number) => void

@@ -934,8 +934,8 @@ namespace game
         }
     }
 
-    EM_JS(void, spatial_on_move, (int cn, float x, float y, float z, float xi, float yi, float zi), {
-        Module['onPlayerMove'](cn, [x, y, z], [xi, yi, zi]);
+    EM_JS(void, spatial_on_move, (int cn, float x, float y, float z, float yaw, float xi, float yi, float zi, float yawi), {
+        Module['onPlayerMove'](cn, [x, y, z], yaw, [xi, yi, zi], yawi);
     });
 
     void parsepositions(ucharbuf &p)
@@ -1018,9 +1018,11 @@ namespace game
                     d->o.x,
                     d->o.y,
                     d->o.z,
+                    d->yaw,
                     player1->o.x,
                     player1->o.y,
-                    player1->o.z
+                    player1->o.z,
+                    player1->yaw
                 );
                 break;
             }
