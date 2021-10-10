@@ -53,7 +53,20 @@ namespace gle
 
     GLE_INITATTRIBF(vertex, ATTRIB_VERTEX)
     GLE_INITATTRIBF(color, ATTRIB_COLOR)
-    static inline void color(const bvec4 &v) { glVertexAttrib4Nubv_(ATTRIB_COLOR, v.v); }
+#if __EMSCRIPTEN__
+	static inline void color(const bvec4 &v) {
+		// Not supported in Emscripten
+		// glVertexAttrib4Nubv_(ATTRIB_COLOR, v.v);
+		colorf(
+			v.x*(2.0f/255.0f)-1.0f,
+			v.y*(2.0f/255.0f)-1.0f,
+			v.z*(2.0f/255.0f)-1.0f,
+			v.w*(2.0f/255.0f)-1.0f
+		);
+	}
+#else
+	static inline void color(const bvec4 &v) { glVertexAttrib4Nubv_(ATTRIB_COLOR, v.v); }
+#endif
     static inline void color(const bvec &v, uchar alpha = 255) { color(bvec4(v, alpha)); }
     static inline void colorub(uchar x, uchar y, uchar z, uchar w = 255) { color(bvec4(x, y, z, w)); }
     GLE_INITATTRIBF(texcoord0, ATTRIB_TEXCOORD0)
