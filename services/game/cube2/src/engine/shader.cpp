@@ -253,12 +253,14 @@ static void linkglslprogram(Shader &s, bool msg = true)
             glBindAttribLocation_(s.program, a.loc, a.name);
             attribs |= 1<<a.loc;
         }
-        loopi(gle::MAXATTRIBS) if(!(attribs&(1<<i))) glBindAttribLocation_(s.program, i, gle::attribnames[i]);
-        if(glversion >= 300)
-        {
-            glBindFragDataLocation_(s.program, 0, "cube2_FragColor");
-        }
-        glLinkProgram_(s.program);
+		loopi(gle::MAXATTRIBS) if(!(attribs&(1<<i))) glBindAttribLocation_(s.program, i, gle::attribnames[i]);
+#ifndef __EMSCRIPTEN__
+		if(glversion >= 300)
+		{
+			glBindFragDataLocation_(s.program, 0, "cube2_FragColor");
+		}
+#endif
+		glLinkProgram_(s.program);
         glGetProgramiv_(s.program, GL_LINK_STATUS, &success);
     }
     if(success)
