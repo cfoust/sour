@@ -165,6 +165,13 @@ namespace gle
                 glVertexAttribPointer_(a.type, a.size, a.format, GL_TRUE, vertexsize, buf);
                 break;
         }
+
+		GLenum err;
+		while((err = glGetError()) != GL_NO_ERROR)
+		{
+			conoutf("glVertexAttribPointer_ error type=%d size=%d format=%d offset=%d", a.type, a.size, a.format, a.offset);
+		}
+
         if(!(enabled&(1<<a.type)))
         {
             glEnableVertexAttribArray_(a.type);
@@ -289,6 +296,12 @@ namespace gle
             }
             vbooffset += attribbuf.length();
         }
+#if __EMSCRIPTEN__
+		if(!vbo) glGenBuffers_(1, &vbo);
+		glBindBuffer_(GL_ARRAY_BUFFER, vbo);
+		glBufferData_(GL_ARRAY_BUFFER, MAXVBOSIZE, NULL, GL_STREAM_DRAW);
+		glBufferSubData_(GL_ARRAY_BUFFER, 0, attribbuf.length(), attribbuf.getbuf());
+#endif
         setattribs(buf);
         int numvertexes = attribbuf.length()/vertexsize;
         if(primtype == GL_QUADS)
