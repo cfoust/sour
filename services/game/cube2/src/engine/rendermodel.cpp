@@ -380,12 +380,10 @@ void flushpreloadedmodels_iter(void *)
 {
     if (preloadmodels.length())
     {
-        model *m = loadmodel(preloadmodels[i], -1, msg);
-        if(!m) { if(msg) conoutf(CON_WARN, "could not load model: %s", preloadmodels[i]); }
-        else
-        {
-            m->preloadmeshes();
-        }
+        model *m = loadmodel(preloadmodels.pop(), -1, true);
+        if(m) {
+			m->preloadmeshes();
+		}
         emscripten_push_uncounted_main_loop_blocker(flushpreloadedmodels_iter, NULL);
     }
     else emscripten_push_main_loop_blocker(flushpreloadedmodels_func, NULL);
@@ -456,7 +454,7 @@ model *loadmodel(const char *name, int i, bool msg)
         loadingmodel = NULL;
         if(!m)
         {
-            missingmodels.access(name, NULL); // XXX EMSCRIPTEN
+            missingmodels.access(name, (model *) NULL); // XXX EMSCRIPTEN
             return NULL;
         }
         models.access(m->name, m);

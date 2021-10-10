@@ -1326,7 +1326,6 @@ void main2(void *arg)
 
 void main3(void *arg)
 {
-    particleinit();
     initdecals();
 
     logoutf("init: world");
@@ -1408,20 +1407,6 @@ void main3(void *arg)
     inputgrab(grabinput = true);
     ignoremousemotion();
 
-<<<<<<< HEAD
-    for(;;)
-    {
-        static int frames = 0;
-        int millis = getclockmillis();
-        limitfps(millis, totalmillis);
-        elapsedtime = millis - totalmillis;
-        static int timeerr = 0;
-        int scaledtime = game::scaletime(elapsedtime) + timeerr;
-        curtime = scaledtime/100;
-        timeerr = scaledtime%100;
-        if(!multiplayer(false) && curtime>200) curtime = 200;
-        if(game::ispaused()) curtime = 0;
-=======
 #if !__EMSCRIPTEN__
     for(;;) main_loop_caller(); // otherwise in emscripten we already set the main loop
 #endif
@@ -1475,8 +1460,8 @@ void main_loop_iter()
         extern bool maploaded;
         if (maploaded) {
             inbetweenframes = false;
-            if(mainmenu) gl_drawmainmenu(screen->w, screen->h);
-            else gl_drawframe(screen->w, screen->h);
+            if(mainmenu) gl_drawmainmenu();
+            else gl_drawframe();
             swapbuffers();
             renderedframe = inbetweenframes = true;
         }

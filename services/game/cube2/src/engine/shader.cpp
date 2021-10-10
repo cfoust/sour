@@ -24,7 +24,7 @@ VAR(dbgshader, 0, 0, 2);
 static void loadshaders2(void *); 
 static void loadshaders3(void *);
 static char *loadshaders_glsl;
-static int loadshaders_glsl_len;
+static size_t loadshaders_glsl_len;
 static const int loadshaders_glsl_chunks = 12;
 static char *loadshaders_glsl_curr;
 
@@ -33,7 +33,7 @@ void loadshaders(bool firstload)
     standardshaders = true;
 
     // XXX EMSCRIPTEN: load glsl.cfg to split it up
-    loadshaders_glsl = loadfile(renderpath==R_GLSLANG ? "data/glsl.cfg" : "data/stdshader.cfg", &loadshaders_glsl_len);
+    loadshaders_glsl = loadfile("data/glsl.cfg", &loadshaders_glsl_len);
     loadshaders_glsl_curr = loadshaders_glsl;
 
     if (firstload)
@@ -280,65 +280,7 @@ static void linkglslprogram(Shader &s, bool msg = true)
 
 int getlocalparam(const char *name)
 {
-<<<<<<< HEAD
     return localparams.access(name, int(localparams.numelems));
-=======
-    const GLchar *source =
-        "void main(void) {\n"
-        "   gl_FragColor = vec4(0.0);\n"
-        "}\n";
-	GLuint obj = glCreateShader_(GL_FRAGMENT_SHADER);
-	glShaderSource_(obj, 1, &source, NULL);
-	glCompileShader_(obj);
-	GLint success;
-	glGetShaderiv_(obj, GL_COMPILE_STATUS, &success);
-	if(!success)
-	{
-		conoutf(CON_WARN, "Cannot compile fragment shader");
-		glDeleteShader_(obj);
-		return false;
-	}
-
-	// EMSCRIPTEN: WebGL needs both vertex *and* fragment shaders
-	const GLcharARB *source2 =
-		"attribute vec4 vPosition;    \n"
-		"void main()                  \n"
-		"{                            \n"
-		"   gl_Position = vPosition;  \n"
-		"}                            \n";
-	GLuint obj2 = glCreateShader_(GL_VERTEX_SHADER);
-	glShaderSource_(obj2, 1, &source2, NULL);
-	glCompileShader_(obj2);
-	glGetShaderiv_(obj2, GL_COMPILE_STATUS, &success);
-	if(!success)
-	{
-		conoutf(CON_WARN, "Cannot compile vertex shader");
-		glDeleteShader_(obj);
-		glDeleteShader_(obj2);
-		return false;
-	}
-
-	// EMSCRIPTEN end (also lines dealing with obj2 below)
-	GLuint program = glCreateProgram_();
-	if(!program)
-	{
-		conoutf(CON_WARN, "Cannot create program");
-		glDeleteShader_(obj);
-		glDeleteShader_(obj2);
-		glDeleteProgram_(program);
-		return false;
-	} 
-	glAttachShader_(program, obj);
-	glAttachShader_(program, obj2);
-	glLinkProgram_(program); 
-	glGetProgramiv_(program, GL_LINK_STATUS, &success);
-	if (!success) conoutf(CON_WARN, "Cannot link program");
-
-	glDeleteShader_(obj);
-	glDeleteShader_(obj2);
-	glDeleteProgram_(program);
-	return success!=0;
->>>>>>> 6a4a169 (Sour changes)
 }
 
 static int addlocalparam(Shader &s, const char *name, int loc, int size, GLenum format)
@@ -610,13 +552,10 @@ void Shader::bindprograms()
     lastshader = this;
 }
 
-<<<<<<< HEAD
-=======
 VARFN(shaders, useshaders, -1, 1, 1, initwarning("shaders"));
 VARF(shaderprecision, 0, 0, 2, initwarning("shader quality"));
 VARF(forceglsl, -1, 1, 1, initwarning("shaders"));
 
->>>>>>> 6a4a169 (Sour changes)
 bool Shader::compile()
 {
     if(!vsstr) vsobj = !reusevs || reusevs->invalid() ? 0 : reusevs->vsobj;
