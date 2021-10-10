@@ -11,14 +11,13 @@ EMCONFIGURE = $(EMSCRIPTEN)/emconfigure
 EMMAKE = $(EMSCRIPTEN)/emmake
 
 # -O2+ fails on new emscripten, likely due to undefined behavior somewhere...
-CXXFLAGS= -O1 -s USE_ZLIB=1 -std=c++03 -w
+CXXFLAGS= -O1 -s USE_ZLIB=1 -s USE_SDL=2 -s USE_SDL_IMAGE=2 -s USE_SDL_MIXER=2 -std=c++03 -w
 override CXXFLAGS+= -Wall -fsigned-char -fno-exceptions -fno-rtti
 
 PLATFORM= emscripten
 PLATFORM_PREFIX= native
 
-INCLUDES= -Ishared -Iengine -Ifpsgame -Ienet/include -I.
-
+INCLUDES= -Ishared -Iengine -Ifpsgame -Ienet/include
 
 STRIP=
 ifeq (,$(findstring -g,$(CXXFLAGS)))
@@ -35,7 +34,7 @@ CLIENT_INCLUDES= $(INCLUDES) -Iinclude
 CLIENT_LIBS= -mwindows -Llib -lSDL -lzdll -lopengl32 -lenet -lws2_32 -lwinmm
 else	
 CLIENT_INCLUDES= $(INCLUDES)
-CLIENT_LIBS= -Lenet -lenet -L/usr/X11R6/lib -lX11 `sdl2-config --libs` -lSDL2_image -lSDL2_mixer -lz -lGL
+CLIENT_LIBS= -Lenet/.libs -lenet -L/usr/X11R6/lib -lX11 `sdl2-config --libs` -lz -lGL
 endif
 ifeq ($(PLATFORM),Linux)
 CLIENT_LIBS+= -lrt
@@ -43,6 +42,7 @@ endif
 CLIENT_OBJS= \
 	shared/crypto.o \
 	shared/geom.o \
+	shared/glemu.o \
 	shared/stream.o \
 	shared/tools.o \
 	shared/zip.o \

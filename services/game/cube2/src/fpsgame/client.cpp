@@ -1707,6 +1707,9 @@ namespace game
                         break;
                     }
                 }
+                break;
+            }
+
             case N_REMIP:
                 {
                     if(!d) return;
