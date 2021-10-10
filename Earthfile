@@ -16,9 +16,7 @@ server:
     FROM +cpp
     COPY services/server .
     RUN cmake .
-    # cache cmake temp files to prevent rebuilding .o files
-    # when the .cpp files don't change
-    RUN --mount=type=cache,target=/code/CMakeFiles make
+    RUN make
     SAVE ARTIFACT qserv AS LOCAL "build/qserv"
 
 assets:
