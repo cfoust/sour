@@ -25,7 +25,6 @@ data/menus.cfg
 data/sounds.cfg
 data/stdedit.cfg
 data/stdlib.cfg
-data/stdshader.cfg
 data/teammate.png
 packages/aftas/package.cfg
 packages/caustics/caust00.png
