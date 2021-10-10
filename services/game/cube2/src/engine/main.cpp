@@ -685,6 +685,15 @@ void setupscreen()
     SDL_GL_ResetAttributes();
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
+    int config = 0;
+#ifdef __EMSCRIPTEN__
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    screen = SDL_CreateWindow("Cube 2: Sauerbraten", winx, winy, winw, winh, SDL_WINDOW_OPENGL);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+    glcontext = SDL_GL_CreateContext(screen);
+#else
 	// TODO(cfoust): 10/09/21 this is suspicious
     #if !defined(WIN32) && !defined(__APPLE__)
     SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
@@ -697,7 +706,7 @@ void setupscreen()
         0x2, 0x1, /* try disabling one at a time */
         0 /* try disabling everything */
     };
-    int config = 0;
+
     if(!depthbits) SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     if(!fsaa)
     {
@@ -734,6 +743,8 @@ void setupscreen()
         }
         if(glcontext) break;
     }
+#endif
+
     if(!screen) fatal("failed to create OpenGL window: %s", SDL_GetError());
     else if(!glcontext) fatal("failed to create OpenGL context: %s", SDL_GetError());
     else
