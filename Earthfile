@@ -22,7 +22,7 @@ server:
     SAVE ARTIFACT qserv AS LOCAL "build/qserv"
 
 assets:
-    FROM emscripten/emsdk:1.40.0
+    FROM emscripten/emsdk:1.39.20
     WORKDIR /tmp
     RUN apt-get update && apt-get install -y imagemagick
     COPY services/game/assets assets
@@ -30,7 +30,7 @@ assets:
     SAVE ARTIFACT assets/output AS LOCAL "build/assets"
 
 game:
-    FROM emscripten/emsdk:1.40.0
+    FROM emscripten/emsdk:1.39.20
     WORKDIR /cube2
     COPY services/game/cube2 cube2
     RUN cd cube2/src/web && emmake make client -j8
