@@ -7,9 +7,9 @@ struct smdbone
     smdbone() : parent(-1) { name[0] = '\0'; }
 };
 
-struct smd : skelmodel, skelloader<smd>
+struct smd : skelloader<smd>
 {
-    smd(const char *name) : skelmodel(name) {}
+    smd(const char *name) : skelloader(name) {}
 
     static const char *formatname() { return "smd"; }
     int type() const { return MDL_SMD; }
@@ -178,11 +178,11 @@ struct smd : skelmodel, skelloader<smd>
                     } while(skipcomment(curbuf));
                     smdvertkey key(curmesh);     
                     int parent = -1, numlinks = 0, len = 0;
-                    if(sscanf(curbuf, " %d %f %f %f %f %f %f %f %f %d%n", &parent, &key.pos.x, &key.pos.y, &key.pos.z, &key.norm.x, &key.norm.y, &key.norm.z, &key.u, &key.v, &numlinks, &len) < 9) goto endsection;    
+                    if(sscanf(curbuf, " %d %f %f %f %f %f %f %f %f %d%n", &parent, &key.pos.x, &key.pos.y, &key.pos.z, &key.norm.x, &key.norm.y, &key.norm.z, &key.tc.x, &key.tc.y, &numlinks, &len) < 9) goto endsection;    
                     curbuf += len;
                     key.pos.y = -key.pos.y;
                     key.norm.y = -key.norm.y;
-                    key.v = 1 - key.v;
+                    key.tc.y = 1 - key.tc.y;
                     blendcombo c;
                     int sorted = 0;
                     float pweight = 0, tweight = 0;
@@ -406,7 +406,7 @@ struct smd : skelmodel, skelloader<smd>
         }
     };            
 
-    meshgroup *loadmeshes(char *name, va_list args)
+    meshgroup *loadmeshes(const char *name, va_list args)
     {
         smdmeshgroup *group = new smdmeshgroup;
         group->shareskeleton(va_arg(args, char *));
@@ -416,57 +416,18 @@ struct smd : skelmodel, skelloader<smd>
 
     bool loaddefaultparts()
     {
-        skelpart &mdl = *new skelpart;
-        parts.add(&mdl);
-        mdl.model = this;
-        mdl.index = 0;
+        skelpart &mdl = addpart();
         mdl.pitchscale = mdl.pitchoffset = mdl.pitchmin = mdl.pitchmax = 0;
         adjustments.setsize(0);
-        const char *fname = loadname + strlen(loadname);
-        do --fname; while(fname >= loadname && *fname!='/' && *fname!='\\');
+        const char *fname = name + strlen(name);
+        do --fname; while(fname >= name && *fname!='/' && *fname!='\\');
         fname++;
-        defformatstring(meshname)("packages/models/%s/%s.smd", loadname, fname);
+        defformatstring(meshname, "packages/models/%s/%s.smd", name, fname);
         mdl.meshes = sharemeshes(path(meshname), NULL);
         if(!mdl.meshes) return false;
         mdl.initanimparts();
         mdl.initskins();
         return true;
-    }
-
-    bool load()
-    {
-        if(loaded) return true;
-        formatstring(dir)("packages/models/%s", loadname);
-        defformatstring(cfgname)("packages/models/%s/smd.cfg", loadname);
-
-        loading = this;
-        identflags &= ~IDF_PERSIST;
-        if(execfile(cfgname, false) && parts.length()) // configured smd, will call the smd* commands below
-        {
-            identflags |= IDF_PERSIST;
-            loading = NULL;
-            loopv(parts) if(!parts[i]->meshes) return false;
-        }
-        else // smd without configuration, try default tris and skin 
-        {
-            identflags |= IDF_PERSIST;
-            if(!loaddefaultparts()) 
-            {
-                loading = NULL;
-                return false;
-            }
-            loading = NULL;
-        }
-        scale /= 4;
-        parts[0]->translate = translate;
-        loopv(parts) 
-        {
-            skelpart *p = (skelpart *)parts[i];
-            p->endanimparts();
-            p->meshes->shared++;
-        }
-        preloadshaders();
-        return loaded = true;
     }
 };
 
@@ -479,7 +440,7 @@ static inline bool htcmp(const smd::smdmeshgroup::smdvertkey &k, int index)
 {
     if(!k.mesh->verts.inrange(index)) return false;
     const smd::vert &v = k.mesh->verts[index];
-    return k.pos == v.pos && k.norm == v.norm && k.u == v.u && k.v == v.v && k.blend == v.blend;
+    return k.pos == v.pos && k.norm == v.norm && k.tc == v.tc && k.blend == v.blend;
 }
 
 skelcommands<smd> smdcommands;

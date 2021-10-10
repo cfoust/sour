@@ -1,7 +1,6 @@
 // serverbrowser.cpp: eihrul's concurrent resolver, and server browser window management
 
 #include "engine.h"
-#include "SDL_thread.h"
 
 struct resolverthread
 {
@@ -71,7 +70,7 @@ void resolverinit()
         resolverthread &rt = resolverthreads.add();
         rt.query = NULL;
         rt.starttime = 0;
-        rt.thread = SDL_CreateThread(resolverloop, &rt);
+        rt.thread = SDL_CreateThread(resolverloop, "resolver", &rt);
     }
     SDL_UnlockMutex(resolvermutex);
 }
@@ -81,10 +80,10 @@ void resolverstop(resolverthread &rt)
     SDL_LockMutex(resolvermutex);
     if(rt.query)
     {
-#ifndef __APPLE__
-        SDL_KillThread(rt.thread);
+#if SDL_VERSION_ATLEAST(2, 0, 2)
+        SDL_DetachThread(rt.thread);
 #endif
-        rt.thread = SDL_CreateThread(resolverloop, &rt);
+        rt.thread = SDL_CreateThread(resolverloop, "resolver", &rt);
     }
     rt.query = NULL;
     rt.starttime = 0;
@@ -145,7 +144,7 @@ bool resolverwait(const char *name, ENetAddress *address)
 {
     if(resolverthreads.empty()) resolverinit();
 
-    defformatstring(text)("resolving %s... (esc to abort)", name);
+    defformatstring(text, "resolving %s... (esc to abort)", name);
     renderprogress(0, text);
 
     SDL_LockMutex(resolvermutex);
@@ -179,94 +178,94 @@ bool resolverwait(const char *name, ENetAddress *address)
         }
     }
     SDL_UnlockMutex(resolvermutex);
-    return resolved;
-}
-
-SDL_Thread *connthread = NULL;
-SDL_mutex *connmutex = NULL;
-SDL_cond *conncond = NULL;
-
-struct connectdata
-{
-    ENetSocket sock;
-    ENetAddress address;
-    int result;
-};
-
-// do this in a thread to prevent timeouts
-// could set timeouts on sockets, but this is more reliable and gives more control
-int connectthread(void *data)
-{
-    SDL_LockMutex(connmutex);
-    if(!connthread || SDL_GetThreadID(connthread) != SDL_ThreadID())
-    {
-        SDL_UnlockMutex(connmutex);
-        return 0;
-    }
-    connectdata cd = *(connectdata *)data;
-    SDL_UnlockMutex(connmutex);
-
-    int result = enet_socket_connect(cd.sock, &cd.address);
-
-    SDL_LockMutex(connmutex);
-    if(!connthread || SDL_GetThreadID(connthread) != SDL_ThreadID())
-    {
-        enet_socket_destroy(cd.sock);
-        SDL_UnlockMutex(connmutex);
-        return 0;
-    }
-    ((connectdata *)data)->result = result;
-    SDL_CondSignal(conncond);
-    SDL_UnlockMutex(connmutex);
-
-    return 0;
+    return resolved && address->host != ENET_HOST_ANY;
 }
 
 #define CONNLIMIT 20000
 
 int connectwithtimeout(ENetSocket sock, const char *hostname, const ENetAddress &address)
 {
-    defformatstring(text)("connecting to %s... (esc to abort)", hostname);
+    defformatstring(text, "connecting to %s... (esc to abort)", hostname);
     renderprogress(0, text);
 
-    if(!connmutex) connmutex = SDL_CreateMutex();
-    if(!conncond) conncond = SDL_CreateCond();
-    SDL_LockMutex(connmutex);
-    connectdata cd = { sock, address, -1 };
-    connthread = SDL_CreateThread(connectthread, &cd);
-
-    int starttime = SDL_GetTicks(), timeout = 0;
-    for(;;)
+    ENetSocketSet readset, writeset;
+    if(!enet_socket_connect(sock, &address)) for(int starttime = SDL_GetTicks(), timeout = 0; timeout <= CONNLIMIT;)
     {
-        if(!SDL_CondWaitTimeout(conncond, connmutex, 250))
+        ENET_SOCKETSET_EMPTY(readset);
+        ENET_SOCKETSET_EMPTY(writeset);
+        ENET_SOCKETSET_ADD(readset, sock);
+        ENET_SOCKETSET_ADD(writeset, sock);
+        int result = enet_socketset_select(sock, &readset, &writeset, 250);
+        if(result < 0) break;
+        else if(result > 0)
         {
-            if(cd.result<0) enet_socket_destroy(sock);
-            break;
-        }      
+            if(ENET_SOCKETSET_CHECK(readset, sock) || ENET_SOCKETSET_CHECK(writeset, sock))
+            {
+                int error = 0;
+                if(enet_socket_get_option(sock, ENET_SOCKOPT_ERROR, &error) < 0 || error) break;
+                return 0;
+            }
+        }
         timeout = SDL_GetTicks() - starttime;
         renderprogress(min(float(timeout)/CONNLIMIT, 1.0f), text);
-        if(interceptkey(SDLK_ESCAPE)) timeout = CONNLIMIT + 1;
-        if(timeout > CONNLIMIT) break;
+        if(interceptkey(SDLK_ESCAPE)) break;
     }
 
-    /* thread will actually timeout eventually if its still trying to connect
-     * so just leave it (and let it destroy socket) instead of causing problems on some platforms by killing it 
-     */
-    connthread = NULL;
-    SDL_UnlockMutex(connmutex);
-
-    return cd.result;
+    return -1;
 }
  
+struct pingattempts
+{
+    enum { MAXATTEMPTS = 2 };
+
+    int offset, attempts[MAXATTEMPTS];
+
+    pingattempts() : offset(0) { clearattempts(); }
+
+    void clearattempts() { memset(attempts, 0, sizeof(attempts)); }
+
+    void setoffset() { offset = 1 + rnd(0xFFFFFF); } 
+
+    int encodeping(int millis)
+    {
+        millis += offset;
+        return millis ? millis : 1;
+    }
+
+    int decodeping(int val)
+    {
+        return val - offset;
+    }
+
+    int addattempt(int millis)
+    {
+        int val = encodeping(millis);
+        loopk(MAXATTEMPTS-1) attempts[k+1] = attempts[k];
+        attempts[0] = val;
+        return val;
+    }
+
+    bool checkattempt(int val, bool del = true)
+    {
+        if(val) loopk(MAXATTEMPTS) if(attempts[k] == val)
+        {
+            if(del) attempts[k] = 0;
+            return true;
+        }
+        return false;
+    }
+
+};
+
 enum { UNRESOLVED = 0, RESOLVING, RESOLVED };
 
-struct serverinfo
+struct serverinfo : pingattempts
 {
     enum 
     { 
         WAITING = INT_MAX,
 
-        MAXPINGS = 3 
+        MAXPINGS = 3
     };
 
     string name, map, sdesc;
@@ -278,10 +277,11 @@ struct serverinfo
     const char *password;
 
     serverinfo()
-     : port(-1), numplayers(0), resolved(UNRESOLVED), keep(false), password(NULL)
+        : port(-1), numplayers(0), resolved(UNRESOLVED), keep(false), password(NULL)
     {
         name[0] = map[0] = sdesc[0] = '\0';
         clearpings();
+        setoffset();
     }
 
     ~serverinfo()
@@ -295,6 +295,7 @@ struct serverinfo
         loopk(MAXPINGS) pings[k] = WAITING;
         nextping = 0;
         lastping = -1;
+        clearattempts();
     }
 
     void cleanup()
@@ -402,6 +403,16 @@ VARP(servpingrate, 1000, 5000, 60000);
 VARP(servpingdecay, 1000, 15000, 60000);
 VARP(maxservpings, 0, 10, 1000);
 
+pingattempts lanpings;
+
+template<size_t N> static inline void buildping(ENetBuffer &buf, uchar (&ping)[N], pingattempts &a)
+{
+    ucharbuf p(ping, N);
+    putint(p, a.addattempt(totalmillis));
+    buf.data = ping;
+    buf.dataLength = p.length();
+}
+
 void pingservers()
 {
     if(pingsock == ENET_SOCKET_NULL) 
@@ -414,11 +425,12 @@ void pingservers()
         }
         enet_socket_set_option(pingsock, ENET_SOCKOPT_NONBLOCK, 1);
         enet_socket_set_option(pingsock, ENET_SOCKOPT_BROADCAST, 1);
+
+        lanpings.setoffset();
     }
+
     ENetBuffer buf;
     uchar ping[MAXTRANS];
-    ucharbuf p(ping, sizeof(ping));
-    putint(p, totalmillis);
 
     static int lastping = 0;
     if(lastping >= servers.length()) lastping = 0;
@@ -427,8 +439,7 @@ void pingservers()
         serverinfo &si = *servers[lastping];
         if(++lastping >= servers.length()) lastping = 0;
         if(si.address.host == ENET_HOST_ANY) continue;
-        buf.data = ping;
-        buf.dataLength = p.length();
+        buildping(buf, ping, si);
         enet_socket_send(pingsock, &si.address, &buf, 1);
         
         si.checkdecay(servpingdecay);
@@ -438,8 +449,7 @@ void pingservers()
         ENetAddress address;
         address.host = ENET_HOST_BROADCAST;
         address.port = server::laninfoport();
-        buf.data = ping;
-        buf.dataLength = p.length();
+        buildping(buf, ping, lanpings);
         enet_socket_send(pingsock, &address, &buf, 1);
     }
     lastinfo = totalmillis;
@@ -494,21 +504,31 @@ void checkpings()
     {
         int len = enet_socket_receive(pingsock, &addr, &buf, 1);
         if(len <= 0) return;  
+        ucharbuf p(ping, len);
+        int millis = getint(p);
         serverinfo *si = NULL;
         loopv(servers) if(addr.host == servers[i]->address.host && addr.port == servers[i]->address.port) { si = servers[i]; break; }
-        if(!si && searchlan) si = newserver(NULL, server::serverport(addr.port), addr.host); 
-        if(!si) continue;
-        ucharbuf p(ping, len);
-        int millis = getint(p), rtt = clamp(totalmillis - millis, 0, min(servpingdecay, totalmillis));
+        if(si)
+        {
+            if(!si->checkattempt(millis)) continue;
+            millis = si->decodeping(millis);
+        }
+        else if(!searchlan || !lanpings.checkattempt(millis, false)) continue;
+        else
+        {
+            si = newserver(NULL, server::serverport(addr.port), addr.host); 
+            millis = lanpings.decodeping(millis);
+        }
+        int rtt = clamp(totalmillis - millis, 0, min(servpingdecay, totalmillis));
         if(millis >= lastreset && rtt < servpingdecay) si->addping(rtt, millis);
         si->numplayers = getint(p);
         int numattr = getint(p);
-        si->attr.shrink(0);
-        loopj(numattr) si->attr.add(getint(p));
+        si->attr.setsize(0);
+        loopj(numattr) { int attr = getint(p); if(p.overread()) break; si->attr.add(attr); }
         getstring(text, p);
         filtertext(si->map, text, false);
         getstring(text, p);
-        filtertext(si->sdesc, text);
+        filtertext(si->sdesc, text, true, true);
     }
 }
 
@@ -540,7 +560,7 @@ void refreshservers()
 
 serverinfo *selectedserver = NULL;
 
-char *showservers(g3d_gui *cgui, uint *header)
+const char *showservers(g3d_gui *cgui, uint *header, int pagemin, int pagemax)
 {
     refreshservers();
     if(servers.empty())
@@ -560,7 +580,7 @@ char *showservers(g3d_gui *cgui, uint *header)
             if(!game::serverinfostartcolumn(cgui, i)) break;
             for(int j = start; j < end; j++)
             {
-                if(!i && cgui->shouldtab()) { end = j; break; }
+                if(!i && j+1 - start >= pagemin && (j+1 - start >= pagemax || cgui->shouldtab())) { end = j; break; }
                 serverinfo &si = *servers[j];
                 const char *sdesc = si.sdesc;
                 if(si.address.host == ENET_HOST_ANY) sdesc = "[unknown host]";
@@ -575,7 +595,7 @@ char *showservers(g3d_gui *cgui, uint *header)
     }
     if(selectedserver || !sc) return NULL;
     selectedserver = sc;
-    return newstring("connectselected");
+    return "connectselected";
 }
 
 void connectselected()
@@ -599,11 +619,11 @@ void clearservers(bool full = false)
 
 void retrieveservers(vector<char> &data)
 {
-    ENetSocket sock = connectmaster();
+    ENetSocket sock = connectmaster(true);
     if(sock == ENET_SOCKET_NULL) return;
 
     extern char *mastername;
-    defformatstring(text)("retrieving servers from %s... (esc to abort)", mastername);
+    defformatstring(text, "retrieving servers from %s... (esc to abort)", mastername);
     renderprogress(0, text);
 
     int starttime = SDL_GetTicks(), timeout = 0;
@@ -657,11 +677,30 @@ void updatefrommaster()
 {
     vector<char> data;
     retrieveservers(data);
-    if(data.empty()) conoutf("master server not replying");
+    if(data.empty()) conoutf(CON_ERROR, "master server not replying");
     else
     {
         clearservers();
-        execute(data.getbuf());
+        char *line = data.getbuf();
+        while(char *end = (char *)memchr(line, '\n', data.length() - (line - data.getbuf())))
+        {
+            *end = '\0';
+
+            const char *args = line;
+            while(args < end && !iscubespace(*args)) args++;
+            int cmdlen = args - line;
+            while(args < end && iscubespace(*args)) args++;
+
+            if(matchstring(line, cmdlen, "addserver"))
+            {
+                string ip;
+                int port;
+                if(sscanf(args, "%100s %d", ip, &port) == 2) addserver(ip, port);
+            }
+            else if(matchstring(line, cmdlen, "echo")) conoutf("\f1%s", args);
+
+            line = end + 1;
+        }
     }
     refreshservers();
     updatedservers = true;

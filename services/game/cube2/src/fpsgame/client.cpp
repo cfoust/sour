@@ -4,6 +4,7 @@ namespace game
 {
     VARP(minradarscale, 0, 384, 10000);
     VARP(maxradarscale, 1, 1024, 10000);
+    VARP(radarteammates, 0, 1, 1);
     FVARP(minimapalpha, 0, 1, 1);
 
     float calcradarscale()
@@ -16,27 +17,88 @@ namespace game
         vec pos = vec(d->o).sub(minimapcenter).mul(minimapscale).add(0.5f), dir;
         vecfromyawpitch(camera1->yaw, 0, 1, 0, dir);
         float scale = calcradarscale();
-        glBegin(GL_TRIANGLE_FAN);
+        gle::defvertex(2);
+        gle::deftexcoord0();
+        gle::begin(GL_TRIANGLE_FAN);
         loopi(16)
         {
-            vec tc = vec(dir).rotate_around_z(i/16.0f*2*M_PI);
-            glTexCoord2f(pos.x + tc.x*scale*minimapscale.x, pos.y + tc.y*scale*minimapscale.y);
             vec v = vec(0, -1, 0).rotate_around_z(i/16.0f*2*M_PI);
-            glVertex2f(x + 0.5f*s*(1.0f + v.x), y + 0.5f*s*(1.0f + v.y));
+            gle::attribf(x + 0.5f*s*(1.0f + v.x), y + 0.5f*s*(1.0f + v.y));
+            vec tc = vec(dir).rotate_around_z(i/16.0f*2*M_PI);
+            gle::attribf(pos.x + tc.x*scale*minimapscale.x, pos.y + tc.y*scale*minimapscale.y);
         }
-        glEnd();
+        gle::end();
     }
 
     void drawradar(float x, float y, float s)
     {
-        glBegin(GL_TRIANGLE_STRIP);
-        glTexCoord2f(0.0f, 0.0f); glVertex2f(x,   y);
-        glTexCoord2f(1.0f, 0.0f); glVertex2f(x+s, y);
-        glTexCoord2f(0.0f, 1.0f); glVertex2f(x,   y+s);
-        glTexCoord2f(1.0f, 1.0f); glVertex2f(x+s, y+s);
-        glEnd();
+        gle::defvertex(2);
+        gle::deftexcoord0();
+        gle::begin(GL_TRIANGLE_STRIP);
+        gle::attribf(x,   y);   gle::attribf(0, 0);
+        gle::attribf(x+s, y);   gle::attribf(1, 0);
+        gle::attribf(x,   y+s); gle::attribf(0, 1);
+        gle::attribf(x+s, y+s); gle::attribf(1, 1);
+        gle::end();
     }
 
+    void drawteammate(fpsent *d, float x, float y, float s, fpsent *o, float scale)
+    {
+        vec dir = d->o;
+        dir.sub(o->o).div(scale);
+        float dist = dir.magnitude2(), maxdist = 1 - 0.05f - 0.05f;
+        if(dist >= maxdist) dir.mul(maxdist/dist);
+        dir.rotate_around_z(-camera1->yaw*RAD);
+        float bs = 0.06f*s,
+              bx = x + s*0.5f*(1.0f + dir.x),
+              by = y + s*0.5f*(1.0f + dir.y);
+        vec v(-0.5f, -0.5f, 0);
+        v.rotate_around_z((90+o->yaw-camera1->yaw)*RAD);
+        gle::attribf(bx + bs*v.x, by + bs*v.y); gle::attribf(0, 0);
+        gle::attribf(bx + bs*v.y, by - bs*v.x); gle::attribf(1, 0);
+        gle::attribf(bx - bs*v.x, by - bs*v.y); gle::attribf(1, 1);
+        gle::attribf(bx - bs*v.y, by + bs*v.x); gle::attribf(0, 1);
+    }
+
+    void drawteammates(fpsent *d, float x, float y, float s)
+    {
+        if(!radarteammates) return;
+        float scale = calcradarscale();
+        int alive = 0, dead = 0;
+        loopv(players) 
+        {
+            fpsent *o = players[i];
+            if(o != d && o->state == CS_ALIVE && isteam(o->team, d->team))
+            {
+                if(!alive++) 
+                {
+                    settexture(isteam(d->team, player1->team) ? "packages/hud/blip_blue_alive.png" : "packages/hud/blip_red_alive.png");
+                    gle::defvertex(2);
+                    gle::deftexcoord0();
+                    gle::begin(GL_QUADS);
+                }
+                drawteammate(d, x, y, s, o, scale);
+            }
+        }
+        if(alive) gle::end();
+        loopv(players) 
+        {
+            fpsent *o = players[i];
+            if(o != d && o->state == CS_DEAD && isteam(o->team, d->team))
+            {
+                if(!dead++) 
+                {
+                    settexture(isteam(d->team, player1->team) ? "packages/hud/blip_blue_dead.png" : "packages/hud/blip_red_dead.png");
+                    gle::defvertex(2);
+                    gle::deftexcoord0();
+                    gle::begin(GL_QUADS);
+                }
+                drawteammate(d, x, y, s, o, scale);
+            }
+        }
+        if(dead) gle::end();
+    }
+        
     #include "capture.h"
     #include "ctf.h"
     #include "collect.h"
@@ -58,35 +120,47 @@ namespace game
     int lastping = 0;
 
     bool connected = false, remote = false, demoplayback = false, gamepaused = false;
-    int sessionid = 0, mastermode = MM_OPEN;
+    int sessionid = 0, mastermode = MM_OPEN, gamespeed = 100;
     string servinfo = "", servauth = "", connectpass = "";
 
     VARP(deadpush, 1, 2, 20);
 
     void switchname(const char *name)
     {
-        if(name[0])
-        {
-            filtertext(player1->name, name, false, MAXNAMELEN);
-            if(!player1->name[0]) copystring(player1->name, "unnamed");
-            conoutf("setting name to: %s", player1->name);
-            addmsg(N_SWITCHNAME, "rs", player1->name);
-        }
-        else conoutf("your name is: %s", colorname(player1));
+        filtertext(player1->name, name, false, false, MAXNAMELEN);
+        if(!player1->name[0]) {
+			copystring(player1->name, "unnamed");
+			conoutf("setting name to: %s", player1->name);
+		}
+        addmsg(N_SWITCHNAME, "rs", player1->name);
     }
-    ICOMMAND(name, "s", (char *s), switchname(s));
+    void printname()
+    {
+        conoutf("your name is: %s", colorname(player1));
+    }
+    ICOMMAND(name, "sN", (char *s, int *numargs),
+    {
+        if(*numargs > 0) switchname(s);
+        else if(!*numargs) printname();
+        else result(colorname(player1));
+    });
     ICOMMAND(getname, "", (), result(player1->name));
 
     void switchteam(const char *team)
     {
-        if(team[0])
-        {
-            if(player1->clientnum < 0) filtertext(player1->team, team, false, MAXTEAMLEN);
-            else addmsg(N_SWITCHTEAM, "rs", team);
-        }
-        else conoutf("your team is: %s", player1->team);
+        if(player1->clientnum < 0) filtertext(player1->team, team, false, false, MAXTEAMLEN);
+        else addmsg(N_SWITCHTEAM, "rs", team);
     }
-    ICOMMAND(team, "s", (char *s), switchteam(s));
+    void printteam()
+    {
+        conoutf("your team is: %s", player1->team);
+    }
+    ICOMMAND(team, "sN", (char *s, int *numargs),
+    {
+        if(*numargs > 0) switchteam(s);
+        else if(!*numargs) printteam();
+        else result(player1->team);
+    });
     ICOMMAND(getteam, "", (), result(player1->team));
 
     void switchplayermodel(int playermodel)
@@ -115,9 +189,9 @@ namespace game
     };
     vector<authkey *> authkeys;
 
-    authkey *findauthkey(const char *desc)
+    authkey *findauthkey(const char *desc = "")
     {
-        loopv(authkeys) if(!strcmp(authkeys[i]->desc, desc) && !strcmp(authkeys[i]->name, player1->name)) return authkeys[i];
+        loopv(authkeys) if(!strcmp(authkeys[i]->desc, desc) && !strcasecmp(authkeys[i]->name, player1->name)) return authkeys[i];
         loopv(authkeys) if(!strcmp(authkeys[i]->desc, desc)) return authkeys[i];
         return NULL;
     }
@@ -147,8 +221,19 @@ namespace game
         genprivkey(secret, privkey, pubkey);
         conoutf("private key: %s", privkey.getbuf());
         conoutf("public key: %s", pubkey.getbuf());
+        result(privkey.getbuf());
     }
     COMMAND(genauthkey, "s");
+
+    void getpubkey(const char *desc)
+    {
+        authkey *k = findauthkey(desc);
+        if(!k) { if(desc[0]) conoutf(CON_ERROR, "no authkey found: %s", desc); else conoutf(CON_ERROR, "no global authkey found"); return; }
+        vector<char> pubkey;
+        if(!calcpubkey(k->key, pubkey)) { conoutf(CON_ERROR, "failed calculating pubkey"); return; }
+        result(pubkey.getbuf());
+    }
+    COMMAND(getpubkey, "s");
 
     void saveauthkeys()
     {
@@ -179,14 +264,12 @@ namespace game
     bool allowedittoggle()
     {
         if(editmode) return true;
-        if(connected && multiplayer(false) && !m_edit)
+        if(isconnected() && multiplayer(false) && !m_edit)
         {
             conoutf(CON_ERROR, "editing in multiplayer requires coop edit mode (1)");
             return false;
         }
-        if(identexists("allowedittoggle") && !execute("allowedittoggle"))
-            return false;
-        return true;
+        return execidentbool("allowedittoggle", true);
     }
 
     void edittoggled(bool on)
@@ -297,15 +380,15 @@ namespace game
         vector<char> buf;
         string cn;
         int numclients = 0;
-        if(local)
+        if(local && connected)
         {
-            formatstring(cn)("%d", player1->clientnum);
+            formatstring(cn, "%d", player1->clientnum);
             buf.put(cn, strlen(cn));
             numclients++;
         }
         loopv(clients) if(clients[i] && (bots || clients[i]->aitype == AI_NONE))
         {
-            formatstring(cn)("%d", clients[i]->clientnum);
+            formatstring(cn, "%d", clients[i]->clientnum);
             if(numclients++) buf.add(' ');
             buf.put(cn, strlen(cn));
         }
@@ -320,12 +403,26 @@ namespace game
     }
     COMMAND(clearbans, "");
 
-    void kick(const char *arg)
+    void kick(const char *victim, const char *reason)
     {
-        int i = parseplayer(arg);
-        if(i>=0 && i!=player1->clientnum) addmsg(N_KICK, "ri", i);
+        int vn = parseplayer(victim);
+        if(vn>=0 && vn!=player1->clientnum) addmsg(N_KICK, "ris", vn, reason);
     }
-    COMMAND(kick, "s");
+    COMMAND(kick, "ss");
+
+    void authkick(const char *desc, const char *victim, const char *reason)
+    {
+        authkey *a = findauthkey(desc);
+        int vn = parseplayer(victim);
+        if(a && vn>=0 && vn!=player1->clientnum) 
+        {
+            a->lastauth = lastmillis;
+            addmsg(N_AUTHKICK, "rssis", a->desc, a->name, vn, reason);
+        }
+    }
+    ICOMMAND(authkick, "ss", (const char *victim, const char *reason), authkick("", victim, reason));
+    ICOMMAND(sauthkick, "ss", (const char *victim, const char *reason), if(servauth[0]) authkick(servauth, victim, reason));
+    ICOMMAND(dauthkick, "sss", (const char *desc, const char *victim, const char *reason), if(desc[0]) authkick(desc, victim, reason));
 
     vector<int> ignores;
 
@@ -397,6 +494,10 @@ namespace game
         return true;
     }
     ICOMMAND(auth, "s", (char *desc), tryauth(desc));
+    ICOMMAND(sauth, "", (), if(servauth[0]) tryauth(servauth));
+    ICOMMAND(dauth, "s", (char *desc), if(desc[0]) tryauth(desc));
+
+    ICOMMAND(getservauth, "", (), result(servauth));
 
     void togglespectator(int val, const char *who)
     {
@@ -446,10 +547,10 @@ namespace game
     ICOMMAND(getmode, "", (), intret(gamemode));
     ICOMMAND(timeremaining, "i", (int *formatted), 
     {
-        int val = max(maplimit - lastmillis, 0)/1000;
+        int val = max(maplimit - lastmillis + 999, 0)/1000;
         if(*formatted)
         {
-            defformatstring(str)("%d:%02d", val/60, val%60);
+            defformatstring(str, "%d:%02d", val/60, val%60);
             result(str);
         }
         else intret(val);
@@ -478,7 +579,7 @@ namespace game
         if(!remote)
         {
             server::forcemap(name, mode);
-            if(!connected) localconnect();
+            if(!isconnected()) localconnect();
         }
         else if(player1->state!=CS_SPECTATOR || player1->privilege) addmsg(N_MAPVOTE, "rsi", name, mode);
     }
@@ -487,6 +588,12 @@ namespace game
         changemap(name, m_valid(nextmode) ? nextmode : (remote ? 0 : 1));
     }
     ICOMMAND(map, "s", (char *name), changemap(name));
+
+    void forceintermission()
+    {
+        if(!remote && !hasnonlocalclients()) server::startintermission();
+        else addmsg(N_FORCEINTERMISSION, "r");
+    }
 
     void forceedit(const char *name)
     {
@@ -518,7 +625,7 @@ namespace game
         needclipboard = -1;
     }
 
-    void edittrigger(const selinfo &sel, int op, int arg1, int arg2, int arg3)
+    void edittrigger(const selinfo &sel, int op, int arg1, int arg2, int arg3, const VSlot *vs)
     {
         if(m_edit) switch(op)
         {
@@ -553,7 +660,6 @@ namespace game
             }
             case EDIT_MAT:
             case EDIT_FACE:
-            case EDIT_TEX:
             {
                 addmsg(N_EDITF + op, "ri9i6",
                    sel.o.x, sel.o.y, sel.o.z, sel.s.x, sel.s.y, sel.s.z, sel.grid, sel.orient,
@@ -561,17 +667,66 @@ namespace game
                    arg1, arg2);
                 break;
             }
+            case EDIT_TEX:
+            {
+                int tex1 = shouldpacktex(arg1);
+                if(addmsg(N_EDITF + op, "ri9i6",
+                    sel.o.x, sel.o.y, sel.o.z, sel.s.x, sel.s.y, sel.s.z, sel.grid, sel.orient,
+                    sel.cx, sel.cxs, sel.cy, sel.cys, sel.corner,
+                    tex1 ? tex1 : arg1, arg2))
+                {
+                    messages.pad(2);
+                    int offset = messages.length();
+                    if(tex1) packvslot(messages, arg1);
+                    *(ushort *)&messages[offset-2] = lilswap(ushort(messages.length() - offset));
+                }
+                break;
+            }
             case EDIT_REPLACE:
             {
-                addmsg(N_EDITF + op, "ri9i7",
-                   sel.o.x, sel.o.y, sel.o.z, sel.s.x, sel.s.y, sel.s.z, sel.grid, sel.orient,
-                   sel.cx, sel.cxs, sel.cy, sel.cys, sel.corner,
-                   arg1, arg2, arg3);
+                int tex1 = shouldpacktex(arg1), tex2 = shouldpacktex(arg2);
+                if(addmsg(N_EDITF + op, "ri9i7",
+                    sel.o.x, sel.o.y, sel.o.z, sel.s.x, sel.s.y, sel.s.z, sel.grid, sel.orient,
+                    sel.cx, sel.cxs, sel.cy, sel.cys, sel.corner,
+                    tex1 ? tex1 : arg1, tex2 ? tex2 : arg2, arg3))
+                {
+                    messages.pad(2);
+                    int offset = messages.length();
+                    if(tex1) packvslot(messages, arg1);
+                    if(tex2) packvslot(messages, arg2);
+                    *(ushort *)&messages[offset-2] = lilswap(ushort(messages.length() - offset));
+                }
                 break;
             }
             case EDIT_REMIP:
             {
                 addmsg(N_EDITF + op, "r");
+                break;
+            }
+            case EDIT_VSLOT:
+            {
+                if(addmsg(N_EDITF + op, "ri9i6",
+                    sel.o.x, sel.o.y, sel.o.z, sel.s.x, sel.s.y, sel.s.z, sel.grid, sel.orient,
+                    sel.cx, sel.cxs, sel.cy, sel.cys, sel.corner,
+                    arg1, arg2))
+                {
+                    messages.pad(2);
+                    int offset = messages.length();
+                    packvslot(messages, vs);
+                    *(ushort *)&messages[offset-2] = lilswap(ushort(messages.length() - offset));
+                }
+                break;
+            }
+            case EDIT_UNDO:
+            case EDIT_REDO:
+            {
+                uchar *outbuf = NULL;
+                int inlen = 0, outlen = 0;
+                if(packundo(op, inlen, outbuf, outlen))
+                {
+                    if(addmsg(N_EDITF + op, "ri2", inlen, outlen)) messages.put(outbuf, outlen);
+                    delete[] outbuf;
+                }
                 break;
             }
         }
@@ -586,19 +741,19 @@ namespace game
                 int val = *id->storage.i;
                 string str;
                 if(val < 0)
-                    formatstring(str)("%d", val); 
+                    formatstring(str, "%d", val); 
                 else if(id->flags&IDF_HEX && id->maxval==0xFFFFFF)
-                    formatstring(str)("0x%.6X (%d, %d, %d)", val, (val>>16)&0xFF, (val>>8)&0xFF, val&0xFF);
+                    formatstring(str, "0x%.6X (%d, %d, %d)", val, (val>>16)&0xFF, (val>>8)&0xFF, val&0xFF);
                 else
-                    formatstring(str)(id->flags&IDF_HEX ? "0x%X" : "%d", val);
-                conoutf("%s set map var \"%s\" to %s", colorname(d), id->name, str);
+                    formatstring(str, id->flags&IDF_HEX ? "0x%X" : "%d", val);
+                conoutf(CON_INFO, id->index, "%s set map var \"%s\" to %s", colorname(d), id->name, str);
                 break;
             }
             case ID_FVAR:
-                conoutf("%s set map var \"%s\" to %s", colorname(d), id->name, floatstr(*id->storage.f));
+                conoutf(CON_INFO, id->index, "%s set map var \"%s\" to %s", colorname(d), id->name, floatstr(*id->storage.f));
                 break;
             case ID_SVAR:
-                conoutf("%s set map var \"%s\" to \"%s\"", colorname(d), id->name, *id->storage.s);
+                conoutf(CON_INFO, id->index, "%s set map var \"%s\" to \"%s\"", colorname(d), id->name, *id->storage.s);
                 break;
         }
     }
@@ -624,21 +779,46 @@ namespace game
         printvar(player1, id);
     }
 
-    void pausegame(int *val)
+    void pausegame(bool val)
     {
-        addmsg(N_PAUSEGAME, "ri", *val > 0 ? 1 : 0);
+        if(!connected) return;
+        if(!remote) server::forcepaused(val);
+        else addmsg(N_PAUSEGAME, "ri", val ? 1 : 0);
     }
-    COMMAND(pausegame, "i");
+    ICOMMAND(pausegame, "i", (int *val), pausegame(*val > 0));
+    ICOMMAND(paused, "iN$", (int *val, int *numargs, ident *id),
+    { 
+        if(*numargs > 0) pausegame(clampvar(id, *val, 0, 1) > 0); 
+        else if(*numargs < 0) intret(gamepaused ? 1 : 0);
+        else printvar(id, gamepaused ? 1 : 0); 
+    });
 
     bool ispaused() { return gamepaused; }
+
+    bool allowmouselook() { return !gamepaused || !remote || m_edit; }
+
+    void changegamespeed(int val)
+    {
+        if(!connected) return;
+        if(!remote) server::forcegamespeed(val);
+        else addmsg(N_GAMESPEED, "ri", val);
+    }
+    ICOMMAND(gamespeed, "iN$", (int *val, int *numargs, ident *id),
+    {
+        if(*numargs > 0) changegamespeed(clampvar(id, *val, 10, 1000));
+        else if(*numargs < 0) intret(gamespeed);
+        else printvar(id, gamespeed);
+    });
+
+    int scaletime(int t) { return t*gamespeed; }
 
     // collect c2s messages conveniently
     vector<uchar> messages;
     int messagecn = -1, messagereliable = false;
 
-    void addmsg(int type, const char *fmt, ...)
+    bool addmsg(int type, const char *fmt, ...)
     {
-        if(!connected) return;
+        if(!connected) return false;
         static uchar buf[MAXTRANS];
         ucharbuf p(buf, sizeof(buf));
         putint(p, type);
@@ -685,7 +865,7 @@ namespace game
             va_end(args);
         }
         int num = nums || numf ? 0 : numi, msgsize = server::msgsizelookup(type);
-        if(msgsize && num!=msgsize) { defformatstring(s)("inconsistent msg size for %d (%d != %d)", type, num, msgsize); fatal(s); }
+        if(msgsize && num!=msgsize) { fatal("inconsistent msg size for %d (%d != %d)", type, num, msgsize); }
         if(reliable) messagereliable = true;
         if(mcn != messagecn)
         {
@@ -697,6 +877,7 @@ namespace game
             messagecn = mcn;
         }
         messages.put(buf, p.length());
+        return true;
     }
 
     void connectattempt(const char *name, const char *password, const ENetAddress &address)
@@ -711,7 +892,6 @@ namespace game
 
     void gameconnect(bool _remote)
     {
-        connected = true;
         remote = _remote;
         if(editmode) toggleedit();
     }
@@ -734,6 +914,7 @@ namespace game
         sendcrc = senditemstoserver = false;
         demoplayback = false;
         gamepaused = false;
+        gamespeed = 100;
         clearclients(false);
         if(cleanup)
         {
@@ -742,10 +923,13 @@ namespace game
         }
     }
 
-    void toserver(char *text) { conoutf(CON_CHAT, "%s:\f0 %s", colorname(player1), text); addmsg(N_TEXT, "rcs", player1, text); }
+    VARP(teamcolorchat, 0, 1, 1);
+    const char *chatcolorname(fpsent *d) { return teamcolorchat ? teamcolorname(d, NULL) : colorname(d); }
+
+    void toserver(char *text) { conoutf(CON_CHAT, "%s:\f0 %s", chatcolorname(player1), text); addmsg(N_TEXT, "rcs", player1, text); }
     COMMANDN(say, toserver, "C");
 
-    void sayteam(char *text) { conoutf(CON_TEAMCHAT, "%s:\f1 %s", colorname(player1), text); addmsg(N_SAYTEAM, "rcs", player1, text); }
+    void sayteam(char *text) { conoutf(CON_TEAMCHAT, "\fs\f8[team]\fr %s: \f8%s", chatcolorname(player1), text); addmsg(N_SAYTEAM, "rcs", player1, text); }
     COMMAND(sayteam, "C");
 
     ICOMMAND(servcmd, "C", (char *cmd), addmsg(N_SERVCMD, "rs", cmd));
@@ -938,6 +1122,7 @@ namespace game
         int type;
         while(p.remaining()) switch(type = getint(p))
         {
+            case N_DEMOPACKET: break;
             case N_POS:                        // position of another client
             {
                 int cn = getuint(p), physstate = p.get(), flags = getuint(p);
@@ -945,7 +1130,7 @@ namespace game
                 float yaw, pitch, roll;
                 loopk(3)
                 {
-                    int n = p.get(); n |= p.get()<<8; if(flags&(1<<k)) { n |= p.get()<<16; if(n&0x800000) n |= -1<<24; }
+                    int n = p.get(); n |= p.get()<<8; if(flags&(1<<k)) { n |= p.get()<<16; if(n&0x800000) n |= ~0U<<24; }
                     o[k] = n/DMF;
                 }
                 int dir = p.get(); dir |= p.get()<<8;
@@ -978,14 +1163,11 @@ namespace game
                 d->move = (physstate>>4)&2 ? -1 : (physstate>>4)&1;
                 d->strafe = (physstate>>6)&2 ? -1 : (physstate>>6)&1;
                 vec oldpos(d->o);
-                if(allowmove(d))
-                {
-                    d->o = o;
-                    d->o.z += d->eyeheight;
-                    d->vel = vel;
-                    d->falling = falling;
-                    d->physstate = physstate&7;
-                }
+                d->o = o;
+                d->o.z += d->eyeheight;
+                d->vel = vel;
+                d->falling = falling;
+                d->physstate = physstate&7;
                 updatephysstate(d);
                 updatepos(d);
                 if(smoothmove && d->smoothmillis>=0 && oldpos.dist(d->o) < smoothdist)
@@ -1044,6 +1226,7 @@ namespace game
             else d->state = getint(p);
             d->frags = getint(p);
             d->flags = getint(p);
+            d->deaths = getint(p);
             if(d==player1) getint(p);
             else d->quadmillis = getint(p);
         }
@@ -1071,10 +1254,12 @@ namespace game
     {
         static char text[MAXTRANS];
         int type;
-        bool mapchanged = false;
+        bool mapchanged = false, demopacket = false;
 
         while(p.remaining()) switch(type = getint(p))
         {
+            case N_DEMOPACKET: demopacket = true; break;
+
             case N_SERVINFO:                   // welcome messsage from the server
                 {
                     int mycn = getint(p), prot = getint(p);
@@ -1094,19 +1279,39 @@ namespace game
                 }
 
             case N_WELCOME:
-                {
-                    notifywelcome();
-                    break;
-                }
+            {
+                connected = true;
+                notifywelcome();
+                break;
+            }
 
             case N_PAUSEGAME:
+            {
+                bool val = getint(p) > 0;
+                int cn = getint(p);
+                fpsent *a = cn >= 0 ? getclient(cn) : NULL;
+                if(!demopacket)
                 {
-                    int val = getint(p);
-                    gamepaused = val > 0;
-                    conoutf("game is %s", gamepaused ? "paused" : "resumed");
-                    break;
+                    gamepaused = val;
+                    player1->attacking = false;
                 }
+                if(a) conoutf("%s %s the game", colorname(a), val ? "paused" : "resumed"); 
+                else conoutf("game is %s", val ? "paused" : "resumed");
+                break;
+            }
 
+            case N_GAMESPEED:
+            {
+                int val = clamp(getint(p), 10, 1000), cn = getint(p);
+                fpsent *a = cn >= 0 ? getclient(cn) : NULL;
+                if(!demopacket) gamespeed = val;
+                extern int slowmosp;
+                if(m_sp && slowmosp) break;
+                if(a) conoutf("%s set gamespeed to %d", colorname(a), val);
+                else conoutf("gamespeed is %d", val);
+                break;
+            }
+                
             case N_CLIENT:
                 {
                     int cn = getint(p), len = getuint(p);
@@ -1121,32 +1326,34 @@ namespace game
                 break;
 
             case N_TEXT:
-                {
-                    if(!d) return;
-                    getstring(text, p);
-                    filtertext(text, text);
-                    if(isignored(d->clientnum)) break;
-                    if(d->state!=CS_DEAD && d->state!=CS_SPECTATOR)
-                        particle_textcopy(d->abovehead(), text, PART_TEXT, 2000, 0x32FF64, 4.0f, -8);
-                    conoutf(CON_CHAT, "%s:\f0 %s", colorname(d), text);
-                    break;
-                }
+            {
+                if(!d) return;
+                getstring(text, p);
+                filtertext(text, text, true, true);
+                if(isignored(d->clientnum)) break;
+                if(d->state!=CS_DEAD && d->state!=CS_SPECTATOR)
+                    particle_textcopy(d->abovehead(), text, PART_TEXT, 2000, 0x32FF64, 4.0f, -8);
+                conoutf(CON_CHAT, "%s:\f0 %s", chatcolorname(d), text);
+                break;
+            }
 
             case N_SAYTEAM:
-                {
-                    int tcn = getint(p);
-                    fpsent *t = getclient(tcn);
-                    getstring(text, p);
-                    filtertext(text, text);
-                    if(!t || isignored(t->clientnum)) break;
-                    if(t->state!=CS_DEAD && t->state!=CS_SPECTATOR)
-                        particle_textcopy(t->abovehead(), text, PART_TEXT, 2000, 0x6496FF, 4.0f, -8);
-                    conoutf(CON_TEAMCHAT, "%s:\f1 %s", colorname(t), text);
-                    break;
-                }
+            {
+                int tcn = getint(p);
+                fpsent *t = getclient(tcn);
+                getstring(text, p);
+                filtertext(text, text, true, true);
+                if(!t || isignored(t->clientnum)) break;
+                if(t->state!=CS_DEAD && t->state!=CS_SPECTATOR)
+                    particle_textcopy(t->abovehead(), text, PART_TEXT, 2000, 0x6496FF, 4.0f, -8);
+                conoutf(CON_TEAMCHAT, "\fs\f8[team]\fr %s: \f8%s", chatcolorname(t), text);
+                break;
+            }
 
             case N_MAPCHANGE:
                 getstring(text, p);
+                filtertext(text, text, false);
+                fixmapname(text);
                 changemapserv(text, getint(p));
                 mapchanged = true;
                 if(getint(p)) entities::spawnitems();
@@ -1215,7 +1422,7 @@ namespace game
                 getstring(text, p);
                 if(d)
                 {
-                    filtertext(text, text, false, MAXNAMELEN);
+                    filtertext(text, text, false, false, MAXNAMELEN);
                     if(!text[0]) copystring(text, "unnamed");
                     if(strcmp(text, d->name))
                     {
@@ -1269,8 +1476,7 @@ namespace game
                 s->respawn();
                 parsestate(s, p);
                 s->state = CS_ALIVE;
-                if(cmode) cmode->pickspawn(s);
-                else findplayerspawn(s);
+                pickgamespawn(s);
                 if(s == player1)
                 {
                     showscores(false);
@@ -1336,23 +1542,34 @@ namespace game
                 }
 
             case N_DIED:
+            {
+                int vcn = getint(p), acn = getint(p), frags = getint(p), tfrags = getint(p);
+                fpsent *victim = getclient(vcn),
+                       *actor = getclient(acn);
+                if(!actor) break;
+                actor->frags = frags;
+                if(m_teammode) setteaminfo(actor->team, tfrags);
+                extern int hidefrags;
+                if(actor!=player1 && (!cmode || !cmode->hidefrags() || !hidefrags))
                 {
-                    int vcn = getint(p), acn = getint(p), frags = getint(p);
-                    /// XXX QServCollect this was tfrags
-                    getint(p);
-                    fpsent *victim = getclient(vcn),
-                           *actor = getclient(acn);
-                    if(!actor) break;
-                    actor->frags = frags;
-                    if(actor!=player1 && (!cmode || !cmode->hidefrags()))
-                    {
-                        defformatstring(ds)("%d", actor->frags);
-                        particle_textcopy(actor->abovehead(), ds, PART_TEXT, 2000, 0x32FF64, 4.0f, -8);
-                    }
-                    if(!victim) break;
-                    killed(victim, actor);
-                    break;
+                    defformatstring(ds, "%d", actor->frags);
+                    particle_textcopy(actor->abovehead(), ds, PART_TEXT, 2000, 0x32FF64, 4.0f, -8);
                 }
+                if(!victim) break;
+                killed(victim, actor);
+                break;
+            }
+
+            case N_TEAMINFO:
+                for(;;)
+                {
+                    getstring(text, p);
+                    if(p.overread() || !text[0]) break;
+                    int frags = getint(p);
+                    if(p.overread()) break;
+                    if(m_teammode) setteaminfo(text, frags);
+                }
+                break;
 
             case N_GUNSELECT:
                 {
@@ -1383,37 +1600,50 @@ namespace game
                 }
 
             case N_ITEMSPAWN:
-                {
-                    int i = getint(p);
-                    if(!entities::ents.inrange(i)) break;
-                    entities::setspawn(i, true);
-                    ai::itemspawned(i);
-                    playsound(S_ITEMSPAWN, &entities::ents[i]->o, NULL, 0, 0, -1, 0, 1500);
-#if 0
-                    const char *name = entities::itemname(i);
-                    if(name) particle_text(entities::ents[i]->o, name, PART_TEXT, 2000, 0x32FF64, 4.0f, -8);
-#endif
-                    int icon = entities::itemicon(i);
-                    if(icon >= 0) particle_icon(vec(0.0f, 0.0f, 4.0f).add(entities::ents[i]->o), icon%4, icon/4, PART_HUD_ICON, 2000, 0xFFFFFF, 2.0f, -8);
-                    break;
-                }
+            {
+                int i = getint(p);
+                if(!entities::ents.inrange(i)) break;
+                entities::setspawn(i, true);
+                ai::itemspawned(i);
+                playsound(S_ITEMSPAWN, &entities::ents[i]->o, NULL, 0, 0, 0, -1, 0, 1500);
+                #if 0
+                const char *name = entities::itemname(i);
+                if(name) particle_text(entities::ents[i]->o, name, PART_TEXT, 2000, 0x32FF64, 4.0f, -8);
+                #endif
+                int icon = entities::itemicon(i);
+                if(icon >= 0) particle_icon(vec(0.0f, 0.0f, 4.0f).add(entities::ents[i]->o), icon%4, icon/4, PART_HUD_ICON, 2000, 0xFFFFFF, 2.0f, -8);
+                break;
+            }
 
             case N_ITEMACC:            // server acknowledges that I picked up this item
+            {
+                int i = getint(p), cn = getint(p);
+                if(cn >= 0)
                 {
-                    int i = getint(p), cn = getint(p);
                     fpsent *d = getclient(cn);
                     entities::pickupeffects(i, d);
-                    break;
                 }
+                else entities::setspawn(i, true);
+                break;
+            }
 
             case N_CLIPBOARD:
-                {
-                    int cn = getint(p), unpacklen = getint(p), packlen = getint(p);
-                    fpsent *d = getclient(cn);
-                    ucharbuf q = p.subbuf(max(packlen, 0));
-                    if(d) unpackeditinfo(d->edit, q.buf, q.maxlen, unpacklen);
-                    break;
-                }
+            {
+                int cn = getint(p), unpacklen = getint(p), packlen = getint(p);
+                fpsent *d = getclient(cn);
+                ucharbuf q = p.subbuf(max(packlen, 0));
+                if(d) unpackeditinfo(d->edit, q.buf, q.maxlen, unpacklen);
+                break;
+            }
+            case N_UNDO:
+            case N_REDO:
+            {
+                int cn = getint(p), unpacklen = getint(p), packlen = getint(p);
+                fpsent *d = getclient(cn);
+                ucharbuf q = p.subbuf(max(packlen, 0));
+                if(d) unpackundo(q.buf, q.maxlen, unpacklen);
+                break;
+            }
 
             case N_EDITF:              // coop editing messages
             case N_EDITT:
@@ -1424,29 +1654,58 @@ namespace game
             case N_ROTATE:
             case N_REPLACE:
             case N_DELCUBE:
+            case N_EDITVSLOT:
+            {
+                if(!d) return;
+                selinfo sel;
+                sel.o.x = getint(p); sel.o.y = getint(p); sel.o.z = getint(p);
+                sel.s.x = getint(p); sel.s.y = getint(p); sel.s.z = getint(p);
+                sel.grid = getint(p); sel.orient = getint(p);
+                sel.cx = getint(p); sel.cxs = getint(p); sel.cy = getint(p), sel.cys = getint(p);
+                sel.corner = getint(p);
+                switch(type)
                 {
-                    if(!d) return;
-                    selinfo sel;
-                    sel.o.x = getint(p); sel.o.y = getint(p); sel.o.z = getint(p);
-                    sel.s.x = getint(p); sel.s.y = getint(p); sel.s.z = getint(p);
-                    sel.grid = getint(p); sel.orient = getint(p);
-                    sel.cx = getint(p); sel.cxs = getint(p); sel.cy = getint(p), sel.cys = getint(p);
-                    sel.corner = getint(p);
-                    int dir, mode, tex, newtex, mat, filter, allfaces, insel;
-                    ivec moveo;
-                    switch(type)
+                    case N_EDITF: { int dir = getint(p), mode = getint(p); if(sel.validate()) mpeditface(dir, mode, sel, false); break; }
+                    case N_EDITT:
                     {
-                        case N_EDITF: dir = getint(p); mode = getint(p); if(sel.validate()) mpeditface(dir, mode, sel, false); break;
-                        case N_EDITT: tex = getint(p); allfaces = getint(p); if(sel.validate()) mpedittex(tex, allfaces, sel, false); break;
-                        case N_EDITM: mat = getint(p); filter = getint(p); if(sel.validate()) mpeditmat(mat, filter, sel, false); break;
-                        case N_FLIP: if(sel.validate()) mpflip(sel, false); break;
-                        case N_COPY: if(d && sel.validate()) mpcopy(d->edit, sel, false); break;
-                        case N_PASTE: if(d && sel.validate()) mppaste(d->edit, sel, false); break;
-                        case N_ROTATE: dir = getint(p); if(sel.validate()) mprotate(dir, sel, false); break;
-                        case N_REPLACE: tex = getint(p); newtex = getint(p); insel = getint(p); if(sel.validate()) mpreplacetex(tex, newtex, insel>0, sel, false); break;
-                        case N_DELCUBE: if(sel.validate()) mpdelcube(sel, false); break;
+                        int tex = getint(p),
+                            allfaces = getint(p);
+                        if(p.remaining() < 2) return;
+                        int extra = lilswap(*(const ushort *)p.pad(2));
+                        if(p.remaining() < extra) return;
+                        ucharbuf ebuf = p.subbuf(extra);
+                        if(sel.validate()) mpedittex(tex, allfaces, sel, ebuf);
+                        break;
                     }
-                    break;
+                    case N_EDITM: { int mat = getint(p), filter = getint(p); if(sel.validate()) mpeditmat(mat, filter, sel, false); break; }
+                    case N_FLIP: if(sel.validate()) mpflip(sel, false); break;
+                    case N_COPY: if(d && sel.validate()) mpcopy(d->edit, sel, false); break;
+                    case N_PASTE: if(d && sel.validate()) mppaste(d->edit, sel, false); break;
+                    case N_ROTATE: { int dir = getint(p); if(sel.validate()) mprotate(dir, sel, false); break; }
+                    case N_REPLACE:
+                    {
+                        int oldtex = getint(p),
+                            newtex = getint(p),
+                            insel = getint(p);
+                        if(p.remaining() < 2) return;
+                        int extra = lilswap(*(const ushort *)p.pad(2));
+                        if(p.remaining() < extra) return;
+                        ucharbuf ebuf = p.subbuf(extra);
+                        if(sel.validate()) mpreplacetex(oldtex, newtex, insel>0, sel, ebuf);
+                        break;
+                    }
+                    case N_DELCUBE: if(sel.validate()) mpdelcube(sel, false); break;
+                    case N_EDITVSLOT:
+                    {
+                        int delta = getint(p),
+                            allfaces = getint(p);
+                        if(p.remaining() < 2) return;
+                        int extra = lilswap(*(const ushort *)p.pad(2));
+                        if(p.remaining() < extra) return;
+                        ucharbuf ebuf = p.subbuf(extra);
+                        if(sel.validate()) mpeditvslot(delta, allfaces, sel, ebuf);
+                        break;
+                    }
                 }
             case N_REMIP:
                 {
@@ -1466,38 +1725,39 @@ namespace game
                     mpeditent(i, vec(x, y, z), type, attr1, attr2, attr3, attr4, attr5, false);
                     break;
                 }
+
             case N_EDITVAR:
+            {
+                if(!d) return;
+                int type = getint(p);
+                getstring(text, p);
+                string name;
+                filtertext(name, text, false);
+                ident *id = getident(name);
+                switch(type)
                 {
-                    if(!d) return;
-                    int type = getint(p);
-                    getstring(text, p);
-                    string name;
-                    filtertext(name, text, false, MAXSTRLEN-1);
-                    ident *id = getident(name);
-                    switch(type)
+                    case ID_VAR:
                     {
-                        case ID_VAR:
-                            {
-                                int val = getint(p);
-                                if(id && id->flags&IDF_OVERRIDE && !(id->flags&IDF_READONLY)) setvar(name, val);
-                                break;
-                            }
-                        case ID_FVAR:
-                            {
-                                float val = getfloat(p);
-                                if(id && id->flags&IDF_OVERRIDE && !(id->flags&IDF_READONLY)) setfvar(name, val);
-                                break;
-                            }
-                        case ID_SVAR:
-                            {
-                                getstring(text, p);
-                                if(id && id->flags&IDF_OVERRIDE && !(id->flags&IDF_READONLY)) setsvar(name, text);
-                                break;
-                            }
+                        int val = getint(p);
+                        if(id && id->flags&IDF_OVERRIDE && !(id->flags&IDF_READONLY)) setvar(name, val);
+                        break;
                     }
-                    printvar(d, id);
-                    break;
+                    case ID_FVAR:
+                    {
+                        float val = getfloat(p);
+                        if(id && id->flags&IDF_OVERRIDE && !(id->flags&IDF_READONLY)) setfvar(name, val);
+                        break;
+                    }
+                    case ID_SVAR:
+                    {
+                        getstring(text, p);
+                        if(id && id->flags&IDF_OVERRIDE && !(id->flags&IDF_READONLY)) setsvar(name, text);
+                        break;
+                    }
                 }
+                printvar(d, id);
+                break;
+            }
 
             case N_PONG:
                 addmsg(N_CLIENTPING, "i", player1->ping = (player1->ping*5+totalmillis-getint(p))/6);
@@ -1512,23 +1772,35 @@ namespace game
                 timeupdate(getint(p));
                 break;
 
-            case N_SENDDEMOLIST:
-                {
-                    int demos = getint(p);
-                    if(demos <= 0) conoutf("no demos available");
-                    else loopi(demos)
-                    {
-                        getstring(text, p);
-                        if(p.overread()) break;
-                        conoutf("%d. %s", i+1, text);
-                    }
-                    break;
-                }
             case N_SERVMSG:
                 getstring(text, p);
                 conoutf("%s", text);
                 break;
 
+            case N_SENDDEMOLIST:
+            {
+                int demos = getint(p);
+                if(demos <= 0) conoutf("no demos available");
+                else loopi(demos)
+                {
+                    getstring(text, p);
+                    if(p.overread()) break;
+                    conoutf("%d. %s", i+1, text);
+                }
+                break;
+            }
+
+            case N_DEMOPLAYBACK:
+            {
+                int on = getint(p);
+                if(on) player1->state = CS_SPECTATOR;
+                else clearclients();
+                demoplayback = on!=0;
+                player1->clientnum = getint(p);
+                gamepaused = false;
+                execident(on ? "demostart" : "demoend");
+                break;
+            }
 
             case N_CURRENTMASTER:
                 {
@@ -1602,18 +1874,18 @@ namespace game
                 }
 
             case N_SETTEAM:
-                {
-                    int wn = getint(p);
-                    getstring(text, p);
-                    int reason = getint(p);
-                    fpsent *w = getclient(wn);
-                    if(!w) return;
-                    filtertext(w->team, text, false, MAXTEAMLEN);
-                    static const char *fmt[2] = { "%s switched to team %s", "%s forced to team %s"};
-                    if(reason >= 0 && size_t(reason) < sizeof(fmt)/sizeof(fmt[0]))
-                        conoutf(fmt[reason], colorname(w), w->team);
-                    break;
-                }
+            {
+                int wn = getint(p);
+                getstring(text, p);
+                int reason = getint(p);
+                fpsent *w = getclient(wn);
+                if(!w) return;
+                filtertext(w->team, text, false, false, MAXTEAMLEN);
+                static const char * const fmt[2] = { "%s switched to team %s", "%s forced to team %s"};
+                if(reason >= 0 && size_t(reason) < sizeof(fmt)/sizeof(fmt[0]))
+                    conoutf(fmt[reason], colorname(w), w->team);
+                break;
+            }
 
 #define PARSEMESSAGES 1
 #include "capture.h"
@@ -1622,12 +1894,12 @@ namespace game
 #undef PARSEMESSAGES
 
             case N_ANNOUNCE:
-                {
-                    int t = getint(p);
-                    if     (t==I_QUAD)  { playsound(S_V_QUAD10, NULL, NULL, 0, 0, -1, 0, 3000);  conoutf(CON_GAMEINFO, "\f2quad damage will spawn in 10 seconds!"); }
-                    else if(t==I_BOOST) { playsound(S_V_BOOST10, NULL, NULL, 0, 0, -1, 0, 3000); conoutf(CON_GAMEINFO, "\f2+10 health will spawn in 10 seconds!"); }
-                    break;
-                }
+            {
+                int t = getint(p);
+                if     (t==I_QUAD)  { playsound(S_V_QUAD10, NULL, NULL, 0, 0, 0, -1, 0, 3000);  conoutf(CON_GAMEINFO, "\f2quad damage will spawn in 10 seconds!"); }
+                else if(t==I_BOOST) { playsound(S_V_BOOST10, NULL, NULL, 0, 0, 0, -1, 0, 3000); conoutf(CON_GAMEINFO, "\f2health boost will spawn in 10 seconds!"); }
+                break;
+            }
 
             case N_NEWMAP:
                 {
@@ -1651,34 +1923,40 @@ namespace game
                 }
 
             case N_AUTHCHAL:
+            {
+                getstring(text, p);
+                authkey *a = findauthkey(text);
+                uint id = (uint)getint(p);
+                getstring(text, p);
+                vector<char> buf;
+                if(a && a->lastauth && lastmillis - a->lastauth < 60*1000 && answerchallenge(a->key, text, buf))
                 {
-                    getstring(text, p);
-                    authkey *a = findauthkey(text);
-                    uint id = (uint)getint(p);
-                    getstring(text, p);
-                    if(a && a->lastauth && lastmillis - a->lastauth < 60*1000)
-                    {
-                        vector<char> buf;
-                        answerchallenge(a->key, text, buf);
-                        //conoutf(CON_DEBUG, "answering %u, challenge %s with %s", id, text, buf.getbuf());
-                        addmsg(N_AUTHANS, "rsis", a->desc, id, buf.getbuf());
-                    }
-                    break;
+                    //conoutf(CON_DEBUG, "answering %u, challenge %s with %s", id, text, buf.getbuf());
+                    packetbuf p(MAXTRANS, ENET_PACKET_FLAG_RELIABLE);
+                    putint(p, N_AUTHANS);
+                    sendstring(a->desc, p);
+                    putint(p, id);
+                    sendstring(buf.getbuf(), p);
+                    sendclientpacket(p.finalize(), 1);
                 }
+                break;
+            }
+
 
             case N_INITAI:
-                {
-                    int bn = getint(p), on = getint(p), at = getint(p), sk = clamp(getint(p), 1, 101), pm = getint(p);
-                    string name, team;
-                    getstring(text, p);
-                    filtertext(name, text, false, MAXNAMELEN);
-                    getstring(text, p);
-                    filtertext(team, text, false, MAXTEAMLEN);
-                    fpsent *b = newclient(bn);
-                    if(!b) break;
-                    ai::init(b, at, on, sk, bn, pm, name, team);
-                    break;
-                }
+            {
+                int bn = getint(p), on = getint(p), at = getint(p), sk = clamp(getint(p), 1, 101), pm = getint(p);
+                string name, team;
+                getstring(text, p);
+                filtertext(name, text, false, false, MAXNAMELEN);
+                getstring(text, p);
+                filtertext(team, text, false, false, MAXTEAMLEN);
+                fpsent *b = newclient(bn);
+                if(!b) break;
+                ai::init(b, at, on, sk, bn, pm, name, team);
+                break;
+            }
+
 
             case N_SERVCMD:
                 getstring(text, p);
@@ -1691,21 +1969,47 @@ namespace game
         }
     }
 
-    void receivefile(uchar *data, int len)
+    struct demoreq
     {
-        ucharbuf p(data, len);
-        int type = getint(p);
-        data += p.length();
-        len -= p.length();
-        switch(type)
+        int tag;
+        string name;
+    };
+    vector<demoreq> demoreqs;
+    enum { MAXDEMOREQS = 7 };
+    static int lastdemoreq = 0;
+
+    void receivefile(packetbuf &p)
+    {
+        int type;
+        while(p.remaining()) switch(type = getint(p))
         {
+            case N_DEMOPACKET: return;
             case N_SENDDEMO:
             {
-                defformatstring(fname)("%d.dmo", lastmillis);
-                stream *demo = openrawfile(fname, "wb");
+                string fname;
+                fname[0] = '\0';
+                int tag = getint(p);
+                loopv(demoreqs) if(demoreqs[i].tag == tag)
+                {
+                    copystring(fname, demoreqs[i].name);
+                    demoreqs.remove(i);
+                    break;
+                }
+                if(!fname[0])
+                {
+                    time_t t = time(NULL);
+                    size_t len = strftime(fname, sizeof(fname), "%Y-%m-%d_%H.%M.%S", localtime(&t));
+                    fname[min(len, sizeof(fname)-1)] = '\0';
+                }
+                int len = strlen(fname);
+                if(len < 4 || strcasecmp(&fname[len-4], ".dmo")) concatstring(fname, ".dmo");
+                stream *demo = NULL;
+                if(const char *buf = server::getdemofile(fname, true)) demo = openrawfile(buf, "wb");
+                if(!demo) demo = openrawfile(fname, "wb");
                 if(!demo) return;
                 conoutf("received demo \"%s\"", fname);
-                demo->write(data, len);
+                ucharbuf b = p.subbuf(p.remaining());
+                demo->write(b.buf, b.maxlen);
                 delete demo;
                 break;
             }
@@ -1715,12 +2019,13 @@ namespace game
                 if(!m_edit) return;
                 string oldname;
                 copystring(oldname, getclientmap());
-                defformatstring(mname)("getmap_%d", lastmillis);
-                defformatstring(fname)("packages/base/%s.ogz", mname);
+                defformatstring(mname, "getmap_%d", lastmillis);
+                defformatstring(fname, "packages/base/%s.ogz", mname);
                 stream *map = openrawfile(path(fname), "wb");
                 if(!map) return;
                 conoutf("received map");
-                map->write(data, len);
+                ucharbuf b = p.subbuf(p.remaining());
+                map->write(b.buf, b.maxlen);
                 delete map;
                 if(load_world(mname, oldname[0] ? oldname : NULL))
                     entities::spawnitems(true);
@@ -1744,7 +2049,7 @@ namespace game
                 break;
 
             case 2:
-                receivefile(p.buf, p.maxlen);
+                receivefile(p);
                 break;
         }
     }
@@ -1788,13 +2093,24 @@ namespace game
     }
     ICOMMAND(cleardemos, "i", (int *val), cleardemos(*val));
 
-    void getdemo(int i)
+    void getdemo(char *val, char *name)
     {
+        int i = 0;
+        if(isdigit(val[0]) || name[0]) i = parseint(val);
+        else name = val;
         if(i<=0) conoutf("getting demo...");
         else conoutf("getting demo %d...", i);
-        addmsg(N_GETDEMO, "ri", i);
+        ++lastdemoreq;
+        if(name[0])
+        {
+            if(demoreqs.length() >= MAXDEMOREQS) demoreqs.remove(0);
+            demoreq &r = demoreqs.add();
+            r.tag = lastdemoreq;
+            copystring(r.name, name);
+        }
+        addmsg(N_GETDEMO, "rii", i, lastdemoreq);
     }
-    ICOMMAND(getdemo, "i", (int *val), getdemo(*val));
+    ICOMMAND(getdemo, "ss", (char *val, char *name), getdemo(val, name));
 
     void listdemos()
     {
@@ -1807,9 +2123,9 @@ namespace game
     {
         if(!m_edit || (player1->state==CS_SPECTATOR && remote && !player1->privilege)) { conoutf(CON_ERROR, "\"sendmap\" only works in coop edit mode"); return; }
         conoutf("sending map...");
-        defformatstring(mname)("sendmap_%d", lastmillis);
+        defformatstring(mname, "sendmap_%d", lastmillis);
         save_world(mname, true);
-        defformatstring(fname)("packages/base/%s.ogz", mname);
+        defformatstring(fname, "packages/base/%s.ogz", mname);
         stream *map = openrawfile(path(fname), "rb");
         if(map)
         {

@@ -17,15 +17,10 @@ enum
 
 struct materialsurface
 {
-    enum
-    {
-        F_EDIT = 1<<0
-    };
-
     ivec o;
     ushort csize, rsize;
     ushort material, skip;
-    uchar orient, flags;
+    uchar orient, visible;
     union
     {
         short index;
@@ -143,7 +138,7 @@ struct vtxarray
     ushort minvert, maxvert; // DRE info
     elementset *eslist;      // List of element indices sets (range) per texture
     materialsurface *matbuf; // buffer of material surfaces
-    int verts, tris, texs, blendtris, blends, alphabacktris, alphaback, alphafronttris, alphafront, texmask, sky, explicitsky, skyfaces, skyclip, matsurfs, distance;
+    int verts, tris, texs, blendtris, blends, alphabacktris, alphaback, alphafronttris, alphafront, alphatris, texmask, sky, explicitsky, skyfaces, skyclip, matsurfs, distance;
     double skyarea;
     ivec o;
     int size;                // location and size of cube.
@@ -208,16 +203,12 @@ struct cube
         uint faces[3];       // 4 edges of each dimension together representing 2 perpendicular faces
     };
     ushort texture[6];       // one for each face. same order as orient.
-    ushort material;          // empty-space material
-    union 
-    {
-        uchar merged;            // merged faces of the cube
-        uchar collide;           // collision faces of the cube
-    };
+    ushort material;         // empty-space material
+    uchar merged;            // merged faces of the cube
     union
     {
         uchar escaped;       // mask of which children have escaped merges
-        uchar visible;       // visibility info for non-merged faces
+        uchar visible;       // visibility info for faces
     };
 };
 
@@ -244,17 +235,17 @@ struct undoblock // undo header, all data sits in payload
     int size, timestamp, numents; // if numents is 0, is a cube undo record, otherwise an entity undo record
 
     block3 *block() { return (block3 *)(this + 1); }
-    int *gridmap()
+    uchar *gridmap()
     {
         block3 *ub = block();
-        return (int *)(ub->c() + ub->size());
+        return (uchar *)(ub->c() + ub->size());
     }
     undoent *ents() { return (undoent *)(this + 1); }
 };
 
 extern cube *worldroot;             // the world data. only a ptr to 8 cubes (ie: like cube.children above)
 extern int wtris, wverts, vtris, vverts, glde, gbatches, rplanes;
-extern int allocnodes, allocva, selchildcount;
+extern int allocnodes, allocva, selchildcount, selchildmat;
 
 const uint F_EMPTY = 0;             // all edges in the range (0,0)
 const uint F_SOLID = 0x80808080;    // all edges in the range (0,8)
@@ -277,7 +268,21 @@ const uint F_SOLID = 0x80808080;    // all edges in the range (0,8)
 #define octaindex(d,x,y,z)  (((z)<<D[d])+((y)<<C[d])+((x)<<R[d]))
 #define octastep(x, y, z, scale) (((((z)>>(scale))&1)<<2) | ((((y)>>(scale))&1)<<1) | (((x)>>(scale))&1))
 
-#define loopoctabox(c, size, o, s) uchar possible = octantrectangleoverlap(c, size, o, s); loopi(8) if(possible&(1<<i))
+static inline uchar octaboxoverlap(const ivec &o, int size, const ivec &bbmin, const ivec &bbmax)
+{
+    uchar p = 0xFF; // bitmask of possible collisions with octants. 0 bit = 0 octant, etc
+    ivec mid = ivec(o).add(size);
+    if(mid.z <= bbmin.z)      p &= 0xF0; // not in a -ve Z octant
+    else if(mid.z >= bbmax.z) p &= 0x0F; // not in a +ve Z octant
+    if(mid.y <= bbmin.y)      p &= 0xCC; // not in a -ve Y octant
+    else if(mid.y >= bbmax.y) p &= 0x33; // etc..
+    if(mid.x <= bbmin.x)      p &= 0xAA;
+    else if(mid.x >= bbmax.x) p &= 0x55;
+    return p;
+}
+
+#define loopoctabox(o, size, bbmin, bbmax) uchar possible = octaboxoverlap(o, size, bbmin, bbmax); loopi(8) if(possible&(1<<i))
+#define loopoctaboxsize(o, size, bborigin, bbsize) uchar possible = octaboxoverlap(o, size, bborigin, ivec(bborigin).add(bbsize)); loopi(8) if(possible&(1<<i))
 
 enum
 {

@@ -3,18 +3,10 @@
 
 #define _FILE_OFFSET_BITS 64
 
-#ifdef __GNUC__
-#define gamma __gamma
-#endif
-
 #ifdef WIN32
 #define _USE_MATH_DEFINES
 #endif
 #include <math.h>
-
-#ifdef __GNUC__
-#undef gamma
-#endif
 
 #include <string.h>
 #include <stdio.h>
@@ -35,39 +27,36 @@
   #ifndef __GNUC__
     #include <eh.h>
     #include <dbghelp.h>
+    #include <intrin.h>
   #endif
   #define ZLIB_DLL
 #endif
 
 #ifndef STANDALONE
-#include <SDL.h>
-#include <SDL_image.h>
-
-#define GL_GLEXT_LEGACY
-#define __glext_h__
-#define NO_SDL_GLEXT
-#include <SDL_opengl.h>
-#undef __glext_h__
-#include "GL/glext.h"
+  #ifdef __APPLE__
+    #include "SDL.h"
+    #define GL_GLEXT_LEGACY
+    #define __glext_h_
+    #include <OpenGL/gl.h>
+  #else
+    #include <SDL.h>
+    #include <SDL_opengl.h>
+  #endif
 #endif
 
 #include <enet/enet.h>
 
 #include <zlib.h>
 
-#ifdef __sun__
-#undef sun
-#undef MAXNAMELEN
-#ifdef queue
-  #undef queue
-#endif
-#define queue __squeue
-#endif
-
 #include "tools.h"
 #include "geom.h"
 #include "ents.h"
 #include "command.h"
+
+#ifndef STANDALONE
+#include "glexts.h"
+#include "glemu.h"
+#endif
 
 #include "iengine.h"
 #include "igame.h"

@@ -1,5 +1,4 @@
 #include "engine.h"
-#include "SDL_thread.h"
 
 enum
 {
@@ -72,7 +71,7 @@ static void genpvsnodes(cube *c, int parent = 0, const ivec &co = ivec(0, 0, 0),
     int index = origpvsnodes.length();
     loopi(8)
     {
-        ivec o(i, co.x, co.y, co.z, size);
+        ivec o(i, co, size);
         pvsnode &n = origpvsnodes.add();
         n.flags = 0;
         n.children = 0;
@@ -98,7 +97,7 @@ static void genpvsnodes(cube *c, int parent = 0, const ivec &co = ivec(0, 0, 0),
     int branches = 0;
     loopi(8) if(c[i].children)
     {
-        ivec o(i, co.x, co.y, co.z, size);
+        ivec o(i, co, size);
         genpvsnodes(c[i].children, index+i, o, size>>1);
         if(origpvsnodes[index+i].children) branches++;
     }
@@ -110,20 +109,6 @@ struct shaftplane
 {
     float r, c, offset;
     uchar rnear, cnear, rfar, cfar;
-};
-
-struct usvec
-{
-    union
-    {
-        struct { ushort x, y, z; };
-        ushort v[3];
-    };
-
-    ushort &operator[](int i) { return v[i]; }
-    ushort operator[](int i) const { return v[i]; }
-
-    ivec toivec() const { return ivec(x, y, z); }
 };
 
 struct shaftbb
@@ -347,7 +332,7 @@ struct pvsworker
             levels[curlevel] = cur;
         }
 
-        origin = ivec(p.x&(~0<<curlevel), p.y&(~0<<curlevel), p.z&(~0<<curlevel));
+        origin = ivec(p.x&(~0U<<curlevel), p.y&(~0U<<curlevel), p.z&(~0U<<curlevel));
 
         if(cur->flags&PVS_HIDE_BB || cur->edges==bvec(0x80, 0x80, 0x80))
         {
@@ -409,7 +394,7 @@ struct pvsworker
             uchar flags = 0xFF;
             loopi(8)
             {
-                ivec o(i, co.x, co.y, co.z, size>>1);
+                ivec o(i, co, size>>1);
                 shaftcullpvs(s, children[i], o, size>>1);
                 flags &= children[i].flags;
             }
@@ -421,7 +406,7 @@ struct pvsworker
         if(s.inside(geom)) p.flags |= PVS_HIDE_GEOM;
     }
 
-    ringbuf<shaftbb, 32> prevblockers;
+    queue<shaftbb, 32> prevblockers;
 
     struct cullorder
     {
@@ -438,7 +423,7 @@ struct pvsworker
         {
             pvsnode *children = &pvsnodes[p.children];
             int csize = size>>1;
-            ivec dmin = ivec(co).add(csize>>1).sub(viewcellbb.min.toivec().add(viewcellbb.max.toivec()).shr(1)), dmax = ivec(dmin).add(csize);
+            ivec dmin = ivec(co).add(csize>>1).sub(ivec(viewcellbb.min).add(ivec(viewcellbb.max)).shr(1)), dmax = ivec(dmin).add(csize);
             dmin.mul(dmin);
             dmax.mul(dmax);
             ivec diff = ivec(dmax).sub(dmin);
@@ -459,13 +444,16 @@ struct pvsworker
                       dxz(order[1].index|order[3].index, order[1].dist+order[3].dist),
                       dyz(order[2].index|order[3].index, order[2].dist+order[3].dist);
             int j;
-            for(j = 4; j > 0 && dxy.dist < order[j-1].dist; --j) order[j] = order[j-1]; order[j] = dxy;
-            for(j = 5; j > 0 && dxz.dist < order[j-1].dist; --j) order[j] = order[j-1]; order[j] = dxz;
-            for(j = 6; j > 0 && dyz.dist < order[j-1].dist; --j) order[j] = order[j-1]; order[j] = dyz;
+            for(j = 4; j > 0 && dxy.dist < order[j-1].dist; --j) order[j] = order[j-1];
+            order[j] = dxy;
+            for(j = 5; j > 0 && dxz.dist < order[j-1].dist; --j) order[j] = order[j-1];
+            order[j] = dxz;
+            for(j = 6; j > 0 && dyz.dist < order[j-1].dist; --j) order[j] = order[j-1];
+            order[j] = dyz;
             loopi(8)
             {
                 int index = order[i].index^dir;
-                ivec o(index, co.x, co.y, co.z, csize);
+                ivec o(index, co, csize);
                 cullpvs(children[index], o, csize);
             }
             if(!(p.flags & PVS_HIDE_BB)) return;
@@ -473,7 +461,7 @@ struct pvsworker
         bvec edges = p.children ? bvec(0x80, 0x80, 0x80) : p.edges;
         if(edges.x==0xFF) return;
         shaftbb geom(co, size, edges);
-        ivec diff = geom.max.toivec().sub(viewcellbb.min.toivec()).abs();
+        ivec diff = ivec(geom.max).sub(ivec(viewcellbb.min)).abs();
         cullorder order[3] = { cullorder(0, diff.x), cullorder(1, diff.y), cullorder(2, diff.z) };
         if(order[1].dist > order[0].dist) swap(order[0], order[1]);
         if(order[2].dist > order[1].dist) swap(order[1], order[2]);
@@ -717,14 +705,14 @@ struct pvsworker
         return true;
     }
 
-    bool materialoccluded(pvsnode &p, const ivec &co, int size, const ivec &bborigin, const ivec &bbsize)
+    bool materialoccluded(pvsnode &p, const ivec &co, int size, const ivec &bbmin, const ivec &bbmax)
     {
         pvsnode *children = &pvsnodes[p.children];
-        loopoctabox(co, size, bborigin, bbsize)
+        loopoctabox(co, size, bbmin, bbmax)
         {
-            ivec o(i, co.x, co.y, co.z, size);
+            ivec o(i, co, size);
             if(children[i].flags & PVS_HIDE_BB) continue;
-            if(!children[i].children || !materialoccluded(children[i], o, size/2, bborigin, bbsize)) return false;
+            if(!children[i].children || !materialoccluded(children[i], o, size/2, bbmin, bbmax)) return false;
         }
         return true;
     }
@@ -736,13 +724,12 @@ struct pvsworker
         loopv(matsurfs)
         {
             materialsurface &m = *matsurfs[i];
-            ivec bborigin(m.o), bbsize(0, 0, 0);
+            ivec bbmin(m.o), bbmax(m.o);
             int dim = dimension(m.orient);
-            bbsize[C[dim]] = m.csize;
-            bbsize[R[dim]] = m.rsize;
-            bborigin[dim] -= 2;
-            bbsize[dim] = 2;
-            if(!materialoccluded(pvsnodes[0], vec(0, 0, 0), worldsize/2, bborigin, bbsize)) return false;
+            bbmin[dim] += dimcoord(m.orient) ? -2 : 2;
+            bbmax[C[dim]] += m.csize;
+            bbmax[R[dim]] += m.rsize;
+            if(!materialoccluded(pvsnodes[0], ivec(0, 0, 0), worldsize/2, bbmin, bbmax)) return false;
         }
         return true;
     }
@@ -845,7 +832,7 @@ struct viewcellnode
     }
 };
 
-VARP(pvsthreads, 1, 1, 16);
+VARP(pvsthreads, 0, 0, 16);
 static vector<pvsworker *> pvsworkers;
 
 static volatile bool check_genpvs_progress = false;
@@ -862,7 +849,7 @@ static void show_genpvs_progress(int unique = pvs.length(), int processed = numv
 {
     float bar1 = float(processed) / float(totalviewcells>0 ? totalviewcells : 1);
 
-    defformatstring(text1)("%d%% - %d of %d view cells (%d unique)", int(bar1 * 100), processed, totalviewcells, unique);
+    defformatstring(text1, "%d%% - %d of %d view cells (%d unique)", int(bar1 * 100), processed, totalviewcells, unique);
 
     renderprogress(bar1, text1);
 
@@ -876,7 +863,6 @@ static void calcpvsbounds()
 {
     loopk(3) pvsbounds.min[k] = USHRT_MAX;
     loopk(3) pvsbounds.max[k] = 0;
-    extern vector<vtxarray *> valist;
     loopv(valist)
     {
         vtxarray *va = valist[i];
@@ -905,7 +891,7 @@ static int countviewcells(cube *c, const ivec &co, int size, int threshold)
     int count = 0;
     loopi(8)
     {
-        ivec o(i, co.x, co.y, co.z, size);
+        ivec o(i, co, size);
         if(pvsbounds.outside(o, size)) continue;
         cube &h = c[i];
         if(h.children)
@@ -928,7 +914,7 @@ static void genviewcells(viewcellnode &p, cube *c, const ivec &co, int size, int
     if(genpvs_canceled) return;
     loopi(8)
     {
-        ivec o(i, co.x, co.y, co.z, size);
+        ivec o(i, co, size);
         if(pvsbounds.outside(o, size)) continue;
         cube &h = c[i];
         if(h.children)
@@ -943,7 +929,7 @@ static void genviewcells(viewcellnode &p, cube *c, const ivec &co, int size, int
             if(isallclip(h.children)) continue;
         }
         else if(isentirelysolid(h) || (h.material&MATF_CLIP)==MAT_CLIP) continue;
-        if(pvsthreads<=1)
+        if(pvsworkers.length())
         {
             if(genpvs_canceled) return;
             p.children[i].pvs = pvsworkers[0]->genviewcell(o, size);
@@ -1037,7 +1023,6 @@ COMMAND(clearpvs, "");
 
 static void findwaterplanes()
 {
-    extern vector<vtxarray *> valist;
     loopi(MAXWATERPVS)
     {
         waterplanes[i].height = -1;
@@ -1096,8 +1081,7 @@ void testpvs(int *vcsize)
     int size = *vcsize>0 ? *vcsize : 32;
     for(int mask = 1; mask < size; mask <<= 1) size &= ~mask;
 
-    ivec o = camera1->o;
-    o.mask(~(size-1));
+    ivec o = ivec(camera1->o).mask(~(size-1));
     pvsworker w;
     int len;
     lockedpvs = w.testviewcell(o, size, &lockedwaterpvs, &len);
@@ -1140,15 +1124,16 @@ void genpvs(int *viewcellsize)
     numviewcells = 0;
     genpvs_canceled = false;
     check_genpvs_progress = false;
-    SDL_TimerID timer = NULL;
-    if(pvsthreads<=1) 
+    SDL_TimerID timer = 0;
+    int numthreads = pvsthreads > 0 ? pvsthreads : numcpus;
+    if(numthreads<=1) 
     {
         pvsworkers.add(new pvsworker);
         timer = SDL_AddTimer(500, genpvs_timer, NULL);
     }
     viewcells = new viewcellnode;
     genviewcells(*viewcells, worldroot, ivec(0, 0, 0), worldsize>>1, *viewcellsize>0 ? *viewcellsize : 32);
-    if(pvsthreads<=1)
+    if(numthreads<=1)
     {
         SDL_RemoveTimer(timer);
     }
@@ -1157,10 +1142,10 @@ void genpvs(int *viewcellsize)
         renderprogress(0, "creating threads");
         if(!pvsmutex) pvsmutex = SDL_CreateMutex();
         if(!viewcellmutex) viewcellmutex = SDL_CreateMutex();
-        loopi(pvsthreads)
+        loopi(numthreads)
         {
             pvsworker *w = pvsworkers.add(new pvsworker);
-            w->thread = SDL_CreateThread(pvsworker::run, w);
+            w->thread = SDL_CreateThread(pvsworker::run, "pvs worker", w);
         }
         show_genpvs_progress(0, 0);
         while(!genpvs_canceled)
@@ -1202,46 +1187,53 @@ void pvsstats()
 
 COMMAND(pvsstats, "");
 
-static inline bool pvsoccluded(uchar *buf, const ivec &co, int size, const ivec &bborigin, const ivec &bbsize)
+static inline bool pvsoccluded(uchar *buf, const ivec &co, int size, const ivec &bbmin, const ivec &bbmax)
 {
     uchar leafmask = buf[0];
-    loopoctabox(co, size, bborigin, bbsize)
+    loopoctabox(co, size, bbmin, bbmax)
     {
-        ivec o(i, co.x, co.y, co.z, size);
+        ivec o(i, co, size);
         if(leafmask&(1<<i))
         {
             uchar leafvalues = buf[1+i];
-            if(!leafvalues || (leafvalues!=0xFF && octantrectangleoverlap(o, size>>1, bborigin, bbsize)&~leafvalues))
+            if(!leafvalues || (leafvalues!=0xFF && octaboxoverlap(o, size>>1, bbmin, bbmax)&~leafvalues))
                 return false;
         }
-        else if(!pvsoccluded(buf+9*buf[1+i], o, size>>1, bborigin, bbsize)) return false;
+        else if(!pvsoccluded(buf+9*buf[1+i], o, size>>1, bbmin, bbmax)) return false;
     }
     return true;
 }
 
-static inline bool pvsoccluded(uchar *buf, const ivec &bborigin, const ivec &bbsize)
+static inline bool pvsoccluded(uchar *buf, const ivec &bbmin, const ivec &bbmax)
 {
-    int diff = (bborigin.x^(bborigin.x+bbsize.x)) | (bborigin.y^(bborigin.y+bbsize.y)) | (bborigin.z^(bborigin.z+bbsize.z));
+    int diff = (bbmin.x^bbmax.x) | (bbmin.y^bbmax.y) | (bbmin.z^bbmax.z);
     if(diff&~((1<<worldscale)-1)) return false;
     int scale = worldscale-1;
     while(!(diff&(1<<scale)))
     {
-        int i = octastep(bborigin.x, bborigin.y, bborigin.z, scale);
+        int i = octastep(bbmin.x, bbmin.y, bbmin.z, scale);
         scale--;
         uchar leafmask = buf[0];
         if(leafmask&(1<<i))
         {
             uchar leafvalues = buf[1+i];
-            return leafvalues && (leafvalues==0xFF || !(octantrectangleoverlap(ivec(bborigin).mask(~((2<<scale)-1)), 1<<scale, bborigin, bbsize)&~leafvalues));
+            return leafvalues && (leafvalues==0xFF || !(octaboxoverlap(ivec(bbmin).mask(~((2<<scale)-1)), 1<<scale, bbmin, bbmax)&~leafvalues));
         }
         buf += 9*buf[1+i];
     }
-    return pvsoccluded(buf, ivec(bborigin).mask(~((2<<scale)-1)), 1<<scale, bborigin, bbsize);
+    return pvsoccluded(buf, ivec(bbmin).mask(~((2<<scale)-1)), 1<<scale, bbmin, bbmax);
 }
 
-bool pvsoccluded(const ivec &bborigin, const ivec &bbsize)
+bool pvsoccluded(const ivec &bbmin, const ivec &bbmax)
 {
-    return curpvs!=NULL && pvsoccluded(curpvs, bborigin, bbsize);
+    return curpvs!=NULL && pvsoccluded(curpvs, bbmin, bbmax);
+}
+
+bool pvsoccludedsphere(const vec &center, float radius)
+{
+    if(curpvs==NULL) return false;
+    ivec bbmin(vec(center).sub(radius)), bbmax(vec(center).add(radius+1));
+    return pvsoccluded(curpvs, bbmin, bbmax);
 }
 
 bool waterpvsoccluded(int height)

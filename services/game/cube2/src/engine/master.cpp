@@ -1,3 +1,11 @@
+#ifdef WIN32
+#define FD_SETSIZE 4096
+#else
+#include <sys/types.h>
+#undef __FD_SETSIZE
+#define __FD_SETSIZE 4096
+#endif
+
 #include "cube.h"
 #include <signal.h>
 #include <enet/time.h>
@@ -8,12 +16,13 @@
 #define AUTH_TIME (30*1000)
 #define AUTH_LIMIT 100
 #define AUTH_THROTTLE 1000
-#define CLIENT_LIMIT 8192
+#define CLIENT_LIMIT 4096
 #define DUP_LIMIT 16
 #define PING_TIME 3000
 #define PING_RETRY 5
 #define KEEPALIVE_TIME (65*60*1000)
-#define SERVER_LIMIT (10*1024)
+#define SERVER_LIMIT 4096
+#define SERVER_DUP_LIMIT 10
 
 FILE *logfile = NULL;
 
@@ -22,7 +31,7 @@ struct userinfo
     char *name;
     void *pubkey;
 };
-hashtable<char *, userinfo> users;
+hashnameset<userinfo> users;
 
 void adduser(char *name, char *pubkey)
 {
@@ -40,11 +49,7 @@ void clearusers()
 }
 COMMAND(clearusers, "");
 
-struct baninfo
-{
-    enet_uint32 ip, mask;
-};
-vector<baninfo> bans, servbans, gbans;
+vector<ipmask> bans, servbans, gbans;
 
 void clearbans()
 {
@@ -54,47 +59,19 @@ void clearbans()
 }
 COMMAND(clearbans, "");
 
-void addban(vector<baninfo> &bans, const char *name)
+void addban(vector<ipmask> &bans, const char *name)
 {
-    union { uchar b[sizeof(enet_uint32)]; enet_uint32 i; } ip, mask;
-    ip.i = 0;
-    mask.i = 0;
-    loopi(4)
-    {
-        char *end = NULL;
-        int n = strtol(name, &end, 10);
-        if(!end) break;
-        if(end > name) { ip.b[i] = n; mask.b[i] = 0xFF; }
-        name = end;
-        while(*name && *name++ != '.');
-    }
-    baninfo &ban = bans.add();
-    ban.ip = ip.i;
-    ban.mask = mask.i;
+    ipmask ban;
+    ban.parse(name);
+    bans.add(ban);
 }
 ICOMMAND(ban, "s", (char *name), addban(bans, name));
 ICOMMAND(servban, "s", (char *name), addban(servbans, name));
 ICOMMAND(gban, "s", (char *name), addban(gbans, name));
 
-char *printban(const baninfo &ban, char *buf)
+bool checkban(vector<ipmask> &bans, enet_uint32 host)
 {
-    union { uchar b[sizeof(enet_uint32)]; enet_uint32 i; } ip, mask;
-    ip.i = ban.ip;
-    mask.i = ban.mask;
-    int lastdigit = -1;
-    loopi(4) if(mask.b[i])
-    {
-        if(lastdigit >= 0) *buf++ = '.';
-        loopj(i - lastdigit - 1) { *buf++ = '*'; *buf++ = '.'; }
-        buf += sprintf(buf, "%d", ip.b[i]);
-        lastdigit = i;
-    }
-    return buf;
-}
-
-bool checkban(vector<baninfo> &bans, enet_uint32 host)
-{
-    loopv(bans) if((host & bans[i].mask) == bans[i].ip) return true;
+    loopv(bans) if(bans[i].check(host)) return true;
     return false;
 }
 
@@ -185,22 +162,6 @@ void conoutfv(int type, const char *fmt, va_list args)
     fputc('\n', logfile);
 }
 
-void conoutf(const char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    conoutfv(CON_INFO, fmt, args);
-    va_end(args);
-}
-
-void conoutf(int type, const char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    conoutfv(type, fmt, args);
-    va_end(args);
-}
-
 void purgeclient(int n)
 {
     client &c = *clients[n];
@@ -269,17 +230,26 @@ void setupserver(int port, const char *ip = NULL)
     conoutf("*** Starting master server on %s %d at %s ***", ip ? ip : "localhost", port, ct);
 }
 
+SVAR(mastermotd, "");
+
 void genserverlist()
 {
     if(!updateserverlist) return;
     while(gameserverlists.length() && gameserverlists.last()->refs<=0)
         delete gameserverlists.pop();
     messagebuf *l = new messagebuf(gameserverlists);
+    if(mastermotd[0])
+    {
+        const char *cmd = "echo ";
+        l->buf.put(cmd, strlen(cmd));
+        l->buf.put(mastermotd, strlen(mastermotd));
+        l->buf.add('\n');
+    }
     loopv(gameservers)
     {
         gameserver &s = *gameservers[i];
         if(!s.lastpong) continue;
-        defformatstring(cmd)("addserver %s %d\n", s.ip, s.port);
+        defformatstring(cmd, "addserver %s %d\n", s.ip, s.port);
         l->buf.put(cmd, strlen(cmd));
     }
     l->buf.add('\0');
@@ -296,8 +266,8 @@ void gengbanlist()
     int cmdlen = strlen(cmd);
     loopv(gbans)
     {
-        baninfo &b = gbans[i];
-        l->buf.put(cmd, printban(b, &cmd[cmdlen]) - cmd); 
+        ipmask &b = gbans[i];
+        l->buf.put(cmd, cmdlen + b.print(&cmd[cmdlen])); 
         l->buf.add('\n');
     }
     if(gbanlists.length() && gbanlists.last()->equals(*l))
@@ -327,15 +297,23 @@ void gengbanlist()
 void addgameserver(client &c)
 {
     if(gameservers.length() >= SERVER_LIMIT) return;
+    int dups = 0;
     loopv(gameservers)
     {
         gameserver &s = *gameservers[i];
-        if(s.address.host == c.address.host && s.port == c.servport)
+        if(s.address.host != c.address.host) continue;
+        ++dups;
+        if(s.port == c.servport)
         {
             s.lastping = 0;
             s.numpings = 0;
             return;
         }
+    }
+    if(dups >= SERVER_DUP_LIMIT)
+    {
+        outputf(c, "failreg too many servers on ip\n");
+        return;
     }
     string hostname;
     if(enet_address_get_host_ip(&c.address, hostname, sizeof(hostname)) < 0)
@@ -514,7 +492,7 @@ void reqauth(client &c, uint id, char *name)
     authreq &a = c.authreqs.add();
     a.reqtime = servtime;
     a.id = id;
-    uint seed[3] = { starttime, servtime, randomMT() };
+    uint seed[3] = { uint(starttime), servtime, randomMT() };
     static vector<char> buf;
     buf.setsize(0);
     a.answer = genchallenge(u->pubkey, seed, sizeof(seed), buf);
@@ -573,7 +551,7 @@ bool checkclientinput(client &c)
         else if(sscanf(c.input, "regserv %d", &port) == 1)
         {
             if(checkban(servbans, c.address.host)) return false;
-            if(port < 0 || port + 1 < 0 || (c.servport >= 0 && port != c.servport)) outputf(c, "failreg invalid port\n");
+            if(port < 0 || port > 0xFFFF-1 || (c.servport >= 0 && port != c.servport)) outputf(c, "failreg invalid port\n");
             else
             {
                 c.servport = port;
@@ -697,12 +675,14 @@ void banclients()
     loopvrev(clients) if(checkban(bans, clients[i]->address.host)) purgeclient(i);
 }
 
-volatile bool reloadcfg = true;
+volatile int reloadcfg = 1;
 
+#ifndef WIN32
 void reloadsignal(int signum)
 {
-    reloadcfg = true;
+    reloadcfg = 1;
 }
+#endif
 
 int main(int argc, char **argv)
 {
@@ -714,8 +694,8 @@ int main(int argc, char **argv)
     if(argc>=2) dir = argv[1];
     if(argc>=3) port = atoi(argv[2]);
     if(argc>=4) ip = argv[3];
-    defformatstring(logname)("%smaster.log", dir);
-    defformatstring(cfgname)("%smaster.cfg", dir);
+    defformatstring(logname, "%smaster.log", dir);
+    defformatstring(cfgname, "%smaster.cfg", dir);
     path(logname);
     path(cfgname);
     logfile = fopen(logname, "a");
@@ -734,7 +714,7 @@ int main(int argc, char **argv)
             bangameservers();
             banclients();
             gengbanlist();
-            reloadcfg = false;
+            reloadcfg = 0;
         }
 
         servtime = enet_time_get();

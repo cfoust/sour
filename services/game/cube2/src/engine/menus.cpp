@@ -8,25 +8,29 @@
 
 static vec menupos;
 static int menustart = 0;
-static int menutab = 1;
 static g3d_gui *cgui = NULL;
+
+VAR(guitabnum, 1, 0, 0);
 
 struct menu : g3d_callback
 {
     char *name, *header;
     uint *contents, *init, *onclear;
-    bool showtab;
+    bool showtab, keeptab;
+    int menutab;
 
-    menu() : name(NULL), header(NULL), contents(NULL), init(NULL), onclear(NULL), showtab(true) {}
+    menu() : name(NULL), header(NULL), contents(NULL), init(NULL), onclear(NULL), showtab(true), keeptab(false), menutab(1) {}
 
     void gui(g3d_gui &g, bool firstpass)
     {
         cgui = &g;
+        guitabnum = menutab;
         cgui->start(menustart, 0.03f, showtab ? &menutab : NULL);
         if(showtab) cgui->tab(header ? header : name, GUI_TITLE_COLOR);
         execute(contents);
         cgui->end();
         cgui = NULL;
+        guitabnum = 0;
     }
 
     virtual void clear() 
@@ -105,7 +109,7 @@ struct delayedupdate
     }
 };
      
-static hashtable<const char *, menu> guis;
+static hashnameset<menu> guis;
 static vector<menu *> guistack;
 static vector<delayedupdate> updatelater;
 static bool shouldclearmenu = true, clearlater = false;
@@ -149,7 +153,7 @@ void pushgui(menu *m, int pos = -1)
     else guistack.insert(pos, m);
     if(pos < 0 || pos==guistack.length()-1)
     {
-        menutab = 1;
+        if(!m->keeptab) m->menutab = 1;
         menustart = totalmillis;
     }
     if(m->init) execute(m->init);
@@ -159,7 +163,6 @@ void restoregui(int pos)
 {
     int clear = guistack.length()-pos-1;
     loopi(clear) popgui();
-    menutab = 1;
     menustart = totalmillis;
 }
 
@@ -228,9 +231,17 @@ void guistayopen(uint *contents)
 void guinoautotab(uint *contents)
 {
     if(!cgui) return;
-    cgui->allowautotab(false);
+    bool oldval = cgui->allowautotab(false);
     execute(contents);
-    cgui->allowautotab(true);
+    cgui->allowautotab(oldval);
+}
+
+void guimerge(uint *contents)
+{
+    if(!cgui) return;
+    bool oldval = cgui->mergehits(true);
+    execute(contents);
+    cgui->mergehits(oldval);
 }
 
 //@DOC name and icon are optional
@@ -251,7 +262,7 @@ void guibutton(char *name, char *action, char *icon)
     }
 }
 
-void guiimage(char *path, char *action, float *scale, int *overlaid, char *alt)
+void guiimage(char *path, char *action, float *scale, int *overlaid, char *alt, char *title)
 {
     if(!cgui) return;
     Texture *t = textureload(path, 0, true, false);
@@ -260,7 +271,7 @@ void guiimage(char *path, char *action, float *scale, int *overlaid, char *alt)
         if(alt[0]) t = textureload(alt, 0, true, false);
         if(t==notexture) return;
     }
-    int ret = cgui->image(t, *scale, *overlaid!=0);
+    int ret = cgui->image(t, *scale, *overlaid!=0 ? title : NULL);
     if(ret&G3D_UP)
     {
         if(*action)
@@ -280,7 +291,7 @@ void guicolor(int *color)
 {
     if(cgui) 
     {   
-        defformatstring(desc)("0x%06X", *color);
+        defformatstring(desc, "0x%06X", *color);
         cgui->text(desc, *color, NULL);
     }
 }
@@ -322,6 +333,11 @@ void guistrut(float *strut, int *alt)
 void guispring(int *weight)
 {
     if(cgui) cgui->spring(max(*weight, 1));
+}
+
+void guicolumn(int *col)
+{
+    if(cgui) cgui->column(*col);
 }
 
 template<class T> static void updateval(char *var, T val, char *onchange)
@@ -376,7 +392,7 @@ static const char *getsval(char *var)
 void guislider(char *var, int *min, int *max, char *onchange)
 {
 	if(!cgui) return;
-    int oldval = getval(var), val = oldval, vmin = *max ? *min : getvarmin(var), vmax = *max ? *max : getvarmax(var);
+    int oldval = getval(var), val = oldval, vmin = *max > INT_MIN ? *min : getvarmin(var), vmax = *max > INT_MIN ? *max : getvarmax(var);
     cgui->slider(val, vmin, vmax, GUI_TITLE_COLOR);
     if(val != oldval) updateval(var, val, onchange);
 }
@@ -535,12 +551,12 @@ void newgui(char *name, char *contents, char *header, char *init)
 
 menu *guiserversmenu = NULL;
 
-void guiservers(uint *header)
+void guiservers(uint *header, int *pagemin, int *pagemax)
 {
-    extern char *showservers(g3d_gui *cgui, uint *header);
+    extern const char *showservers(g3d_gui *cgui, uint *header, int pagemin, int pagemax);
     if(cgui) 
     {
-        char *command = showservers(cgui, header);
+        const char *command = showservers(cgui, header, *pagemin, *pagemax > 0 ? *pagemax : INT_MAX);
         if(command)
         {
             updatelater.add().schedule(command);
@@ -562,22 +578,24 @@ void notifywelcome()
 COMMAND(newgui, "ssss");
 COMMAND(guibutton, "sss");
 COMMAND(guitext, "ss");
-COMMAND(guiservers, "e");
+COMMAND(guiservers, "eii");
 ICOMMAND(cleargui, "i", (int *n), intret(cleargui(*n)));
 COMMAND(showgui, "s");
 COMMAND(hidegui, "s");
 COMMAND(guionclear, "s");
 COMMAND(guistayopen, "e");
 COMMAND(guinoautotab, "e");
-
+COMMAND(guimerge, "e");
+ICOMMAND(guikeeptab, "b", (int *keeptab), if(guistack.length()) guistack.last()->keeptab = *keeptab!=0);
 COMMAND(guilist, "e");
 COMMAND(guialign, "ie");
 COMMAND(guititle, "s");
 COMMAND(guibar,"");
 COMMAND(guistrut,"fi");
 COMMAND(guispring, "i");
-COMMAND(guiimage,"ssfis");
-COMMAND(guislider,"siis");
+COMMAND(guicolumn, "i");
+COMMAND(guiimage,"ssfiss");
+COMMAND(guislider,"sbbs");
 COMMAND(guilistslider, "sss");
 COMMAND(guinameslider, "ssss");
 COMMAND(guiradio,"ssfs");
@@ -590,10 +608,10 @@ COMMAND(guieditor, "siii");
 COMMAND(guicolor, "i");
 COMMAND(guitextbox, "siii");
 
-void guiplayerpreview(int *model, int *team, int *weap, char *action, float *scale, int *overlaid)
+void guiplayerpreview(int *model, int *team, int *weap, char *action, float *scale, int *overlaid, char *title)
 {
     if(!cgui) return;
-    int ret = cgui->playerpreview(*model, *team, *weap, *scale, *overlaid!=0);
+    int ret = cgui->playerpreview(*model, *team, *weap, *scale, *overlaid!=0 ? title : NULL);
     if(ret&G3D_UP)
     {
         if(*action)
@@ -603,9 +621,9 @@ void guiplayerpreview(int *model, int *team, int *weap, char *action, float *sca
         }
     }
 }
-COMMAND(guiplayerpreview, "iiisfi");
+COMMAND(guiplayerpreview, "iiisfis");
 
-void guimodelpreview(char *model, char *animspec, char *action, float *scale, int *overlaid)
+void guimodelpreview(char *model, char *animspec, char *action, float *scale, int *overlaid, char *title, int *throttle)
 {
     if(!cgui) return;
     int anim = ANIM_ALL;
@@ -624,7 +642,7 @@ void guimodelpreview(char *model, char *animspec, char *action, float *scale, in
             if(anims.length()) anim = anims[0];
         }
     }
-    int ret = cgui->modelpreview(model, anim|ANIM_LOOP, *scale, *overlaid!=0);
+    int ret = cgui->modelpreview(model, anim|ANIM_LOOP, *scale, *overlaid!=0 ? title : NULL, *throttle!=0);
     if(ret&G3D_UP)
     {
         if(*action)
@@ -633,8 +651,33 @@ void guimodelpreview(char *model, char *animspec, char *action, float *scale, in
             if(shouldclearmenu) clearlater = true;
         }
     }
+    else if(ret&G3D_ROLLOVER)
+    {
+        alias("guirolloverpreviewname", model);
+        alias("guirolloverpreviewaction", action);
+    }
 }
-COMMAND(guimodelpreview, "sssfi");
+COMMAND(guimodelpreview, "sssfisi");
+
+void guiprefabpreview(char *prefab, int *color, char *action, float *scale, int *overlaid, char *title, int *throttle)
+{
+    if(!cgui) return;
+    int ret = cgui->prefabpreview(prefab, vec::hexcolor(*color), *scale, *overlaid!=0 ? title : NULL, *throttle!=0);
+    if(ret&G3D_UP)
+    {
+        if(*action)
+        {   
+            updatelater.add().schedule(action);
+            if(shouldclearmenu) clearlater = true;
+        }
+    }
+    else if(ret&G3D_ROLLOVER)
+    {
+        alias("guirolloverpreviewname", prefab);
+        alias("guirolloverpreviewaction", action);
+    }
+}
+COMMAND(guiprefabpreview, "sisfisi");
 
 struct change
 {

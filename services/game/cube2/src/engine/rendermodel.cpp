@@ -1,8 +1,8 @@
 #include "engine.h"
 #include <emscripten.h>
 
-VARP(oqdynent, 0, 1, 1);
-VARP(animationinterpolationtime, 0, 150, 1000);
+VAR(oqdynent, 0, 1, 1);
+VAR(animationinterpolationtime, 0, 150, 1000);
 
 model *loadingmodel = NULL;
 
@@ -24,7 +24,7 @@ static model *__loadmodel__##modelclass(const char *filename) \
 { \
     return new modelclass(filename); \
 } \
-static int __dummy__##modelclass = addmodeltype((modeltype), __loadmodel__##modelclass);
+UNUSED static int __dummy__##modelclass = addmodeltype((modeltype), __loadmodel__##modelclass);
  
 #include "md2.h"
 #include "md3.h"
@@ -176,9 +176,8 @@ COMMAND(mdlspin, "ff");
 void mdlscale(int *percent)
 {
     checkmdl;
-    float scale = 0.3f;
+    float scale = 1.0f;
     if(*percent>0) scale = *percent/100.0f;
-    else if(*percent<0) scale = 0.0f;
     loadingmodel->scale = scale;
 }  
 
@@ -219,7 +218,7 @@ COMMAND(mdlshadow, "i");
 void mdlbb(float *rad, float *h, float *eyeheight)
 {
     checkmdl;
-    loadingmodel->collideradius = *rad;
+    loadingmodel->collidexyradius = *rad;
     loadingmodel->collideheight = *h;
     loadingmodel->eyeheight = *eyeheight; 
 }
@@ -237,14 +236,16 @@ COMMAND(mdlextendbb, "fff");
 void mdlname()
 {
     checkmdl;
-    result(loadingmodel->name());
+    result(loadingmodel->name);
 }
 
 COMMAND(mdlname, "");
 
 #define checkragdoll \
+    checkmdl; \
     if(!loadingmodel->skeletal()) { conoutf(CON_ERROR, "not loading a skeletal model"); return; } \
     skelmodel *m = (skelmodel *)loadingmodel; \
+    if(m->parts.empty()) return; \
     skelmodel::skelmeshgroup *meshes = (skelmodel::skelmeshgroup *)m->parts.last()->meshes; \
     if(!meshes) return; \
     skelmodel::skeleton *skel = meshes->skel; \
@@ -310,7 +311,7 @@ void rdlimitrot(int *t1, int *t2, float *maxangle, float *qx, float *qy, float *
     r.tri[0] = *t1;
     r.tri[1] = *t2;
     r.maxangle = *maxangle * RAD;
-    r.middle = matrix3x3(quat(*qx, *qy, *qz, *qw));
+    r.middle = matrix3(quat(*qx, *qy, *qz, *qw));
 }
 COMMAND(rdlimitrot, "iifffff");
 
@@ -350,16 +351,18 @@ COMMAND(mmodel, "s");
 COMMANDN(mapmodel, mapmodelcompat, "iiiss");
 COMMAND(mapmodelreset, "i");
 ICOMMAND(mapmodelname, "i", (int *index), { result(mapmodels.inrange(*index) ? mapmodels[*index].name : ""); });
+ICOMMAND(mapmodelloaded, "i", (int *index), { intret(mapmodels.inrange(*index) && mapmodels[*index].m ? 1 : 0); });
 ICOMMAND(nummapmodels, "", (), { intret(mapmodels.length()); });
+ICOMMAND(mapmodelfind, "s", (char *name), { int found = -1; loopv(mapmodels) if(strstr(mapmodels[i].name, name)) { found = i; break; } intret(found); });
 
 // model registry
 
-hashtable<const char *, model *> mdllookup;
+hashnameset<model *> models;
 vector<const char *> preloadmodels;
 
 void preloadmodel(const char *name)
 {
-    if(mdllookup.access(name)) return;
+    if(!name || !name[0] || models.access(name)) return;
     preloadmodels.add(newstring(name));
 }
 
@@ -377,7 +380,12 @@ void flushpreloadedmodels_iter(void *)
 {
     if (preloadmodels.length())
     {
-        loadmodel(preloadmodels.pop(), -1, true);
+        model *m = loadmodel(preloadmodels[i], -1, msg);
+        if(!m) { if(msg) conoutf(CON_WARN, "could not load model: %s", preloadmodels[i]); }
+        else
+        {
+            m->preloadmeshes();
+        }
         emscripten_push_uncounted_main_loop_blocker(flushpreloadedmodels_iter, NULL);
     }
     else emscripten_push_main_loop_blocker(flushpreloadedmodels_func, NULL);
@@ -399,10 +407,19 @@ void preloadusedmapmodels(bool msg, bool bih)
         int mmindex = mapmodels[i];
         mapmodelinfo *mmi = getmminfo(mmindex);
         if(!mmi) { if(msg) conoutf(CON_WARN, "could not find map model: %d", mmindex); }
-        else if(!loadmodel(NULL, mmindex, msg)) { if(msg) conoutf(CON_WARN, "could not load model: %s", mmi->name); }
-        else if(mmi->m && bih) mmi->m->preloadBIH();
+        else if(mmi->name[0] && !loadmodel(NULL, mmindex, msg)) { if(msg) conoutf(CON_WARN, "could not load model: %s", mmi->name); }
+        else if(mmi->m)
+        {
+            if(bih) mmi->m->preloadBIH();
+            mmi->m->preloadmeshes();
+        }
     }
     loadprogress = 0;
+}
+
+bool modelloaded(const char *name)
+{
+    return models.find(name, NULL) != NULL;
 }
 
 hashtable<const char *, model *> missingmodels; // XXX EMSCRIPTEN: models that fail to load once, we will never try to load again
@@ -416,16 +433,16 @@ model *loadmodel(const char *name, int i, bool msg)
         if(mmi.m) return mmi.m;
         name = mmi.name;
     }
-    model **mm = mdllookup.access(name);
+    model **mm = models.access(name);
     model *m;
     if(mm) m = *mm;
     else
     { 
-        if(lightmapping > 1) return NULL;
+        if(!name[0] || loadingmodel || lightmapping > 1) return NULL;
         if(missingmodels.access(name)) return NULL; // XXX EMSCRIPTEN
         if(msg)
         {
-            defformatstring(filename)("packages/models/%s", name);
+            defformatstring(filename, "packages/models/%s", name);
             renderprogress(loadprogress, filename);
         }
         loopi(NUMMODELTYPES)
@@ -442,34 +459,35 @@ model *loadmodel(const char *name, int i, bool msg)
             missingmodels.access(name, NULL); // XXX EMSCRIPTEN
             return NULL;
         }
-        mdllookup.access(m->name(), m);
+        models.access(m->name, m);
+        m->preloadshaders();
     }
     if(mapmodels.inrange(i) && !mapmodels[i].m) mapmodels[i].m = m;
     return m;
 }
 
-void preloadmodelshaders()
+void preloadmodelshaders(bool force)
 {
     if(initing) return;
-    enumerate(mdllookup, model *, m, m->preloadshaders());
+    enumerate(models, model *, m, m->preloadshaders(force));
 }
 
 void clear_mdls()
 {
-    enumerate(mdllookup, model *, m, delete m);
+    enumerate(models, model *, m, delete m);
 }
 
 void cleanupmodels()
 {
-    enumerate(mdllookup, model *, m, m->cleanup());
+    enumerate(models, model *, m, m->cleanup());
 }
 
 void clearmodel(char *name)
 {
-    model **m = mdllookup.access(name);
-    if(!m) { conoutf("model %s is not loaded", name); return; }
+    model **m = models.access(name);
+    if(!m) { conoutf(CON_WARN, "model %s is not loaded", name); return; }
     loopv(mapmodels) if(mapmodels[i].m==*m) mapmodels[i].m = NULL;
-    mdllookup.remove(name);
+    models.remove(name);
     (*m)->cleanup();
     delete *m;
     conoutf("cleared model %s", name);
@@ -479,21 +497,20 @@ COMMAND(clearmodel, "s");
 
 bool modeloccluded(const vec &center, float radius)
 {
-    int br = int(radius*2)+1;
-    return pvsoccluded(ivec(int(center.x-radius), int(center.y-radius), int(center.z-radius)), ivec(br, br, br)) ||
-           bboccluded(ivec(int(center.x-radius), int(center.y-radius), int(center.z-radius)), ivec(br, br, br));
+    ivec bbmin(vec(center).sub(radius)), bbmax(ivec(center).add(radius+1));
+    return pvsoccluded(bbmin, bbmax) || bboccluded(bbmin, bbmax);
 }
 
 VAR(showboundingbox, 0, 0, 2);
 
 void render2dbox(vec &o, float x, float y, float z)
 {
-    glBegin(GL_LINE_LOOP);
-    glVertex3f(o.x, o.y, o.z);
-    glVertex3f(o.x, o.y, o.z+z);
-    glVertex3f(o.x+x, o.y+y, o.z+z);
-    glVertex3f(o.x+x, o.y+y, o.z);
-    glEnd();
+    gle::begin(GL_LINE_LOOP);
+    gle::attribf(o.x, o.y, o.z);
+    gle::attribf(o.x, o.y, o.z+z);
+    gle::attribf(o.x+x, o.y+y, o.z+z);
+    gle::attribf(o.x+x, o.y+y, o.z);
+    xtraverts += gle::end();
 }
 
 void render3dbox(vec &o, float tofloor, float toceil, float xradius, float yradius)
@@ -503,34 +520,26 @@ void render3dbox(vec &o, float tofloor, float toceil, float xradius, float yradi
     c.sub(vec(xradius, yradius, tofloor));
     float xsz = xradius*2, ysz = yradius*2;
     float h = tofloor+toceil;
-    lineshader->set();
-    glDisable(GL_TEXTURE_2D);
-    glColor3f(1, 1, 1);
+    gle::colorf(1, 1, 1);
+    gle::defvertex();
     render2dbox(c, xsz, 0, h);
     render2dbox(c, 0, ysz, h);
     c.add(vec(xsz, ysz, 0));
     render2dbox(c, -xsz, 0, h);
     render2dbox(c, 0, -ysz, h);
-    xtraverts += 16;
-    glEnable(GL_TEXTURE_2D);
 }
 
 void renderellipse(vec &o, float xradius, float yradius, float yaw)
 {
-    lineshader->set();
-    glDisable(GL_TEXTURE_2D);
-    glColor3f(0.5f, 0.5f, 0.5f);
-    glBegin(GL_LINE_LOOP);
+    gle::colorf(0.5f, 0.5f, 0.5f);
+    gle::defvertex();
+    gle::begin(GL_LINE_LOOP);
     loopi(15)
     {
         const vec2 &sc = sincos360[i*(360/15)];
-        vec p(xradius*sc.x, yradius*sc.y, 0);
-        p.rotate_around_z((yaw+90)*RAD);
-        p.add(o);
-        glVertex3fv(p.v);
+        gle::attrib(vec(xradius*sc.x, yradius*sc.y, 0).rotate_around_z((yaw+90)*RAD).add(o));
     }
-    glEnd();
-    glEnable(GL_TEXTURE_2D);
+    xtraverts += gle::end();
 }
 
 struct batchedmodel
@@ -588,7 +597,7 @@ void renderbatchedmodel(model *m, batchedmodel &b)
     if(shadowmapping)
     {
         anim |= ANIM_NOSKIN; 
-        if(renderpath!=R_FIXEDFUNCTION) setenvparamf("shadowintensity", SHPARAM_VERTEX, 1, b.transparent);
+        GLOBALPARAMF(shadowintensity, b.transparent);
     }
     else 
     {
@@ -621,7 +630,7 @@ void endmodelbatches()
         if(b.flags&(MDL_SHADOW|MDL_DYNSHADOW))
         {
             vec center, bbradius;
-            b.m->boundbox(0/*frame*/, center, bbradius); // FIXME
+            b.m->boundbox(center, bbradius);
             loopvj(b.batched)
             {
                 batchedmodel &bm = b.batched[j];
@@ -739,9 +748,14 @@ void endmodelquery()
     modelattached.setsize(minattached);
 }
 
-VARP(maxmodelradiusdistance, 10, 200, 1000);
+VAR(maxmodelradiusdistance, 10, 200, 1000);
 
-void rendermodelquery(model *m, dynent *d, const vec &center, float radius)
+static inline void enablecullmodelquery()
+{
+    startbb();
+}
+
+static inline void rendercullmodelquery(model *m, dynent *d, const vec &center, float radius)
 {
     if(fabs(camera1->o.x-center.x) < radius+1 &&
        fabs(camera1->o.y-center.y) < radius+1 &&
@@ -752,18 +766,59 @@ void rendermodelquery(model *m, dynent *d, const vec &center, float radius)
     }
     d->query = newquery(d);
     if(!d->query) return;
-    nocolorshader->set();
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-    glDepthMask(GL_FALSE);
     startquery(d->query);
     int br = int(radius*2)+1;
     drawbb(ivec(int(center.x-radius), int(center.y-radius), int(center.z-radius)), ivec(br, br, br));
     endquery(d->query);
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, fading ? GL_FALSE : GL_TRUE);
-    glDepthMask(GL_TRUE);
-}   
+}
 
-extern int oqfrags;
+static inline void disablecullmodelquery()
+{
+    endbb();
+}
+
+static inline int cullmodel(model *m, const vec &center, float radius, int flags, dynent *d = NULL, bool shadow = false)
+{
+    if(flags&MDL_CULL_DIST && center.dist(camera1->o)/radius>maxmodelradiusdistance) return MDL_CULL_DIST;
+    if(flags&MDL_CULL_VFC)
+    {
+        if(reflecting || refracting)
+        {
+            if(reflecting || refracting>0)
+            {
+                if(center.z+radius<=reflectz) return MDL_CULL_VFC;
+            }
+            else
+            {
+                if(fogging && center.z+radius<reflectz-refractfog) return MDL_CULL_VFC;
+                if(!shadow && center.z-radius>=reflectz) return MDL_CULL_VFC;
+            }
+            if(center.dist(camera1->o)-radius>reflectdist) return MDL_CULL_VFC;
+        }
+        if(isfoggedsphere(radius, center)) return MDL_CULL_VFC;
+        if(shadowmapping && !isshadowmapcaster(center, radius)) return MDL_CULL_VFC;
+    }
+    if(shadowmapping)
+    {
+        if(d)
+        {
+            if(flags&MDL_CULL_OCCLUDED && d->occluded>=OCCLUDE_PARENT) return MDL_CULL_OCCLUDED;
+            if(flags&MDL_CULL_QUERY && d->occluded+1>=OCCLUDE_BB && d->query && d->query->owner==d && checkquery(d->query)) return MDL_CULL_QUERY;
+        }
+        if(!addshadowmapcaster(center, radius, radius)) return MDL_CULL_VFC;
+    }
+    else if(flags&MDL_CULL_OCCLUDED && modeloccluded(center, radius))
+    {
+        if(!reflecting && !refracting && d) d->occluded = OCCLUDE_PARENT;
+        return MDL_CULL_OCCLUDED;
+    }
+    else if(flags&MDL_CULL_QUERY && d->query && d->query->owner==d && checkquery(d->query))
+    {
+        if(!reflecting && !refracting && d->occluded<OCCLUDE_BB) d->occluded++;
+        return MDL_CULL_QUERY;
+    }
+    return 0;
+}
 
 void rendermodel(entitylight *light, const char *mdl, int anim, const vec &o, float yaw, float pitch, int flags, dynent *d, modelattach *a, int basetime, int basetime2, float trans)
 {
@@ -772,11 +827,16 @@ void rendermodel(entitylight *light, const char *mdl, int anim, const vec &o, fl
     if(!m) return;
     vec center(0, 0, 0), bbradius(0, 0, 0);
     float radius = 0;
-    bool shadow = !shadowmap && !glaring && (flags&(MDL_SHADOW|MDL_DYNSHADOW)) && showblobs,
-         doOQ = flags&MDL_CULL_QUERY && hasOQ && oqfrags && oqdynent;
+    bool shadow = !shadowmap && !glaring && (flags&(MDL_SHADOW|MDL_DYNSHADOW)) && showblobs;
+
     if(flags&(MDL_CULL_VFC|MDL_CULL_DIST|MDL_CULL_OCCLUDED|MDL_CULL_QUERY|MDL_SHADOW|MDL_DYNSHADOW))
     {
-        m->boundbox(0/*frame*/, center, bbradius); // FIXME
+        if(flags&MDL_CULL_QUERY)
+        {
+            if(!oqfrags || !oqdynent || !d) flags &= ~MDL_CULL_QUERY;
+        }
+
+        m->boundbox(center, bbradius);
         radius = bbradius.magnitude();
         if(d && d->ragdoll)
         {
@@ -788,57 +848,26 @@ void rendermodel(entitylight *light, const char *mdl, int anim, const vec &o, fl
             center.rotate_around_z(yaw*RAD);
             center.add(o);
         }
-        if(flags&MDL_CULL_DIST && center.dist(camera1->o)/radius>maxmodelradiusdistance) return;
-        if(flags&MDL_CULL_VFC)
+
+        int culled = cullmodel(m, center, radius, flags, d, shadow);
+        if(culled)
         {
-            if(reflecting || refracting)
+            if(culled&(MDL_CULL_OCCLUDED|MDL_CULL_QUERY) && flags&MDL_CULL_QUERY && !reflecting && !refracting)
             {
-                if(reflecting || refracting>0) 
-                {
-                    if(center.z+radius<=reflectz) return;
-                }
-                else
-                {
-                    if(fogging && center.z+radius<reflectz-refractfog) return;
-                    if(!shadow && center.z-radius>=reflectz) return;
-                }
-                if(center.dist(camera1->o)-radius>reflectdist) return;
-            }
-            if(isfoggedsphere(radius, center)) return;
-            if(shadowmapping && !isshadowmapcaster(center, radius)) return;
-        }
-        if(shadowmapping)
-        {
-            if(d)
-            {
-                if(flags&MDL_CULL_OCCLUDED && d->occluded>=OCCLUDE_PARENT) return;
-                if(doOQ && d->occluded+1>=OCCLUDE_BB && d->query && d->query->owner==d && checkquery(d->query)) return;
-            }
-            if(!addshadowmapcaster(center, radius, radius)) return;
-        }
-        else if(flags&MDL_CULL_OCCLUDED && modeloccluded(center, radius))
-        {
-            if(!reflecting && !refracting && d)
-            {
-                d->occluded = OCCLUDE_PARENT;
-                if(doOQ) rendermodelquery(m, d, center, radius);
+                enablecullmodelquery();
+                rendercullmodelquery(m, d, center, radius);
+                disablecullmodelquery();
             }
             return;
         }
-        else if(doOQ && d && d->query && d->query->owner==d && checkquery(d->query))
-        {
-            if(!reflecting && !refracting) 
-            {
-                if(d->occluded<OCCLUDE_BB) d->occluded++;
-                rendermodelquery(m, d, center, radius);
-            }
-            return;
-        }
+
+        if(reflecting || refracting || shadowmapping) flags &= ~MDL_CULL_QUERY;
     }
 
     if(flags&MDL_NORENDER) anim |= ANIM_NORENDER;
     else if(showboundingbox && !shadowmapping && !reflecting && !refracting && editmode)
     {
+        notextureshader->set();
         if(d && showboundingbox==1) 
         {
             render3dbox(d->o, d->eyeheight, d->aboveeye, d->radius);
@@ -847,8 +876,8 @@ void rendermodel(entitylight *light, const char *mdl, int anim, const vec &o, fl
         else
         {
             vec center, radius;
-            if(showboundingbox==1) m->collisionbox(0, center, radius);
-            else m->boundbox(0, center, radius);
+            if(showboundingbox==1) m->collisionbox(center, radius);
+            else m->boundbox(center, radius);
             rotatebb(center, radius, int(yaw));
             center.add(o);
             render3dbox(center, radius.z, radius.z, radius.x, radius.y);
@@ -901,8 +930,6 @@ void rendermodel(entitylight *light, const char *mdl, int anim, const vec &o, fl
         //if(a[i].m && a[i].m->type()!=m->type()) a[i].m = NULL;
     }
 
-    if(!d || reflecting || refracting || shadowmapping) doOQ = false;
-  
     if(numbatches>=0)
     {
         modelbatch &mb = addbatchedmodel(m);
@@ -927,7 +954,7 @@ void rendermodel(entitylight *light, const char *mdl, int anim, const vec &o, fl
         b.d = d;
         b.attached = a ? modelattached.length() : -1;
         if(a) for(int i = 0;; i++) { modelattached.add(a[i]); if(!a[i].tag) break; }
-        if(doOQ) d->query = b.query = newquery(d);
+        if(flags&MDL_CULL_QUERY) d->query = b.query = newquery(d);
         return;
     }
 
@@ -943,7 +970,7 @@ void rendermodel(entitylight *light, const char *mdl, int anim, const vec &o, fl
     if(shadowmapping)
     {
         anim |= ANIM_NOSKIN;
-        if(renderpath!=R_FIXEDFUNCTION) setenvparamf("shadowintensity", SHPARAM_VERTEX, 1, trans);
+        GLOBALPARAMF(shadowintensity, trans);
     }
     else 
     {
@@ -951,7 +978,7 @@ void rendermodel(entitylight *light, const char *mdl, int anim, const vec &o, fl
         if(flags&MDL_GHOST) anim |= ANIM_GHOST;
     }
 
-    if(doOQ)
+    if(flags&MDL_CULL_QUERY)
     {
         d->query = newquery(d);
         if(d->query) startquery(d->query);
@@ -959,7 +986,7 @@ void rendermodel(entitylight *light, const char *mdl, int anim, const vec &o, fl
 
     m->render(anim, basetime, basetime2, o, yaw, pitch, d, a, lightcolor, lightdir, trans);
 
-    if(doOQ && d->query) endquery(d->query);
+    if(flags&MDL_CULL_QUERY && d->query) endquery(d->query);
 
     m->endrender();
 }
@@ -968,7 +995,7 @@ void abovemodel(vec &o, const char *mdl)
 {
     model *m = loadmodel(mdl);
     if(!m) return;
-    o.z += m->above(0/*frame*/);
+    o.z += m->above();
 }
 
 bool matchanim(const char *name, const char *pattern)
@@ -1009,7 +1036,7 @@ ICOMMAND(findanims, "s", (char *name),
     string num;
     loopv(anims)
     {
-        formatstring(num)("%d", anims[i]);
+        formatstring(num, "%d", anims[i]);
         if(i > 0) buf.add(' ');
         buf.put(num, strlen(num));
     }
@@ -1032,11 +1059,11 @@ void loadskin(const char *dir, const char *altdir, Texture *&skin, Texture *&mas
         } \
     }
    
-    defformatstring(mdir)("packages/models/%s", dir);
-    defformatstring(maltdir)("packages/models/%s", altdir);
+    defformatstring(mdir, "packages/models/%s", dir);
+    defformatstring(maltdir, "packages/models/%s", altdir);
     masks = notexture;
     tryload(skin, NULL, NULL, "skin");
-    tryload(masks, "<stub>", NULL, "masks");
+    tryload(masks, NULL, NULL, "masks");
 }
 
 // convenient function that covers the usual anims for players/monsters/npcs
@@ -1059,7 +1086,11 @@ void renderclient(dynent *d, const char *mdlname, modelattach *attachments, int 
         basetime = lastpain;
         if(ragdoll)
         {
-            if(!d->ragdoll || d->ragdoll->millis < basetime) anim |= ANIM_RAGDOLL;
+            if(!d->ragdoll || d->ragdoll->millis < basetime) 
+            {
+                DELETEP(d->ragdoll);
+                anim |= ANIM_RAGDOLL;
+            }
         }
         else if(lastmillis-basetime>1000) anim = ANIM_DEAD|ANIM_LOOP|ANIM_NOPITCH;
     }
@@ -1083,7 +1114,11 @@ void renderclient(dynent *d, const char *mdlname, modelattach *attachments, int 
         else if(game::allowmove(d) && (d->move || d->strafe)) 
         {
             if(d->move>0) anim |= (ANIM_FORWARD|ANIM_LOOP)<<ANIM_SECONDARY;
-            else if(d->strafe) anim |= ((d->strafe>0 ? ANIM_LEFT : ANIM_RIGHT)|ANIM_LOOP)<<ANIM_SECONDARY;
+            else if(d->strafe)
+            {
+                if(d->move<0) anim |= ((d->strafe>0 ? ANIM_RIGHT : ANIM_LEFT)|ANIM_REVERSE|ANIM_LOOP)<<ANIM_SECONDARY;
+                else anim |= ((d->strafe>0 ? ANIM_LEFT : ANIM_RIGHT)|ANIM_LOOP)<<ANIM_SECONDARY;
+            }
             else if(d->move<0) anim |= (ANIM_BACKWARD|ANIM_LOOP)<<ANIM_SECONDARY;
         }
         
@@ -1097,7 +1132,7 @@ void renderclient(dynent *d, const char *mdlname, modelattach *attachments, int 
     else flags |= MDL_CULL_DIST;
     if(d->state==CS_LAGGED) fade = min(fade, 0.3f);
     else flags |= MDL_DYNSHADOW;
-    if(modelpreviewing) flags &= ~(MDL_LIGHT | MDL_FULLBRIGHT | MDL_CULL_VFC | MDL_CULL_OCCLUDED | MDL_CULL_QUERY | MDL_CULL_DIST | MDL_DYNSHADOW);
+    if(drawtex == DRAWTEX_MODELPREVIEW) flags &= ~(MDL_LIGHT | MDL_FULLBRIGHT | MDL_CULL_VFC | MDL_CULL_OCCLUDED | MDL_CULL_QUERY | MDL_CULL_DIST | MDL_DYNSHADOW);
     rendermodel(NULL, mdlname, anim, o, yaw, pitch, flags, d, attachments, basetime, 0, fade);
 }
 
@@ -1106,17 +1141,19 @@ void setbbfrommodel(dynent *d, const char *mdl)
     model *m = loadmodel(mdl); 
     if(!m) return;
     vec center, radius;
-    m->collisionbox(0, center, radius);
+    m->collisionbox(center, radius);
     if(d->type==ENT_INANIMATE && !m->ellipsecollide)
-    {
         d->collidetype = COLLIDE_OBB;
-        //d->collidetype = COLLIDE_AABB;
-        //rotatebb(center, radius, int(d->yaw));
-    }
     d->xradius   = radius.x + fabs(center.x);
     d->yradius   = radius.y + fabs(center.y);
     d->radius    = d->collidetype==COLLIDE_OBB ? sqrtf(d->xradius*d->xradius + d->yradius*d->yradius) : max(d->xradius, d->yradius);
     d->eyeheight = (center.z-radius.z) + radius.z*2*m->eyeheight;
     d->aboveeye  = radius.z*2*(1.0f-m->eyeheight);
+    if (d->aboveeye + d->eyeheight <= 0.5f)
+    {
+        float zrad = (0.5f - (d->aboveeye + d->eyeheight)) / 2;
+        d->aboveeye += zrad;
+        d->eyeheight += zrad;
+    }
 }
 

@@ -46,7 +46,7 @@ static void renderlightning(Texture *tex, const vec &o, const vec &d, float sz)
           scrollscale = lnscrollscale*(LIGHTNINGSTEP*tex->ys)/(sz*tex->xs),
           blend = pow(clamp(float(lastmillis - lastlnjitter)/lnjittermillis, 0.0f, 1.0f), lnblendpower),
           jitter0 = (1-blend)*lnjitterscale*sz/lnjitterradius, jitter1 = blend*lnjitterscale*sz/lnjitterradius; 
-    glBegin(GL_TRIANGLE_STRIP);
+    gle::begin(GL_TRIANGLE_STRIP);
     loopj(numsteps)
     {
         vec next(cur);
@@ -62,17 +62,21 @@ static void renderlightning(Texture *tex, const vec &o, const vec &d, float sz)
         dir1.sub(cur);
         dir2.sub(camera1->o);
         across.cross(dir2, dir1).normalize().mul(sz);
-        glTexCoord2f(scroll, 1); glVertex3f(cur.x-across.x, cur.y-across.y, cur.z-across.z);
-        glTexCoord2f(scroll, 0); glVertex3f(cur.x+across.x, cur.y+across.y, cur.z+across.z);
+        gle::attribf(cur.x-across.x, cur.y-across.y, cur.z-across.z);
+            gle::attribf(scroll, 1);
+        gle::attribf(cur.x+across.x, cur.y+across.y, cur.z+across.z);
+            gle::attribf(scroll, 0);
         scroll += scrollscale;
         if(j+1==numsteps)
         {
-            glTexCoord2f(scroll, 1); glVertex3f(next.x-across.x, next.y-across.y, next.z-across.z);
-            glTexCoord2f(scroll, 0); glVertex3f(next.x+across.x, next.y+across.y, next.z+across.z);
+            gle::attribf(next.x-across.x, next.y-across.y, next.z-across.z);
+                gle::attribf(scroll, 1);
+            gle::attribf(next.x+across.x, next.y+across.y, next.z+across.z);
+                gle::attribf(scroll, 0);
         }
         cur = next;
     }
-    glEnd();
+    gle::end();
 }
 
 struct lightningrenderer : listrenderer
@@ -84,6 +88,8 @@ struct lightningrenderer : listrenderer
     void startrender()
     {
         glDisable(GL_CULL_FACE);
+        gle::defattrib(gle::ATTRIB_VERTEX, 3, GL_FLOAT);
+        gle::defattrib(gle::ATTRIB_TEXCOORD0, 2, GL_FLOAT);
     }
 
     void endrender()
@@ -103,13 +109,13 @@ struct lightningrenderer : listrenderer
         pe.extendbb(d, size);
     }
 
-    void renderpart(listparticle *p, const vec &o, const vec &d, int blend, int ts, uchar *color)
+    void renderpart(listparticle *p, const vec &o, const vec &d, int blend, int ts)
     {
         blend = min(blend<<2, 255);
         if(type&PT_MOD) //multiply alpha into color
-            glColor3ub((color[0]*blend)>>8, (color[1]*blend)>>8, (color[2]*blend)>>8);
+            gle::colorub((p->color.r*blend)>>8, (p->color.g*blend)>>8, (p->color.b*blend)>>8);
         else
-            glColor4ub(color[0], color[1], color[2], blend);
+            gle::color(p->color, blend);
         renderlightning(tex, o, d, p->size);
     }
 };

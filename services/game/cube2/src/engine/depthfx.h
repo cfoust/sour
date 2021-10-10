@@ -12,8 +12,6 @@ VARP(depthfxemuprecision, 0, 1, 1);
 VARFP(depthfxsize, 6, 7, 12, cleanupdepthfx());
 VARP(depthfx, 0, 1, 1);
 VARP(depthfxparts, 0, 1, 1);
-VARFP(depthfxrect, 0, 0, 1, cleanupdepthfx());
-VARFP(depthfxfilter, 0, 1, 1, cleanupdepthfx());
 VARP(blurdepthfx, 0, 1, 7);
 VARP(blurdepthfxsigma, 1, 50, 200);
 VAR(depthfxscissor, 0, 2, 2);
@@ -30,24 +28,22 @@ static struct depthfxtexture : rendertarget
 {
     const GLenum *colorformats() const
     {
-        static const GLenum colorfmts[] = { GL_FLOAT_RG16_NV, GL_RGB16F_ARB, GL_RGBA, GL_RGBA8, GL_RGB, GL_RGB8, GL_FALSE };
-        return &colorfmts[hasTF && hasFBO && fpdepthfx ? (hasNVFB && texrect() && !filter() ? 0 : 1) : 2];
+        static const GLenum colorfmts[] = { GL_RG16F, GL_RGB16F, GL_RGBA, GL_RGBA8, GL_RGB, GL_RGB8, GL_FALSE };
+        return &colorfmts[fpdepthfx && hasTF ? (hasTRG ? 0 : 1) : 2];
     }
 
     float eyedepth(const vec &p) const
     {
-        return max(-mvmatrix.transformz(p), 0.0f);
+        return max(-cammatrix.transform<vec>(p).z, 0.0f);
     }
 
     void addscissorvert(const vec &v, float &sx1, float &sy1, float &sx2, float &sy2)
     {
-        float w = mvpmatrix.transformw(v),
-              x = mvpmatrix.transformx(v) / w,
-              y = mvpmatrix.transformy(v) / w;
-        sx1 = min(sx1, x);
-        sy1 = min(sy1, y);
-        sx2 = max(sx2, x);
-        sy2 = max(sy2, y);
+        vec p = camprojmatrix.perspectivetransform(v);
+        sx1 = min(sx1, p.x);
+        sy1 = min(sy1, p.y);
+        sx2 = max(sx2, p.x);
+        sy2 = max(sy2, p.y);
     }
 
     bool addscissorbox(const vec &center, float size)
@@ -68,11 +64,10 @@ static struct depthfxtexture : rendertarget
         return addblurtiles(sx1, sy1, sx2, sy2);
     }
 
-    bool screenview() const { return depthfxrect!=0; }
-    bool texrect() const { return depthfxrect && hasTR; }
-    bool filter() const { return depthfxfilter!=0; }
-    bool highprecision() const { return colorfmt==GL_FLOAT_RG16_NV || colorfmt==GL_RGB16F_ARB; }
-    bool emulatehighprecision() const { return depthfxemuprecision && !depthfxfilter; }
+    bool screenrect() const { return true; }
+    bool filter() const { return blurdepthfx!=0; }
+    bool highprecision() const { return colorfmt==GL_RG16F || colorfmt==GL_RGB16F; }
+    bool emulatehighprecision() const { return depthfxemuprecision && !blurdepthfx; }
 
     bool shouldrender()
     {
@@ -117,11 +112,11 @@ static struct depthfxtexture : rendertarget
     {
         if(numdepthfxranges > 0)
         {
-            glColor3f(0, 1, 0);
+            gle::colorf(0, 1, 0);
             debugscissor(w, h, true);
-            glColor3f(0, 0, 1);
+            gle::colorf(0, 0, 1);
             debugblurtiles(w, h, true);
-            glColor3f(1, 1, 1);
+            gle::colorf(1, 1, 1);
         }
     }
 } depthfxtex;
@@ -141,16 +136,11 @@ bool depthfxing = false;
 
 bool binddepthfxtex()
 {
-    if(renderpath!=R_FIXEDFUNCTION && !reflecting && !refracting && depthfx && depthfxtex.rendertex && numdepthfxranges>0)        
+    if(!reflecting && !refracting && depthfx && depthfxtex.rendertex && numdepthfxranges>0)        
     {
-        glActiveTexture_(GL_TEXTURE2_ARB);
-        glBindTexture(depthfxtex.target, depthfxtex.rendertex);
-        glActiveTexture_(GL_TEXTURE0_ARB);
-
-        if(depthfxtex.target==GL_TEXTURE_RECTANGLE_ARB)
-            setenvparamf("depthfxview", SHPARAM_VERTEX, 6, 0.5f*depthfxtex.vieww, 0.5f*depthfxtex.viewh);
-        else
-            setenvparamf("depthfxview", SHPARAM_VERTEX, 6, 0.5f*float(depthfxtex.vieww)/depthfxtex.texw, 0.5f*float(depthfxtex.viewh)/depthfxtex.texh);
+        glActiveTexture_(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, depthfxtex.rendertex);
+        glActiveTexture_(GL_TEXTURE0);
         return true;
     }
     return false;
@@ -158,7 +148,7 @@ bool binddepthfxtex()
 
 void binddepthfxparams(float blend, float minblend = 0, bool allow = true, void *owner = NULL)
 {
-    if(renderpath!=R_FIXEDFUNCTION && !reflecting && !refracting && depthfx && depthfxtex.rendertex && numdepthfxranges>0)
+    if(!reflecting && !refracting && depthfx && depthfxtex.rendertex && numdepthfxranges>0)
     {
         float scale = 0, offset = -1, texscale = 0;
         if(!depthfxtex.highprecision())
@@ -182,7 +172,7 @@ void binddepthfxparams(float blend, float minblend = 0, bool allow = true, void 
                 scale = 1.0f/blend;
                 offset = 0;
             }
-            setlocalparamfv("depthfxselect", SHPARAM_PIXEL, 6, select);
+            LOCALPARAMF(depthfxselect, select[0], select[1], select[2], select[3]);
         }
         else if(allow)
         {
@@ -190,18 +180,14 @@ void binddepthfxparams(float blend, float minblend = 0, bool allow = true, void 
             offset = 0;
             texscale = float(depthfxfpscale)/blend;
         }
-        setlocalparamf("depthfxparams", SHPARAM_VERTEX, 5, scale, offset, texscale, minblend);
-        setlocalparamf("depthfxparams", SHPARAM_PIXEL, 5, scale, offset, texscale, minblend);
+        LOCALPARAMF(depthfxparams, scale, offset, texscale, minblend);
     }
 }
 
 void drawdepthfxtex()
 {
-    if(!depthfx || renderpath==R_FIXEDFUNCTION) return;
+    if(!depthfx) return;
 
-    // Apple/ATI bug - fixed-function fog state can force software fallback even when fragment program is enabled
-    glDisable(GL_FOG);
     depthfxtex.render(1<<depthfxsize, 1<<depthfxsize, blurdepthfx, blurdepthfxsigma/100.0f);
-    glEnable(GL_FOG);
 }
 
