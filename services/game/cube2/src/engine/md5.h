@@ -15,19 +15,18 @@ struct md5weight
 
 struct md5vert
 {
-    float u, v;
+    vec2 tc;
     ushort start, count;
 };
 
 struct md5hierarchy
 {
-    string name;
-    int parent, flags, start;
+    int parent, flags, start, bone;
 };
 
-struct md5 : skelmodel, skelloader<md5>
+struct md5 : skelloader<md5>
 {
-    md5(const char *name) : skelmodel(name) {}
+    md5(const char *name) : skelloader(name) {}
 
     static const char *formatname() { return "md5"; }
     int type() const { return MDL_MD5; }
@@ -70,8 +69,7 @@ struct md5 : skelmodel, skelloader<md5>
                 }
                 vert &vv = verts[i];
                 vv.pos = pos;
-                vv.u = v.u;
-                vv.v = v.v;
+                vv.tc = v.tc;
 
                 blendcombo c;
                 int sorted = 0;
@@ -134,7 +132,7 @@ struct md5 : skelmodel, skelloader<md5>
                     numweights = max(numweights, 0);
                     if(numweights) weightinfo = new md5weight[numweights];
                 }
-                else if(sscanf(buf, " vert %d ( %f %f ) %hu %hu", &index, &v.u, &v.v, &v.start, &v.count)==5)
+                else if(sscanf(buf, " vert %d ( %f %f ) %hu %hu", &index, &v.tc.x, &v.tc.y, &v.start, &v.count)==5)
                 {
                     if(index>=0 && index<numverts) vertinfo[index] = v;
                 }
@@ -228,7 +226,7 @@ struct md5 : skelmodel, skelloader<md5>
                     m->load(f, buf, sizeof(buf));
                     if(!m->numtris || !m->numverts)
                     {
-                        conoutf("empty mesh in %s", filename);
+                        conoutf(CON_WARN, "empty mesh in %s", filename);
                         meshes.removeobj(m);
                         delete m;
                     }
@@ -303,9 +301,23 @@ struct md5 : skelmodel, skelloader<md5>
                 {
                     while(f->getline(buf, sizeof(buf)) && buf[0]!='}')
                     {
+                        string name;
                         md5hierarchy h;
-                        if(sscanf(buf, " %100s %d %d %d", h.name, &h.parent, &h.flags, &h.start)==4)
+                        if(sscanf(buf, " %100s %d %d %d", name, &h.parent, &h.flags, &h.start)==4)
+                        {
+                            if(char *start = strchr(name, '"')) if(char *end = strchr(start+1, '"'))
+                            {
+                                memcpy(name, start, end - start);
+                                name[end - start] = '\0';
+                            }
+                            int k = hierarchy.length();
+                            h.bone = k;
+                            if(skel->bones[k].name && strcmp(skel->bones[k].name, name))
+                            {
+                                loopi(skel->numbones) if(skel->bones[i].name && !strcmp(skel->bones[i].name, name)) { h.bone = i; break; }
+                            }
                             hierarchy.add(h);
+                        }
                     }
                 }
                 else if(strstr(buf, "baseframe {"))
@@ -322,7 +334,7 @@ struct md5 : skelmodel, skelloader<md5>
                             basejoints.add(j);
                         }
                     }
-                    if(basejoints.length()!=skel->numbones) { delete f; return NULL; }
+                    if(basejoints.length()!=skel->numbones) { delete f; if(animdata) delete[] animdata; return NULL; }
                     animbones = new dualquat[(skel->numframes+animframes)*skel->numbones];
                     if(skel->framebones)
                     {
@@ -364,16 +376,20 @@ struct md5 : skelmodel, skelloader<md5>
                             if(h.flags&32) j.orient.z = -*jdata++;
                             j.orient.restorew();
                         }
-                        frame[i] = dualquat(j.orient, j.pos);
-                        if(adjustments.inrange(i)) adjustments[i].adjust(frame[i]);
-                        frame[i].mul(skel->bones[i].invbase);
-                        if(h.parent >= 0) frame[i].mul(skel->bones[h.parent].base, dualquat(frame[i]));
-                        frame[i].fixantipodal(skel->framebones[i]);
+                        dualquat dq(j.orient, j.pos);
+                        int k = h.bone;
+                        if(adjustments.inrange(k)) adjustments[k].adjust(dq);
+                        boneinfo &b = skel->bones[k];
+                        dq.mul(b.invbase);
+                        dualquat &dst = frame[k];
+                        if(b.parent < 0) dst = dq;
+                        else dst.mul(skel->bones[b.parent].base, dq);
+                        dst.fixantipodal(skel->framebones[k]);
                     }
                 }    
             }
 
-            DELETEA(animdata);
+            if(animdata) delete[] animdata;
             delete f;
 
             return sa;
@@ -389,7 +405,7 @@ struct md5 : skelmodel, skelloader<md5>
         }
     };            
 
-    meshgroup *loadmeshes(char *name, va_list args)
+    meshgroup *loadmeshes(const char *name, va_list args)
     {
         md5meshgroup *group = new md5meshgroup;
         group->shareskeleton(va_arg(args, char *));
@@ -399,59 +415,20 @@ struct md5 : skelmodel, skelloader<md5>
 
     bool loaddefaultparts()
     {
-        skelpart &mdl = *new skelpart;
-        parts.add(&mdl);
-        mdl.model = this;
-        mdl.index = 0;
+        skelpart &mdl = addpart();
         mdl.pitchscale = mdl.pitchoffset = mdl.pitchmin = mdl.pitchmax = 0;
         adjustments.setsize(0);
-        const char *fname = loadname + strlen(loadname);
-        do --fname; while(fname >= loadname && *fname!='/' && *fname!='\\');
+        const char *fname = name + strlen(name);
+        do --fname; while(fname >= name && *fname!='/' && *fname!='\\');
         fname++;
-        defformatstring(meshname)("packages/models/%s/%s.md5mesh", loadname, fname);
+        defformatstring(meshname, "packages/models/%s/%s.md5mesh", name, fname);
         mdl.meshes = sharemeshes(path(meshname), NULL, 2.0);
         if(!mdl.meshes) return false;
         mdl.initanimparts();
         mdl.initskins();
-        defformatstring(animname)("packages/models/%s/%s.md5anim", loadname, fname);
+        defformatstring(animname, "packages/models/%s/%s.md5anim", name, fname);
         ((md5meshgroup *)mdl.meshes)->loadanim(path(animname));
         return true;
-    }
-
-    bool load()
-    {
-        if(loaded) return true;
-        formatstring(dir)("packages/models/%s", loadname);
-        defformatstring(cfgname)("packages/models/%s/md5.cfg", loadname);
-
-        loading = this;
-        identflags &= ~IDF_PERSIST;
-        if(execfile(cfgname, false) && parts.length()) // configured md5, will call the md5* commands below
-        {
-            identflags |= IDF_PERSIST;
-            loading = NULL;
-            loopv(parts) if(!parts[i]->meshes) return false;
-        }
-        else // md5 without configuration, try default tris and skin 
-        {
-            identflags |= IDF_PERSIST;
-            if(!loaddefaultparts()) 
-            {
-                loading = NULL;
-                return false;
-            }
-            loading = NULL;
-        }
-        scale /= 4;
-        parts[0]->translate = translate;
-        loopv(parts) 
-        {
-            skelpart *p = (skelpart *)parts[i];
-            p->endanimparts();
-            p->meshes->shared++;
-        }
-        preloadshaders();
-        return loaded = true;
     }
 };
 

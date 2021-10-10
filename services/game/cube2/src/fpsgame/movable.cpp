@@ -151,7 +151,7 @@ namespace game
             else if(m->exploding && lastmillis >= m->exploding)
             {
                 m->explode(m);
-                adddecal(DECAL_SCORCH, m->o, vec(0, 0, 1), RL_DAMRAD/2);
+                adddecal(DECAL_SCORCH, m->o, vec(0, 0, 1), guns[GUN_BARREL].exprad/2);
             }
             else if(m->maymove() || (m->stacked && (m->stacked->state!=CS_ALIVE || m->stackpos != m->stacked->o)))
             {

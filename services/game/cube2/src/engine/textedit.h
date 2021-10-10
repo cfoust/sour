@@ -29,9 +29,10 @@ struct editline
         {
             va_list args;
             va_start(args, fmt);
-            _vsnprintf(newtext, maxlen, fmt, args);
+            vformatstring(newtext, fmt, args, maxlen);
             va_end(args);
         }
+        else newtext[0] = '\0';
         DELETEA(text);
         text = newtext;
         return true;
@@ -226,7 +227,7 @@ struct editor
     bool region(int &sx, int &sy, int &ex, int &ey)
     {
         int n = lines.length(); 
-        assert(n != 0);
+        ASSERT(n != 0);
         if(cy < 0) cy = 0; else if(cy >= n) cy = n-1;
         int len = lines[cy].len;
         if(cx < 0) cx = 0; else if(cx > len) cx = len;
@@ -251,7 +252,7 @@ struct editor
     editline &currentline()
     {
         int n = lines.length(); 
-        assert(n != 0);
+        ASSERT(n != 0);
         if(cy < 0) cy = 0; else if(cy >= n) cy = n-1;
         if(cx < 0) cx = 0; else if(cx > lines[cy].len) cx = lines[cy].len;
         return lines[cy];
@@ -428,7 +429,7 @@ struct editor
         }
     }
 
-    void key(int code, int cooked)
+    void key(int code)
     {
         switch(code) 
         {
@@ -507,12 +508,17 @@ struct editor
             case SDLK_RSHIFT:
                 break;
             case SDLK_RETURN:    
-                cooked = '\n';
-                // fall through
-            default:
-                insert(cooked);
+                insert('\n');
+                break;
+            case SDLK_TAB:
+                insert('\t');
                 break;
         }
+    }
+
+    void input(const char *str, int len)
+    {
+        loopi(len) insert(str[i]);
     }
 
     void hit(int hitx, int hity, bool dragged)
@@ -597,37 +603,36 @@ struct editor
                 if(sy < scrolly) { sy = scrolly; psy = 0; psx = 0; }
                 if(ey > maxy) { ey = maxy; pey = pixelheight - FONTH; pex = pixelwidth; }
 
-                notextureshader->set();
-                glDisable(GL_TEXTURE_2D);
-                glColor3ub(0xA0, 0x80, 0x80);
-                glBegin(GL_QUADS);
+                hudnotextureshader->set();
+                gle::colorub(0xA0, 0x80, 0x80);
+                gle::defvertex(2);
+                gle::begin(GL_QUADS);
                 if(psy == pey) 
                 {
-                    glVertex2f(x+psx, y+psy);
-                    glVertex2f(x+pex, y+psy);
-                    glVertex2f(x+pex, y+pey+FONTH);
-                    glVertex2f(x+psx, y+pey+FONTH);
+                    gle::attribf(x+psx, y+psy);
+                    gle::attribf(x+pex, y+psy);
+                    gle::attribf(x+pex, y+pey+FONTH);
+                    gle::attribf(x+psx, y+pey+FONTH);
                 } 
                 else 
-                {   glVertex2f(x+psx,        y+psy);
-                    glVertex2f(x+psx,        y+psy+FONTH);
-                    glVertex2f(x+pixelwidth, y+psy+FONTH);
-                    glVertex2f(x+pixelwidth, y+psy);
+                {   gle::attribf(x+psx,        y+psy);
+                    gle::attribf(x+psx,        y+psy+FONTH);
+                    gle::attribf(x+pixelwidth, y+psy+FONTH);
+                    gle::attribf(x+pixelwidth, y+psy);
                     if(pey-psy > FONTH) 
                     {
-                        glVertex2f(x,            y+psy+FONTH);
-                        glVertex2f(x+pixelwidth, y+psy+FONTH);
-                        glVertex2f(x+pixelwidth, y+pey);
-                        glVertex2f(x,            y+pey);
+                        gle::attribf(x,            y+psy+FONTH);
+                        gle::attribf(x+pixelwidth, y+psy+FONTH);
+                        gle::attribf(x+pixelwidth, y+pey);
+                        gle::attribf(x,            y+pey);
                     }
-                    glVertex2f(x,     y+pey);
-                    glVertex2f(x,     y+pey+FONTH);
-                    glVertex2f(x+pex, y+pey+FONTH);
-                    glVertex2f(x+pex, y+pey);
+                    gle::attribf(x,     y+pey);
+                    gle::attribf(x,     y+pey+FONTH);
+                    gle::attribf(x+pex, y+pey+FONTH);
+                    gle::attribf(x+pex, y+pey);
                 }
-                glEnd();
-                glEnable(GL_TEXTURE_2D);
-                defaultshader->set();
+                gle::end();
+                hudshader->set();
             }
         }
     
@@ -641,17 +646,16 @@ struct editor
             draw_text(lines[i].text, x, y+h, color>>16, (color>>8)&0xFF, color&0xFF, 0xFF, hit&&(cy==i)?cx:-1, maxwidth);
             if(linewrap && height > FONTH) // line wrap indicator
             {   
-                notextureshader->set();
-                glDisable(GL_TEXTURE_2D);
-                glColor3ub(0x80, 0xA0, 0x80);
-                glBegin(GL_TRIANGLE_STRIP);
-                glVertex2f(x,         y+h+FONTH);
-                glVertex2f(x,         y+h+height);
-                glVertex2f(x-FONTW/2, y+h+FONTH);
-                glVertex2f(x-FONTW/2, y+h+height);
-                glEnd();
-                glEnable(GL_TEXTURE_2D);
-                defaultshader->set();
+                hudnotextureshader->set();
+                gle::colorub(0x80, 0xA0, 0x80);
+                gle::defvertex(2);
+                gle::begin(GL_TRIANGLE_STRIP);
+                gle::attribf(x,         y+h+FONTH);
+                gle::attribf(x,         y+h+height);
+                gle::attribf(x-FONTW/2, y+h+FONTH);
+                gle::attribf(x-FONTW/2, y+h+height);
+                gle::end();
+                hudshader->set();
             }
             h+=height;
         }

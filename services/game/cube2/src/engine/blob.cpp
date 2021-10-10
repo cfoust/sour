@@ -1,5 +1,7 @@
 #include "engine.h"
 
+extern int intel_mapbufferrange_bug;
+
 VARNP(blobs, showblobs, 0, 1, 1);
 VARFP(blobintensity, 0, 60, 100, resetblobs());
 VARFP(blobheight, 1, 32, 128, resetblobs());
@@ -9,28 +11,32 @@ VARFP(blobmargin, 0, 1, 16, resetblobs());
 
 VAR(dbgblob, 0, 0, 1);
 
+enum
+{
+    BL_DUP    = 1<<0,
+    BL_RENDER = 1<<1
+};
+
 struct blobinfo
 {
     vec o;
     float radius;
     int millis;
-    uint startindex, endindex;
-    ushort startvert, endvert;
+    ushort startindex, endindex, startvert, endvert, next, flags;
 };
 
 struct blobvert
 {
     vec pos;
-    float u, v;
-    bvec color;
-    uchar alpha;
+    bvec4 color;
+    vec2 tc;
 };
 
 struct blobrenderer
 {
     const char *texname;
     Texture *tex;
-    blobinfo **cache;
+    ushort *cache;
     int cachesize;
     blobinfo *blobs;
     int maxblobs, startblob, endblob;
@@ -38,11 +44,16 @@ struct blobrenderer
     int maxverts, startvert, endvert, availverts;
     ushort *indexes;
     int maxindexes, startindex, endindex, availindexes;
-    
-    blobinfo *lastblob, *flushblob;
+    GLuint ebo, vbo;
+    ushort *edata;
+    blobvert *vdata;
+    int numedata, numvdata;
+    blobinfo *startrender, *endrender;
+ 
+    blobinfo *lastblob;
 
     vec blobmin, blobmax;
-    ivec bborigin, bbsize;
+    ivec bbmin, bbmax;
     float blobalphalow, blobalphahigh;
     uchar blobalpha;
 
@@ -52,11 +63,31 @@ struct blobrenderer
         blobs(NULL), maxblobs(0), startblob(0), endblob(0),
         verts(NULL), maxverts(0), startvert(0), endvert(0), availverts(0),
         indexes(NULL), maxindexes(0), startindex(0), endindex(0), availindexes(0),
-        lastblob(NULL)
+        ebo(0), vbo(0), edata(NULL), vdata(NULL), numedata(0), numvdata(0),
+        startrender(NULL), endrender(NULL), lastblob(NULL)
     {}
+
+    ~blobrenderer()
+    {
+        DELETEA(cache);
+        DELETEA(blobs);
+        DELETEA(verts);
+        DELETEA(indexes);
+    }
+
+    void cleanup()
+    {
+        if(ebo) { glDeleteBuffers_(1, &ebo); ebo = 0; }
+        if(vbo) { glDeleteBuffers_(1, &vbo); vbo = 0; }
+        DELETEA(edata);
+        DELETEA(vdata);
+        numedata = numvdata = 0;
+        startrender = endrender = NULL;
+    }
 
     void init(int tris)
     {
+        cleanup();
         if(cache)
         {
             DELETEA(cache);
@@ -80,11 +111,11 @@ struct blobrenderer
         if(!tris) return;
         tex = textureload(texname, 3);
         cachesize = tris/2;
-        cache = new blobinfo *[cachesize];
-        memset(cache, 0, cachesize * sizeof(blobinfo *));
+        cache = new ushort[cachesize];
+        memset(cache, 0xFF, cachesize * sizeof(ushort));
         maxblobs = tris/2;
         blobs = new blobinfo[maxblobs];
-        memset(blobs, 0, maxblobs * sizeof(blobinfo));
+        memclear(blobs, maxblobs);
         maxindexes = tris*3 + 3;
         availindexes = maxindexes - 3;
         indexes = new ushort[maxindexes];
@@ -98,6 +129,8 @@ struct blobrenderer
         blobinfo &b = blobs[startblob];
         if(&b == lastblob) return false;
 
+        if(b.flags & BL_RENDER) flushblobs();
+
         startblob++;
         if(startblob >= maxblobs) startblob = 0;
 
@@ -109,7 +142,8 @@ struct blobrenderer
         if(startindex>=maxindexes) startindex = 0;
         availindexes += b.endindex - b.startindex;
 
-        b.millis = 0;
+        b.millis = lastreset;
+        b.flags = 0;
 
         return true;
     }
@@ -128,21 +162,14 @@ struct blobrenderer
         b.o = o;
         b.radius = radius;
         b.millis = totalmillis;
+        b.flags = 0;
+        b.next = 0xFFFF;
         b.startindex = b.endindex = endindex;
         b.startvert = b.endvert = endvert;
         lastblob = &b;
         return b;
     }
 
-    void clearblobs()
-    {
-        startblob = endblob = 0;
-        startvert = endvert = 0;
-        availverts = maxverts - 1;
-        startindex = endindex = 0;
-        availindexes = maxindexes - 3;
-    }
-    
     template<int C>
     static int split(const vec *in, int numin, float below, float above, vec *out)
     {
@@ -219,19 +246,20 @@ struct blobrenderer
             return; 
         }
         blobinfo &b = newblob(lastblob->o, lastblob->radius);
-        b.millis = -1;
+        b.flags |= BL_DUP;
     }
 
     inline int addvert(const vec &pos)
     {
         blobvert &v = verts[endvert];
         v.pos = pos;
-        v.u = (pos.x - blobmin.x) / (blobmax.x - blobmin.x);
-        v.v = (pos.y - blobmin.y) / (blobmax.y - blobmin.y);
-        v.color = bvec(255, 255, 255);
-        if(pos.z < blobmin.z + blobfadelow) v.alpha = uchar(blobalphalow * (pos.z - blobmin.z));
-        else if(pos.z > blobmax.z - blobfadehigh) v.alpha = uchar(blobalphahigh * (blobmax.z - pos.z));
-        else v.alpha = blobalpha;
+        v.tc = vec2((pos.x - blobmin.x) / (blobmax.x - blobmin.x),
+                    (pos.y - blobmin.y) / (blobmax.y - blobmin.y));
+        uchar alpha;
+        if(pos.z < blobmin.z + blobfadelow) alpha = uchar(blobalphalow * (pos.z - blobmin.z));
+        else if(pos.z > blobmax.z - blobfadehigh) alpha = uchar(blobalphahigh * (blobmax.z - pos.z));
+        else alpha = blobalpha;
+        v.color = bvec4(255, 255, 255, alpha);
         return endvert++;
     }
 
@@ -275,7 +303,7 @@ struct blobrenderer
         }
     }
 
-    void gentris(cube &cu, int orient, const ivec &o, int size, materialsurface *mat = NULL)
+    void gentris(cube &cu, int orient, const ivec &o, int size, materialsurface *mat = NULL, int vismask = 0)
     {
         vec pos[MAXFACEVERTS+8];
         int dim = dimension(orient), numverts = 0, numplanes = 1, flat = -1;
@@ -290,6 +318,8 @@ struct blobrenderer
                 GENFACEVERTS(o.x, o.x, o.y, o.y, o.z, o.z, , + mat->csize, , + mat->rsize, + 0.1f, - 0.1f);
             #undef GENFACEORIENT
             #undef GENFACEVERT 
+                default:
+                    return;
             }
             flat = dim;
         }
@@ -298,24 +328,25 @@ struct blobrenderer
         {
             vertinfo *verts = cu.ext->verts() + cu.ext->surfaces[orient].verts;
             ivec vo = ivec(o).mask(~0xFFF).shl(3);
-            loopj(numverts) pos[j] = verts[j].getxyz().add(vo).tovec().mul(1/8.0f);
+            loopj(numverts) pos[j] = vec(verts[j].getxyz().add(vo)).mul(1/8.0f);
             if(numverts >= 4 && !(cu.merged&(1<<orient)) && !flataxisface(cu, orient) && faceconvexity(verts, numverts, size)) numplanes++;
             else flat = dim;
         }
-        else if(cu.merged&(1<<orient)) return;
-        else
+        else if(cu.merged&(1<<orient)) return; 
+        else if(!vismask || (vismask&0x40 && visibleface(cu, orient, o, size, MAT_AIR, (cu.material&MAT_ALPHA)^MAT_ALPHA, MAT_ALPHA)))
         {
             ivec v[4];
             genfaceverts(cu, orient, v);
             int vis = 3, convex = faceconvexity(v, vis), order = convex < 0 ? 1 : 0;
-            vec vo = o.tovec();
-            pos[numverts++] = v[order].tovec().mul(size/8.0f).add(vo);
-            if(vis&1) pos[numverts++] = v[order+1].tovec().mul(size/8.0f).add(vo);
-            pos[numverts++] = v[order+2].tovec().mul(size/8.0f).add(vo);
-            if(vis&2) pos[numverts++] = v[(order+3)&3].tovec().mul(size/8.0f).add(vo);
+            vec vo(o);
+            pos[numverts++] = vec(v[order]).mul(size/8.0f).add(vo);
+            if(vis&1) pos[numverts++] = vec(v[order+1]).mul(size/8.0f).add(vo);
+            pos[numverts++] = vec(v[order+2]).mul(size/8.0f).add(vo);
+            if(vis&2) pos[numverts++] = vec(v[(order+3)&3]).mul(size/8.0f).add(vo);
             if(convex) numplanes++;
             else flat = dim;
         }
+        else return;
 
         if(flat >= 0)
         {
@@ -340,6 +371,7 @@ struct blobrenderer
                 if(l) { pos[1] = pos[2]; pos[2] = pos[3]; }
                 numv = 3;
             }
+            if(vec().cross(v[0], v[1], v[2]).z <= 0) continue;
             #define CLIPSIDE(clip, below, above) \
                 { \
                     vec *in = v; \
@@ -384,18 +416,18 @@ struct blobrenderer
             }
         }
     }
-            
+
     void findescaped(cube *cu, const ivec &o, int size, int escaped)
     {
         loopi(8)
         {
             if(escaped&(1<<i))
             {
-                ivec co(i, o.x, o.y, o.z, size);
+                ivec co(i, o, size);
                 if(cu[i].children) findescaped(cu[i].children, co, size>>1, cu[i].escaped);
                 else
                 {
-                    int vismask = cu[i].visible&cu[i].merged;
+                    int vismask = cu[i].merged;
                     if(vismask) loopj(6) if(vismask&(1<<j)) gentris(cu[i], j, co, size);
                 }
             }
@@ -404,28 +436,32 @@ struct blobrenderer
 
     void gentris(cube *cu, const ivec &o, int size, int escaped = 0)
     {
-        int overlap = octantrectangleoverlap(o, size, bborigin, bbsize);
+        int overlap = octaboxoverlap(o, size, bbmin, bbmax);
         loopi(8)
         {
             if(overlap&(1<<i))
             {
-                ivec co(i, o.x, o.y, o.z, size);
+                ivec co(i, o, size);
                 if(cu[i].ext && cu[i].ext->va && cu[i].ext->va->matsurfs)
                     findmaterials(cu[i].ext->va);
                 if(cu[i].children) gentris(cu[i].children, co, size>>1, cu[i].escaped);
                 else
                 {
                     int vismask = cu[i].visible;
-                    if(vismask) loopj(6) if(vismask&(1<<j)) gentris(cu[i], j, co, size);
+                    if(vismask&0xC0) 
+                    {
+                        if(vismask&0x80) loopj(6) gentris(cu[i], j, co, size, NULL, vismask);
+                        else loopj(6) if(vismask&(1<<j)) gentris(cu[i], j, co, size);
+                    }
                 }
             }
             else if(escaped&(1<<i))
             {
-                ivec co(i, o.x, o.y, o.z, size);
+                ivec co(i, o, size);
                 if(cu[i].children) findescaped(cu[i].children, co, size>>1, cu[i].escaped);
                 else
                 {
-                    int vismask = cu[i].visible&cu[i].merged;
+                    int vismask = cu[i].merged;
                     if(vismask) loopj(6) if(vismask&(1<<j)) gentris(cu[i], j, co, size);
                 }
             }
@@ -443,14 +479,14 @@ struct blobrenderer
         blobmax.x += radius;
         blobmax.y += radius;
         blobmax.z += blobfadehigh;
-        (bborigin = blobmin).sub(2);
-        (bbsize = blobmax).sub(blobmin).add(4);
+        (bbmin = ivec(blobmin)).sub(2);
+        (bbmax = ivec(blobmax)).add(2);
         float scale =  fade*blobintensity*255/100.0f;
         blobalphalow = scale / blobfadelow;
         blobalphahigh = scale / blobfadehigh;
         blobalpha = uchar(scale);
         gentris(worldroot, ivec(0, 0, 0), worldsize>>1);
-        return b.millis >= 0 ? &b : NULL;
+        return !(b.flags & BL_DUP) ? &b : NULL;
     } 
 
     static void setuprenderstate()
@@ -463,16 +499,19 @@ struct blobrenderer
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         if(!dbgblob) glEnable(GL_BLEND);
 
-        glEnableClientState(GL_VERTEX_ARRAY);
-        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-        glEnableClientState(GL_COLOR_ARRAY);
+        gle::enablevertex();
+        gle::enabletexcoord0();
+        gle::enablecolor();
     }
 
     static void cleanuprenderstate()
     {
-        glDisableClientState(GL_VERTEX_ARRAY);
-        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        glDisableClientState(GL_COLOR_ARRAY);
+        gle::disablevertex();
+        gle::disabletexcoord0();
+        gle::disablecolor();
+
+        gle::clearvbo();
+        if(glversion >= 300) gle::clearebo();
 
         glDepthMask(GL_TRUE);
         glDisable(GL_BLEND);
@@ -500,30 +539,27 @@ struct blobrenderer
             if(b->endvert - b->startvert >= 3) for(blobvert *v = &verts[b->startvert], *end = &verts[b->endvert]; v < end; v++)
             {
                 float z = v->pos.z;
-                if(z < minz + blobfadelow) v->alpha = uchar(scalelow * (z - minz));
-                else if(z > maxz - blobfadehigh) v->alpha = uchar(scalehigh * (maxz - z));
-                else v->alpha = alpha;
+                if(z < minz + blobfadelow) v->color.a = uchar(scalelow * (z - minz));
+                else if(z > maxz - blobfadehigh) v->color.a = uchar(scalehigh * (maxz - z));
+                else v->color.a = alpha;
             }
             int offset = b - &blobs[0] + 1;
             if(offset >= maxblobs) offset = 0;
             if(offset < endblob ? offset > startblob || startblob > endblob : offset > startblob) b = &blobs[offset];
             else break;
-        } while(b->millis < 0);
+        } while(b->flags & BL_DUP);
     }
 
     void renderblob(const vec &o, float radius, float fade)
     {
-        if(lastrender != this)
-        {
-            if(!lastrender) 
-            {
-                if(!blobs) initblobs();
+        if(!blobs) initblobs();
 
-                setuprenderstate();
-            }
-            glVertexPointer(3, GL_FLOAT, sizeof(blobvert), &verts->pos);
-            glTexCoordPointer(2, GL_FLOAT, sizeof(blobvert), &verts->u);
-            glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(blobvert), &verts->color);
+        if(glversion < 300 && lastrender != this)
+        {
+            if(!lastrender) setuprenderstate();
+            gle::vertexpointer(sizeof(blobvert), verts->pos.v);
+            gle::texcoord0pointer(sizeof(blobvert), verts->tc.v);
+            gle::colorpointer(sizeof(blobvert), verts->color.v);
             if(!lastrender || lastrender->tex != tex) glBindTexture(GL_TEXTURE_2D, tex->id);
             lastrender = this;
         }
@@ -532,35 +568,126 @@ struct blobrenderer
         ox.f = o.x; oy.f = o.y;
         uint hash = uint(ox.i^~oy.i^(INT_MAX-oy.i)^uint(radius));
         hash %= cachesize;
-        blobinfo *b = cache[hash];
-        if(!b || b->millis <= lastreset || b->o!=o || b->radius!=radius)
+        blobinfo *b = &blobs[cache[hash]];
+        if(b >= &blobs[maxblobs] || b->millis - lastreset <= 0 || b->o!=o || b->radius!=radius)
         {
             b = addblob(o, radius, fade);
-            cache[hash] = b;
+            cache[hash] = ushort(b - blobs);
             if(!b) return;
         }
-        else if(fade < 1 && b->millis < totalmillis) fadeblob(b, fade); 
+        else if(fade < 1 && totalmillis - b->millis > 0) fadeblob(b, fade); 
         do
         {
             if(b->endvert - b->startvert >= 3)
             {
-                if(hasDRE) glDrawRangeElements_(GL_TRIANGLES, b->startvert, b->endvert-1, b->endindex - b->startindex, GL_UNSIGNED_SHORT, &indexes[b->startindex]);
-                else glDrawElements(GL_TRIANGLES, b->endindex - b->startindex, GL_UNSIGNED_SHORT, &indexes[b->startindex]);
-                xtravertsva += b->endvert - b->startvert;
+                if(glversion >= 300)
+                {
+                    if(!startrender) { numedata = numvdata = 0; startrender = endrender = b; }
+                    else { endrender->next = ushort(b - blobs); endrender = b; }
+                    b->flags |= BL_RENDER;
+                    b->next = 0xFFFF;
+                    numedata += b->endindex - b->startindex;
+                    numvdata += b->endvert - b->startvert;
+                }
+                else
+                {
+                    glDrawRangeElements_(GL_TRIANGLES, b->startvert, b->endvert-1, b->endindex - b->startindex, GL_UNSIGNED_SHORT, &indexes[b->startindex]);
+                    xtravertsva += b->endvert - b->startvert;
+                }
             }
             int offset = b - &blobs[0] + 1;
             if(offset >= maxblobs) offset = 0; 
             if(offset < endblob ? offset > startblob || startblob > endblob : offset > startblob) b = &blobs[offset];
             else break; 
-        } while(b->millis < 0);
+        } while(b->flags & BL_DUP);
+    }
+
+    void flushblobs()
+    {
+        if(glversion < 300 || !startrender) return;
+
+        if(lastrender != this)
+        {
+            if(!lastrender) setuprenderstate();
+            lastrender = this;
+        }
+
+        if(!ebo) glGenBuffers_(1, &ebo);
+        if(!vbo) glGenBuffers_(1, &vbo);
+
+        gle::bindebo(ebo);
+        glBufferData_(GL_ELEMENT_ARRAY_BUFFER, maxindexes*sizeof(ushort), NULL, GL_STREAM_DRAW);
+        gle::bindvbo(vbo);
+        glBufferData_(GL_ARRAY_BUFFER, maxverts*sizeof(blobvert), NULL, GL_STREAM_DRAW);
+
+        ushort *estart;
+        blobvert *vstart;
+        if(intel_mapbufferrange_bug)
+        {
+            if(!edata) edata = new ushort[maxindexes];
+            if(!vdata) vdata = new blobvert[maxverts];
+            estart = edata;
+            vstart = vdata;
+        }
+        else
+        {
+            estart = (ushort *)glMapBufferRange_(GL_ELEMENT_ARRAY_BUFFER, 0, numedata*sizeof(ushort), GL_MAP_WRITE_BIT|GL_MAP_INVALIDATE_RANGE_BIT|GL_MAP_UNSYNCHRONIZED_BIT);
+            vstart = (blobvert *)glMapBufferRange_(GL_ARRAY_BUFFER, 0, numvdata*sizeof(blobvert), GL_MAP_WRITE_BIT|GL_MAP_INVALIDATE_RANGE_BIT|GL_MAP_UNSYNCHRONIZED_BIT);
+            if(!estart || !vstart)
+            {
+                if(estart) glUnmapBuffer_(GL_ELEMENT_ARRAY_BUFFER);
+                if(vstart) glUnmapBuffer_(GL_ARRAY_BUFFER);
+                for(blobinfo *b = startrender;; b = &blobs[b->next])
+                {   
+                    b->flags &= ~BL_RENDER; 
+                    if(b->next >= maxblobs) break;
+                }
+                startrender = endrender = NULL;
+                return;
+            }
+        }
+
+        ushort *edst = estart;
+        blobvert *vdst = vstart;
+        for(blobinfo *b = startrender;; b = &blobs[b->next])
+        {
+            b->flags &= ~BL_RENDER;
+            ushort offset = ushort(vdst - vstart) - b->startvert; 
+            for(int i = b->startindex; i < b->endindex; ++i)
+                *edst++ = indexes[i] + offset;
+            memcpy(vdst, &verts[b->startvert], (b->endvert - b->startvert)*sizeof(blobvert));
+            vdst += b->endvert - b->startvert;
+            if(b->next >= maxblobs) break;
+        }
+        startrender = endrender = NULL;
+
+        if(intel_mapbufferrange_bug)
+        {
+            glBufferSubData_(GL_ELEMENT_ARRAY_BUFFER, 0, numedata*sizeof(ushort), estart);
+            glBufferSubData_(GL_ARRAY_BUFFER, 0, numvdata*sizeof(blobvert), vstart);
+        }
+        else
+        {
+            glUnmapBuffer_(GL_ELEMENT_ARRAY_BUFFER);
+            glUnmapBuffer_(GL_ARRAY_BUFFER);
+        }
+
+        const blobvert *ptr = 0;
+        gle::vertexpointer(sizeof(blobvert), ptr->pos.v);
+        gle::texcoord0pointer(sizeof(blobvert), ptr->tc.v);
+        gle::colorpointer(sizeof(blobvert), ptr->color.v);
+
+        glBindTexture(GL_TEXTURE_2D, tex->id);
+
+        glDrawRangeElements_(GL_TRIANGLES, 0, numvdata-1, numedata, GL_UNSIGNED_SHORT, (ushort *)0);
     }
 };
 
 int blobrenderer::lastreset = 0;
 blobrenderer *blobrenderer::lastrender = NULL;
 
-VARFP(blobstattris, 128, 4096, 1<<16, initblobs(BLOB_STATIC));
-VARFP(blobdyntris, 128, 4096, 1<<16, initblobs(BLOB_DYNAMIC));
+VARFP(blobstattris, 128, 4096, 16384, initblobs(BLOB_STATIC));
+VARFP(blobdyntris, 128, 4096, 16384, initblobs(BLOB_DYNAMIC));
 
 static blobrenderer blobs[] = 
 {
@@ -576,7 +703,7 @@ void initblobs(int type)
 
 void resetblobs()
 {
-    blobrenderer::lastreset = totalmillis;
+    blobrenderer::reset();
 }
 
 void renderblob(int type, const vec &o, float radius, float fade)
@@ -588,7 +715,13 @@ void renderblob(int type, const vec &o, float radius, float fade)
 
 void flushblobs()
 {
+    loopi(sizeof(blobs)/sizeof(blobs[0])) blobs[i].flushblobs();
     if(blobrenderer::lastrender) blobrenderer::cleanuprenderstate();
     blobrenderer::lastrender = NULL;
+}
+
+void cleanupblobs()
+{
+    loopi(sizeof(blobs)/sizeof(blobs[0])) blobs[i].cleanup();
 }
 

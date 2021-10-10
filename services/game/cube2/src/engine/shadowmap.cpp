@@ -7,7 +7,6 @@ extern void cleanshadowmap();
 VARFP(shadowmapsize, 7, 9, 11, cleanshadowmap());
 VARP(shadowmapradius, 64, 96, 256);
 VAR(shadowmapheight, 0, 32, 128);
-VARP(ffshadowmapdist, 128, 1024, 4096);
 VARP(shadowmapdist, 128, 256, 512);
 VARFP(fpshadowmap, 0, 0, 1, cleanshadowmap());
 VARFP(shadowmapprecision, 0, 0, 1, cleanshadowmap());
@@ -40,9 +39,7 @@ void guessshadowdir()
 {
     if(shadowmapangle) return;
     vec dir;
-    extern int sunlight;
-    extern vec sunlightdir;
-    if(sunlight) dir = sunlightdir;
+    if(!sunlightcolor.iszero()) dir = sunlightdir;
     else
     {
         vec lightpos(0, 0, 0), casterpos(0, 0, 0);
@@ -84,7 +81,7 @@ void guessshadowdir()
 
 bool shadowmapping = false;
 
-static glmatrixf shadowmapmatrix;
+matrix4 shadowmatrix;
 
 VARP(shadowmapbias, 0, 5, 1024);
 VARP(shadowmappeelbias, 0, 20, 1024);
@@ -93,26 +90,13 @@ VAR(smoothshadowmappeel, 1, 0, 0);
 
 static struct shadowmaptexture : rendertarget
 {
-    GLenum attachment() const
-    {
-        return renderpath==R_FIXEDFUNCTION ? GL_DEPTH_ATTACHMENT_EXT : GL_COLOR_ATTACHMENT0_EXT;
-    }
-
     const GLenum *colorformats() const
     {
-        if(renderpath==R_FIXEDFUNCTION) 
-        {
-            static const GLenum depthtexfmts[] = { GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT32, GL_FALSE };
-            return depthtexfmts;
-        }
-       
-        static const GLenum rgbfmts[] = { GL_RGB, GL_RGB8, GL_FALSE }, rgbafmts[] = { GL_RGBA16F_ARB, GL_RGBA16, GL_RGBA, GL_RGBA8, GL_FALSE };
-        return hasFBO ? &rgbafmts[fpshadowmap && hasTF ? 0 : (shadowmapprecision ? 1 : 2)] : rgbfmts;
+        static const GLenum rgbafmts[] = { GL_RGBA16F, GL_RGBA16, GL_RGBA, GL_RGBA8, GL_FALSE };
+        return &rgbafmts[fpshadowmap && hasTF ? 0 : (shadowmapprecision ? 1 : 2)];
     }
 
-    bool shadowcompare() const { return renderpath==R_FIXEDFUNCTION; }
-    bool filter() const { return renderpath!=R_FIXEDFUNCTION || hasNVPCF; }
-    bool swaptexs() const { return renderpath!=R_FIXEDFUNCTION; }
+    bool swaptexs() const { return true; }
 
     bool scissorblur(int &x, int &y, int &w, int &h)
     {
@@ -133,30 +117,12 @@ static struct shadowmaptexture : rendertarget
 
     void doclear()
     {
-        if(!hasFBO && rtscissor)
-        {
-            glEnable(GL_SCISSOR_TEST);
-            glScissor(screen->w-vieww, screen->h-viewh, vieww, viewh);
-        }
         glClearColor(0, 0, 0, 0);
-        glClear(GL_DEPTH_BUFFER_BIT | (renderpath!=R_FIXEDFUNCTION ? GL_COLOR_BUFFER_BIT : 0));
-        if(!hasFBO && rtscissor) glDisable(GL_SCISSOR_TEST);
+        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     }
 
     bool dorender()
     {
-        // nvidia bug, must push modelview here, then switch to projection, then back to modelview before can safely modify it
-        glPushMatrix();
-
-        glMatrixMode(GL_PROJECTION);
-        glPushMatrix();
-        glLoadIdentity();
-        glOrtho(-shadowmapradius, shadowmapradius, -shadowmapradius, shadowmapradius, 
-            renderpath==R_FIXEDFUNCTION ? 0 : -shadowmapdist, 
-            renderpath==R_FIXEDFUNCTION ? ffshadowmapdist : shadowmapdist);
-
-        glMatrixMode(GL_MODELVIEW);
-
         vec skewdir(shadowdir);
         skewdir.rotate_around_z(-camera1->yaw*RAD);
 
@@ -171,35 +137,22 @@ static struct shadowmaptexture : rendertarget
         shadowoffset.x = -fmod(dirx.dot(camera1->o) - skewdir.x*camera1->o.z, 2.0f*shadowmapradius/vieww);
         shadowoffset.y = -fmod(diry.dot(camera1->o) - skewdir.y*camera1->o.z, 2.0f*shadowmapradius/viewh);
 
-        GLfloat skew[] =
-        {
-            1, 0, 0, 0,
-            0, 1, 0, 0,
-            skewdir.x, skewdir.y, 1, 0,
-            0, 0, 0, 1
-        };
-        glLoadMatrixf(skew);
-        glTranslatef(skewdir.x*shadowmapheight + shadowoffset.x, skewdir.y*shadowmapheight + shadowoffset.y + dir.magnitude(), -shadowmapheight);
-        glRotatef(camera1->yaw+180, 0, 0, -1);
-        glTranslatef(-camera1->o.x, -camera1->o.y, -camera1->o.z);
+        shadowmatrix.ortho(-shadowmapradius, shadowmapradius, -shadowmapradius, shadowmapradius, -shadowmapdist, shadowmapdist);
+        shadowmatrix.mul(matrix3(vec(1, 0, 0), vec(0, 1, 0), vec(skewdir.x, skewdir.y, 1)));
+        shadowmatrix.translate(skewdir.x*shadowmapheight + shadowoffset.x, skewdir.y*shadowmapheight + shadowoffset.y + dir.magnitude(), -shadowmapheight);
+        shadowmatrix.rotate_around_z((camera1->yaw+180)*-RAD);
+        shadowmatrix.translate(vec(camera1->o).neg());
+        GLOBALPARAM(shadowmatrix, shadowmatrix);
+
         shadowfocus = camera1->o;
         shadowfocus.add(dir);
         shadowfocus.add(vec(shadowdir).mul(shadowmapheight));
         shadowfocus.add(dirx.mul(shadowoffset.x));
         shadowfocus.add(diry.mul(shadowoffset.y));
 
-        glmatrixf proj, mv;
-        glGetFloatv(GL_PROJECTION_MATRIX, proj.v);
-        glGetFloatv(GL_MODELVIEW_MATRIX, mv.v);
-        shadowmapmatrix.mul(proj, mv);
-        if(renderpath==R_FIXEDFUNCTION) shadowmapmatrix.projective();
-        else shadowmapmatrix.projective(-1, 1-shadowmapbias/float(shadowmapdist));
+        gle::colorf(0, 0, 0);
 
-        glColor3f(0, 0, 0);
-        glDisable(GL_TEXTURE_2D);
-
-        if(renderpath!=R_FIXEDFUNCTION) setenvparamf("shadowmapbias", SHPARAM_VERTEX, 0, -shadowmapbias/float(shadowmapdist), 1 - (shadowmapbias + (smoothshadowmappeel ? 0 : shadowmappeelbias))/float(shadowmapdist));
-        else glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        GLOBALPARAMF(shadowmapbias, -shadowmapbias/float(shadowmapdist), 1 - (shadowmapbias + (smoothshadowmappeel ? 0 : shadowmappeelbias))/float(shadowmapdist));
 
         shadowmapcasters = 0;
         shadowmapmaxz = shadowfocus.z - shadowmapdist;
@@ -208,30 +161,13 @@ static struct shadowmaptexture : rendertarget
         shadowmapping = false;
         shadowmapmaxz = min(shadowmapmaxz, shadowfocus.z);
 
-        glEnable(GL_TEXTURE_2D);
-
-        if(renderpath==R_FIXEDFUNCTION) glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-        else if(shadowmapcasters && smdepthpeel) 
+        if(shadowmapcasters && smdepthpeel) 
         {
             int sx, sy, sw, sh;
             bool scissoring = rtscissor && scissorblur(sx, sy, sw, sh) && sw > 0 && sh > 0;
-            if(scissoring) 
-            {
-                if(!hasFBO)
-                {
-                    sx += screen->w-vieww;
-                    sy += screen->h-viewh;
-                }
-                glScissor(sx, sy, sw, sh);
-            }
+            if(scissoring) glScissor(sx, sy, sw, sh);
             if(!rtscissor || scissoring) rendershadowmapreceivers();
         }
-
-        glMatrixMode(GL_PROJECTION);
-        glPopMatrix();
-
-        glMatrixMode(GL_MODELVIEW);
-        glPopMatrix();
 
         return shadowmapcasters>0;
     }
@@ -254,66 +190,6 @@ static struct shadowmaptexture : rendertarget
 void cleanshadowmap()
 {
     shadowmaptex.cleanup(true);
-}
-
-VAR(ffsmscissor, 0, 1, 1);
-
-static void calcscissorbox()
-{
-    int smx, smy, smw, smh;
-    shadowmaptex.scissorblur(smx, smy, smw, smh);
-
-    vec forward, right;
-    vecfromyawpitch(camera1->yaw, 0, -1, 0, forward);
-    vecfromyawpitch(camera1->yaw, 0, 0, -1, right);
-    forward.mul(shadowmapradius*2.0f/shadowmaptex.viewh);
-    right.mul(shadowmapradius*2.0f/shadowmaptex.vieww);
-
-    vec bottom(shadowfocus);
-    bottom.sub(vec(shadowdir).mul(shadowmapdist));
-    bottom.add(vec(forward).mul(smy - shadowmaptex.viewh/2)).add(vec(right).mul(smx - shadowmaptex.vieww/2));
-    vec top(bottom);
-    top.add(vec(shadowdir).mul(shadowmapmaxz - (shadowfocus.z - shadowmapdist)));
-   
-    vec4 v[8];
-    float sx1 = 1, sy1 = 1, sx2 = -1, sy2 = -1;
-    loopi(8)
-    {
-        vec c = i&4 ? top : bottom;
-        if(i&1) c.add(vec(right).mul(smw));
-        if(i&2) c.add(vec(forward).mul(smh));
-        if(reflecting) c.z = 2*reflectz - c.z;
-        vec4 &p = v[i];
-        mvpmatrix.transform(c, p);
-        if(p.z >= -p.w)
-        {
-            float x = p.x / p.w, y = p.y / p.w;
-            sx1 = min(sx1, x);
-            sy1 = min(sy1, y);
-            sx2 = max(sx2, x);
-            sy2 = max(sy2, y);
-        }
-    }
-    if(sx1 >= sx2 || sy1 >= sy2) return;
-    loopi(8)
-    {
-        const vec4 &p = v[i];
-        if(p.z >= -p.w) continue;
-        loopj(3)
-        {
-            const vec4 &o = v[i^(1<<j)];
-            if(o.z <= -o.w) continue;
-            float t = (p.z + p.w)/(p.z + p.w - o.z - o.w),
-                  w = p.w + t*(o.w - p.w),
-                  x = (p.x + t*(o.x - p.x))/w,
-                  y = (p.y + t*(o.y - p.y))/w;
-            sx1 = min(sx1, x);
-            sy1 = min(sy1, y);
-            sx2 = max(sx2, x);
-            sy2 = max(sy2, y);
-        }
-    }
-    pushscissor(sx1, sy1, sx2, sy2);
 }
 
 void calcshadowmapbb(const vec &o, float xyrad, float zrad, float &x1, float &y1, float &x2, float &y2)
@@ -365,8 +241,7 @@ bool isshadowmapreceiver(vtxarray *va)
           x1, y1, x2, y2;
     if(xyrad<0 || zrad<0) return false;
 
-    vec center(va->shadowmapmin.tovec());
-    center.add(va->shadowmapmax.tovec()).mul(0.5f);
+    vec center = vec(va->shadowmapmin).add(vec(va->shadowmapmax)).mul(0.5f);
     calcshadowmapbb(center, xyrad, zrad, x1, y1, x2, y2);
 
     return shadowmaptex.checkblurtiles(x1, y1, x2, y2, 2);
@@ -403,47 +278,14 @@ void pushshadowmap()
 {
     if(!shadowmap || !shadowmaptex.rendertex) return;
 
-    if(renderpath==R_FIXEDFUNCTION)
-    {
-        glBindTexture(GL_TEXTURE_2D, shadowmaptex.rendertex);
-
-        const GLfloat *v = shadowmapmatrix.v;
-        GLfloat texgenS[4] = { v[0], v[4], v[8], v[12] },
-                texgenT[4] = { v[1], v[5], v[9], v[13] },
-                texgenR[4] = { v[2], v[6], v[10], v[14] };
-
-        glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
-        glTexGenfv(GL_S, GL_OBJECT_PLANE, texgenS);
-        glEnable(GL_TEXTURE_GEN_S);
-
-        glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
-        glTexGenfv(GL_T, GL_OBJECT_PLANE, texgenT);
-        glEnable(GL_TEXTURE_GEN_T);
-
-        glTexGeni(GL_R, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
-        glTexGenfv(GL_R, GL_OBJECT_PLANE, texgenR);
-        glEnable(GL_TEXTURE_GEN_R);
-
-        // intel driver bug workaround: when R texgen is enabled, it uses the value of Q, even if not enabled!
-        // MUST set Q with glTexCoord4f, glTexCoord3f does not work
-        glTexCoord4f(0, 0, 0, 1);
-
-        glColor3f(shadowmapintensity/100.0f, shadowmapintensity/100.0f, shadowmapintensity/100.0f);
-
-        if(ffsmscissor) calcscissorbox();
-        return;
-    }
-
-    glActiveTexture_(GL_TEXTURE7_ARB);
+    glActiveTexture_(GL_TEXTURE7);
     glBindTexture(GL_TEXTURE_2D, shadowmaptex.rendertex);
 
-    glActiveTexture_(GL_TEXTURE2_ARB);
-    glMatrixMode(GL_TEXTURE);
-    glLoadMatrixf(shadowmapmatrix.v);
-    glMatrixMode(GL_MODELVIEW);
+    matrix4 m = shadowmatrix;
+    m.projective(-1, 1-shadowmapbias/float(shadowmapdist));
+    GLOBALPARAM(shadowmapproject, m);
 
-    glActiveTexture_(GL_TEXTURE0_ARB);
-    glClientActiveTexture_(GL_TEXTURE0_ARB);
+    glActiveTexture_(GL_TEXTURE0);
 
     float r, g, b;
 	if(!shadowmapambient)
@@ -462,31 +304,19 @@ void pushshadowmap()
         }
 	}
     else { r = shadowmapambientcolor[0]; g = shadowmapambientcolor[1]; b = shadowmapambientcolor[2]; }
-    setenvparamf("shadowmapambient", SHPARAM_PIXEL, 7, r/255.0f, g/255.0f, b/255.0f);
+    GLOBALPARAMF(shadowmapambient, r/255.0f, g/255.0f, b/255.0f);
 }
 
 void popshadowmap()
 {
     if(!shadowmap || !shadowmaptex.rendertex) return;
-
-    if(renderpath==R_FIXEDFUNCTION) 
-    {
-        popscissor();
-
-        glDisable(GL_TEXTURE_GEN_S);
-        glDisable(GL_TEXTURE_GEN_T);
-        glDisable(GL_TEXTURE_GEN_R);
-    }
 }
 
 void rendershadowmap()
 {
-    if(!shadowmap || (renderpath==R_FIXEDFUNCTION && (!hasSGIDT || !hasSGISH))) return;
+    if(!shadowmap) return;
 
-    // Apple/ATI bug - fixed-function fog state can force software fallback even when fragment program is enabled
-    glDisable(GL_FOG); 
-    shadowmaptex.render(1<<shadowmapsize, 1<<shadowmapsize, renderpath!=R_FIXEDFUNCTION ? blurshadowmap : 0, blursmsigma/100.0f);
-    glEnable(GL_FOG);
+    shadowmaptex.render(1<<shadowmapsize, 1<<shadowmapsize, blurshadowmap, blursmsigma/100.0f);
 }
 
 VAR(debugsm, 0, 0, 1);

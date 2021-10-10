@@ -1,13 +1,13 @@
 // server-side ai manager
 namespace aiman
 {
-    bool dorefresh = false;
+    bool dorefresh = false, botbalance = true;
     VARN(serverbotlimit, botlimit, 0, 8, MAXBOTS);
-    VARN(serverbotbalance, botbalance, 0, 1, 1);
+    VAR(serverbotbalance, 0, 1, 1);
 
     void calcteams(vector<teamscore> &teams)
     {
-        const char *defaults[2] = { "good", "evil" };
+        static const char * const defaults[2] = { "good", "evil" };
         loopv(clients)
         {
             clientinfo *ci = clients[i];
@@ -20,12 +20,7 @@ namespace aiman
         teams.sort(teamscore::compare);
         if(teams.length() < int(sizeof(defaults)/sizeof(defaults[0])))
         {
-            loopi(sizeof(defaults)/sizeof(defaults[0]))
-            {
-                loopvj(teams) if(!strcmp(teams[j].team, defaults[i])) goto nextteam;
-                teams.add(teamscore(defaults[i], 0));
-            nextteam:;
-            }
+            loopi(sizeof(defaults)/sizeof(defaults[0])) if(teams.htfind(defaults[i]) < 0) teams.add(teamscore(defaults[i], 0));
         }
     }
 
@@ -70,7 +65,7 @@ namespace aiman
 
     static inline bool validaiclient(clientinfo *ci)
     {
-        return ci->clientnum >= 0 && ci->state.aitype == AI_NONE && (ci->state.state!=CS_SPECTATOR || ci->local || ci->privilege);
+        return ci->clientnum >= 0 && ci->state.aitype == AI_NONE && (ci->state.state!=CS_SPECTATOR || ci->local || (ci->privilege && !ci->warned));
     }
 
 	clientinfo *findaiclient(clientinfo *exclude = NULL)
@@ -135,7 +130,7 @@ namespace aiman
 	{
         int cn = ci->clientnum - MAXCLIENTS;
         if(!bots.inrange(cn)) return;
-        if(smode) smode->leavegame(ci, true);
+        if(ci->ownernum >= 0 && !ci->aireinit && smode) smode->leavegame(ci, true);
         sendf(-1, 1, "ri2", N_CDIS, ci->clientnum);
         clientinfo *owner = (clientinfo *)getclientinfo(ci->ownernum);
         if(owner) owner->bots.removeobj(ci);
@@ -172,10 +167,11 @@ namespace aiman
 
 	void shiftai(clientinfo *ci, clientinfo *owner = NULL)
 	{
+        if(ci->ownernum >= 0 && !ci->aireinit && smode) smode->leavegame(ci, true);
         clientinfo *prevowner = (clientinfo *)getclientinfo(ci->ownernum);
         if(prevowner) prevowner->bots.removeobj(ci);
 		if(!owner) { ci->aireinit = 0; ci->ownernum = -1; }
-		else if(ci->clientnum != owner->clientnum) { ci->aireinit = 2; ci->ownernum = owner->clientnum; owner->bots.add(ci); }
+		else if(ci->ownernum != owner->clientnum) { ci->aireinit = 2; ci->ownernum = owner->clientnum; owner->bots.add(ci); }
         dorefresh = true;
 	}
 
@@ -247,7 +243,7 @@ namespace aiman
         if(ci && !ci->local && ci->privilege < PRIV_ADMIN) return;
         botlimit = clamp(limit, 0, MAXBOTS);
         dorefresh = true;
-        defformatstring(msg)("bot limit is now %d", botlimit);
+        defformatstring(msg, "bot limit is now %d", botlimit);
         sendservmsg(msg);
     }
 
@@ -256,7 +252,7 @@ namespace aiman
         if(ci && !ci->local && !ci->privilege) return;
         botbalance = balance ? 1 : 0;
         dorefresh = true;
-        defformatstring(msg)("bot team balancing is now %s", botbalance ? "enabled" : "disabled");
+        defformatstring(msg, "bot team balancing is now %s", botbalance ? "enabled" : "disabled");
         sendservmsg(msg);
     }
 
@@ -265,7 +261,7 @@ namespace aiman
     {
         dorefresh = true;
         loopv(clients) if(clients[i]->local || clients[i]->privilege) return;
-        if(!botbalance) setbotbalance(NULL, true);
+        if(botbalance != (serverbotbalance != 0)) setbotbalance(NULL, serverbotbalance != 0);
     }
 
     void addclient(clientinfo *ci)

@@ -11,7 +11,7 @@
 */
 
 /** Creates a packet that may be sent to a peer.
-    @param dataContents initial contents of the packet's data; the packet's data will remain uninitialized if dataContents is NULL.
+    @param data         initial contents of the packet's data; the packet's data will remain uninitialized if data is NULL.
     @param dataLength   size of the data allocated for this packet
     @param flags        flags for this packet as described for the ENetPacket structure.
     @returns the packet on success, NULL on failure
@@ -45,6 +45,7 @@ enet_packet_create (const void * data, size_t dataLength, enet_uint32 flags)
     packet -> flags = flags;
     packet -> dataLength = dataLength;
     packet -> freeCallback = NULL;
+    packet -> userData = NULL;
 
     return packet;
 }
@@ -55,6 +56,9 @@ enet_packet_create (const void * data, size_t dataLength, enet_uint32 flags)
 void
 enet_packet_destroy (ENetPacket * packet)
 {
+    if (packet == NULL)
+      return;
+
     if (packet -> freeCallback != NULL)
       (* packet -> freeCallback) (packet);
     if (! (packet -> flags & ENET_PACKET_FLAG_NO_ALLOCATE) &&
@@ -112,7 +116,7 @@ reflect_crc (int val, int bits)
 }
 
 static void 
-initialize_crc32 ()
+initialize_crc32 (void)
 {
     int byte;
 

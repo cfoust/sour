@@ -1,5 +1,71 @@
+struct vec;
 struct vec4;
-struct vec2;
+
+struct vec2
+{
+    union
+    {
+        struct { float x, y; };
+        float v[2];
+    };
+
+    vec2() {}
+    vec2(float x, float y) : x(x), y(y) {}
+    explicit vec2(const vec &v);
+    explicit vec2(const vec4 &v);
+
+    float &operator[](int i)       { return v[i]; }
+    float  operator[](int i) const { return v[i]; }
+
+    bool operator==(const vec2 &o) const { return x == o.x && y == o.y; }
+    bool operator!=(const vec2 &o) const { return x != o.x || y != o.y; }
+
+    bool iszero() const { return x==0 && y==0; }
+    float dot(const vec2 &o) const  { return x*o.x + y*o.y; }
+    float squaredlen() const { return dot(*this); }
+    float magnitude() const  { return sqrtf(squaredlen()); }
+    vec2 &normalize() { mul(1/magnitude()); return *this; }
+    vec2 &safenormalize() { float m = magnitude(); if(m) mul(1/m); return *this; }
+    float cross(const vec2 &o) const { return x*o.y - y*o.x; }
+
+    vec2 &mul(float f)       { x *= f; y *= f; return *this; }
+    vec2 &mul(const vec2 &o) { x *= o.x; y *= o.y; return *this; }
+    vec2 &square()           { mul(*this); return *this; }
+    vec2 &div(float f)       { x /= f; y /= f; return *this; }
+    vec2 &div(const vec2 &o) { x /= o.x; y /= o.y; return *this; }
+    vec2 &recip()            { x = 1/x; y = 1/y; return *this; }
+    vec2 &add(float f)       { x += f; y += f; return *this; }
+    vec2 &add(const vec2 &o) { x += o.x; y += o.y; return *this; }
+    vec2 &sub(float f)       { x -= f; y -= f; return *this; }
+    vec2 &sub(const vec2 &o) { x -= o.x; y -= o.y; return *this; }
+    vec2 &neg()              { x = -x; y = -y; return *this; }
+    vec2 &min(const vec2 &o) { x = ::min(x, o.x); y = ::min(y, o.y); return *this; }
+    vec2 &max(const vec2 &o) { x = ::max(x, o.x); y = ::max(y, o.y); return *this; }
+    vec2 &min(float f)       { x = ::min(x, f); y = ::min(y, f); return *this; }
+    vec2 &max(float f)       { x = ::max(x, f); y = ::max(y, f); return *this; }
+    vec2 &abs() { x = fabs(x); y = fabs(y); return *this; }
+    vec2 &clamp(float l, float h) { x = ::clamp(x, l, h); y = ::clamp(y, l, h); return *this; }
+    vec2 &reflect(const vec2 &n) { float k = 2*dot(n); x -= k*n.x; y -= k*n.y; return *this; }
+    vec2 &lerp(const vec2 &b, float t) { x += (b.x-x)*t; y += (b.y-y)*t; return *this; }
+    vec2 &lerp(const vec2 &a, const vec2 &b, float t) { x = a.x + (b.x-a.x)*t; y = a.y + (b.y-a.y)*t; return *this; }
+    template<class B> vec2 &madd(const vec2 &a, const B &b) { return add(vec2(a).mul(b)); }
+    template<class B> vec2 &msub(const vec2 &a, const B &b) { return sub(vec2(a).mul(b)); }
+};
+
+static inline bool htcmp(const vec2 &x, const vec2 &y)
+{
+    return x == y;
+}
+
+static inline uint hthash(const vec2 &k)
+{
+    union { uint i; float f; } x, y;
+    x.f = k.x; y.f = k.y;
+    uint v = x.i^y.i;
+    return v + (v>>12);
+}
+
+struct ivec;
 
 struct vec
 {
@@ -15,9 +81,10 @@ struct vec
     explicit vec(float a) : x(a), y(a), z(a) {} 
     vec(float a, float b, float c) : x(a), y(b), z(c) {}
     explicit vec(int v[3]) : x(v[0]), y(v[1]), z(v[2]) {}
-    explicit vec(float *v) : x(v[0]), y(v[1]), z(v[2]) {}
+    explicit vec(const float *v) : x(v[0]), y(v[1]), z(v[2]) {}
+    explicit vec(const vec2 &v, float z = 0) : x(v.x), y(v.y), z(z) {}
     explicit vec(const vec4 &v);
-    explicit vec(const vec2 &v, float z = 0);
+    explicit vec(const ivec &v);
 
     vec(float yaw, float pitch) : x(-sinf(yaw)*cosf(pitch)), y(cosf(yaw)*cosf(pitch)), z(sinf(pitch)) {}
 
@@ -31,16 +98,27 @@ struct vec
 
     bool iszero() const { return x==0 && y==0 && z==0; }
     float squaredlen() const { return x*x + y*y + z*z; }
-    float dot2(const vec &o) const { return x*o.x + y*o.y; }
+    template<class T> float dot2(const T &o) const { return x*o.x + y*o.y; }
     float dot(const vec &o) const { return x*o.x + y*o.y + z*o.z; }
+    float absdot(const vec &o) const { return fabs(x*o.x) + fabs(y*o.y) + fabs(z*o.z); }
+    vec &pow(float f)        { x = ::pow(x, f); y = ::pow(y, f); z = ::pow(z, f); return *this; }
+    vec &exp()               { x = ::exp(x); y = ::exp(y); z = ::exp(z); return *this; }
+    vec &exp2()              { x = ::exp2(x); y = ::exp2(y); z = ::exp2(z); return *this; }
+    vec &sqrt()              { x = sqrtf(x); y = sqrtf(y); z = sqrtf(z); return *this; }
     vec &mul(const vec &o)   { x *= o.x; y *= o.y; z *= o.z; return *this; }
     vec &mul(float f)        { x *= f; y *= f; z *= f; return *this; }
+    vec &square()            { mul(*this); return *this; }
     vec &div(const vec &o)   { x /= o.x; y /= o.y; z /= o.z; return *this; }
     vec &div(float f)        { x /= f; y /= f; z /= f; return *this; }
+    vec &recip()             { x = 1/x; y = 1/y; z = 1/z; return *this; }
     vec &add(const vec &o)   { x += o.x; y += o.y; z += o.z; return *this; }
     vec &add(float f)        { x += f; y += f; z += f; return *this; }
+    vec &add2(float f)       { x += f; y += f; return *this; }
+    vec &addz(float f)       { z += f; return *this; }
     vec &sub(const vec &o)   { x -= o.x; y -= o.y; z -= o.z; return *this; }
     vec &sub(float f)        { x -= f; y -= f; z -= f; return *this; }
+    vec &sub2(float f)       { x -= f; y -= f; return *this; }
+    vec &subz(float f)       { z -= f; return *this; }
     vec &neg2()              { x = -x; y = -y; return *this; }
     vec &neg()               { x = -x; y = -y; z = -z; return *this; }
     vec &min(const vec &o)   { x = ::min(x, o.x); y = ::min(y, o.y); z = ::min(z, o.z); return *this; }
@@ -48,9 +126,11 @@ struct vec
     vec &min(float f)        { x = ::min(x, f); y = ::min(y, f); z = ::min(z, f); return *this; }
     vec &max(float f)        { x = ::max(x, f); y = ::max(y, f); z = ::max(z, f); return *this; }
     vec &clamp(float f, float h) { x = ::clamp(x, f, h); y = ::clamp(y, f, h); z = ::clamp(z, f, h); return *this; }
+    vec &abs() { x = fabs(x); y = fabs(y); z = fabs(z); return *this; }
     float magnitude2() const { return sqrtf(dot2(*this)); }
     float magnitude() const  { return sqrtf(squaredlen()); }
     vec &normalize()         { div(magnitude()); return *this; }
+    vec &safenormalize()     { float m = magnitude(); if(m) div(m); return *this; }
     bool isnormalized() const { float m = squaredlen(); return (m>0.99f && m<1.01f); }
     float squaredist(const vec &e) const { return vec(*this).sub(e).squaredlen(); }
     float dist(const vec &e) const { vec t; return dist(e, t); }
@@ -81,6 +161,8 @@ struct vec
     }
     vec &lerp(const vec &b, float t) { x += (b.x-x)*t; y += (b.y-y)*t; z += (b.z-z)*t; return *this; }
     vec &lerp(const vec &a, const vec &b, float t) { x = a.x + (b.x-a.x)*t; y = a.y + (b.y-a.y)*t; z = a.z + (b.z-a.z)*t; return *this; }
+    template<class B> vec &madd(const vec &a, const B &b) { return add(vec(a).mul(b)); }
+    template<class B> vec &msub(const vec &a, const B &b) { return sub(vec(a).mul(b)); }
 
     vec &rescale(float k)
     {
@@ -91,17 +173,15 @@ struct vec
 
     vec &rotate_around_z(float c, float s) { float rx = x, ry = y; x = c*rx-s*ry; y = c*ry+s*rx; return *this; }
     vec &rotate_around_x(float c, float s) { float ry = y, rz = z; y = c*ry-s*rz; z = c*rz+s*ry; return *this; }
-    vec &rotate_around_y(float c, float s) { float rx = x, rz = z; x = c*rx-s*rz; z = c*rz+s*rx; return *this; }
+    vec &rotate_around_y(float c, float s) { float rx = x, rz = z; x = c*rx+s*rz; z = c*rz-s*rx; return *this; }
 
     vec &rotate_around_z(float angle) { return rotate_around_z(cosf(angle), sinf(angle)); }
     vec &rotate_around_x(float angle) { return rotate_around_x(cosf(angle), sinf(angle)); }
     vec &rotate_around_y(float angle) { return rotate_around_y(cosf(angle), sinf(angle)); }
 
-    vec &rotate(float angle, const vec &d)
-    {
-        float c = cosf(angle), s = sinf(angle);
-        return rotate(c, s, d);
-    }
+    vec &rotate_around_z(const vec2 &sc) { return rotate_around_z(sc.x, sc.y); }
+    vec &rotate_around_x(const vec2 &sc) { return rotate_around_x(sc.x, sc.y); }
+    vec &rotate_around_y(const vec2 &sc) { return rotate_around_y(sc.x, sc.y); }
 
     vec &rotate(float c, float s, const vec &d)
     {
@@ -110,13 +190,12 @@ struct vec
                     x*(d.x*d.z*(1-c)-d.y*s) + y*(d.y*d.z*(1-c)+d.x*s) + z*(d.z*d.z*(1-c)+c));
         return *this;
     }
+    vec &rotate(float angle, const vec &d) { return rotate(cosf(angle), sinf(angle), d); }
+    vec &rotate(const vec2 &sc, const vec &d) { return rotate(sc.x, sc.y, d); }
 
     void orthogonal(const vec &d)
     {
-        int i = fabs(d.x) > fabs(d.y) ? (fabs(d.x) > fabs(d.z) ? 0 : 2) : (fabs(d.y) > fabs(d.z) ? 1 : 2); 
-        v[i] = d[(i+1)%3];
-        v[(i+1)%3] = -d[i];
-        v[(i+2)%3] = 0;
+        *this = fabs(d.x) > fabs(d.z) ? vec(-d.y, d.x, 0) : vec(0, -d.z, d.y);
     }
 
     void orthonormalize(vec &s, vec &t) const
@@ -124,6 +203,18 @@ struct vec
         s.sub(vec(*this).mul(dot(s)));
         t.sub(vec(*this).mul(dot(t)))
          .sub(vec(s).mul(s.dot(t)));
+    }
+
+    template<class T>
+    bool insidebb(const T &bbmin, const T &bbmax) const
+    {
+        return x >= bbmin.x && x <= bbmax.x && y >= bbmin.y && y <= bbmax.y && z >= bbmin.z && z <= bbmax.z;
+    }
+
+    template<class T, class U>
+    bool insidebb(const T &o, U size) const
+    {
+        return x >= o.x && x <= o.x + size && y >= o.y && y <= o.y + size && z >= o.z && z <= o.z + size;
     }
 
     template<class T> float dist_to_bb(const T &min, const T &max) const
@@ -141,7 +232,15 @@ struct vec
     {
         return dist_to_bb(o, T(o).add(size));
     }
+
+    static vec hexcolor(int color)
+    {
+        return vec(((color>>16)&0xFF)*(1.0f/255.0f), ((color>>8)&0xFF)*(1.0f/255.0f), (color&0xFF)*(1.0f/255.0f));
+    }
+    int tohexcolor() const { return (int(::clamp(r, 0.0f, 1.0f)*255)<<16)|(int(::clamp(g, 0.0f, 1.0f)*255)<<8)|int(::clamp(b, 0.0f, 1.0f)*255); }
 };
+
+inline vec2::vec2(const vec &v) : x(v.x), y(v.y) {}
 
 static inline bool htcmp(const vec &x, const vec &y)
 {
@@ -161,24 +260,26 @@ struct vec4
     union
     {
         struct { float x, y, z, w; };
+        struct { float r, g, b, a; };
         float v[4];
     };
 
     vec4() {}
     explicit vec4(const vec &p, float w = 0) : x(p.x), y(p.y), z(p.z), w(w) {}
     vec4(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
+    explicit vec4(const float *v) : x(v[0]), y(v[1]), z(v[2]), w(v[3]) {}
 
     float &operator[](int i)       { return v[i]; }
     float  operator[](int i) const { return v[i]; }
 
-    float dot3(const vec4 &o) const { return x*o.x + y*o.y + z*o.z; }
-    float dot3(const vec &o) const { return x*o.x + y*o.y + z*o.z; }
+    template<class T> float dot3(const T &o) const { return x*o.x + y*o.y + z*o.z; }
     float dot(const vec4 &o) const { return dot3(o) + w*o.w; }
     float dot(const vec &o) const  { return x*o.x + y*o.y + z*o.z + w; }
     float squaredlen() const { return dot(*this); }
     float magnitude() const  { return sqrtf(squaredlen()); }
     float magnitude3() const { return sqrtf(dot3(*this)); }
     vec4 &normalize() { mul(1/magnitude()); return *this; }
+    vec4 &safenormalize() { float m = magnitude(); if(m) mul(1/m); return *this; }
 
     vec4 &lerp(const vec4 &b, float t)
     {
@@ -200,75 +301,36 @@ struct vec4
     vec4 &mul3(float f)      { x *= f; y *= f; z *= f; return *this; }
     vec4 &mul(float f)       { mul3(f); w *= f; return *this; }
     vec4 &mul(const vec4 &o) { x *= o.x; y *= o.y; z *= o.z; w *= o.w; return *this; }
+    vec4 &square()           { mul(*this); return *this; }
     vec4 &div3(float f)      { x /= f; y /= f; z /= f; return *this; }
     vec4 &div(float f)       { div3(f); w /= f; return *this; }
     vec4 &div(const vec4 &o) { x /= o.x; y /= o.y; z /= o.z; w /= o.w; return *this; }
+    vec4 &recip()            { x = 1/x; y = 1/y; z = 1/z; w = 1/w; return *this; }
     vec4 &add(const vec4 &o) { x += o.x; y += o.y; z += o.z; w += o.w; return *this; }
     vec4 &addw(float f)      { w += f; return *this; }
     vec4 &sub(const vec4 &o) { x -= o.x; y -= o.y; z -= o.z; w -= o.w; return *this; }
     vec4 &subw(float f)      { w -= f; return *this; }
     vec4 &neg3()             { x = -x; y = -y; z = -z; return *this; }
     vec4 &neg()              { neg3(); w = -w; return *this; }
+    template<class B> vec4 &madd(const vec4 &a, const B &b) { return add(vec4(a).mul(b)); }
+    template<class B> vec4 &msub(const vec4 &a, const B &b) { return sub(vec4(a).mul(b)); }
 
     void setxyz(const vec &v) { x = v.x; y = v.y; z = v.z; }
+
+    vec4 &rotate_around_z(float c, float s) { float rx = x, ry = y; x = c*rx-s*ry; y = c*ry+s*rx; return *this; }
+    vec4 &rotate_around_x(float c, float s) { float ry = y, rz = z; y = c*ry-s*rz; z = c*rz+s*ry; return *this; }
+    vec4 &rotate_around_y(float c, float s) { float rx = x, rz = z; x = c*rx+s*rz; z = c*rz-s*rx; return *this; }
+
+    vec4 &rotate_around_z(float angle) { return rotate_around_z(cosf(angle), sinf(angle)); }
+    vec4 &rotate_around_x(float angle) { return rotate_around_x(cosf(angle), sinf(angle)); }
+    vec4 &rotate_around_y(float angle) { return rotate_around_y(cosf(angle), sinf(angle)); }
 };
 
 inline vec::vec(const vec4 &v) : x(v.x), y(v.y), z(v.z) {}
 
-struct vec2
-{
-    union
-    {
-        struct { float x, y; };
-        float v[2];
-    };
-
-    vec2() {}
-    vec2(float x, float y) : x(x), y(y) {}
-    explicit vec2(const vec &v) : x(v.x), y(v.y) {}
-    explicit vec2(const vec4 &v) : x(v.x), y(v.y) {}
-
-    float &operator[](int i)       { return v[i]; }
-    float  operator[](int i) const { return v[i]; }
-
-    bool operator==(const vec2 &o) const { return x == o.x && y == o.y; }
-    bool operator!=(const vec2 &o) const { return x != o.x || y != o.y; }
-
-    bool iszero() const { return x==0 && y==0; }
-    float dot(const vec2 &o) const  { return x*o.x + y*o.y; }
-    float squaredlen() const { return dot(*this); }
-    float magnitude() const  { return sqrtf(squaredlen()); }
-    vec2 &normalize() { mul(1/magnitude()); return *this; }
-    float cross(const vec2 &o) const { return x*o.y - y*o.x; }
-
-    vec2 &mul(float f)       { x *= f; y *= f; return *this; }
-    vec2 &mul(const vec2 &o) { x *= o.x; y *= o.y; return *this; }
-    vec2 &div(float f)       { x /= f; y /= f; return *this; }
-    vec2 &div(const vec2 &o) { x /= o.x; y /= o.y; return *this; }
-    vec2 &add(float f)       { x += f; y += f; return *this; }
-    vec2 &add(const vec2 &o) { x += o.x; y += o.y; return *this; }
-    vec2 &sub(float f)       { x -= f; y -= f; return *this; }
-    vec2 &sub(const vec2 &o) { x -= o.x; y -= o.y; return *this; }
-    vec2 &neg()              { x = -x; y = -y; return *this; }
-};
-
-inline vec::vec(const vec2 &v, float z) : x(v.x), y(v.y), z(z) {}
-
-static inline bool htcmp(const vec2 &x, const vec2 &y)
-{
-    return x == y;
-}
-
-static inline uint hthash(const vec2 &k)
-{
-    union { uint i; float f; } x, y;
-    x.f = k.x; y.f = k.y;
-    uint v = x.i^y.i;
-    return v + (v>>12);
-}
-
-struct matrix3x3;
-struct matrix3x4;
+struct matrix3;
+struct matrix4x3;
+struct matrix4;
 
 struct quat : vec4
 {
@@ -289,8 +351,9 @@ struct quat : vec4
         z = v.z;
         restorew();
     }
-    explicit quat(const matrix3x3 &m) { convertmatrix(m); }
-    explicit quat(const matrix3x4 &m) { convertmatrix(m); }
+    explicit quat(const matrix3 &m) { convertmatrix(m); }
+    explicit quat(const matrix4x3 &m) { convertmatrix(m); }
+    explicit quat(const matrix4 &m) { convertmatrix(m); }
 
     void restorew() { w = 1.0f-x*x-y*y-z*z; w = w<0 ? 0 : -sqrtf(w); }
     
@@ -339,33 +402,33 @@ struct quat : vec4
         {
             float r = sqrtf(1 + trace), inv = 0.5f/r;
             w = 0.5f*r;
-            x = (m.c.y - m.b.z)*inv;
-            y = (m.a.z - m.c.x)*inv;
-            z = (m.b.x - m.a.y)*inv;
+            x = (m.b.z - m.c.y)*inv;
+            y = (m.c.x - m.a.z)*inv;
+            z = (m.a.y - m.b.x)*inv;
         }
         else if(m.a.x > m.b.y && m.a.x > m.c.z)
         {
             float r = sqrtf(1 + m.a.x - m.b.y - m.c.z), inv = 0.5f/r;
             x = 0.5f*r;
-            y = (m.b.x + m.a.y)*inv;
-            z = (m.a.z + m.c.x)*inv;
-            w = (m.c.y - m.b.z)*inv;
+            y = (m.a.y + m.b.x)*inv;
+            z = (m.c.x + m.a.z)*inv;
+            w = (m.b.z - m.c.y)*inv;
         }
         else if(m.b.y > m.c.z)
         {
             float r = sqrtf(1 + m.b.y - m.a.x - m.c.z), inv = 0.5f/r;
-            x = (m.b.x + m.a.y)*inv;
+            x = (m.a.y + m.b.x)*inv;
             y = 0.5f*r;
-            z = (m.c.y + m.b.z)*inv;
-            w = (m.a.z - m.c.x)*inv;
+            z = (m.b.z + m.c.y)*inv;
+            w = (m.c.x - m.a.z)*inv;
         }
         else
         {
             float r = sqrtf(1 + m.c.z - m.a.x - m.b.y), inv = 0.5f/r;
-            x = (m.a.z + m.c.x)*inv;
-            y = (m.c.y + m.b.z)*inv;
+            x = (m.c.x + m.a.z)*inv;
+            y = (m.b.z + m.c.y)*inv;
             z = 0.5f*r;
-            w = (m.b.x - m.a.y)*inv;
+            w = (m.a.y - m.b.x)*inv;
         }
     }
 };
@@ -384,7 +447,7 @@ struct dualquat
     {
     }
     explicit dualquat(const quat &q) : real(q), dual(0, 0, 0, 0) {}
-    explicit dualquat(const matrix3x4 &m);
+    explicit dualquat(const matrix4x3 &m);
 
     dualquat &mul(float k) { real.mul(k); dual.mul(k); return *this; }
     dualquat &add(const dualquat &d) { real.add(d.real); dual.add(d.dual); return *this; }
@@ -476,6 +539,11 @@ struct dualquat
         return vec().cross(real, vec().cross(real, v).add(vec(v).mul(real.w)).add(vec(dual))).add(vec(dual).mul(real.w)).sub(vec(real).mul(dual.w)).mul(2).add(v);
     }
 
+    quat transform(const quat &q) const
+    {
+        return quat().mul(real, q);
+    }
+
     vec transposedtransform(const vec &v) const
     {
         return dualquat(*this).invert().transform(v);
@@ -497,52 +565,87 @@ struct dualquat
     }
 };
 
-struct matrix3x3
+struct matrix3
 {
     vec a, b, c;
 
-    matrix3x3() {}
-    matrix3x3(const vec &a, const vec &b, const vec &c) : a(a), b(b), c(c) {}
-    explicit matrix3x3(float angle, const vec &axis) { rotate(angle, axis); }
-    explicit matrix3x3(const quat &q)
+    matrix3() {}
+    matrix3(const vec &a, const vec &b, const vec &c) : a(a), b(b), c(c) {}
+    explicit matrix3(float angle, const vec &axis) { rotate(angle, axis); }
+    explicit matrix3(const quat &q)
     {
         float x = q.x, y = q.y, z = q.z, w = q.w,
               tx = 2*x, ty = 2*y, tz = 2*z,
               txx = tx*x, tyy = ty*y, tzz = tz*z,
               txy = tx*y, txz = tx*z, tyz = ty*z,
               twx = w*tx, twy = w*ty, twz = w*tz;
-        a = vec(1 - (tyy + tzz), txy - twz, txz + twy);
-        b = vec(txy + twz, 1 - (txx + tzz), tyz - twx);
-        c = vec(txz - twy, tyz + twx, 1 - (txx + tyy));
+        a = vec(1 - (tyy + tzz), txy + twz, txz - twy);
+        b = vec(txy - twz, 1 - (txx + tzz), tyz + twx);
+        c = vec(txz + twy, tyz - twx, 1 - (txx + tyy));
+    }
+    explicit matrix3(const matrix4x3 &m);
+    explicit matrix3(const matrix4 &m);
+
+    void mul(const matrix3 &m, const matrix3 &n)
+    {
+        a = vec(m.a).mul(n.a.x).madd(m.b, n.a.y).madd(m.c, n.a.z);
+        b = vec(m.a).mul(n.b.x).madd(m.b, n.b.y).madd(m.c, n.b.z);
+        c = vec(m.a).mul(n.c.x).madd(m.b, n.c.y).madd(m.c, n.c.z);
+    }
+    void mul(const matrix3 &n) { mul(matrix3(*this), n); }
+
+    void multranspose(const matrix3 &m, const matrix3 &n)
+    {
+        a = vec(m.a).mul(n.a.x).madd(m.b, n.b.x).madd(m.c, n.c.x);
+        b = vec(m.a).mul(n.a.y).madd(m.b, n.b.y).madd(m.c, n.c.y);
+        c = vec(m.a).mul(n.a.z).madd(m.b, n.b.z).madd(m.c, n.c.z);
+    }
+    void multranspose(const matrix3 &n) { multranspose(matrix3(*this), n); }
+
+    void transposemul(const matrix3 &m, const matrix3 &n)
+    {
+        a = vec(m.a.dot(n.a), m.b.dot(n.a), m.c.dot(n.a));
+        b = vec(m.a.dot(n.b), m.b.dot(n.b), m.c.dot(n.b));
+        c = vec(m.a.dot(n.c), m.b.dot(n.c), m.c.dot(n.c));
+    }
+    void transposemul(const matrix3 &n) { transposemul(matrix3(*this), n); }
+
+    void transpose()
+    {
+        swap(a.y, b.x); swap(a.z, c.x);
+        swap(b.z, c.y);
     }
 
-    void mul(const matrix3x3 &m, const matrix3x3 &n)
+    template<class M>
+    void transpose(const M &m)
     {
-        a = vec(n.a).mul(m.a.x).add(vec(n.b).mul(m.a.y)).add(vec(n.c).mul(m.a.z));
-        b = vec(n.a).mul(m.b.x).add(vec(n.b).mul(m.b.y)).add(vec(n.c).mul(m.b.z));
-        c = vec(n.a).mul(m.c.x).add(vec(n.b).mul(m.c.y)).add(vec(n.c).mul(m.c.z));
-    }
-    void mul(const matrix3x3 &n) { mul(*this, n); }
-
-    void multranspose(const matrix3x3 &m, const matrix3x3 &n)
-    {
-        a = vec(m.a.dot(n.a), m.a.dot(n.b), m.a.dot(n.c));
-        b = vec(m.b.dot(n.a), m.b.dot(n.b), m.b.dot(n.c));
-        c = vec(m.c.dot(n.a), m.c.dot(n.b), m.c.dot(n.c));
+        a = vec(m.a.x, m.b.x, m.c.x);
+        b = vec(m.a.y, m.b.y, m.c.y);
+        c = vec(m.a.z, m.b.z, m.c.z);
     }
 
-    void transposemul(const matrix3x3 &m, const matrix3x3 &n)
+    void invert(const matrix3 &o)
     {
-        a = vec(n.a).mul(m.a.x).add(vec(n.b).mul(m.b.x)).add(vec(n.c).mul(m.c.x));
-        b = vec(n.a).mul(m.a.y).add(vec(n.b).mul(m.b.y)).add(vec(n.c).mul(m.c.y));
-        c = vec(n.a).mul(m.a.z).add(vec(n.b).mul(m.b.z)).add(vec(n.c).mul(m.c.z));
+        vec unscale(1/o.a.squaredlen(), 1/o.b.squaredlen(), 1/o.c.squaredlen());
+        transpose(o);
+        a.mul(unscale);
+        b.mul(unscale);
+        c.mul(unscale);
+    }
+    void invert() { invert(matrix3(*this)); }
+
+    void normalize()
+    {
+        a.normalize();
+        b.normalize();
+        c.normalize();
     }
 
-    void transpose(const matrix3x3 &o)
+    void scale(float k)
     {
-        a = vec(o.a.x, o.b.x, o.c.x);
-        b = vec(o.a.y, o.b.y, o.c.y);
-        c = vec(o.a.z, o.b.z, o.c.z);
+        a.mul(k);
+        b.mul(k);
+        c.mul(k);
     }
 
     void rotate(float angle, const vec &axis)
@@ -552,297 +655,364 @@ struct matrix3x3
 
     void rotate(float ck, float sk, const vec &axis)
     {
-        a = vec(axis.x*axis.x*(1-ck)+ck, axis.x*axis.y*(1-ck)-axis.z*sk, axis.x*axis.z*(1-ck)+axis.y*sk);
-        b = vec(axis.y*axis.x*(1-ck)+axis.z*sk, axis.y*axis.y*(1-ck)+ck, axis.y*axis.z*(1-ck)-axis.x*sk);
-        c = vec(axis.x*axis.z*(1-ck)-axis.y*sk, axis.y*axis.z*(1-ck)+axis.x*sk, axis.z*axis.z*(1-ck)+ck);
+        a = vec(axis.x*axis.x*(1-ck)+ck, axis.x*axis.y*(1-ck)+axis.z*sk, axis.x*axis.z*(1-ck)-axis.y*sk);
+        b = vec(axis.x*axis.y*(1-ck)-axis.z*sk, axis.y*axis.y*(1-ck)+ck, axis.y*axis.z*(1-ck)+axis.x*sk);
+        c = vec(axis.x*axis.z*(1-ck)+axis.y*sk, axis.y*axis.z*(1-ck)-axis.x*sk, axis.z*axis.z*(1-ck)+ck);
     }
 
-    bool calcangleaxis(float &angle, vec &axis, float threshold = 1e-9f)
+    void setyaw(float ck, float sk)
     {
-        angle = acosf(clamp(0.5f*(a.x + b.y + c.z - 1), -1.0f, 1.0f));
+        a = vec(ck, sk, 0);
+        b = vec(-sk, ck, 0);
+        c = vec(0, 0, 1);
+    }
 
-		if(angle <= 0) axis = vec(0, 0, 1);
-        else if(angle < M_PI) 
+    void setyaw(float angle)
+    {
+        setyaw(cosf(angle), sinf(angle));
+    }
+
+    float trace() const { return a.x + b.y + c.z; }
+
+    bool calcangleaxis(float tr, float &angle, vec &axis, float threshold = 1e-16f) const
+    {
+        if(tr <= -1)
         {
-            axis = vec(c.y - b.z, a.z - c.x, b.x - a.y);
-            float r = axis.magnitude();
-            if(r <= threshold) return false;
-            axis.mul(1/r);
+            if(a.x >= b.y && a.x >= c.z)
+            {
+                float r = 1 + a.x - b.y - c.z;
+                if(r <= threshold) return false;
+                r = sqrtf(r);
+                axis.x = 0.5f*r;
+                axis.y = b.x/r;
+                axis.z = c.x/r;
+            }
+            else if(b.y >= c.z)
+            {
+                float r = 1 + b.y - a.x - c.z;
+                if(r <= threshold) return false;
+                r = sqrtf(r);
+                axis.y = 0.5f*r;
+                axis.x = b.x/r;
+                axis.z = c.y/r;
+            }
+            else
+            {
+                float r = 1 + b.y - a.x - c.z;
+                if(r <= threshold) return false;
+                r = sqrtf(r);
+                axis.z = 0.5f*r;
+                axis.x = c.x/r;
+                axis.y = c.y/r;
+            }
+            angle = M_PI;
         }
-        else if(a.x >= b.y && a.x >= c.z)
+        else if(tr >= 3)
         {
-            float r = sqrtf(max(1 + a.x - b.y - c.z, 0.0f));
-            if(r <= threshold) return false;
-            axis.x = 0.5f*r;
-            axis.y = a.y/r;
-            axis.z = a.z/r;
-        }
-        else if(b.y >= c.z)
-        {
-            float r = sqrtf(max(1 + b.y - a.x - c.z, 0.0f));
-            if(r <= threshold) return false;
-            axis.y = 0.5f*r;
-            axis.x = a.y/r;
-            axis.z = b.z/r;
+            axis = vec(0, 0, 1);
+            angle = 0;
         }
         else
         {
-            float r = sqrtf(max(1 + b.y - a.x - c.z, 0.0f));
+            axis = vec(b.z - c.y, c.x - a.z, a.y - b.x);
+            float r = axis.squaredlen();
             if(r <= threshold) return false;
-            axis.z = 0.5f*r;
-            axis.x = a.z/r;
-            axis.y = b.z/r;
+            axis.mul(1/sqrtf(r));
+            angle = acosf(0.5f*(tr - 1));
         }
         return true;
     }
 
-    vec transform(const vec &o) const { return vec(a.dot(o), b.dot(o), c.dot(o)); }
-    vec transposedtransform(const vec &o) const
+    bool calcangleaxis(float &angle, vec &axis, float threshold = 1e-16f) const { return calcangleaxis(trace(), angle, axis, threshold); }
+
+    vec transform(const vec &o) const
     {
-        return vec(a.x*o.x + b.x*o.y + c.x*o.z,
-                   a.y*o.x + b.y*o.y + c.y*o.z,
-                   a.z*o.x + b.z*o.y + c.z*o.z);
+        return vec(a).mul(o.x).madd(b, o.y).madd(c, o.z);
     }
+    vec transposedtransform(const vec &o) const { return vec(a.dot(o), b.dot(o), c.dot(o)); }
+    vec abstransform(const vec &o) const
+    {
+        return vec(a).mul(o.x).abs().add(vec(b).mul(o.y).abs()).add(vec(c).mul(o.z).abs());
+    }
+    vec abstransposedtransform(const vec &o) const
+    {
+        return vec(a.absdot(o), b.absdot(o), c.absdot(o));
+    }
+
+    void identity()
+    {
+        a = vec(1, 0, 0);
+        b = vec(0, 1, 0);
+        c = vec(0, 0, 1);
+    }
+
+    void rotate_around_x(float ck, float sk)
+    {
+        vec rb = vec(b).mul(ck).madd(c, sk),
+            rc = vec(c).mul(ck).msub(b, sk);
+        b = rb;
+        c = rc;
+    }
+    void rotate_around_x(float angle) { rotate_around_x(cosf(angle), sinf(angle)); }
+    void rotate_around_x(const vec2 &sc) { rotate_around_x(sc.x, sc.y); }
+
+    void rotate_around_y(float ck, float sk)
+    {
+        vec rc = vec(c).mul(ck).madd(a, sk),
+            ra = vec(a).mul(ck).msub(c, sk);
+        c = rc;
+        a = ra;
+    }
+    void rotate_around_y(float angle) { rotate_around_y(cosf(angle), sinf(angle)); }
+    void rotate_around_y(const vec2 &sc) { rotate_around_y(sc.x, sc.y); }
+
+    void rotate_around_z(float ck, float sk)
+    {
+        vec ra = vec(a).mul(ck).madd(b, sk),
+            rb = vec(b).mul(ck).msub(a, sk);
+        a = ra;
+        b = rb;
+    }
+    void rotate_around_z(float angle) { rotate_around_z(cosf(angle), sinf(angle)); }
+    void rotate_around_z(const vec2 &sc) { rotate_around_z(sc.x, sc.y); }
+
+    vec transform(const vec2 &o) { return vec(a).mul(o.x).madd(b, o.y); }
+    vec transposedtransform(const vec2 &o) const { return vec(a.dot2(o), b.dot2(o), c.dot2(o)); }
+
+    vec rowx() const { return vec(a.x, b.x, c.x); }
+    vec rowy() const { return vec(a.y, b.y, c.y); }
+    vec rowz() const { return vec(a.z, b.z, c.z); }
 };
 
-struct matrix2x3
+struct matrix4x3
 {
-    vec a, b;
+    vec a, b, c, d;
 
-    matrix2x3() {}
-    matrix2x3(const vec &a, const vec &b) : a(a), b(b) {}
-
-    vec2 transform(const vec &o) const { return vec2(a.dot(o), b.dot(o)); }
-    vec transposedtransform(const vec2 &o) const
+    matrix4x3() {}
+    matrix4x3(const vec &a, const vec &b, const vec &c, const vec &d) : a(a), b(b), c(c), d(d) {}
+    matrix4x3(const matrix3 &rot, const vec &trans) : a(rot.a), b(rot.b), c(rot.c), d(trans) {}
+    matrix4x3(const dualquat &dq)
     {
-        return vec(a.x*o.x + b.x*o.y,
-                   a.y*o.x + b.y*o.y,
-                   a.z*o.x + b.z*o.y);
-    }
-};
-
-struct matrix3x4
-{
-    vec4 a, b, c;
-    
-    matrix3x4() {}
-    matrix3x4(const vec4 &x, const vec4 &y, const vec4 &z) : a(x), b(y), c(z) {}
-    matrix3x4(const matrix3x3 &rot, const vec &trans)
-     : a(rot.a, trans.x), b(rot.b, trans.y), c(rot.c, trans.z)
-    {}
-    matrix3x4(const dualquat &d)
-    {
-        vec4 r = vec4(d.real).mul(1/d.real.squaredlen()), rr = vec4(r).mul(d.real);
+        vec4 r = vec4(dq.real).mul(1/dq.real.squaredlen()), rr = vec4(r).mul(dq.real);
         r.mul(2);
-        float xy = r.x*d.real.y, xz = r.x*d.real.z, yz = r.y*d.real.z,
-              wx = r.w*d.real.x, wy = r.w*d.real.y, wz = r.w*d.real.z;
-        a = vec4(rr.w + rr.x - rr.y - rr.z, xy - wz, xz + wy,
-            -(d.dual.w*r.x - d.dual.x*r.w + d.dual.y*r.z - d.dual.z*r.y));
-        b = vec4(xy + wz, rr.w + rr.y - rr.x - rr.z, yz - wx,
-            -(d.dual.w*r.y - d.dual.x*r.z - d.dual.y*r.w + d.dual.z*r.x));
-        c = vec4(xz - wy, yz + wx, rr.w + rr.z - rr.x - rr.y,
-            -(d.dual.w*r.z + d.dual.x*r.y - d.dual.y*r.x - d.dual.z*r.w));
+        float xy = r.x*dq.real.y, xz = r.x*dq.real.z, yz = r.y*dq.real.z,
+              wx = r.w*dq.real.x, wy = r.w*dq.real.y, wz = r.w*dq.real.z;
+        a = vec(rr.w + rr.x - rr.y - rr.z, xy + wz, xz - wy);
+        b = vec(xy - wz, rr.w + rr.y - rr.x - rr.z, yz + wx);
+        c = vec(xz + wy, yz - wx, rr.w + rr.z - rr.x - rr.y);
+        d = vec(-(dq.dual.w*r.x - dq.dual.x*r.w + dq.dual.y*r.z - dq.dual.z*r.y),
+                -(dq.dual.w*r.y - dq.dual.x*r.z - dq.dual.y*r.w + dq.dual.z*r.x),
+                -(dq.dual.w*r.z + dq.dual.x*r.y - dq.dual.y*r.x - dq.dual.z*r.w));
+
     }
+    explicit matrix4x3(const matrix4 &m);
 
     void mul(float k)
     {
         a.mul(k);
         b.mul(k);
         c.mul(k);
+        d.mul(k);
     }
 
-    void scale(float k)
-    {
-        a.mul(k);
-        b.mul(k);
-        c.mul(k);
-    }
-    
-    void translate(const vec &p)
-    {
-        a.w += p.x;
-        b.w += p.y;
-        c.w += p.z;
-    }
+    void setscale(float x, float y, float z) { a.x = x; b.y = y; c.z = z; }
+    void setscale(const vec &v) { setscale(v.x, v.y, v.z); }
+    void setscale(float n) { setscale(n, n, n); }
 
-    void transformedtranslate(const vec &p, float scale = 1)
+    void scale(float x, float y, float z)
     {
-        a.w += a.dot3(p)*scale;
-        b.w += b.dot3(p)*scale;
-        c.w += c.dot3(p)*scale;
+        a.mul(x);
+        b.mul(y);
+        c.mul(z);
     }
+    void scale(const vec &v) { scale(v.x, v.y, v.z); }
+    void scale(float n) { scale(n, n, n); }
 
-    void accumulate(const matrix3x4 &m, float k)
+    void settranslation(const vec &p) { d = p; }
+    void settranslation(float x, float y, float z) { d = vec(x, y, z); }
+
+    void translate(const vec &p) { d.madd(a, p.x).madd(b, p.y).madd(c, p.z); }
+    void translate(float x, float y, float z) { translate(vec(x, y, z)); }
+    void translate(const vec &p, float scale) { translate(vec(p).mul(scale)); }
+
+    void posttranslate(const vec &p) { d.add(p); }
+    void posttranslate(float x, float y, float z) { posttranslate(vec(x, y, z)); }
+    void posttranslate(const vec &p, float scale) { d.madd(p, scale); }
+
+    void accumulate(const matrix4x3 &m, float k)
     {
-        a.add(vec4(m.a).mul(k));
-        b.add(vec4(m.b).mul(k));
-        c.add(vec4(m.c).mul(k));
+        a.madd(m.a, k);
+        b.madd(m.b, k);
+        c.madd(m.c, k);
+        d.madd(m.d, k);
     }
 
     void normalize()
     {
-        a.mul3(1/a.magnitude3());
-        b.mul3(1/b.magnitude3());
-        c.mul3(1/c.magnitude3());
+        a.normalize();
+        b.normalize();
+        c.normalize();
     }
 
-    void lerp(const matrix3x4 &to, float t)
+    void lerp(const matrix4x3 &to, float t)
     {
         a.lerp(to.a, t);
         b.lerp(to.b, t);
         c.lerp(to.c, t);
+        d.lerp(to.d, t);
     }
-    void lerp(const matrix3x4 &from, const matrix3x4 &to, float t)
+    void lerp(const matrix4x3 &from, const matrix4x3 &to, float t)
     {
         a.lerp(from.a, to.a, t);
         b.lerp(from.b, to.b, t);
         c.lerp(from.c, to.c, t);
+        d.lerp(from.d, to.d, t);
     }
 
     void identity()
     {
-        a = vec4(1, 0, 0, 0);
-        b = vec4(0, 1, 0, 0);
-        c = vec4(0, 0, 1, 0);
+        a = vec(1, 0, 0);
+        b = vec(0, 1, 0);
+        c = vec(0, 0, 1);
+        d = vec(0, 0, 0);
     }
 
-    void mul(const matrix3x4 &m, const matrix3x4 &n)
+    void mul(const matrix4x3 &m, const matrix4x3 &n)
     {
-        a = vec4(n.a).mul(m.a.x).add(vec4(n.b).mul(m.a.y)).add(vec4(n.c).mul(m.a.z)).addw(m.a.w);
-        b = vec4(n.a).mul(m.b.x).add(vec4(n.b).mul(m.b.y)).add(vec4(n.c).mul(m.b.z)).addw(m.b.w);
-        c = vec4(n.a).mul(m.c.x).add(vec4(n.b).mul(m.c.y)).add(vec4(n.c).mul(m.c.z)).addw(m.c.w);
+        a = vec(m.a).mul(n.a.x).madd(m.b, n.a.y).madd(m.c, n.a.z);
+        b = vec(m.a).mul(n.b.x).madd(m.b, n.b.y).madd(m.c, n.b.z);
+        c = vec(m.a).mul(n.c.x).madd(m.b, n.c.y).madd(m.c, n.c.z);
+        d = vec(m.d).madd(m.a, n.d.x).madd(m.b, n.d.y).madd(m.c, n.d.z);
     }
-    void mul(const matrix3x4 &n) { mul(*this, n); }
+    void mul(const matrix4x3 &n) { mul(matrix4x3(*this), n); }
 
-    void mul(const matrix3x3 &rot, const vec &trans, const matrix3x4 &o)
+    void mul(const matrix3 &m, const matrix4x3 &n)
     {
-        a = vec4(o.a).mul(rot.a.x).add(vec4(o.b).mul(rot.a.y)).add(vec4(o.c).mul(rot.a.z)).addw(trans.x);
-        b = vec4(o.a).mul(rot.b.x).add(vec4(o.b).mul(rot.b.y)).add(vec4(o.c).mul(rot.b.z)).addw(trans.y);
-        c = vec4(o.a).mul(rot.c.x).add(vec4(o.b).mul(rot.c.y)).add(vec4(o.c).mul(rot.c.z)).addw(trans.z);
-    }
-
-    void mulorient(const matrix3x3 &m)
-    {
-        vec ra = vec(a).mul(m.a.x).add(vec(b).mul(m.a.y)).add(vec(c).mul(m.a.z)),
-            rb = vec(a).mul(m.b.x).add(vec(b).mul(m.b.y)).add(vec(c).mul(m.b.z)),
-            rc = vec(a).mul(m.c.x).add(vec(b).mul(m.c.y)).add(vec(c).mul(m.c.z));
-        a.setxyz(ra);
-        b.setxyz(rb);
-        c.setxyz(rc);
+        a = vec(m.a).mul(n.a.x).madd(m.b, n.a.y).madd(m.c, n.a.z);
+        b = vec(m.a).mul(n.b.x).madd(m.b, n.b.y).madd(m.c, n.b.z);
+        c = vec(m.a).mul(n.c.x).madd(m.b, n.c.y).madd(m.c, n.c.z);
+        d = vec(m.a).mul(n.d.x).madd(m.b, n.d.y).madd(m.c, n.d.z);
     }
 
-    void mulorient(const matrix3x3 &m, const dualquat &base)
+    void mul(const matrix3 &rot, const vec &trans, const matrix4x3 &n)
     {
-        vec trans = transformnormal(base.gettranslation());
-        translate(trans.sub(m.transform(trans)));
-        mulorient(m);
+        mul(rot, n);
+        d.add(trans);
     }
 
-    void transpose(const matrix3x4 &o)
+    void transpose()
     {
-        a = vec4(o.a.x, o.b.x, o.c.x, -(o.a.x*o.a.w + o.b.x*o.b.w + o.c.x*o.c.w));
-        b = vec4(o.a.y, o.b.y, o.c.y, -(o.a.y*o.a.w + o.b.y*o.b.w + o.c.y*o.c.w));
-        c = vec4(o.a.z, o.b.z, o.c.z, -(o.a.z*o.a.w + o.b.z*o.b.w + o.c.z*o.c.w));
+        d = vec(a.dot(d), b.dot(d), c.dot(d)).neg();
+        swap(a.y, b.x); swap(a.z, c.x);
+        swap(b.z, c.y);
     }
 
-    void transposemul(const matrix3x3 &rot, const vec &trans, const matrix3x4 &o)
+    void transpose(const matrix4x3 &o)
     {
-        a = vec4(o.a).mul(rot.a.x).add(vec4(o.b).mul(rot.b.x)).add(vec4(o.c).mul(rot.c.x)).addw(trans.x);
-        b = vec4(o.a).mul(rot.a.y).add(vec4(o.b).mul(rot.b.y)).add(vec4(o.c).mul(rot.c.y)).addw(trans.y);
-        c = vec4(o.a).mul(rot.a.z).add(vec4(o.b).mul(rot.b.z)).add(vec4(o.c).mul(rot.c.z)).addw(trans.z);
-    } 
-
-    void transposemul(const matrix3x4 &m, const matrix3x4 &n)
-    {
-        float tx = m.a.x*m.a.w + m.b.x*m.b.w + m.c.x*m.c.w,
-              ty = m.a.y*m.a.w + m.b.y*m.b.w + m.c.y*m.c.w,
-              tz = m.a.z*m.a.w + m.b.z*m.b.w + m.c.z*m.c.w;
-        a = vec4(n.a).mul(m.a.x).add(vec4(n.b).mul(m.b.x)).add(vec4(n.c).mul(m.c.x)).subw(tx);
-        b = vec4(n.a).mul(m.a.y).add(vec4(n.b).mul(m.b.y)).add(vec4(n.c).mul(m.c.y)).subw(ty);
-        c = vec4(n.a).mul(m.a.z).add(vec4(n.b).mul(m.b.z)).add(vec4(n.c).mul(m.c.z)).subw(tz);
+        a = vec(o.a.x, o.b.x, o.c.x);
+        b = vec(o.a.y, o.b.y, o.c.y);
+        c = vec(o.a.z, o.b.z, o.c.z);
+        d = vec(o.a.dot(o.d), o.b.dot(o.d), o.c.dot(o.d)).neg();
     }
+
+    void transposemul(const matrix4x3 &m, const matrix4x3 &n)
+    {
+        vec t(m.a.dot(m.d), m.b.dot(m.d), m.c.dot(m.d));
+        a = vec(m.a.dot(n.a), m.b.dot(n.a), m.c.dot(n.a));
+        b = vec(m.a.dot(n.b), m.b.dot(n.b), m.c.dot(n.b));
+        c = vec(m.a.dot(n.c), m.b.dot(n.c), m.c.dot(n.c));
+        d = vec(m.a.dot(n.d), m.b.dot(n.d), m.c.dot(n.d)).sub(t);
+    }
+
+    void multranspose(const matrix4x3 &m, const matrix4x3 &n)
+    {
+        vec t(n.a.dot(n.d), n.b.dot(n.d), n.c.dot(n.d));
+        a = vec(m.a).mul(n.a.x).madd(m.b, n.b.x).madd(m.c, n.c.x);
+        b = vec(m.a).mul(n.a.y).madd(m.b, n.b.y).madd(m.c, n.c.y);
+        c = vec(m.a).mul(n.a.z).madd(m.b, n.b.z).madd(m.c, n.c.z);
+        d = vec(m.d).msub(m.a, t.x).msub(m.b, t.y).msub(m.c, t.z);
+    }
+
+    void invert(const matrix4x3 &o)
+    {
+        vec unscale(1/o.a.squaredlen(), 1/o.b.squaredlen(), 1/o.c.squaredlen());
+        transpose(o);
+        a.mul(unscale);
+        b.mul(unscale);
+        c.mul(unscale);
+        d.mul(unscale);
+    }
+    void invert() { invert(matrix4x3(*this)); }
 
     void rotate(float angle, const vec &d)
     {
         rotate(cosf(angle), sinf(angle), d);
     }
 
-    void rotate(float ck, float sk, const vec &d)
+    void rotate(float ck, float sk, const vec &axis)
     {
-        a = vec4(d.x*d.x*(1-ck)+ck, d.x*d.y*(1-ck)-d.z*sk, d.x*d.z*(1-ck)+d.y*sk, 0);
-        b = vec4(d.y*d.x*(1-ck)+d.z*sk, d.y*d.y*(1-ck)+ck, d.y*d.z*(1-ck)-d.x*sk, 0);
-        c = vec4(d.x*d.z*(1-ck)-d.y*sk, d.y*d.z*(1-ck)+d.x*sk, d.z*d.z*(1-ck)+ck, 0);
+        matrix3 m;
+        m.rotate(ck, sk, axis);
+        *this = matrix4x3(m, vec(0, 0, 0));
     }
 
-    #define ROTVEC(V, m, n) \
-    { \
-        float m = V.m, n = V.n; \
-        V.m = m*ck + n*sk; \
-        V.n = n*ck - m*sk; \
-    }
-
-    void rotate_around_x(float angle)
+    void rotate_around_x(float ck, float sk)
     {
-        float ck = cosf(angle), sk = sinf(angle);
-        ROTVEC(a, y, z);
-        ROTVEC(b, y, z);
-        ROTVEC(c, y, z);
+        vec rb = vec(b).mul(ck).madd(c, sk),
+            rc = vec(c).mul(ck).msub(b, sk);
+        b = rb;
+        c = rc;
     }
+    void rotate_around_x(float angle) { rotate_around_x(cosf(angle), sinf(angle)); }
+    void rotate_around_x(const vec2 &sc) { rotate_around_x(sc.x, sc.y); }
 
-    void rotate_around_y(float angle)
+    void rotate_around_y(float ck, float sk)
     {
-        float ck = cosf(angle), sk = sinf(angle);
-        ROTVEC(a, z, x);
-        ROTVEC(b, z, x);
-        ROTVEC(c, z, x);
+        vec rc = vec(c).mul(ck).madd(a, sk),
+            ra = vec(a).mul(ck).msub(c, sk);
+        c = rc;
+        a = ra;
     }
+    void rotate_around_y(float angle) { rotate_around_y(cosf(angle), sinf(angle)); }
+    void rotate_around_y(const vec2 &sc) { rotate_around_y(sc.x, sc.y); }
 
-    void rotate_around_z(float angle)
+    void rotate_around_z(float ck, float sk)
     {
-        float ck = cosf(angle), sk = sinf(angle);
-        ROTVEC(a, x, y);
-        ROTVEC(b, x, y);
-        ROTVEC(c, x, y);
+        vec ra = vec(a).mul(ck).madd(b, sk),
+            rb = vec(b).mul(ck).msub(a, sk);
+        a = ra;
+        b = rb;
     }
+    void rotate_around_z(float angle) { rotate_around_z(cosf(angle), sinf(angle)); }
+    void rotate_around_z(const vec2 &sc) { rotate_around_z(sc.x, sc.y); }
 
-    #undef ROTVEC
+    vec transform(const vec &o) const { return vec(d).madd(a, o.x).madd(b, o.y).madd(c, o.z); }
+    vec transposedtransform(const vec &o) const { vec p = vec(o).sub(d); return vec(a.dot(p), b.dot(p), c.dot(p)); }
+    vec transformnormal(const vec &o) const { return vec(a).mul(o.x).madd(b, o.y).madd(c, o.z); }
+    vec transposedtransformnormal(const vec &o) const { return vec(a.dot(o), b.dot(o), c.dot(o)); }
+    vec transform(const vec2 &o) const { return vec(d).madd(a, o.x).madd(b, o.y); }
 
-    vec transform(const vec &o) const { return vec(a.dot(o), b.dot(o), c.dot(o)); }
-    vec transposedtransform(const vec &o) const
-    {
-        vec p = o;
-        p.x -= a.w;
-        p.y -= b.w;
-        p.z -= c.w;
-        return vec(a.x*p.x + b.x*p.y + c.x*p.z,
-                   a.y*p.x + b.y*p.y + c.y*p.z,
-                   a.z*p.x + b.z*p.y + c.z*p.z);
-    }
-    vec transformnormal(const vec &o) const { return vec(a.dot3(o), b.dot3(o), c.dot3(o)); }
-    vec transposedtransformnormal(const vec &o) const
-    {
-        return vec(a.x*o.x + b.x*o.y + c.x*o.z,
-                   a.y*o.x + b.y*o.y + c.y*o.z,
-                   a.z*o.x + b.z*o.y + c.z*o.z);
-    }
-
-    float getscale() const { return a.magnitude3(); }
-    vec gettranslation() const { return vec(a.w, b.w, c.w); }
+    vec4 rowx() const { return vec4(a.x, b.x, c.x, d.x); }
+    vec4 rowy() const { return vec4(a.y, b.y, c.y, d.y); }
+    vec4 rowz() const { return vec4(a.z, b.z, c.z, d.z); }
 };
 
-inline dualquat::dualquat(const matrix3x4 &m) : real(m)
+inline dualquat::dualquat(const matrix4x3 &m) : real(m)
 {
-    dual.x =  0.5f*( m.a.w*real.w + m.b.w*real.z - m.c.w*real.y);
-    dual.y =  0.5f*(-m.a.w*real.z + m.b.w*real.w + m.c.w*real.x);
-    dual.z =  0.5f*( m.a.w*real.y - m.b.w*real.x + m.c.w*real.w);
-    dual.w = -0.5f*( m.a.w*real.x + m.b.w*real.y + m.c.w*real.z);
+    dual.x =  0.5f*( m.d.x*real.w + m.d.y*real.z - m.d.z*real.y);
+    dual.y =  0.5f*(-m.d.x*real.z + m.d.y*real.w + m.d.z*real.x);
+    dual.z =  0.5f*( m.d.x*real.y - m.d.y*real.x + m.d.z*real.w);
+    dual.w = -0.5f*( m.d.x*real.x + m.d.y*real.y + m.d.z*real.z);
 }
+
+inline matrix3::matrix3(const matrix4x3 &m) : a(m.a), b(m.b), c(m.c) {}
 
 struct plane : vec
 {
     float offset;
 
     float dist(const vec &p) const { return dot(p)+offset; }
+    float dist(const vec4 &p) const { return p.dot3(*this) + p.w*offset; }
     bool operator==(const plane &p) const { return x==p.x && y==p.y && z==p.z && offset==p.offset; }
     bool operator!=(const plane &p) const { return x!=p.x || y!=p.y || z!=p.z || offset!=p.offset; }
 
@@ -956,6 +1126,11 @@ const int R[3]  = {1, 2, 0}; // row
 const int C[3]  = {2, 0, 1}; // col
 const int D[3]  = {0, 1, 2}; // depth
 
+struct ivec4;
+struct ivec2;
+struct usvec;
+struct svec;
+
 struct ivec
 {
     union
@@ -966,13 +1141,7 @@ struct ivec
     };
 
     ivec() {}
-    ivec(const vec &v) : x(int(v.x)), y(int(v.y)), z(int(v.z)) {}
-    explicit ivec(int i)
-    {
-        x = ((i&1)>>0);
-        y = ((i&2)>>1);
-        z = ((i&4)>>2);
-    }
+    explicit ivec(const vec &v) : x(int(v.x)), y(int(v.y)), z(int(v.z)) {}
     ivec(int a, int b, int c) : x(a), y(b), z(c) {}
     ivec(int d, int row, int col, int depth)
     {
@@ -980,14 +1149,11 @@ struct ivec
         v[C[d]] = col;
         v[D[d]] = depth;
     }
-    ivec(int i, int cx, int cy, int cz, int size)
-    {
-        x = cx+((i&1)>>0)*size;
-        y = cy+((i&2)>>1)*size;
-        z = cz+((i&4)>>2)*size;
-    }
-    vec tovec() const { return vec(x, y, z); }
-    int toint() const { return (x>0?1:0) + (y>0?2:0) + (z>0?4:0); }
+    ivec(int i, const ivec &co, int size) : x(co.x+((i&1)>>0)*size), y(co.y+((i&2)>>1)*size), z(co.z +((i&4)>>2)*size) {}
+    explicit ivec(const ivec4 &v);
+    explicit ivec(const ivec2 &v, int z = 0);
+    explicit ivec(const usvec &v);
+    explicit ivec(const svec &v);
 
     int &operator[](int i)       { return v[i]; }
     int  operator[](int i) const { return v[i]; }
@@ -1013,10 +1179,16 @@ struct ivec
     ivec &min(int n) { x = ::min(x, n); y = ::min(y, n); z = ::min(z, n); return *this; }
     ivec &max(int n) { x = ::max(x, n); y = ::max(y, n); z = ::max(z, n); return *this; }
     ivec &abs() { x = ::abs(x); y = ::abs(y); z = ::abs(z); return *this; }
+    ivec &clamp(int l, int h) { x = ::clamp(x, l, h); y = ::clamp(y, l, h); z = ::clamp(z, l, h); return *this; }
     ivec &cross(const ivec &a, const ivec &b) { x = a.y*b.z-a.z*b.y; y = a.z*b.x-a.x*b.z; z = a.x*b.y-a.y*b.x; return *this; }
     int dot(const ivec &o) const { return x*o.x + y*o.y + z*o.z; }
     float dist(const plane &p) const { return x*p.x + y*p.y + z*p.z + p.offset; }
+
+    static inline ivec floor(const vec &o) { return ivec(int(::floor(o.x)), int(::floor(o.y)), int(::floor(o.z))); }
+    static inline ivec ceil(const vec &o) { return ivec(int(::ceil(o.x)), int(::ceil(o.y)), int(::ceil(o.z))); }
 };
+
+inline vec::vec(const ivec &v) : x(v.x), y(v.y), z(v.z) {}
 
 static inline bool htcmp(const ivec &x, const ivec &y)
 {
@@ -1027,6 +1199,91 @@ static inline uint hthash(const ivec &k)
 {
     return k.x^k.y^k.z;
 }  
+
+struct ivec2
+{
+    union
+    {
+        struct { int x, y; };
+        int v[2];
+    };
+
+    ivec2() {}
+    ivec2(int x, int y) : x(x), y(y) {}
+    explicit ivec2(const vec2 &v) : x(int(v.x)), y(int(v.y)) {}
+    explicit ivec2(const ivec &v) : x(v.x), y(v.y) {}
+
+    int &operator[](int i)       { return v[i]; }
+    int  operator[](int i) const { return v[i]; }
+
+    bool operator==(const ivec2 &o) const { return x == o.x && y == o.y; }
+    bool operator!=(const ivec2 &o) const { return x != o.x || y != o.y; }
+
+    bool iszero() const { return x==0 && y==0; }
+    ivec2 &shl(int n) { x<<= n; y<<= n; return *this; }
+    ivec2 &shr(int n) { x>>= n; y>>= n; return *this; }
+    ivec2 &mul(int n) { x *= n; y *= n; return *this; }
+    ivec2 &div(int n) { x /= n; y /= n; return *this; }
+    ivec2 &add(int n) { x += n; y += n; return *this; }
+    ivec2 &sub(int n) { x -= n; y -= n; return *this; }
+    ivec2 &mul(const ivec2 &v) { x *= v.x; y *= v.y; return *this; }
+    ivec2 &div(const ivec2 &v) { x /= v.x; y /= v.y; return *this; }
+    ivec2 &add(const ivec2 &v) { x += v.x; y += v.y; return *this; }
+    ivec2 &sub(const ivec2 &v) { x -= v.x; y -= v.y; return *this; }
+    ivec2 &mask(int n) { x &= n; y &= n; return *this; }
+    ivec2 &neg() { x = -x; y = -y; return *this; }
+    ivec2 &min(const ivec2 &o) { x = ::min(x, o.x); y = ::min(y, o.y); return *this; }
+    ivec2 &max(const ivec2 &o) { x = ::max(x, o.x); y = ::max(y, o.y); return *this; }
+    ivec2 &min(int n) { x = ::min(x, n); y = ::min(y, n); return *this; }
+    ivec2 &max(int n) { x = ::max(x, n); y = ::max(y, n); return *this; }
+    ivec2 &abs() { x = ::abs(x); y = ::abs(y); return *this; }
+    int dot(const ivec2 &o) const { return x*o.x + y*o.y; }
+    int cross(const ivec2 &o) const { return x*o.y - y*o.x; }
+};
+
+inline ivec::ivec(const ivec2 &v, int z) : x(v.x), y(v.y), z(z) {}
+
+static inline bool htcmp(const ivec2 &x, const ivec2 &y)
+{
+    return x == y;
+}
+
+static inline uint hthash(const ivec2 &k)
+{
+    return k.x^k.y;
+}
+
+struct ivec4
+{
+    union
+    {
+        struct { int x, y, z, w; };
+        struct { int r, g, b, a; };
+        int v[4];
+    };
+
+    ivec4() {}
+    explicit ivec4(const ivec &p, int w = 0) : x(p.x), y(p.y), z(p.z), w(w) {}
+    ivec4(int x, int y, int z, int w) : x(x), y(y), z(z), w(w) {}
+    explicit ivec4(const vec4 &v) : x(int(v.x)), y(int(v.y)), z(int(v.z)), w(int(v.w)) {}
+
+    bool operator==(const ivec4 &o) const { return x == o.x && y == o.y && z == o.z && w == o.w; }
+    bool operator!=(const ivec4 &o) const { return x != o.x || y != o.y || z != o.z || w != o.w; }
+};
+
+inline ivec::ivec(const ivec4 &v) : x(v.x), y(v.y), z(v.z) {}
+
+static inline bool htcmp(const ivec4 &x, const ivec4 &y)
+{
+    return x == y;
+}
+
+static inline uint hthash(const ivec4 &k)
+{
+    return k.x^k.y^k.z^k.w;
+}
+
+struct bvec4;
 
 struct bvec
 {
@@ -1039,7 +1296,8 @@ struct bvec
 
     bvec() {}
     bvec(uchar x, uchar y, uchar z) : x(x), y(y), z(z) {}
-    bvec(const vec &v) : x((uchar)((v.x+1)*255/2)), y((uchar)((v.y+1)*255/2)), z((uchar)((v.z+1)*255/2)) {}
+    explicit bvec(const vec &v) : x(uchar((v.x+1)*(255.0f/2.0f))), y(uchar((v.y+1)*(255.0f/2.0f))), z(uchar((v.z+1)*(255.0f/2.0f))) {}
+    explicit bvec(const bvec4 &v);
 
     uchar &operator[](int i)       { return v[i]; }
     uchar  operator[](int i) const { return v[i]; }
@@ -1049,7 +1307,7 @@ struct bvec
 
     bool iszero() const { return x==0 && y==0 && z==0; }
 
-    vec tovec() const { return vec(x*(2.0f/255.0f)-1.0f, y*(2.0f/255.0f)-1.0f, z*(2.0f/255.0f)-1.0f); }
+    vec tonormal() const { return vec(x*(2.0f/255.0f)-1.0f, y*(2.0f/255.0f)-1.0f, z*(2.0f/255.0f)-1.0f); }
 
     bvec &normalize()
     {
@@ -1063,186 +1321,327 @@ struct bvec
 
     void lerp(const bvec &a, const bvec &b, float t) { x = uchar(a.x + (b.x-a.x)*t); y = uchar(a.y + (b.y-a.y)*t); z = uchar(a.z + (b.z-a.z)*t); }
 
-    void flip() { x -= 128; y -= 128; z -= 128; }
+    void lerp(const bvec &a, const bvec &b, int ka, int kb, int d)
+    {
+        x = uchar((a.x*ka + b.x*kb)/d);
+        y = uchar((a.y*ka + b.y*kb)/d);
+        z = uchar((a.z*ka + b.z*kb)/d);
+    }
+
+    void flip() { x ^= 0x80; y ^= 0x80; z ^= 0x80; }
+
+    void scale(int k, int d) { x = uchar((x*k)/d); y = uchar((y*k)/d); z = uchar((z*k)/d); }
+
+    bvec &shl(int n) { x<<= n; y<<= n; z<<= n; return *this; }
+    bvec &shr(int n) { x>>= n; y>>= n; z>>= n; return *this; }
+
+    static bvec fromcolor(const vec &v) { return bvec(uchar(v.x*255.0f), uchar(v.y*255.0f), uchar(v.z*255.0f)); }
+    vec tocolor() const { return vec(x*(1.0f/255.0f), y*(1.0f/255.0f), z*(1.0f/255.0f)); }
+
+    static bvec from565(ushort c) { return bvec((((c>>11)&0x1F)*527 + 15) >> 6, (((c>>5)&0x3F)*259 + 35) >> 6, ((c&0x1F)*527 + 15) >> 6); }
+
+    static bvec hexcolor(int color)
+    {
+        return bvec((color>>16)&0xFF, (color>>8)&0xFF, color&0xFF);
+    }
+    int tohexcolor() const { return (int(r)<<16)|(int(g)<<8)|int(b); }
 };
 
-struct glmatrixf
+struct bvec4
 {
-    float v[16];
-
-    glmatrixf() {}
-    glmatrixf(const float *m) { memcpy(v, m, sizeof(v)); }
-    glmatrixf(const vec4 &a, const vec4 &b, const vec4 &c, const vec4 &d = vec4(0, 0, 0, 1))
+    union
     {
-        v[0]  = a.x; v[1] =  b.x; v[2]  = c.x; v[3]  = d.x;
-        v[4]  = a.y; v[5] =  b.y; v[6]  = c.y; v[7]  = d.y;
-        v[8]  = a.z; v[9] =  b.z; v[10] = c.z; v[11] = d.z;
-        v[12] = a.w; v[13] = b.w; v[14] = c.w; v[15] = d.w;
-    }
-    glmatrixf(const matrix3x4 &m)
+        struct { uchar x, y, z, w; };
+        struct { uchar r, g, b, a; };
+        uchar v[4];
+        uint mask;
+    };
+
+    bvec4() {}
+    bvec4(uchar x, uchar y, uchar z, uchar w = 0) : x(x), y(y), z(z), w(w) {}
+    bvec4(const bvec &v, uchar w = 0) : x(v.x), y(v.y), z(v.z), w(w) {}
+
+    uchar &operator[](int i)       { return v[i]; }
+    uchar  operator[](int i) const { return v[i]; }
+
+    bool operator==(const bvec4 &v) const { return mask==v.mask; }
+    bool operator!=(const bvec4 &v) const { return mask!=v.mask; }
+
+    bool iszero() const { return mask==0; }
+
+    vec tonormal() const { return vec(x*(2.0f/255.0f)-1.0f, y*(2.0f/255.0f)-1.0f, z*(2.0f/255.0f)-1.0f); }
+
+    void lerp(const bvec4 &a, const bvec4 &b, float t)
     {
-        v[0]  = m.a.x; v[1] =  m.b.x; v[2]  = m.c.x; v[3]  = 0.0f;
-        v[4]  = m.a.y; v[5] =  m.b.y; v[6]  = m.c.y; v[7]  = 0.0f;
-        v[8]  = m.a.z; v[9] =  m.b.z; v[10] = m.c.z; v[11] = 0.0f;
-        v[12] = m.a.w; v[13] = m.b.w; v[14] = m.c.w; v[15] = 1.0f;
+        x = uchar(a.x + (b.x-a.x)*t);
+        y = uchar(a.y + (b.y-a.y)*t);
+        z = uchar(a.z + (b.z-a.z)*t);
+        w = a.w;
     }
 
-    float operator[](int i) const { return v[i]; }
-    float &operator[](int i) { return v[i]; }
-
-    #define ROTVEC(A, B) \
-    { \
-        float a = A, b = B; \
-        A = a*c + b*s; \
-        B = b*c - a*s; \
-    }
-
-    void rotate_around_x(float angle)
+    void lerp(const bvec4 &a, const bvec4 &b, int ka, int kb, int d)
     {
-        float c = cosf(angle), s = sinf(angle);
-        ROTVEC(v[4], v[8]);
-        ROTVEC(v[5], v[9]);
-        ROTVEC(v[6], v[10]);
+        x = uchar((a.x*ka + b.x*kb)/d);
+        y = uchar((a.y*ka + b.y*kb)/d);
+        z = uchar((a.z*ka + b.z*kb)/d);
+        w = a.w;
     }
 
-    void rotate_around_y(float angle)
+    void flip() { mask ^= 0x80808080; }
+};
+
+inline bvec::bvec(const bvec4 &v) : x(v.x), y(v.y), z(v.z) {}
+
+struct usvec
+{
+    union
     {
-        float c = cosf(angle), s = sinf(angle);
-        ROTVEC(v[8], v[0]);
-        ROTVEC(v[9], v[1]);
-        ROTVEC(v[10], v[2]);
-    }
+        struct { ushort x, y, z; };
+        ushort v[3];
+    };
 
-    void rotate_around_z(float angle)
+    ushort &operator[](int i) { return v[i]; }
+    ushort operator[](int i) const { return v[i]; }
+};
+
+inline ivec::ivec(const usvec &v) : x(v.x), y(v.y), z(v.z) {}
+
+struct svec
+{
+    union
     {
-        float c = cosf(angle), s = sinf(angle);
-        ROTVEC(v[0], v[4]);
-        ROTVEC(v[1], v[5]);
-        ROTVEC(v[2], v[6]);
-    }
+        struct { short x, y, z; };
+        short v[3];
+    };
 
-    #undef ROTVEC
+    svec() {}
+    svec(short x, short y, short z) : x(x), y(y), z(z) {}
+    explicit svec(const ivec &v) : x(v.x), y(v.y), z(v.z) {}
 
-    void rotate(float c, float s, const vec &d)
+    short &operator[](int i) { return v[i]; }
+    short operator[](int i) const { return v[i]; }
+};
+
+inline ivec::ivec(const svec &v) : x(v.x), y(v.y), z(v.z) {}
+
+struct svec2
+{
+    union
     {
-        vec c1(d.x*d.x*(1-c)+c, d.y*d.x*(1-c)+d.z*s, d.x*d.z*(1-c)-d.y*s),
-            c2(d.x*d.y*(1-c)-d.z*s, d.y*d.y*(1-c)+c, d.y*d.z*(1-c)+d.x*s),
-            c3(d.x*d.z*(1-c)+d.y*s, d.y*d.z*(1-c)-d.x*s, d.z*d.z*(1-c)+c);
+        struct { short x, y; };
+        short v[2];
+    };
 
-        vec r1(v[0], v[4], v[8]);
-        v[0] = r1.dot(c1);
-        v[4] = r1.dot(c2);
-        v[8] = r1.dot(c3);
+    svec2() {}
+    svec2(short x, short y) : x(x), y(y) {}
 
-        vec r2(v[1], v[5], v[9]);
-        v[1] = r2.dot(c1);
-        v[5] = r2.dot(c2);
-        v[9] = r2.dot(c3);
+    short &operator[](int i) { return v[i]; }
+    short operator[](int i) const { return v[i]; }
 
-        vec r3(v[2], v[6], v[10]);
-        v[2] = r3.dot(c1);
-        v[6] = r3.dot(c2);
-        v[10] = r3.dot(c3);
-    }
+    bool operator==(const svec2 &o) const { return x == o.x && y == o.y; }
+    bool operator!=(const svec2 &o) const { return x != o.x || y != o.y; }
 
-    void rotate(float angle, const vec &d)
+    bool iszero() const { return x==0 && y==0; }
+};
+
+struct dvec4
+{
+    double x, y, z, w;
+
+    dvec4() {}
+    dvec4(double x, double y, double z, double w) : x(x), y(y), z(z), w(w) {}
+    dvec4(const vec4 &v) : x(v.x), y(v.y), z(v.z), w(v.w) {}
+
+    template<class B> dvec4 &madd(const dvec4 &a, const B &b) { return add(dvec4(a).mul(b)); }
+    dvec4 &mul(double f)       { x *= f; y *= f; z *= f; w *= f; return *this; }
+    dvec4 &mul(const dvec4 &o) { x *= o.x; y *= o.y; z *= o.z; w *= o.w; return *this; }
+    dvec4 &add(double f)       { x += f; y += f; z += f; w += f; return *this; }
+    dvec4 &add(const dvec4 &o) { x += o.x; y += o.y; z += o.z; w += o.w; return *this; }
+
+    operator vec4() const { return vec4(x, y, z, w); }
+};
+
+struct matrix4
+{
+    vec4 a, b, c, d;
+
+    matrix4() {}
+    matrix4(const float *m) : a(m), b(m+4), c(m+8), d(m+12) {}
+    matrix4(const vec &a, const vec &b, const vec &c = vec(0, 0, 1))
+        : a(a.x, b.x, c.x, 0), b(a.y, b.y, c.y, 0), c(a.z, b.z, c.z, 0), d(0, 0, 0, 1)
+    {}
+    matrix4(const vec4 &a, const vec4 &b, const vec4 &c, const vec4 &d = vec4(0, 0, 0, 1))
+        : a(a), b(b), c(c), d(d)
+    {}
+    matrix4(const matrix4x3 &m)
+        : a(m.a, 0), b(m.b, 0), c(m.c, 0), d(m.d, 1)
+    {}
+    matrix4(const matrix3 &rot, const vec &trans)
+        : a(rot.a, 0), b(rot.b, 0), c(rot.c, 0), d(trans, 1)
+    {}
+
+    void mul(const matrix4 &x, const matrix3 &y)
     {
-        float c = cosf(angle), s = sinf(angle);
-        rotate(c, s, d);
+        a = vec4(x.a).mul(y.a.x).madd(x.b, y.a.y).madd(x.c, y.a.z);
+        b = vec4(x.a).mul(y.b.x).madd(x.b, y.b.y).madd(x.c, y.b.z);
+        c = vec4(x.a).mul(y.c.x).madd(x.b, y.c.y).madd(x.c, y.c.z);
+        d = x.d;
     }
+    void mul(const matrix3 &y) { mul(matrix4(*this), y); }
 
-    #define MULMAT(row, col) \
-       v[col + row] = x[row]*y[col] + x[row + 4]*y[col + 1] + x[row + 8]*y[col + 2] + x[row + 12]*y[col + 3];
-
-    template<class XT, class YT>
-    void mul(const XT x[16], const YT y[16])
+    template<class T> void mult(const matrix4 &x, const matrix4 &y)
     {
-        MULMAT(0, 0); MULMAT(1, 0); MULMAT(2, 0); MULMAT(3, 0);
-        MULMAT(0, 4); MULMAT(1, 4); MULMAT(2, 4); MULMAT(3, 4);
-        MULMAT(0, 8); MULMAT(1, 8); MULMAT(2, 8); MULMAT(3, 8);
-        MULMAT(0, 12); MULMAT(1, 12); MULMAT(2, 12); MULMAT(3, 12);
+        a = T(x.a).mul(y.a.x).madd(x.b, y.a.y).madd(x.c, y.a.z).madd(x.d, y.a.w);
+        b = T(x.a).mul(y.b.x).madd(x.b, y.b.y).madd(x.c, y.b.z).madd(x.d, y.b.w);
+        c = T(x.a).mul(y.c.x).madd(x.b, y.c.y).madd(x.c, y.c.z).madd(x.d, y.c.w);
+        d = T(x.a).mul(y.d.x).madd(x.b, y.d.y).madd(x.c, y.d.z).madd(x.d, y.d.w);
     }
 
-    #undef MULMAT
+    void mul(const matrix4 &x, const matrix4 &y) { mult<vec4>(x, y); }
+    void mul(const matrix4 &y) { mult<vec4>(matrix4(*this), y); }
 
-    void mul(const glmatrixf &x, const glmatrixf &y)
+    void muld(const matrix4 &x, const matrix4 &y) { mult<dvec4>(x, y); }
+    void muld(const matrix4 &y) { mult<dvec4>(matrix4(*this), y); }
+
+    void rotate_around_x(float ck, float sk)
     {
-        mul(x.v, y.v);
+        vec4 rb = vec4(b).mul(ck).madd(c, sk),
+             rc = vec4(c).mul(ck).msub(b, sk);
+        b = rb;
+        c = rc;
     }
-    void mul(const glmatrixf &y) { mul(glmatrixf(*this), y); }
+    void rotate_around_x(float angle) { rotate_around_x(cosf(angle), sinf(angle)); }
+    void rotate_around_x(const vec2 &sc) { rotate_around_x(sc.x, sc.y); }
+
+    void rotate_around_y(float ck, float sk)
+    {
+        vec4 rc = vec4(c).mul(ck).madd(a, sk),
+             ra = vec4(a).mul(ck).msub(c, sk);
+        c = rc;
+        a = ra;
+    }
+    void rotate_around_y(float angle) { rotate_around_y(cosf(angle), sinf(angle)); }
+    void rotate_around_y(const vec2 &sc) { rotate_around_y(sc.x, sc.y); }
+
+    void rotate_around_z(float ck, float sk)
+    {
+        vec4 ra = vec4(a).mul(ck).madd(b, sk),
+             rb = vec4(b).mul(ck).msub(a, sk);
+        a = ra;
+        b = rb;
+    }
+    void rotate_around_z(float angle) { rotate_around_z(cosf(angle), sinf(angle)); }
+    void rotate_around_z(const vec2 &sc) { rotate_around_z(sc.x, sc.y); }
+
+    void rotate(float ck, float sk, const vec &axis)
+    {
+        matrix3 m;
+        m.rotate(ck, sk, axis);
+        mul(m);
+    }
+    void rotate(float angle, const vec &dir) { rotate(cosf(angle), sinf(angle), dir); }
+    void rotate(const vec2 &sc, const vec &dir) { rotate(sc.x, sc.y, dir); }
 
     void identity()
     {
-        static const float m[16] =
-        {
-            1, 0, 0, 0,
-            0, 1, 0, 0,
-            0, 0, 1, 0,
-            0, 0, 0, 1
-        };
-        memcpy(v, m, sizeof(v));
+        a = vec4(1, 0, 0, 0);
+        b = vec4(0, 1, 0, 0);
+        c = vec4(0, 0, 1, 0);
+        d = vec4(0, 0, 0, 1);
     }
 
-    void translate(float x, float y, float z)
-    {
-        v[12] += x;
-        v[13] += y;
-        v[14] += z;
-    }
+    void settranslation(const vec &v) { d.setxyz(v); }
+    void settranslation(float x, float y, float z) { d.x = x; d.y = y; d.z = z; }
 
-    void translate(const vec &o)
-    {
-        translate(o.x, o.y, o.z);
-    }
+    void translate(const vec &p) { d.madd(a, p.x).madd(b, p.y).madd(c, p.z); }
+    void translate(float x, float y, float z) { translate(vec(x, y, z)); }
+    void translate(const vec &p, float scale) { translate(vec(p).mul(scale)); }
 
-    void transformedtranslate(float x, float y, float z, float scale = 1)
-    {
-        v[12] += (x*v[0] + y*v[4] + z*v[8])*scale;
-        v[13] += (x*v[1] + y*v[5] + z*v[9])*scale;
-        v[14] += (x*v[2] + y*v[6] + z*v[10])*scale;
-    }
-
-    void transformedtranslate(const vec &p, float scale = 1)
-    {
-        transformedtranslate(p.x, p.y, p.z, scale);
-    }
+    void setscale(float x, float y, float z) { a.x = x; b.y = y; c.z = z; }
+    void setscale(const vec &v) { setscale(v.x, v.y, v.z); }
+    void setscale(float n) { setscale(n, n, n); }
 
     void scale(float x, float y, float z)
     {
-        v[0] *= x; v[1] *= x; v[2] *= x; v[3] *= x;
-        v[4] *= y; v[5] *= y; v[6] *= y; v[7] *= y;
-        v[8] *= z; v[9] *= z; v[10] *= z; v[11] *= z;
+        a.mul(x);
+        b.mul(y);
+        c.mul(z);
+    }
+    void scale(const vec &v) { scale(v.x, v.y, v.z); }
+    void scale(float n) { scale(n, n, n); }
+
+    void scalexy(float x, float y)
+    {
+        a.x *= x; a.y *= y;
+        b.x *= x; b.y *= y;
+        c.x *= x; c.y *= y;
+        d.x *= x; d.y *= y;
+    }
+
+    void scalez(float k)
+    {
+        a.z *= k;
+        b.z *= k;
+        c.z *= k;
+        d.z *= k;
     }
 
     void reflectz(float z)
     {
-        v[12] += 2*z*v[8];
-        v[13] += 2*z*v[9];
-        v[14] += 2*z*v[10];
-        v[15] += 2*z*v[11];
-        v[8] = -v[8]; v[9] = -v[9]; v[10] = -v[10]; v[11] = -v[11];
+        d.add(vec4(c).mul(2*z));
+        c.neg();
     }
 
     void projective(float zscale = 0.5f, float zoffset = 0.5f)
     {
-        loopi(2) loopj(4) v[i + j*4] = 0.5f*(v[i + j*4] + v[3 + j*4]); 
-        loopj(4) v[2 + j*4] = zscale*v[2 + j*4] + zoffset*v[3 + j*4];
+        a.x = 0.5f*(a.x + a.w);
+        a.y = 0.5f*(a.y + a.w);
+        b.x = 0.5f*(b.x + b.w);
+        b.y = 0.5f*(b.y + b.w);
+        c.x = 0.5f*(c.x + c.w);
+        c.y = 0.5f*(c.y + c.w);
+        d.x = 0.5f*(d.x + d.w);
+        d.y = 0.5f*(d.y + d.w);
+        a.z = zscale*a.z + zoffset*a.w;
+        b.z = zscale*b.z + zoffset*b.w;
+        c.z = zscale*c.z + zoffset*c.w;
+        d.z = zscale*d.z + zoffset*d.w;
+    }
+
+    void jitter(float x, float y)
+    {
+        a.x += x * a.w;
+        a.y += y * a.w;
+        b.x += x * b.w;
+        b.y += y * b.w;
+        c.x += x * c.w;
+        c.y += y * c.w;
+        d.x += x * d.w;
+        d.y += y * d.w;
     }
 
     void transpose()
     {
-        swap(v[1], v[4]); swap(v[2], v[8]); swap(v[3], v[12]);
-        swap(v[6], v[9]); swap(v[7], v[13]);
-        swap(v[11], v[14]);
+        swap(a.y, b.x); swap(a.z, c.x); swap(a.w, d.x);
+        swap(b.z, c.y); swap(b.w, d.y);
+        swap(c.w, d.z);
+    }
+
+    void transpose(const matrix4 &m)
+    {
+        a = vec4(m.a.x, m.b.x, m.c.x, m.d.x);
+        b = vec4(m.a.y, m.b.y, m.c.y, m.d.y);
+        c = vec4(m.a.z, m.b.z, m.c.z, m.d.z);
+        d = vec4(m.a.w, m.b.w, m.c.w, m.d.w);
     }
 
     void frustum(float left, float right, float bottom, float top, float znear, float zfar)
     {
         float width = right - left, height = top - bottom, zrange = znear - zfar;
-        v[0] = 2*znear/width; v[4] = 0;              v[8] = (right + left)/width;   v[12] = 0;
-        v[1] = 0;             v[5] = 2*znear/height; v[9] = (top + bottom)/height;  v[13] = 0;
-        v[2] = 0;             v[6] = 0;              v[10] = (zfar + znear)/zrange; v[14] = 2*znear*zfar/zrange;
-        v[3] = 0;             v[7] = 0;              v[11] = -1;                    v[15] = 0;
+        a = vec4(2*znear/width, 0, 0, 0);
+        b = vec4(0, 2*znear/height, 0, 0);
+        c = vec4((right + left)/width, (top + bottom)/height, (zfar + znear)/zrange, -1);
+        d = vec4(0, 0, 2*znear*zfar/zrange, 0);
     }
 
     void perspective(float fovy, float aspect, float znear, float zfar)
@@ -1251,130 +1650,179 @@ struct glmatrixf
         frustum(-xdist, xdist, -ydist, ydist, znear, zfar);
     }
 
-    void clip(const plane &p, const glmatrixf &m)
+    void ortho(float left, float right, float bottom, float top, float znear, float zfar)
     {
-        float x = ((p.x<0 ? -1 : (p.x>0 ? 1 : 0)) + m.v[8]) / m.v[0],
-              y = ((p.y<0 ? -1 : (p.y>0 ? 1 : 0)) + m.v[9]) / m.v[5],
-              w = (1 + m.v[10]) / m.v[14],
+        float width = right - left, height = top - bottom, zrange = znear - zfar;
+        a = vec4(2/width, 0, 0, 0);
+        b = vec4(0, 2/height, 0, 0);
+        c = vec4(0, 0, 2/zrange, 0);
+        d = vec4(-(right+left)/width, -(top+bottom)/height, (zfar+znear)/zrange, 1);
+    }
+
+    void clip(const plane &p, const matrix4 &m)
+    {
+        float x = ((p.x<0 ? -1 : (p.x>0 ? 1 : 0)) + m.c.x) / m.a.x,
+              y = ((p.y<0 ? -1 : (p.y>0 ? 1 : 0)) + m.c.y) / m.b.y,
+              w = (1 + m.c.z) / m.d.z,
             scale = 2 / (x*p.x + y*p.y - p.z + w*p.offset);
-        memcpy(v, m.v, sizeof(v));
-        v[2] = p.x*scale;
-        v[6] = p.y*scale;
-        v[10] = p.z*scale + 1.0f;
-        v[14] = p.offset*scale;
-    }
-            
-    float transformx(const vec &p) const
-    {
-        return p.x*v[0] + p.y*v[4] + p.z*v[8] + v[12];
+        a = vec4(m.a.x, m.a.y, p.x*scale, m.a.w);
+        b = vec4(m.b.x, m.b.y, p.y*scale, m.b.w);
+        c = vec4(m.c.x, m.c.y, p.z*scale + 1.0f, m.c.w);
+        d = vec4(m.d.x, m.d.y, p.offset*scale, m.d.w);
     }
 
-    float transformy(const vec &p) const
+    void transform(const vec &in, vec &out) const
     {
-        return p.x*v[1] + p.y*v[5] + p.z*v[9] + v[13];
+        out = vec(a).mul(in.x).add(vec(b).mul(in.y)).add(vec(c).mul(in.z)).add(vec(d));
     }
 
-    float transformz(const vec &p) const
+    void transform(const vec4 &in, vec &out) const
     {
-        return p.x*v[2] + p.y*v[6] + p.z*v[10] + v[14];
+        out = vec(a).mul(in.x).add(vec(b).mul(in.y)).add(vec(c).mul(in.z)).add(vec(d).mul(in.w));
     }
 
-    float transformw(const vec &p) const
+    void transform(const vec &in, vec4 &out) const
     {
-        return p.x*v[3] + p.y*v[7] + p.z*v[11] + v[15];
+        out = vec4(a).mul(in.x).madd(b, in.y).madd(c, in.z).add(d);
     }
 
-    float transformx(const vec4 &p) const
+    void transform(const vec4 &in, vec4 &out) const
     {
-        return p.x*v[0] + p.y*v[4] + p.z*v[8] + p.w*v[12];
+        out = vec4(a).mul(in.x).madd(b, in.y).madd(c, in.z).madd(d, in.w);
     }
 
-    float transformy(const vec4 &p) const
+    template<class T, class U> T transform(const U &in) const
     {
-        return p.x*v[1] + p.y*v[5] + p.z*v[9] + p.w*v[13];
-    }
-
-    float transformz(const vec4 &p) const
-    {
-        return p.x*v[2] + p.y*v[6] + p.z*v[10] + p.w*v[14];
-    }
-
-    float transformw(const vec4 &p) const
-    {
-        return p.x*v[3] + p.y*v[7] + p.z*v[11] + p.w*v[15];
-    }
-
-    template<class T> void transform(const T &in, vec &out) const
-    {
-        out.x = transformx(in);
-        out.y = transformy(in);
-        out.z = transformz(in);
-    }
-
-    template<class T> void transform(const T &in, vec4 &out) const
-    {
-        out.x = transformx(in);
-        out.y = transformy(in);
-        out.z = transformz(in);
-        out.w = transformw(in);
+        T v;
+        transform(in, v);
+        return v;
     }
 
     template<class T> vec perspectivetransform(const T &in) const
     {
-        return vec(transformx(in), transformy(in), transformz(in)).div(transformw(in));
+        vec4 v;
+        transform(in, v);
+        return vec(v).div(v.w);
     }
 
     void transformnormal(const vec &in, vec &out) const
     {
-        out.x = in.x*v[0] + in.y*v[4] + in.z*v[8];
-        out.y = in.x*v[1] + in.y*v[5] + in.z*v[9];
-        out.z = in.x*v[2] + in.y*v[6] + in.z*v[10];
+        out = vec(a).mul(in.x).add(vec(b).mul(in.y)).add(vec(c).mul(in.z));
+    }
+
+    void transformnormal(const vec &in, vec4 &out) const
+    {
+        out = vec4(a).mul(in.x).madd(b, in.y).madd(c, in.z);
+    }
+
+    template<class T, class U> T transformnormal(const U &in) const
+    {
+        T v;
+        transformnormal(in, v);
+        return v;
     }
 
     void transposedtransform(const vec &in, vec &out) const
     {
-        vec p(in.x - v[12], in.y - v[13], in.z - v[14]);
-        out.x = p.x*v[0] + p.y*v[1] + p.z*v[2];
-        out.y = p.x*v[4] + p.y*v[5] + p.z*v[6];
-        out.z = p.x*v[8] + p.y*v[9] + p.z*v[10];
+        vec p = vec(in).sub(vec(d));
+        out.x = a.dot3(p);
+        out.y = b.dot3(p);
+        out.z = c.dot3(p);
     }
 
     void transposedtransformnormal(const vec &in, vec &out) const
     {
-        out.x = in.x*v[0] + in.y*v[1] + in.z*v[2];
-        out.y = in.x*v[4] + in.y*v[5] + in.z*v[6];
-        out.z = in.x*v[8] + in.y*v[9] + in.z*v[10];
+        out.x = a.dot3(in);
+        out.y = b.dot3(in);
+        out.z = c.dot3(in);
     }
 
     void transposedtransform(const plane &in, plane &out) const
     {
-        out.x      = in.x*v[0] + in.y*v[1] + in.z*v[2] + in.offset*v[3];
-        out.y      = in.x*v[4] + in.y*v[5] + in.z*v[6] + in.offset*v[7];
-        out.z      = in.x*v[8] + in.y*v[9] + in.z*v[10] + in.offset*v[11];
-        out.offset = in.x*v[12] + in.y*v[13] + in.z*v[14] + in.offset*v[15];
+        out.x = in.dist(a);
+        out.y = in.dist(b);
+        out.z = in.dist(c);
+        out.offset = in.dist(d);
     }
 
     float getscale() const
     {
-        return sqrtf(v[0]*v[0] + v[4]*v[4] + v[8]*v[8]);
+        return sqrtf(a.x*a.y + b.x*b.x + c.x*c.x);
     }
 
     vec gettranslation() const
     {
-        return vec(v[12], v[13], v[14]);
+        return vec(d);
     }
 
-    vec4 getrow(int i) const { return vec4(v[i], v[i+4], v[i+8], v[i+12]); }
-    vec4 getcolumn(int i) const { i *= 4; return vec4(v[i], v[i+1], v[i+2], v[i+3]); }
+    vec4 rowx() const { return vec4(a.x, b.x, c.x, d.x); }
+    vec4 rowy() const { return vec4(a.y, b.y, c.y, d.y); }
+    vec4 rowz() const { return vec4(a.z, b.z, c.z, d.z); }
+    vec4 roww() const { return vec4(a.w, b.w, c.w, d.w); }
 
-    float determinant() const;
-    void adjoint(const glmatrixf &m);
-    bool invert(const glmatrixf &m, float mindet = 1.0e-10f);
+    bool invert(const matrix4 &m, double mindet = 1.0e-12);
+
+    vec2 lineardepthscale() const
+    {
+        return vec2(d.w, -d.z).div(c.z*d.w - d.z*c.w);
+    }
+};
+
+inline matrix3::matrix3(const matrix4 &m)
+    : a(m.a), b(m.b), c(m.c)
+{}
+
+inline matrix4x3::matrix4x3(const matrix4 &m)
+    : a(m.a), b(m.b), c(m.c), d(m.d)
+{}
+
+struct matrix2
+{
+    vec2 a, b;
+
+    matrix2() {}
+    matrix2(const vec2 &a, const vec2 &b) : a(a), b(b) {}
+    explicit matrix2(const matrix4 &m) : a(m.a), b(m.b) {}
+    explicit matrix2(const matrix3 &m) : a(m.a), b(m.b) {}
+};
+
+struct squat
+{
+    short x, y, z, w;
+
+    squat() {}
+    squat(const vec4 &q) { convert(q); }
+
+    void convert(const vec4 &q)
+    {
+        x = short(q.x*32767.5f-0.5f);
+        y = short(q.y*32767.5f-0.5f);
+        z = short(q.z*32767.5f-0.5f);
+        w = short(q.w*32767.5f-0.5f);
+    }
+
+    void lerp(const vec4 &a, const vec4 &b, float t)
+    {
+        vec4 q;
+        q.lerp(a, b, t);
+        convert(q);
+    }
 };
 
 extern bool raysphereintersect(const vec &center, float radius, const vec &o, const vec &ray, float &dist);
-extern bool rayrectintersect(const vec &b, const vec &s, const vec &o, const vec &ray, float &dist, int &orient);
+extern bool rayboxintersect(const vec &b, const vec &s, const vec &o, const vec &ray, float &dist, int &orient);
 extern bool linecylinderintersect(const vec &from, const vec &to, const vec &start, const vec &end, float radius, float &dist);
 
 extern const vec2 sincos360[];
+static inline int mod360(int angle)
+{
+    if(angle < 0) angle = 360 + (angle <= -360 ? angle%360 : angle);
+    else if(angle >= 360) angle %= 360;
+    return angle;
+}
+static inline const vec2 &sincosmod360(int angle) { return sincos360[mod360(angle)]; }
+static inline float cos360(int angle) { return sincos360[angle].x; }
+static inline float sin360(int angle) { return sincos360[angle].y; }
+static inline float tan360(int angle) { const vec2 &sc = sincos360[angle]; return sc.y/sc.x; }
+static inline float cotan360(int angle) { const vec2 &sc = sincos360[angle]; return sc.x/sc.y; }
 

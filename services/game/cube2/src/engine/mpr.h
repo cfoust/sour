@@ -5,11 +5,11 @@ namespace mpr
     struct CubePlanes
     {
         const clipplanes &p;
-    
+
         CubePlanes(const clipplanes &p) : p(p) {}
-    
+
         vec center() const { return p.o; }
-    
+
         vec supportpoint(const vec &n) const
         {
             int besti = 7;
@@ -22,77 +22,53 @@ namespace mpr
             return p.v[besti];
         }
     };
-    
+
     struct SolidCube
     {
         vec o;
         int size;
-    
+
         SolidCube(float x, float y, float z, int size) : o(x, y, z), size(size) {}
         SolidCube(const vec &o, int size) : o(o), size(size) {}
-        SolidCube(const ivec &o, int size) : o(o.tovec()), size(size) {}
- 
+        SolidCube(const ivec &o, int size) : o(o), size(size) {}
+
         vec center() const { return vec(o).add(size/2); }
-    
+
         vec supportpoint(const vec &n) const
         {
             vec p(o);
             if(n.x > 0) p.x += size;
             if(n.y > 0) p.y += size;
-            if(n.z > 0) p.z += size; 
-            return p;
-        }
-    };
-    
-    struct EntAABB
-    {
-        physent *ent;
-
-        EntAABB(physent *ent) : ent(ent) {}
-
-        vec center() const { vec o(ent->o); o.z += (ent->aboveeye - ent->eyeheight)/2; return o; }
-
-        vec contactface(const vec &n, const vec &dir) const
-        {
-            vec an(n.x*dir.x < 0 ? fabs(n.x)/ent->xradius : 0, n.y*dir.y < 0 ? fabs(n.y)/ent->yradius : 0, n.z*dir.z < 0 ? fabs(n.z)*2/(ent->aboveeye + ent->eyeheight) : 0),
-                fn(0, 0, 0);
-            if(an.x > an.y)
-            {
-                if(an.x > an.z) fn.x = n.x > 0 ? 1 : -1;
-                else if(an.z > 0) fn.z = n.z > 0 ? 1 : -1;
-            }
-            else if(an.y > an.z) fn.y = n.y > 0 ? 1 : -1;
-            else if(an.z > 0) fn.z = n.z > 0 ? 1 : -1;
-            return fn;
-        }
-
-        vec supportpoint(const vec &n) const
-        {
-            vec p(ent->o);
-            if(n.x > 0) p.x += ent->xradius;
-            else p.x -= ent->xradius;
-            if(n.y > 0) p.y += ent->yradius;
-            else p.y -= ent->yradius;
-            if(n.z > 0) p.z += ent->aboveeye;
-            else p.z -= ent->eyeheight;
+            if(n.z > 0) p.z += size;
             return p;
         }
     };
 
-    struct EntOBB
+    struct Ent
     {
         physent *ent;
-        quat orient;
+
+        Ent(physent *ent) : ent(ent) {}
+
+        vec center() const { return vec(ent->o.x, ent->o.y, ent->o.z + (ent->aboveeye - ent->eyeheight)/2); }
+    };
+
+    struct EntOBB : Ent
+    {
+        matrix3 orient;
         float zmargin;
 
-        EntOBB(physent *ent, float zmargin = 0) : ent(ent), orient(vec(0, 0, 1), ent->yaw*RAD), zmargin(zmargin) {}
+        EntOBB(physent *ent, float zmargin = 0) : Ent(ent), zmargin(zmargin)
+        {
+            orient.setyaw(ent->yaw*RAD);
+        }
 
-        vec center() const { vec o(ent->o); o.z += (ent->aboveeye - ent->eyeheight - zmargin)/2; return o; }
-
+        vec center() const { return vec(ent->o.x, ent->o.y, ent->o.z + (ent->aboveeye - ent->eyeheight - zmargin)/2); }
+        
         vec contactface(const vec &wn, const vec &wdir) const
         {
-            vec n = orient.invertedrotate(wn).div(vec(ent->xradius, ent->yradius, (ent->aboveeye + ent->eyeheight + zmargin)/2)), 
-                dir = orient.invertedrotate(wdir), 
+            vec n = orient.transform(wn).div(vec(ent->xradius, ent->yradius, (ent->aboveeye + ent->eyeheight + zmargin)/2)),
+                dir = orient.transform(wdir),
                 an(fabs(n.x), fabs(n.y), dir.z ? fabs(n.z) : 0),
                 fn(0, 0, 0);
             if(an.x > an.y)
@@ -102,37 +78,66 @@ namespace mpr
             }
             else if(an.y > an.z) fn.y = n.y*dir.y < 0 ? (n.y > 0 ? 1 : -1) : 0;
             else if(an.z > 0) fn.z = n.z*dir.z < 0 ? (n.z > 0 ? 1 : -1) : 0;
-            return orient.rotate(fn);
+            return orient.transposedtransform(fn);
+        }
+
+        vec localsupportpoint(const vec &ln) const
+        {
+            return vec(ln.x > 0 ? ent->xradius : -ent->xradius,
+                       ln.y > 0 ? ent->yradius : -ent->yradius,
+                       ln.z > 0 ? ent->aboveeye : -ent->eyeheight - zmargin);
         }
 
         vec supportpoint(const vec &n) const
         {
-            vec ln = orient.invertedrotate(n), p(0, 0, 0);
-            if(ln.x > 0) p.x += ent->xradius;
-            else p.x -= ent->xradius;
-            if(ln.y > 0) p.y += ent->yradius;
-            else p.y -= ent->yradius;
-            if(ln.z > 0) p.z += ent->aboveeye;
-            else p.z -= ent->eyeheight + zmargin;
-            return orient.rotate(p).add(ent->o);
+            return orient.transposedtransform(localsupportpoint(orient.transform(n))).add(ent->o);
         }
+
+        float supportcoordneg(float a, float b, float c) const
+        {
+            return localsupportpoint(vec(-a, -b, -c)).dot(vec(a, b, c));
+        }
+        float supportcoord(float a, float b, float c) const
+        {
+            return localsupportpoint(vec(a, b, c)).dot(vec(a, b, c));
+        }
+
+        float left() const { return supportcoordneg(orient.a.x, orient.b.x, orient.c.x) + ent->o.x; }
+        float right() const { return supportcoord(orient.a.x, orient.b.x, orient.c.x) + ent->o.x; }
+        float back() const { return supportcoordneg(orient.a.y, orient.b.y, orient.c.y) + ent->o.y; }
+        float front() const { return supportcoord(orient.a.y, orient.b.y, orient.c.y) + ent->o.y; }
+        float bottom() const { return ent->o.z - ent->eyeheight - zmargin; }
+        float top() const { return ent->o.z + ent->aboveeye; }
     };
 
-    struct EntCylinder
+    struct EntFuzzy : Ent
     {
-        physent *ent;
+        EntFuzzy(physent *ent) : Ent(ent) {}
+
+        float left() const { return ent->o.x - ent->radius; }
+        float right() const { return ent->o.x + ent->radius; }
+        float back() const { return ent->o.y - ent->radius; }
+        float front() const { return ent->o.y + ent->radius; }
+        float bottom() const { return ent->o.z - ent->eyeheight; }
+        float top() const { return ent->o.z + ent->aboveeye; }
+    };
+
+    struct EntCylinder : EntFuzzy
+    {
         float zmargin;
- 
-        EntCylinder(physent *ent, float zmargin = 0) : ent(ent), zmargin(zmargin) {}
-    
-        vec center() const { vec o(ent->o); o.z += (ent->aboveeye - ent->eyeheight - zmargin)/2; return o; }
-   
+
+        EntCylinder(physent *ent, float zmargin = 0) : EntFuzzy(ent), zmargin(zmargin) {}
+
+        vec center() const { return vec(ent->o.x, ent->o.y, ent->o.z + (ent->aboveeye - ent->eyeheight - zmargin)/2); }
+
+        float bottom() const { return ent->o.z - ent->eyeheight - zmargin; }
+
         vec contactface(const vec &n, const vec &dir) const
         {
             float dxy = n.dot2(n)/(ent->radius*ent->radius), dz = n.z*n.z*4/(ent->aboveeye + ent->eyeheight + zmargin);
             vec fn(0, 0, 0);
             if(dz > dxy && dir.z) fn.z = n.z*dir.z < 0 ? (n.z > 0 ? 1 : -1) : 0;
-            else if(n.dot2(dir) < 0) 
+            else if(n.dot2(dir) < 0)
             {
                 fn.x = n.x;
                 fn.y = n.y;
@@ -140,7 +145,7 @@ namespace mpr
             }
             return fn;
         }
- 
+
         vec supportpoint(const vec &n) const
         {
             vec p(ent->o);
@@ -156,13 +161,9 @@ namespace mpr
         }
     };
 
-    struct EntCapsule
+    struct EntCapsule : EntFuzzy
     {
-        physent *ent;
-
-        EntCapsule(physent *ent) : ent(ent) {}
-
-        vec center() const { vec o(ent->o); o.z += (ent->aboveeye - ent->eyeheight)/2; return o; }
+        EntCapsule(physent *ent) : EntFuzzy(ent) {}
 
         vec supportpoint(const vec &n) const
         {
@@ -174,39 +175,43 @@ namespace mpr
         }
     };
 
-    struct EntEllipsoid
+    struct EntEllipsoid : EntFuzzy
     {
-        physent *ent;
-
-        EntEllipsoid(physent *ent) : ent(ent) {}
-
-        vec center() const { vec o(ent->o); o.z += (ent->aboveeye - ent->eyeheight)/2; return o; }
+        EntEllipsoid(physent *ent) : EntFuzzy(ent) {}
 
         vec supportpoint(const vec &dir) const
         {
             vec p(ent->o), n = vec(dir).normalize();
             p.x += ent->radius*n.x;
-            p.y += ent->radius*n.y; 
+            p.y += ent->radius*n.y;
             p.z += (ent->aboveeye + ent->eyeheight)/2*(1 + n.z) - ent->eyeheight;
             return p;
         }
     };
 
-    struct ModelOBB
+    struct Model
     {
         vec o, radius;
-        quat orient;
+        matrix3 orient;
 
-        ModelOBB(const vec &ent, const vec &center, const vec &radius, float yaw) : o(ent), radius(radius), orient(vec(0, 0, 1), yaw*RAD) 
+        Model(const vec &ent, const vec &center, const vec &radius, int yaw) : o(ent), radius(radius)
         {
-            o.add(orient.rotate(center));
+            orient.setyaw(yaw*RAD);
+            o.add(orient.transposedtransform(center));
         }
 
         vec center() const { return o; }
+    };
+
+    struct ModelOBB : Model
+    {
+        ModelOBB(const vec &ent, const vec &center, const vec &radius, int yaw) :
+            Model(ent, center, radius, yaw)
+        {}
 
         vec contactface(const vec &wn, const vec &wdir) const
         {
-            vec n = orient.invertedrotate(wn).div(radius), dir = orient.invertedrotate(wdir),
+            vec n = orient.transform(wn).div(radius), dir = orient.transform(wdir),
                 an(fabs(n.x), fabs(n.y), dir.z ? fabs(n.z) : 0),
                 fn(0, 0, 0);
             if(an.x > an.y)
@@ -216,103 +221,97 @@ namespace mpr
             }
             else if(an.y > an.z) fn.y = n.y*dir.y < 0 ? (n.y > 0 ? 1 : -1) : 0;
             else if(an.z > 0) fn.z = n.z*dir.z < 0 ? (n.z > 0 ? 1 : -1) : 0;
-            return orient.rotate(fn);
+            return orient.transposedtransform(fn);
         }
 
         vec supportpoint(const vec &n) const
         {
-            vec ln = orient.invertedrotate(n), p(0, 0, 0);
+            vec ln = orient.transform(n), p(0, 0, 0);
             if(ln.x > 0) p.x += radius.x;
             else p.x -= radius.x;
             if(ln.y > 0) p.y += radius.y;
             else p.y -= radius.y;
             if(ln.z > 0) p.z += radius.z;
             else p.z -= radius.z;
-            return orient.rotate(p).add(o);
+            return orient.transposedtransform(p).add(o);
         }
     };
 
-    struct ModelEllipse
+    struct ModelEllipse : Model
     {
-        vec o, radius;
-        quat orient;
-
-        ModelEllipse(const vec &ent, const vec &center, const vec &radius, float yaw) : o(ent), radius(radius), orient(vec(0, 0, 1), yaw*RAD) 
-        {
-            o.add(orient.rotate(center));
-        }
-
-        vec center() const { return o; }
+        ModelEllipse(const vec &ent, const vec &center, const vec &radius, int yaw) :
+            Model(ent, center, radius, yaw)
+        {}
 
         vec contactface(const vec &wn, const vec &wdir) const
         {
-            vec n = orient.invertedrotate(wn).div(radius), dir = orient.invertedrotate(wdir);
+            vec n = orient.transform(wn).div(radius), dir = orient.transform(wdir);
             float dxy = n.dot2(n), dz = n.z*n.z;
             vec fn(0, 0, 0);
             if(dz > dxy && dir.z) fn.z = n.z*dir.z < 0 ? (n.z > 0 ? 1 : -1) : 0;
-            else if(n.dot2(dir) < 0) 
+            else if(n.dot2(dir) < 0)
             {
-                fn.x = n.x*radius.x;
-                fn.y = n.y*radius.y;
+                fn.x = n.x*radius.y;
+                fn.y = n.y*radius.x;
                 fn.normalize();
             }
-            return orient.rotate(fn);
+            return orient.transposedtransform(fn);
         }
 
         vec supportpoint(const vec &n) const
         {
-            vec ln = orient.invertedrotate(n), p(0, 0, 0);
+            vec ln = orient.transform(n), p(0, 0, 0);
             if(ln.z > 0) p.z += radius.z;
             else p.z -= radius.z;
             if(ln.x || ln.y)
             {
-                float r = n.magnitude2();
+                float r = ln.magnitude2();
                 p.x += ln.x*radius.x/r;
                 p.y += ln.y*radius.y/r;
             }
-            return orient.rotate(p).add(o);
+            return orient.transposedtransform(p).add(o);
         }
     };
- 
+
     const float boundarytolerance = 1e-3f;
-        
+
     template<class T, class U>
     bool collide(const T &p1, const U &p2)
     {
         // v0 = center of Minkowski difference
         vec v0 = p2.center().sub(p1.center());
         if(v0.iszero()) return true;  // v0 and origin overlap ==> hit
-    
+
         // v1 = support in direction of origin
         vec n = vec(v0).neg();
         vec v1 = p2.supportpoint(n).sub(p1.supportpoint(vec(n).neg()));
         if(v1.dot(n) <= 0) return false;  // origin outside v1 support plane ==> miss
-    
+
         // v2 = support perpendicular to plane containing origin, v0 and v1
         n.cross(v1, v0);
         if(n.iszero()) return true;   // v0, v1 and origin colinear (and origin inside v1 support plane) == > hit
         vec v2 = p2.supportpoint(n).sub(p1.supportpoint(vec(n).neg()));
         if(v2.dot(n) <= 0) return false;  // origin outside v2 support plane ==> miss
-    
+
         // v3 = support perpendicular to plane containing v0, v1 and v2
         n.cross(v0, v1, v2);
-    
+
         // If the origin is on the - side of the plane, reverse the direction of the plane
         if(n.dot(v0) > 0)
         {
             swap(v1, v2);
             n.neg();
         }
-    
+
         ///
         // Phase One: Find a valid portal
-    
+
         loopi(100)
         {
             // Obtain the next support point
             vec v3 = p2.supportpoint(n).sub(p1.supportpoint(vec(n).neg()));
             if(v3.dot(n) <= 0) return false;  // origin outside v3 support plane ==> miss
-    
+
             // If origin is outside (v1,v0,v3), then portal is invalid -- eliminate v2 and find new support outside face
             vec v3xv0;
             v3xv0.cross(v3, v0);
@@ -322,7 +321,7 @@ namespace mpr
                 n.cross(v0, v1, v3);
                 continue;
             }
-    
+
             // If origin is outside (v3,v0,v2), then portal is invalid -- eliminate v1 and find new support outside face
             if(v2.dot(v3xv0) > 0)
             {
@@ -330,23 +329,23 @@ namespace mpr
                 n.cross(v0, v3, v2);
                 continue;
             }
-    
+
             ///
             // Phase Two: Refine the portal
-    
+
             for(int j = 0;; j++)
             {
                 // Compute outward facing normal of the portal
                 n.cross(v1, v2, v3);
-    
+
                 // If the origin is inside the portal, we have a hit
                 if(n.dot(v1) >= 0) return true;
-    
+
                 n.normalize();
 
                 // Find the support point in the direction of the portal's normal
                 vec v4 = p2.supportpoint(n).sub(p1.supportpoint(vec(n).neg()));
-    
+
                 // If the origin is outside the support plane or the boundary is thin enough, we have a miss
                 if(v4.dot(n) <= 0 || vec(v4).sub(v3).dot(n) <= boundarytolerance || j > 100) return false;
 
@@ -379,10 +378,10 @@ namespace mpr
         vec v01 = p1.center();
         vec v02 = p2.center();
         vec v0 = vec(v02).sub(v01);
-    
+
         // Avoid case where centers overlap -- any direction is fine in this case
         if(v0.iszero()) v0 = vec(0, 0, 1e-5f);
-    
+
         // v1 = support in direction of origin
         vec n = vec(v0).neg();
         vec v11 = p1.supportpoint(vec(n).neg());
@@ -393,7 +392,7 @@ namespace mpr
             if(contactnormal) *contactnormal = n;
             return false;
         }
-    
+
         // v2 - support perpendicular to v1,v0
         n.cross(v1, v0);
         if(n.iszero())
@@ -413,7 +412,7 @@ namespace mpr
             if(contactnormal) *contactnormal = n;
             return false;
         }
-    
+
         // Determine whether origin is on + or - side of plane (v1,v0,v2)
         n.cross(v0, v1, v2);
         ASSERT( !n.iszero() );
@@ -425,10 +424,10 @@ namespace mpr
             swap(v12, v22);
             n.neg();
         }
-    
+
         ///
         // Phase One: Identify a portal
-    
+
         loopi(100)
         {
             // Obtain the support point in a direction perpendicular to the existing plane
@@ -441,7 +440,7 @@ namespace mpr
                 if(contactnormal) *contactnormal = n;
                 return false;
             }
-    
+
             // If origin is outside (v1,v0,v3), then eliminate v2 and loop
             vec v3xv0;
             v3xv0.cross(v3, v0);
@@ -453,7 +452,7 @@ namespace mpr
                 n.cross(v0, v1, v3);
                 continue;
             }
-    
+
             // If origin is outside (v3,v0,v2), then eliminate v1 and loop
             if(v2.dot(v3xv0) > 0)
             {
@@ -463,32 +462,32 @@ namespace mpr
                 n.cross(v0, v3, v2);
                 continue;
             }
-    
+
             bool hit = false;
-    
+
             ///
             // Phase Two: Refine the portal
-    
+
             // We are now inside of a wedge...
             for(int j = 0;; j++)
             {
                 // Compute normal of the wedge face
                 n.cross(v1, v2, v3);
-    
+
                 // Can this happen???  Can it be handled more cleanly?
                 if(n.iszero())
                 {
                     ASSERT(0);
                     return true;
                 }
-    
+
                 n.normalize();
-    
+
                 // If the origin is inside the wedge, we have a hit
                 if(n.dot(v1) >= 0 && !hit)
                 {
                     if(contactnormal) *contactnormal = n;
-    
+
                     // Compute the barycentric coordinates of the origin
                     if(contactpoint1 || contactpoint2)
                     {
@@ -510,23 +509,23 @@ namespace mpr
                         if(contactpoint2)
                             *contactpoint2 = (vec(v02).mul(b0).add(vec(v12).mul(b1)).add(vec(v22).mul(b2)).add(vec(v32).mul(b3))).mul(1.0f/sum);
                     }
-    
+
                     // HIT!!!
                     hit = true;
                 }
-    
+
                 // Find the support point in the direction of the wedge face
                 vec v41 = p1.supportpoint(vec(n).neg());
                 vec v42 = p2.supportpoint(n);
                 vec v4 = vec(v42).sub(v41);
-    
+
                 // If the boundary is thin enough or the origin is outside the support plane for the newly discovered vertex, then we can terminate
                 if(v4.dot(n) <= 0 || vec(v4).sub(v3).dot(n) <= boundarytolerance || j > 100)
                 {
                     if(contactnormal) *contactnormal = n;
                     return hit;
                 }
-  
+
                 // Test origin against the three planes that separate the new portal candidates: (v1,v4,v0) (v2,v4,v0) (v3,v4,v0)
                 // Note:  We're taking advantage of the triple product identities here as an optimization
                 //        (v1 % v4) * v0 == v1 * (v4 % v0)    > 0 if origin inside (v1, v4, v0)

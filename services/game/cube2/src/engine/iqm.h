@@ -94,9 +94,9 @@ struct iqmvertexarray
     uint offset;
 };
 
-struct iqm : skelmodel, skelloader<iqm>
+struct iqm : skelloader<iqm>
 {
-    iqm(const char *name) : skelmodel(name) {}
+    iqm(const char *name) : skelloader(name) {}
 
     static const char *formatname() { return "iqm"; }
     int type() const { return MDL_IQM; }
@@ -131,6 +131,8 @@ struct iqm : skelmodel, skelloader<iqm>
                     case IQM_BLENDWEIGHTS: if(va.format != IQM_UBYTE || va.size != 4) return false; vweight = (uchar *)&buf[va.offset]; break;
                 }
             }
+            if(!vpos) return false;
+
             iqmtriangle *tris = (iqmtriangle *)&buf[hdr.ofs_triangles];
             iqmmesh *imeshes = (iqmmesh *)&buf[hdr.ofs_meshes];
             iqmjoint *joints = (iqmjoint *)&buf[hdr.ofs_joints];
@@ -172,47 +174,72 @@ struct iqm : skelmodel, skelloader<iqm>
                 meshes.add(m);
                 m->name = newstring(&str[im.name]);
                 m->numverts = im.num_vertexes;
-                if(m->numverts) 
+                int noblend = -1;
+                if(m->numverts)
                 {
                     m->verts = new vert[m->numverts];
                     if(vtan) m->bumpverts = new bumpvert[m->numverts];
+                    if(!vindex || !vweight)
+                    {
+                        blendcombo c;
+                        c.finalize(0);
+                        noblend = m->addblendcombo(c);
+                    }
                 }
+                int fv = im.first_vertex;
+                float *mpos = vpos + 3*fv,
+                      *mnorm = vnorm ? vnorm + 3*fv : NULL,
+                      *mtan = vtan ? vtan + 4*fv : NULL,
+                      *mtc = vtc ? vtc + 2*fv : NULL;
+                uchar *mindex = vindex ? vindex + 4*fv : NULL, *mweight = vweight ? vweight + 4*fv : NULL;
                 loopj(im.num_vertexes)
                 {
-                    int fj = j + im.first_vertex;
                     vert &v = m->verts[j];
-                    loopk(3) v.pos[k] = vpos[3*fj + k];    
-                    v.pos.y = -v.pos.y;
-                    v.u = vtc[2*fj + 0];
-                    v.v = vtc[2*fj + 1];
-                    if(vnorm) 
+                    v.pos = vec(mpos[0], -mpos[1], mpos[2]);
+                    mpos += 3;
+                    if(mtc)
                     {
-                        loopk(3) v.norm[k] = vnorm[3*fj + k];
-                        v.norm.y = -v.norm.y;
-                        if(vtan)
+                        v.tc = vec2(mtc[0], mtc[1]);
+                        mtc += 2;
+                    }
+                    else v.tc = vec2(0, 0);
+                    if(mnorm)
+                    {
+                        v.norm = vec(mnorm[0], -mnorm[1], mnorm[2]);
+                        mnorm += 3;
+                        if(mtan)
                         {
-                            bumpvert &bv = m->bumpverts[j];
-                            loopk(3) bv.tangent[k] = vtan[4*fj + k];
-                            bv.tangent.y = -bv.tangent.y;
-                            bv.bitangent = vtan[4*fj + 3];
+                            m->calctangent(m->bumpverts[j], v.norm, vec(mtan[0], -mtan[1], mtan[2]), mtan[3]);
+                            mtan += 4;
                         }
-                    } 
-                    blendcombo c;
-                    int sorted = 0;
-                    if(vindex && vweight) loopk(4) sorted = c.addweight(sorted, vweight[4*fj + k], vindex[4*fj + k]);
-                    c.finalize(sorted);
-                    v.blend = m->addblendcombo(c);
+                    }
+                    else v.norm = vec(0, 0, 0);
+                    if(noblend < 0)
+                    {
+                        blendcombo c;
+                        int sorted = 0;
+                        loopk(4) sorted = c.addweight(sorted, mweight[k], mindex[k]);
+                        mweight += 4;
+                        mindex += 4;
+                        c.finalize(sorted);
+                        v.blend = m->addblendcombo(c);
+                    }
+                    else v.blend = noblend;
                 }
                 m->numtris = im.num_triangles;
                 if(m->numtris) m->tris = new tri[m->numtris]; 
+                iqmtriangle *mtris = tris + im.first_triangle;
                 loopj(im.num_triangles)
                 {
-                    int fj = j + im.first_triangle;
-                    loopk(3) m->tris[j].vert[k] = tris[fj].vertex[k] - im.first_vertex;
+                    tri &t = m->tris[j];
+                    t.vert[0] = mtris->vertex[0] - fv;
+                    t.vert[1] = mtris->vertex[1] - fv;
+                    t.vert[2] = mtris->vertex[2] - fv;
+                    ++mtris;
                 }
                 if(!m->numtris || !m->numverts)
                 {
-                    conoutf("empty mesh in %s", filename);
+                    conoutf(CON_WARN, "empty mesh in %s", filename);
                     meshes.removeobj(m);
                     delete m;
                 }
@@ -301,8 +328,8 @@ struct iqm : skelmodel, skelloader<iqm>
             lilswap(&hdr.version, (sizeof(hdr) - sizeof(hdr.magic))/sizeof(uint));
             if(hdr.version != 2) goto error;
             if(hdr.filesize > (16<<20)) goto error; // sanity check... don't load files bigger than 16 MB
-            buf = new uchar[hdr.filesize];
-            if(f->read(buf + sizeof(hdr), hdr.filesize - sizeof(hdr)) != int(hdr.filesize - sizeof(hdr))) goto error;
+            buf = new (false) uchar[hdr.filesize];
+            if(!buf || f->read(buf + sizeof(hdr), hdr.filesize - sizeof(hdr)) != hdr.filesize - sizeof(hdr)) goto error;
 
             if(doloadmesh && !loadiqmmeshes(filename, hdr, buf)) goto error;
             if(doloadanim && !loadiqmanims(filename, hdr, buf)) goto error;
@@ -340,7 +367,7 @@ struct iqm : skelmodel, skelloader<iqm>
         }
     };            
 
-    meshgroup *loadmeshes(char *name, va_list args)
+    meshgroup *loadmeshes(const char *name, va_list args)
     {
         iqmmeshgroup *group = new iqmmeshgroup;
         group->shareskeleton(va_arg(args, char *));
@@ -350,57 +377,18 @@ struct iqm : skelmodel, skelloader<iqm>
 
     bool loaddefaultparts()
     {
-        skelpart &mdl = *new skelpart;
-        parts.add(&mdl);
-        mdl.model = this;
-        mdl.index = 0;
+        skelpart &mdl = addpart();
         mdl.pitchscale = mdl.pitchoffset = mdl.pitchmin = mdl.pitchmax = 0;
         adjustments.setsize(0);
-        const char *fname = loadname + strlen(loadname);
-        do --fname; while(fname >= loadname && *fname!='/' && *fname!='\\');
+        const char *fname = name + strlen(name);
+        do --fname; while(fname >= name && *fname!='/' && *fname!='\\');
         fname++;
-        defformatstring(meshname)("packages/models/%s/%s.iqm", loadname, fname);
+        defformatstring(meshname, "packages/models/%s/%s.iqm", name, fname);
         mdl.meshes = sharemeshes(path(meshname), NULL);
         if(!mdl.meshes) return false;
         mdl.initanimparts();
         mdl.initskins();
         return true;
-    }
-
-    bool load()
-    {
-        if(loaded) return true;
-        formatstring(dir)("packages/models/%s", loadname);
-        defformatstring(cfgname)("packages/models/%s/iqm.cfg", loadname);
-
-        loading = this;
-        identflags &= ~IDF_PERSIST;
-        if(execfile(cfgname, false) && parts.length()) // configured iqm, will call the iqm* commands below
-        {
-            identflags |= IDF_PERSIST;
-            loading = NULL;
-            loopv(parts) if(!parts[i]->meshes) return false;
-        }
-        else // iqm without configuration, try default tris and skin 
-        {
-            identflags |= IDF_PERSIST;
-            if(!loaddefaultparts()) 
-            {
-                loading = NULL;
-                return false;
-            }
-            loading = NULL;
-        }
-        scale /= 4;
-        parts[0]->translate = translate;
-        loopv(parts) 
-        {
-            skelpart *p = (skelpart *)parts[i];
-            p->endanimparts();
-            p->meshes->shared++;
-        }
-        preloadshaders();
-        return loaded = true;
     }
 };
 

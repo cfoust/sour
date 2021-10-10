@@ -21,21 +21,36 @@ struct entitylight
     entitylight() : color(1, 1, 1), dir(0, 0, 1), millis(-1) {}
 };
 
+enum
+{
+    EF_NOVIS     = 1<<0,
+    EF_NOSHADOW  = 1<<1,
+    EF_NOCOLLIDE = 1<<2,
+    EF_ANIM      = 1<<3,
+    EF_OCTA      = 1<<4,
+    EF_RENDER    = 1<<5,
+    EF_SOUND     = 1<<6,
+    EF_SPAWNED   = 1<<7,
+    EF_NOPICKUP  = 1<<8
+};
+
 struct extentity : entity                       // part of the entity that doesn't get saved to disk
 {
-    enum
-    {
-        F_NOVIS     = 1<<0,
-        F_NOSHADOW  = 1<<1,
-        F_NOCOLLIDE = 1<<2,
-        F_ANIM      = 1<<3
-    };
-
-    uchar spawned, inoctanode, visible, flags;  // the only dynamic state of a map entity
+    int flags;  // the only dynamic state of a map entity
     entitylight light;
     extentity *attached;
 
-    extentity() : visible(false), flags(0), attached(NULL) {}
+    extentity() : flags(0), attached(NULL) {}
+
+    bool spawned() const { return (flags&EF_SPAWNED) != 0; }
+    void setspawned(bool val) { if(val) flags |= EF_SPAWNED; else flags &= ~EF_SPAWNED; }
+    void setspawned() { flags |= EF_SPAWNED; }
+    void clearspawned() { flags &= ~EF_SPAWNED; }
+
+    bool nopickup() const { return (flags&EF_NOPICKUP) != 0; }
+    void setnopickup(bool val) { if(val) flags |= EF_NOPICKUP; else flags &= ~EF_NOPICKUP; }
+    void setnopickup() { flags |= EF_NOPICKUP; }
+    void clearnopickup() { flags &= ~EF_NOPICKUP; }
 };
 
 #define MAXENTS 10000
@@ -48,7 +63,7 @@ enum { PHYS_FLOAT = 0, PHYS_FALL, PHYS_SLIDE, PHYS_SLOPE, PHYS_FLOOR, PHYS_STEP_
 
 enum { ENT_PLAYER = 0, ENT_AI, ENT_INANIMATE, ENT_CAMERA, ENT_BOUNCE };
 
-enum { COLLIDE_AABB = 0, COLLIDE_OBB, COLLIDE_ELLIPSE };
+enum { COLLIDE_NONE = 0, COLLIDE_ELLIPSE, COLLIDE_OBB, COLLIDE_ELLIPSE_PRECISE };
 
 struct physent                                  // base entity type, can be affected by physics
 {
@@ -56,14 +71,14 @@ struct physent                                  // base entity type, can be affe
     vec deltapos, newpos;                       // movement interpolation
     float yaw, pitch, roll;
     float maxspeed;                             // cubes per second, 100 for player
-    int timeinair;
     float radius, eyeheight, aboveeye;          // bounding box size
     float xradius, yradius, zmargin;
     vec floor;                                  // the normal of floor the dynent is on
 
-    int inwater;
+    ushort timeinair;
+    uchar inwater;
     bool jumping;
-    char move, strafe;
+    schar move, strafe;
 
     uchar physstate;                            // one of PHYS_* above
     uchar state, editstate;                     // one of CS_* above
@@ -87,8 +102,9 @@ struct physent                                  // base entity type, can be affe
 
     void reset()
     {
-    	inwater = 0;
+        inwater = 0;
         timeinair = 0;
+        jumping = false;
         strafe = move = 0;
         physstate = PHYS_FALL;
         vel = falling = vec(0, 0, 0);
@@ -186,9 +202,10 @@ struct dynent : physent                         // animated characters, or chara
     animinterpinfo animinterp[MAXANIMPARTS];
     ragdolldata *ragdoll;
     occludequery *query;
-    int occluded, lastrendered;
+    int lastrendered;
+    uchar occluded;
 
-    dynent() : ragdoll(NULL), query(NULL), occluded(0), lastrendered(0)
+    dynent() : ragdoll(NULL), query(NULL), lastrendered(0), occluded(0)
     { 
         reset(); 
     }

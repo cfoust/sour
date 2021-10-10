@@ -1,5 +1,8 @@
 #include "game.h"
 
+struct spawninfo { const extentity *e; float weight; };
+extern float gatherspawninfos(dynent *d, int tag, vector<spawninfo> &spawninfos);
+
 namespace game
 {      
     vector<fpsent *> bestplayers;
@@ -10,7 +13,7 @@ namespace game
     VARP(ragdollfade, 0, 1000, 300000);
     VARFP(playermodel, 0, 0, 4, changedplayermodel());
     VARP(forceplayermodels, 0, 0, 1);
-    VARP(hidedead, 0, 0, 1);
+    VARP(hidedead, 0, 0, 2);
 
     vector<fpsent *> ragdolls;
 
@@ -121,7 +124,7 @@ namespace game
 
     void preloadplayermodel()
     {
-        loopi(3)
+        loopi(sizeof(playermodels)/sizeof(playermodels[0]))
         {
             const playermodelinfo *mdl = getplayermodelinfo(i);
             if(!mdl) break;
@@ -150,8 +153,7 @@ namespace game
             lastaction = 0;
             hold = attack = ANIM_LOSE|ANIM_LOOP;
             delay = 0;
-            if(m_teammode) loopv(bestteams) { if(!strcmp(bestteams[i], d->team)) { hold = attack = ANIM_WIN|ANIM_LOOP; break; } }
-            else if(bestplayers.find(d)>=0) hold = attack = ANIM_WIN|ANIM_LOOP;
+            if(m_teammode ? bestteams.htfind(d->team)>=0 : bestplayers.find(d)>=0) hold = attack = ANIM_WIN|ANIM_LOOP;
         }
         else if(d->state==CS_ALIVE && d->lasttaunt && lastmillis-d->lasttaunt<1000 && lastmillis-d->lastaction>delay)
         {
@@ -160,7 +162,7 @@ namespace game
             delay = 1000;
         }
         modelattach a[5];
-        static const char *vweps[] = {"vwep/fist", "vwep/shotg", "vwep/chaing", "vwep/rocket", "vwep/rifle", "vwep/gl", "vwep/pistol"};
+        static const char * const vweps[] = {"vwep/fist", "vwep/shotg", "vwep/chaing", "vwep/rocket", "vwep/rifle", "vwep/gl", "vwep/pistol"};
         int ai = 0;
         if((!mdl.vwep || d->gunselect!=GUN_FIST) && d->gunselect<=GUN_PISTOL)
         {
@@ -206,6 +208,106 @@ namespace game
 
     VARP(teamskins, 0, 0, 1);
 
+#if 0
+    // for testing spawns
+
+    float hsv2rgb(float h, float s, float v, int n)
+    {
+        float k = fmod(n + h / 60.0f, 6.0f);
+        return v - v * s * max(min(min(k, 4.0f - k), 1.0f), 0.0f);
+    }
+
+    vec hsv2rgb(float h, float s, float v)
+    {
+        return vec(hsv2rgb(h, s, v, 5), hsv2rgb(h, s, v, 3), hsv2rgb(h, s, v, 1));
+    }
+
+    void renderspawn(const vec &o, int rating, float probability)
+    {
+        defformatstring(score, "%d", rating);
+        defformatstring(percentage, "(%.2f%%)", probability * 100);
+        bvec colorvec = bvec::fromcolor(hsv2rgb(rating * 1.2f, 0.8, 1));
+        int color = (colorvec.r << 16) + (colorvec.g << 8) + colorvec.b;
+        particle_textcopy(vec(o).addz(5), score, PART_TEXT, 1, color, 5.0f);
+        particle_textcopy(vec(o).addz(1), percentage, PART_TEXT, 1, color, 4.0f);
+    }
+
+    void renderspawns()
+    {
+        vector<spawninfo> spawninfos;
+        float ratingsum = gatherspawninfos(player1, 0, spawninfos);
+        loopv(spawninfos) renderspawn(spawninfos[i].e->o, spawninfos[i].weight * 100, spawninfos[i].weight / ratingsum);
+    }
+
+    VAR(dbgspawns, 0, 0, 1);
+#endif
+
+    VARP(statusicons, 0, 1, 1);
+
+    void renderstatusicons(fpsent *d, int team, float yoffset)
+    {
+        vec p = d->abovehead().madd(camup, yoffset);
+        int icons = 0;
+        const itemstat &boost = itemstats[I_BOOST-I_SHELLS];
+        if(statusicons && (d->state==CS_ALIVE || d->state==CS_LAGGED))
+        {
+            if(d->quadmillis) icons++;
+            if(d->maxhealth>100) icons += (min(d->maxhealth, boost.max) - 100 + boost.info-1) / boost.info;
+            if(d->armour>0 && d->armourtype>=A_GREEN && !m_noitems) icons++;
+        }
+        if(icons) concatstring(d->info, " ");
+        particle_text(p, d->info, PART_TEXT, 1, team ? (team==1 ? 0x6496FF : 0xFF4B19) : 0x1EC850, 2.0f, 0, icons);
+        if(icons)
+        {
+            float tw, th;
+            text_boundsf(d->info, tw, th);
+            float offset = (tw - icons*th)/2;
+            if(d->armour>0 && d->armourtype>=A_GREEN && !m_noitems)
+            {
+                int icon = itemstats[(d->armourtype==A_YELLOW ? I_YELLOWARMOUR : I_GREENARMOUR)-I_SHELLS].icon;
+                particle_texticon(p, icon%4, icon/4, offset, PART_TEXT_ICON, 1, 0xFFFFFF, 2.0f);
+                offset += th;
+            }
+            for(int i = 100; i < min(d->maxhealth, boost.max); i += boost.info)
+            {
+                particle_texticon(p, boost.icon%4, boost.icon/4, offset, PART_TEXT_ICON, 1, 0xFFFFFF, 2.0f);
+                offset += th;
+            }
+            if(d->quadmillis)
+            {
+                int icon = itemstats[I_QUAD-I_SHELLS].icon;
+                particle_texticon(p, icon%4, icon/4, offset, PART_TEXT_ICON, 1, 0xFFFFFF, 2.0f);
+                offset += th;
+            }
+        }
+    }
+
+    VARP(statusbars, 0, 1, 2);
+    FVARP(statusbarscale, 0, 1, 2);
+
+    float renderstatusbars(fpsent *d, int team)
+    {
+        if(!statusbars || m_insta || (player1->state==CS_SPECTATOR ? statusbars <= 1 : team != 1) || (d->state!=CS_ALIVE && d->state!=CS_LAGGED)) return 0;
+        vec p = d->abovehead().msub(camdir, 50/80.0f).msub(camup, 2.0f);
+        float offset = 0;
+        float scale = statusbarscale;
+        if(d->armour > 0)
+        {
+            int limit = d->armourtype==A_YELLOW ? 200 : (d->armourtype==A_GREEN ? 100 : 50);
+            int color = d->armourtype==A_YELLOW ? 0xFFC040 : (d->armourtype==A_GREEN ? 0x008C00 : 0x0B5899);
+            float size = scale*sqrtf(max(d->armour, limit)/100.0f);
+            float fill = float(d->armour)/limit;
+            offset += size;
+            particle_meter(vec(p).madd(camup, offset), fill, PART_METER, 1, color, 0, size);
+        }
+        int color = d->health<=25 ? 0xFF0000 : (d->health<=50 ? 0xFF8000 : (d->health<=100 ? 0x40FF80 : 0x40C0FF));
+        float size = scale*sqrtf(max(d->health, d->maxhealth)/100.0f);
+        float fill = float(d->health)/d->maxhealth;
+        offset += size;
+        particle_meter(vec(p).madd(camup, offset), fill, PART_METER, 1, color, 0, size);
+        return offset;
+    }
+
     void rendergame(bool mainpass)
     {
         if(mainpass) ai::render();
@@ -228,9 +330,22 @@ namespace game
             int team = 0;
             if(teamskins || m_teammode) team = isteam(player1->team, d->team) ? 1 : 2;
             renderplayer(d, getplayermodelinfo(d), team, 1, mainpass);
+
+            vec dir = vec(d->o).sub(camera1->o);
+            float dist = dir.magnitude();
+            dir.div(dist);
+            if(d->state!=CS_EDITING && raycube(camera1->o, dir, dist, 0) < dist)
+            {
+                d->info[0] = '\0';
+                continue;
+            }
+
             copystring(d->info, colorname(d));
-            if(d->maxhealth>100) { defformatstring(sn)(" +%d", d->maxhealth-100); concatstring(d->info, sn); }
-            if(d->state!=CS_DEAD) particle_text(d->abovehead(), d->info, PART_TEXT, 1, team ? (team==1 ? 0x6496FF : 0xFF4B19) : 0x1EC850, 2.0f);
+            if(d->state!=CS_DEAD)
+            {
+                float offset = renderstatusbars(d, team);
+                renderstatusicons(d, team, offset);
+            }
         }
         loopv(ragdolls)
         {
@@ -242,13 +357,17 @@ namespace game
                 fade -= clamp(float(lastmillis - (d->lastupdate + max(ragdollmillis - ragdollfade, 0)))/min(ragdollmillis, ragdollfade), 0.0f, 1.0f);
             renderplayer(d, getplayermodelinfo(d), team, fade, mainpass);
         } 
-        if(isthirdperson() && !followingplayer() && (player1->state!=CS_DEAD || !hidedead)) renderplayer(player1, getplayermodelinfo(player1), teamskins || m_teammode ? 1 : 0, 1, mainpass);
+        if(isthirdperson() && !followingplayer() && (player1->state!=CS_DEAD || hidedead != 1)) renderplayer(player1, getplayermodelinfo(player1), teamskins || m_teammode ? 1 : 0, 1, mainpass);
         rendermonsters();
         rendermovables();
         entities::renderentities();
         renderbouncers();
         renderprojectiles();
         if(cmode) cmode->rendergame();
+
+#if 0
+        if(dbgspawns) renderspawns();
+#endif
 
         endmodelbatches();
     }
@@ -320,7 +439,7 @@ namespace game
         }
 #endif
         const playermodelinfo &mdl = getplayermodelinfo(d);
-        defformatstring(gunname)("%s/%s", hudgunsdir[0] ? hudgunsdir : mdl.hudguns, guns[d->gunselect].file);
+        defformatstring(gunname, "%s/%s", hudgunsdir[0] ? hudgunsdir : mdl.hudguns, guns[d->gunselect].file);
         if((m_teammode || teamskins) && teamhudguns)
             concatstring(gunname, d==player1 || isteam(d->team, player1->team) ? "/blue" : "/red");
         else if(testteam > 1)
@@ -370,13 +489,15 @@ namespace game
         if(!previewent)
         {
             previewent = new fpsent;
-            previewent->o = vec(0, 0.9f*(previewent->eyeheight + previewent->aboveeye), previewent->eyeheight - (previewent->eyeheight + previewent->aboveeye)/2);
             previewent->light.color = vec(1, 1, 1);
             previewent->light.dir = vec(0, -1, 2).normalize();
             loopi(GUN_PISTOL-GUN_FIST) previewent->ammo[GUN_FIST+1+i] = 1;
         }
+        float height = previewent->eyeheight + previewent->aboveeye,
+              zrad = height/2;
+        vec2 xyrad = vec2(previewent->xradius, previewent->yradius).max(height/4);
+        previewent->o = calcmodelpreviewpos(vec(xyrad, zrad), previewent->yaw).addz(previewent->eyeheight - zrad);
         previewent->gunselect = clamp(weap, int(GUN_FIST), int(GUN_PISTOL));
-        previewent->yaw = fmod(lastmillis/10000.0f*360.0f, 360.0f);
         previewent->light.millis = -1;
         const playermodelinfo *mdlinfo = getplayermodelinfo(model);
         if(!mdlinfo) return;
@@ -421,17 +542,25 @@ namespace game
             string fname;
             if((m_teammode || teamskins) && teamhudguns)
             {
-                formatstring(fname)("%s/%s/blue", hudgunsdir[0] ? hudgunsdir : mdl.hudguns, file);
+                formatstring(fname, "%s/%s/blue", hudgunsdir[0] ? hudgunsdir : mdl.hudguns, file);
                 preloadmodel(fname);
             }
             else
             {
-                formatstring(fname)("%s/%s", hudgunsdir[0] ? hudgunsdir : mdl.hudguns, file);
+                formatstring(fname, "%s/%s", hudgunsdir[0] ? hudgunsdir : mdl.hudguns, file);
                 preloadmodel(fname);
             }
-            formatstring(fname)("vwep/%s", file);
+            formatstring(fname, "vwep/%s", file);
             preloadmodel(fname);
         }
+    }
+
+    void preloadsounds()
+    {
+        for(int i = S_JUMP; i <= S_SPLASH2; i++) preloadsound(i);
+        for(int i = S_JUMPPAD; i <= S_PISTOL; i++) preloadsound(i);
+        for(int i = S_V_BOOST; i <= S_V_QUAD10; i++) preloadsound(i);
+        for(int i = S_BURN; i <= S_HIT; i++) preloadsound(i);
     }
 
     void preload()
@@ -439,6 +568,7 @@ namespace game
         if(hudgun) preloadweapons();
         preloadbouncers();
         preloadplayermodel();
+        preloadsounds();
         entities::preloadentities();
         if(m_sp) preloadmonsters();
     }

@@ -45,18 +45,24 @@ void logoutf(const char *fmt, ...)
     va_end(args);
 }
 
-static void writelog(FILE *file, const char *fmt, va_list args)
+
+static void writelog(FILE *file, const char *buf)
 {
-    static char buf[LOGSTRLEN];
     static uchar ubuf[512];
-    vformatstring(buf, fmt, args, sizeof(buf));
-    int len = strlen(buf), carry = 0;
+    size_t len = strlen(buf), carry = 0;
     while(carry < len)
     {
-        int numu = encodeutf8(ubuf, sizeof(ubuf)-1, &((uchar *)buf)[carry], len - carry, &carry);
+        size_t numu = encodeutf8(ubuf, sizeof(ubuf)-1, &((const uchar *)buf)[carry], len - carry, &carry);
         if(carry >= len) ubuf[numu++] = '\n';
         fwrite(ubuf, 1, numu, file);
     }
+}
+
+static void writelogv(FILE *file, const char *fmt, va_list args)
+{
+    static char buf[LOGSTRLEN];
+    vformatstring(buf, fmt, args, sizeof(buf));
+    writelog(file, buf);
 }
  
 #ifdef STANDALONE
@@ -77,147 +83,11 @@ void fatal(const char *fmt, ...)
 
 void conoutfv(int type, const char *fmt, va_list args)
 {
-    string sf, sp;
-    vformatstring(sf, fmt, args);
-    filtertext(sp, sf);
-    logoutf("%s", sp);
-}
-
-void conoutf(const char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    conoutfv(CON_INFO, fmt, args);
-    va_end(args);
-}
-
-void conoutf(int type, const char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    conoutfv(type, fmt, args);
-    va_end(args);
+    logoutfv(fmt, args);
 }
 #endif
 
-// all network traffic is in 32bit ints, which are then compressed using the following simple scheme (assumes that most values are small).
-
-template<class T>
-static inline void putint_(T &p, int n)
-{
-    if(n<128 && n>-127) p.put(n);
-    else if(n<0x8000 && n>=-0x8000) { p.put(0x80); p.put(n); p.put(n>>8); }
-    else { p.put(0x81); p.put(n); p.put(n>>8); p.put(n>>16); p.put(n>>24); }
-}
-void putint(ucharbuf &p, int n) { putint_(p, n); }
-void putint(packetbuf &p, int n) { putint_(p, n); }
-void putint(vector<uchar> &p, int n) { putint_(p, n); }
-
-int getint(ucharbuf &p)
-{
-    int c = (char)p.get();
-    if(c==-128) { int n = p.get(); n |= char(p.get())<<8; return n; }
-    else if(c==-127) { int n = p.get(); n |= p.get()<<8; n |= p.get()<<16; return n|(p.get()<<24); } 
-    else return c;
-}
-
-// much smaller encoding for unsigned integers up to 28 bits, but can handle signed
-template<class T>
-static inline void putuint_(T &p, int n)
-{
-    if(n < 0 || n >= (1<<21))
-    {
-        p.put(0x80 | (n & 0x7F));
-        p.put(0x80 | ((n >> 7) & 0x7F));
-        p.put(0x80 | ((n >> 14) & 0x7F));
-        p.put(n >> 21);
-    }
-    else if(n < (1<<7)) p.put(n);
-    else if(n < (1<<14))
-    {
-        p.put(0x80 | (n & 0x7F));
-        p.put(n >> 7);
-    }
-    else 
-    { 
-        p.put(0x80 | (n & 0x7F)); 
-        p.put(0x80 | ((n >> 7) & 0x7F));
-        p.put(n >> 14); 
-    }
-}
-void putuint(ucharbuf &p, int n) { putuint_(p, n); }
-void putuint(packetbuf &p, int n) { putuint_(p, n); }
-void putuint(vector<uchar> &p, int n) { putuint_(p, n); }
-
-int getuint(ucharbuf &p)
-{
-    int n = p.get();
-    if(n & 0x80)
-    {
-        n += (p.get() << 7) - 0x80;
-        if(n & (1<<14)) n += (p.get() << 14) - (1<<14);
-        if(n & (1<<21)) n += (p.get() << 21) - (1<<21);
-        if(n & (1<<28)) n |= -1<<28;
-    }
-    return n;
-}
-
-template<class T>
-static inline void putfloat_(T &p, float f)
-{
-    lilswap(&f, 1);
-    p.put((uchar *)&f, sizeof(float));
-}
-void putfloat(ucharbuf &p, float f) { putfloat_(p, f); }
-void putfloat(packetbuf &p, float f) { putfloat_(p, f); }
-void putfloat(vector<uchar> &p, float f) { putfloat_(p, f); }
-
-float getfloat(ucharbuf &p)
-{
-    float f;
-    p.get((uchar *)&f, sizeof(float));
-    return lilswap(f);
-}
-
-template<class T>
-static inline void sendstring_(const char *t, T &p)
-{
-    while(*t) putint(p, *t++);
-    putint(p, 0);
-}
-void sendstring(const char *t, ucharbuf &p) { sendstring_(t, p); }
-void sendstring(const char *t, packetbuf &p) { sendstring_(t, p); }
-void sendstring(const char *t, vector<uchar> &p) { sendstring_(t, p); }
-
-void getstring(char *text, ucharbuf &p, int len)
-{
-    char *t = text;
-    do
-    {
-        if(t>=&text[len]) { text[len-1] = 0; return; }
-        if(!p.remaining()) { *t = 0; return; } 
-        *t = getint(p);
-    }
-    while(*t++);
-}
-
-void filtertext(char *dst, const char *src, bool whitespace, int len)
-{
-    for(int c = uchar(*src); c; c = uchar(*++src))
-    {
-        if(c == '\f')
-        {
-            if(!*++src) break;
-            continue;
-        }
-        if(iscubeprint(c) || (iscubespace(c) && whitespace))
-        {
-            *dst++ = c;
-            if(!--len) break;
-        }
-    }
-    *dst = '\0';
-}
+#define DEFAULTCLIENTS 8
 
 enum { ST_EMPTY, ST_LOCAL, ST_TCPIP };
 
@@ -292,6 +162,9 @@ void cleanupserver()
     if(lansock != ENET_SOCKET_NULL) enet_socket_destroy(lansock);
     pongsock = lansock = ENET_SOCKET_NULL;
 }
+
+VARF(maxclients, 0, DEFAULTCLIENTS, MAXCLIENTS, { if(!maxclients) maxclients = DEFAULTCLIENTS; });
+VARF(maxdupclients, 0, 0, MAXCLIENTS, { if(serverhost) serverhost->duplicatePeers = maxdupclients ? maxdupclients : MAXCLIENTS; });
 
 void process(ENetPacket *packet, int sender, int chan);
 //void disconnect_client(int n, int reason);
@@ -421,7 +294,8 @@ const char *disconnectreason(int reason)
         case DISC_EOP: return "end of packet";
         case DISC_LOCAL: return "server is in local mode";
         case DISC_KICK: return "kicked/banned";
-        case DISC_TAGT: return "tag type";
+        case DISC_MSGERR: return "message error";
+        case DISC_IPBAN: return "ip is banned";
         case DISC_PRIVATE: return "server is in private mode";
         case DISC_MAXCLIENTS: return "server FULL";
         case DISC_TIMEOUT: return "connection timed out";
@@ -439,8 +313,8 @@ void disconnect_client(int n, int reason)
     delclient(clients[n]);
     const char *msg = disconnectreason(reason);
     string s;
-    if(msg) formatstring(s)("client (%s) disconnected because: %s", clients[n]->hostname, msg);
-    else formatstring(s)("client (%s) disconnected", clients[n]->hostname);
+    if(msg) formatstring(s, "client (%s) disconnected because: %s", clients[n]->hostname, msg);
+    else formatstring(s, "client (%s) disconnected", clients[n]->hostname);
     logoutf("%s", s);
     server::sendservmsg(s);
 }
@@ -472,15 +346,13 @@ bool resolverwait(const char *name, ENetAddress *address)
 
 int connectwithtimeout(ENetSocket sock, const char *hostname, const ENetAddress &remoteaddress)
 {
-    int result = enet_socket_connect(sock, &remoteaddress);
-    if(result<0) enet_socket_destroy(sock);
-    return result;
+    return enet_socket_connect(sock, &remoteaddress);
 }
 #endif
 
 ENetSocket mastersock = ENET_SOCKET_NULL;
 ENetAddress masteraddress = { ENET_HOST_ANY, ENET_PORT_ANY }, serveraddress = { ENET_HOST_ANY, ENET_PORT_ANY };
-int lastupdatemaster = 0;
+int lastupdatemaster = 0, lastconnectmaster = 0, masterconnecting = 0, masterconnected = 0;
 vector<char> masterout, masterin;
 int masteroutpos = 0, masterinpos = 0;
 VARN(updatemaster, allowupdatemaster, 0, 1, 1);
@@ -489,6 +361,7 @@ void disconnectmaster()
 {
     if(mastersock != ENET_SOCKET_NULL) 
     {
+        server::masterdisconnected();
         enet_socket_destroy(mastersock);
         mastersock = ENET_SOCKET_NULL;
     }
@@ -500,49 +373,51 @@ void disconnectmaster()
     masteraddress.host = ENET_HOST_ANY;
     masteraddress.port = ENET_PORT_ANY;
 
-    lastupdatemaster = 0;
+    lastupdatemaster = masterconnecting = masterconnected = 0;
 }
 
 SVARF(mastername, server::defaultmaster(), disconnectmaster());
 VARF(masterport, 1, server::masterport(), 0xFFFF, disconnectmaster());
 
-ENetSocket connectmaster()
+ENetSocket connectmaster(bool wait)
 {
     if(!mastername[0]) return ENET_SOCKET_NULL;
-
     if(masteraddress.host == ENET_HOST_ANY)
     {
-#ifdef STANDALONE
-        logoutf("looking up %s...", mastername);
-#endif
+        if(isdedicatedserver()) logoutf("looking up %s...", mastername);
         masteraddress.port = masterport;
         if(!resolverwait(mastername, &masteraddress)) return ENET_SOCKET_NULL;
     }
     ENetSocket sock = enet_socket_create(ENET_SOCKET_TYPE_STREAM);
-    if(sock != ENET_SOCKET_NULL && serveraddress.host != ENET_HOST_ANY && enet_socket_bind(sock, &serveraddress) < 0)
+    if(sock == ENET_SOCKET_NULL)
     {
-        enet_socket_destroy(sock);
-        sock = ENET_SOCKET_NULL;
-    }
-    if(sock == ENET_SOCKET_NULL || connectwithtimeout(sock, mastername, masteraddress) < 0) 
-    {
-#ifdef STANDALONE
-        logoutf(sock==ENET_SOCKET_NULL ? "could not open socket" : "could not connect"); 
-#endif
+        if(isdedicatedserver()) logoutf("could not open master server socket");
         return ENET_SOCKET_NULL;
     }
-    
-    enet_socket_set_option(sock, ENET_SOCKOPT_NONBLOCK, 1);
-    return sock;
+    if(wait || serveraddress.host == ENET_HOST_ANY || !enet_socket_bind(sock, &serveraddress))
+    {
+        enet_socket_set_option(sock, ENET_SOCKOPT_NONBLOCK, 1);
+        if(wait)
+        {
+            if(!connectwithtimeout(sock, mastername, masteraddress)) return sock;
+        }
+        else if(!enet_socket_connect(sock, &masteraddress)) return sock;
+    }
+    enet_socket_destroy(sock);
+    if(isdedicatedserver()) logoutf("could not connect to master server");
+    return ENET_SOCKET_NULL;
 }
 
 bool requestmaster(const char *req)
 {
     if(mastersock == ENET_SOCKET_NULL)
     {
-        mastersock = connectmaster();
+        mastersock = connectmaster(false);
         if(mastersock == ENET_SOCKET_NULL) return false;
+        lastconnectmaster = masterconnecting = totalmillis ? totalmillis : 1;
     }
+
+    if(masterout.length() >= 4096) return false;
 
     masterout.put(req, strlen(req));
     return true;
@@ -561,19 +436,20 @@ void processmasterinput()
     char *input = &masterin[masterinpos], *end = (char *)memchr(input, '\n', masterin.length() - masterinpos);
     while(end)
     {
-        *end++ = '\0';
+        *end = '\0';
 
         const char *args = input;
         while(args < end && !iscubespace(*args)) args++;
         int cmdlen = args - input;
         while(args < end && iscubespace(*args)) args++;
 
-        if(!strncmp(input, "failreg", cmdlen))
+        if(matchstring(input, cmdlen, "failreg"))
             conoutf(CON_ERROR, "master server registration failed: %s", args);
-        else if(!strncmp(input, "succreg", cmdlen))
+        else if(matchstring(input, cmdlen, "succreg"))
             conoutf("master server registration succeeded");
         else server::processmasterinput(input, cmdlen, args);
 
+        end++;
         masterinpos = end - masterin.getbuf();
         input = end;
         end = (char *)memchr(input, '\n', masterin.length() - masterinpos);
@@ -588,7 +464,12 @@ void processmasterinput()
 
 void flushmasteroutput()
 {
-    if(masterout.empty()) return;
+    if(masterconnecting && totalmillis - masterconnecting >= 60000)
+    {
+        logoutf("could not connect to master server");
+        disconnectmaster();
+    }
+    if(masterout.empty() || !masterconnected) return;
 
     ENetBuffer buf;
     buf.data = &masterout[masteroutpos];
@@ -633,52 +514,74 @@ void sendserverinforeply(ucharbuf &p)
     enet_socket_send(pongsock, &pongaddr, &buf, 1);
 }
 
+#define MAXPINGDATA 32
+
 void checkserversockets()        // reply all server info requests
 {
-    static ENetSocketSet sockset;
-    ENET_SOCKETSET_EMPTY(sockset);
+    static ENetSocketSet readset, writeset;
+    ENET_SOCKETSET_EMPTY(readset);
+    ENET_SOCKETSET_EMPTY(writeset);
     ENetSocket maxsock = pongsock;
-    ENET_SOCKETSET_ADD(sockset, pongsock);
+    ENET_SOCKETSET_ADD(readset, pongsock);
     if(mastersock != ENET_SOCKET_NULL)
     {
         maxsock = max(maxsock, mastersock);
-        ENET_SOCKETSET_ADD(sockset, mastersock);
+        ENET_SOCKETSET_ADD(readset, mastersock);
+        if(!masterconnected) ENET_SOCKETSET_ADD(writeset, mastersock);
     }
     if(lansock != ENET_SOCKET_NULL)
     {
         maxsock = max(maxsock, lansock);
-        ENET_SOCKETSET_ADD(sockset, lansock);
+        ENET_SOCKETSET_ADD(readset, lansock);
     }
-    if(enet_socketset_select(maxsock, &sockset, NULL, 0) <= 0) return;
+    if(enet_socketset_select(maxsock, &readset, &writeset, 0) <= 0) return;
 
     ENetBuffer buf;
     uchar pong[MAXTRANS];
     loopi(2)
     {
         ENetSocket sock = i ? lansock : pongsock;
-        if(sock == ENET_SOCKET_NULL || !ENET_SOCKETSET_CHECK(sockset, sock)) continue;
+        if(sock == ENET_SOCKET_NULL || !ENET_SOCKETSET_CHECK(readset, sock)) continue;
 
         buf.data = pong;
         buf.dataLength = sizeof(pong);
         int len = enet_socket_receive(sock, &pongaddr, &buf, 1);
-        if(len < 0) return;
+        if(len < 0 || len > MAXPINGDATA) continue;
         ucharbuf req(pong, len), p(pong, sizeof(pong));
         p.len += len;
         server::serverinforeply(req, p);
     }
 
-    if(mastersock != ENET_SOCKET_NULL && ENET_SOCKETSET_CHECK(sockset, mastersock)) flushmasterinput();
+    if(mastersock != ENET_SOCKET_NULL)
+    {
+        if(!masterconnected)
+        {
+            if(ENET_SOCKETSET_CHECK(readset, mastersock) || ENET_SOCKETSET_CHECK(writeset, mastersock)) 
+            { 
+                int error = 0;
+                if(enet_socket_get_option(mastersock, ENET_SOCKOPT_ERROR, &error) < 0 || error)
+                {
+                    logoutf("could not connect to master server");
+                    disconnectmaster();
+                }
+                else
+                {
+                    masterconnecting = 0; 
+                    masterconnected = totalmillis ? totalmillis : 1; 
+                    server::masterconnected(); 
+                }
+            }
+        }
+        if(mastersock != ENET_SOCKET_NULL && ENET_SOCKETSET_CHECK(readset, mastersock)) flushmasterinput();
+    }
 }
 
-#define DEFAULTCLIENTS 8
-
-VARF(maxclients, 0, DEFAULTCLIENTS, MAXCLIENTS, { if(!maxclients) maxclients = DEFAULTCLIENTS; });
 VAR(serveruprate, 0, 0, INT_MAX);
 SVAR(serverip, "");
-VARF(serverport, 0, server::serverport(), 0xFFFF, { if(!serverport) serverport = server::serverport(); });
+VARF(serverport, 0, server::serverport(), 0xFFFF-1, { if(!serverport) serverport = server::serverport(); });
 
 #ifdef STANDALONE
-int curtime = 0, lastmillis = 0, totalmillis = 0;
+int curtime = 0, lastmillis = 0, elapsedtime = 0, totalmillis = 0;
 #endif
 
 void updatemasterserver()
@@ -716,9 +619,14 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
     if(dedicated) 
     {
         int millis = (int)enet_time_get();
-        curtime = server::ispaused() ? 0 : millis - totalmillis;
-        totalmillis = millis;
+        elapsedtime = millis - totalmillis;
+        static int timeerr = 0;
+        int scaledtime = server::scaletime(elapsedtime) + timeerr;
+        curtime = scaledtime/100;
+        timeerr = scaledtime%100;
+        if(server::ispaused()) curtime = 0;
         lastmillis += curtime;
+        totalmillis = millis;
         updatetime();
     }
     server::serverupdate();
@@ -752,7 +660,7 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
                 client &c = addclient(ST_TCPIP);
                 c.peer = event.peer;
                 c.peer->data = &c;
-                char hn[1024];
+                string hn;
                 copystring(c.hostname, (enet_address_get_host_ip(&c.peer->address, hn, sizeof(hn))==0) ? hn : "unknown");
                 logoutf("client connected (%s)", c.hostname);
                 int reason = server::clientconnect(c.num, c.peer->address.host);
@@ -804,6 +712,7 @@ void localdisconnect(bool cleanup)
 
 void localconnect()
 {
+    if(initing) return;
     client &c = addclient(ST_LOCAL);
     copystring(c.hostname, "local");
     game::gameconnect(false);
@@ -825,7 +734,7 @@ static HMENU appmenu = NULL;
 static HANDLE outhandle = NULL;
 static const int MAXLOGLINES = 200;
 struct logline { int len; char buf[LOGSTRLEN]; };
-static ringbuf<logline, MAXLOGLINES> loglines;
+static queue<logline, MAXLOGLINES> loglines;
 
 static void cleanupsystemtray()
 {
@@ -899,10 +808,10 @@ static BOOL WINAPI consolehandler(DWORD dwCtrlType)
 static void writeline(logline &line)
 {
     static uchar ubuf[512];
-    int len = strlen(line.buf), carry = 0;
+    size_t len = strlen(line.buf), carry = 0;
     while(carry < len)
     {
-        int numu = encodeutf8(ubuf, sizeof(ubuf), &((uchar *)line.buf)[carry], len - carry, &carry);
+        size_t numu = encodeutf8(ubuf, sizeof(ubuf), &((uchar *)line.buf)[carry], len - carry, &carry);
         DWORD written = 0;
         WriteConsole(outhandle, ubuf, numu, &written, NULL);
     }     
@@ -1051,7 +960,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int sw)
     int status = standalonemain(args.length()-1, args.getbuf());
     #define main standalonemain
 #else
-    SDL_SetModuleHandle(hInst);
+    SDL_SetMainReady();
     int status = SDL_main(args.length()-1, args.getbuf());
 #endif
     delete[] buf;
@@ -1061,16 +970,17 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int sw)
 
 void logoutfv(const char *fmt, va_list args)
 {
-    if(logfile) writelog(logfile, fmt, args);
     if(appwindow)
     {
         logline &line = loglines.add();
         vformatstring(line.buf, fmt, args, sizeof(line.buf));
+        if(logfile) writelog(logfile, line.buf);
         line.len = min(strlen(line.buf), sizeof(line.buf)-2);
         line.buf[line.len++] = '\n';
         line.buf[line.len] = '\0';
         if(outhandle) writeline(line);
     }
+    else if(logfile) writelogv(logfile, fmt, args);
 }
 
 #else
@@ -1078,10 +988,14 @@ void logoutfv(const char *fmt, va_list args)
 void logoutfv(const char *fmt, va_list args)
 {
     FILE *f = getlogfile();
-    if(f) writelog(f, fmt, args);
+    if(f) writelogv(f, fmt, args);
 }
 
 #endif
+
+static bool dedicatedserver = false;
+
+bool isdedicatedserver() { return dedicatedserver; }
 
 #if __EMSCRIPTEN__
 #include <emscripten.h>
@@ -1093,6 +1007,7 @@ void emscripten_main_loop_caller() {
 
 void rundedicatedserver()
 {
+    dedicatedserver = true;
     logoutf("dedicated server started, waiting for clients...");
 #ifdef WIN32
     SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
@@ -1112,6 +1027,7 @@ void rundedicatedserver()
 #else
     for(;;) serverslice(true, 5);
 #endif
+    dedicatedserver = false;
 }
 
 bool servererror(bool dedicated, const char *desc)
@@ -1119,12 +1035,12 @@ bool servererror(bool dedicated, const char *desc)
 #ifndef STANDALONE
     if(!dedicated)
     {
-        conoutf(CON_ERROR, desc);
+        conoutf(CON_ERROR, "%s", desc);
         cleanupserver();
     }
     else
 #endif
-        fatal(desc);
+        fatal("%s", desc);
     return false;
 }
   
@@ -1138,7 +1054,7 @@ bool setuplistenserver(bool dedicated)
     }
     serverhost = enet_host_create(&address, min(maxclients + server::reserveclients(), MAXCLIENTS), server::numchannels(), 0, serveruprate);
     if(!serverhost) return servererror(dedicated, "could not create server host");
-    loopi(maxclients) serverhost->peers[i].data = NULL;
+    serverhost->duplicatePeers = maxdupclients ? maxdupclients : MAXCLIENTS;
     address.port = server::serverinfoport(serverport > 0 ? serverport : -1);
     pongsock = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
     if(pongsock != ENET_SOCKET_NULL && enet_socket_bind(pongsock, &address) < 0)
@@ -1177,6 +1093,7 @@ void initserver(bool listen, bool dedicated)
 
     if(listen)
     {
+        dedicatedserver = dedicated;
         updatemasterserver();
         if(dedicated) rundedicatedserver(); // never returns
 #ifndef STANDALONE

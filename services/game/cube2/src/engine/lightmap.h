@@ -84,11 +84,14 @@ struct LightMapTexture
 
 extern vector<LightMapTexture> lightmaptexs;
 
-extern bvec ambientcolor, skylightcolor;
+extern bvec ambientcolor, skylightcolor, sunlightcolor;
+extern float sunlightscale;
+extern vec sunlightdir;
 
 extern void clearlights();
 extern void initlights();
-extern void clearlightcache(int e = -1);
+extern void lightents(bool force = false);
+extern void clearlightcache(int id = -1);
 extern void resetlightmaps(bool fullclean = true);
 extern void brightencube(cube &c);
 extern void setsurfaces(cube &c, const surfaceinfo *surfs, const vertinfo *verts, int numverts);
@@ -98,10 +101,10 @@ extern void previewblends(const ivec &bo, const ivec &bs);
 struct lerpvert
 {
     vec normal;
-    float u, v;
+    vec2 tc;
 
-    bool operator==(const lerpvert &l) const { return u == l.u && v == l.v; }
-    bool operator!=(const lerpvert &l) const { return u != l.u || v != l.v; }
+    bool operator==(const lerpvert &l) const { return tc == l.tc;; }
+    bool operator!=(const lerpvert &l) const { return tc != l.tc; }
 };
     
 struct lerpbounds

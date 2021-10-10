@@ -73,8 +73,6 @@ struct cubeloader
         extentity &e = *entities::newentity();
         entities::getents().add(&e);
         e.type = ce.type;
-        e.spawned = false;
-        e.inoctanode = false;
         e.o = vec(ce.x*4+worldsize/4, ce.y*4+worldsize/4, ce.z*4+worldsize/2);
         e.light.color = vec(1, 1, 1);
         e.light.dir = vec(0, 0, 1);
@@ -109,7 +107,7 @@ struct cubeloader
 
     cube &getcube(int x, int y, int z)
     {
-        return lookupcube(x*4+worldsize/4, y*4+worldsize/4, z*4+worldsize/2, 4);
+        return lookupcube(ivec(x*4+worldsize/4, y*4+worldsize/4, z*4+worldsize/2), 4);
     }
 
     int neighbours(c_sqr &t)
@@ -252,7 +250,7 @@ struct cubeloader
             if((progress++&0x7F)==0)
             {
                 float bar = float((y1-y0+2)*(x-x0+1) + y-y0+1) / float((y1-y0+2)*(x1-x0+2));
-                defformatstring(text)("creating cubes... %d%%", int(bar*100));
+                defformatstring(text, "creating cubes... %d%%", int(bar*100));
                 renderprogress(bar, text);
             }
         }
@@ -262,8 +260,8 @@ struct cubeloader
     {
         int loadingstart = SDL_GetTicks();
         string pakname, cgzname;
-        formatstring(pakname)("cube/%s", mname);
-        formatstring(cgzname)("packages/%s.cgz", pakname);
+        formatstring(pakname, "cube/%s", mname);
+        formatstring(cgzname, "packages/%s.cgz", pakname);
         stream *f = opengzfile(path(cgzname), "rb");
         if(!f) { conoutf(CON_ERROR, "could not read cube map %s", cgzname); return; }
         c_header hdr;
@@ -286,7 +284,7 @@ struct cubeloader
         emptymap(12, true, NULL);
         freeocta(worldroot);
         worldroot = newcubes(F_SOLID);
-        defformatstring(cs)("importing %s", cgzname);
+        defformatstring(cs, "importing %s", cgzname);
         renderbackground(cs);
         if(hdr.version>=4)
         {
@@ -345,8 +343,8 @@ struct cubeloader
                 {
                     if(type<0 || type>=C_MAXTYPE)
                     {
-                        defformatstring(t)("%d @ %d", type, k);
-                        fatal("while reading map: type out of range: ", t);
+                        defformatstring(t, "%d @ %d", type, k);
+                        fatal("while reading map: type out of range: %s", t);
                     }
                     s->type = type;
                     s->floor = f->getchar();
@@ -367,7 +365,7 @@ struct cubeloader
         delete f;
 
         string cfgname;
-        formatstring(cfgname)("packages/cube/%s.cfg", mname);
+        formatstring(cfgname, "packages/cube/%s.cfg", mname);
         identflags |= IDF_OVERRIDDEN;
         execfile("packages/cube/package.cfg");
         execfile(path(cfgname));
@@ -376,7 +374,8 @@ struct cubeloader
         mpremip(true);
         clearlights();
         allchanged();
-        loopv(entities::getents()) if(entities::getents()[i]->type!=ET_LIGHT) dropenttofloor(entities::getents()[i]);
+        vector<extentity *> &ents = entities::getents();
+        loopv(ents) if(ents[i]->type!=ET_LIGHT) dropenttofloor(ents[i]);
         entitiesinoctanodes();
         conoutf("read cube map %s (%.1f seconds)", cgzname, (SDL_GetTicks()-loadingstart)/1000.0f);
         startmap(NULL);

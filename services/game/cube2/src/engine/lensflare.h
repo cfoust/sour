@@ -24,7 +24,7 @@ struct flare
 {
     vec o, center;
     float size;
-    uchar color[3];
+    bvec color;
     bool sparkle;
 };
 
@@ -39,10 +39,15 @@ struct flarerenderer : partrenderer
     flare *flares;
 
     flarerenderer(const char *texname, int maxflares)
-        : partrenderer(texname, 3, PT_FLARE), maxflares(maxflares), shinetime(0)
+        : partrenderer(texname, 3, PT_FLARE|PT_SHADER), maxflares(maxflares), numflares(0), shinetime(0)
     {
         flares = new flare[maxflares];
     }
+    ~flarerenderer()
+    {
+        delete[] flares;
+    }
+
     void reset()
     {
         numflares = 0;
@@ -57,9 +62,7 @@ struct flarerenderer : partrenderer
         f.o = o;
         f.center = center;
         f.size = size;
-        f.color[0] = uchar(r*mod);
-        f.color[1] = uchar(g*mod);
-        f.color[2] = uchar(b*mod);
+        f.color = bvec(uchar(r*mod), uchar(g*mod), uchar(b*mod));
         f.sparkle = sparkle;
     }
 
@@ -133,47 +136,54 @@ struct flarerenderer : partrenderer
 
     void render()
     {
-        glDisable(GL_FOG);
-        defaultshader->set();
+        textureshader->set();
         glDisable(GL_DEPTH_TEST);
         if(!tex) tex = textureload(texname);
         glBindTexture(GL_TEXTURE_2D, tex->id);
-        glBegin(GL_QUADS);
+        gle::defattrib(gle::ATTRIB_VERTEX, 3, GL_FLOAT);
+        gle::defattrib(gle::ATTRIB_TEXCOORD0, 2, GL_FLOAT);
+        gle::defattrib(gle::ATTRIB_COLOR, 4, GL_UNSIGNED_BYTE);
+        gle::begin(GL_QUADS);
         loopi(numflares)
         {
-            flare *f = flares+i;
-            vec center = f->center;
-            vec axis = vec(f->o).sub(center);
-            uchar color[4] = {f->color[0], f->color[1], f->color[2], 255};
-            loopj(f->sparkle?12:9)
+            const flare &f = flares[i];
+            vec center = f.center;
+            vec axis = vec(f.o).sub(center);
+            bvec4 color(f.color, 255);
+            loopj(f.sparkle?12:9)
             {
                 const flaretype &ft = flaretypes[j];
                 vec o = vec(axis).mul(ft.loc).add(center);
-                float sz = ft.scale * f->size;
+                float sz = ft.scale * f.size;
                 int tex = ft.type;
                 if(ft.type < 0) //sparkles - always done last
                 {
                     shinetime = (shinetime + 1) % 10;
                     tex = 6+shinetime;
-                    color[0] = 0;
-                    color[1] = 0;
-                    color[2] = 0;
-                    color[-ft.type-1] = f->color[-ft.type-1]; //only want a single channel
+                    color.r = 0;
+                    color.g = 0;
+                    color.b = 0;
+                    color[-ft.type-1] = f.color[-ft.type-1]; //only want a single channel
                 }
-                color[3] = ft.alpha;
-                glColor4ubv(color);
+                color.a = ft.alpha;
                 const float tsz = 0.25; //flares are aranged in 4x4 grid
-                float tx = tsz*(tex&0x03);
-                float ty = tsz*((tex>>2)&0x03);
-                glTexCoord2f(tx,     ty+tsz); glVertex3f(o.x+(-camright.x+camup.x)*sz, o.y+(-camright.y+camup.y)*sz, o.z+(-camright.z+camup.z)*sz);
-                glTexCoord2f(tx+tsz, ty+tsz); glVertex3f(o.x+( camright.x+camup.x)*sz, o.y+( camright.y+camup.y)*sz, o.z+( camright.z+camup.z)*sz);
-                glTexCoord2f(tx+tsz, ty);     glVertex3f(o.x+( camright.x-camup.x)*sz, o.y+( camright.y-camup.y)*sz, o.z+( camright.z-camup.z)*sz);
-                glTexCoord2f(tx,     ty);     glVertex3f(o.x+(-camright.x-camup.x)*sz, o.y+(-camright.y-camup.y)*sz, o.z+(-camright.z-camup.z)*sz);
+                float tx = tsz*(tex&0x03), ty = tsz*((tex>>2)&0x03);
+                gle::attribf(o.x+(-camright.x+camup.x)*sz, o.y+(-camright.y+camup.y)*sz, o.z+(-camright.z+camup.z)*sz);
+                    gle::attribf(tx,     ty+tsz);
+                    gle::attrib(color);
+                gle::attribf(o.x+( camright.x+camup.x)*sz, o.y+( camright.y+camup.y)*sz, o.z+( camright.z+camup.z)*sz);
+                    gle::attribf(tx+tsz, ty+tsz);
+                    gle::attrib(color);
+                gle::attribf(o.x+( camright.x-camup.x)*sz, o.y+( camright.y-camup.y)*sz, o.z+( camright.z-camup.z)*sz);
+                    gle::attribf(tx+tsz, ty);
+                    gle::attrib(color);
+                gle::attribf(o.x+(-camright.x-camup.x)*sz, o.y+(-camright.y-camup.y)*sz, o.z+(-camright.z-camup.z)*sz);
+                    gle::attribf(tx,     ty);
+                    gle::attrib(color);
             }
         }
-        glEnd();
+        gle::end();
         glEnable(GL_DEPTH_TEST);
-        glEnable(GL_FOG);
     }
 
     //square per round hole - use addflare(..) instead

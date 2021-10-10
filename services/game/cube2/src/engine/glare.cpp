@@ -19,6 +19,7 @@ void cleanupglare()
 VARFP(glaresize, 6, 8, 10, cleanupglare());
 VARP(glare, 0, 0, 1);
 VARP(blurglare, 0, 4, 7);
+VARP(blurglareaspect, 0, 1, 1);
 VARP(blurglaresigma, 1, 50, 200);
 
 VAR(debugglare, 0, 0, 1);
@@ -33,32 +34,37 @@ bool glaring = false;
 
 void drawglaretex()
 {
-    if(!glare || renderpath==R_FIXEDFUNCTION) return;
+    if(!glare) return;
 
-    glaretex.render(1<<glaresize, 1<<glaresize, blurglare, blurglaresigma/100.0f);
+    int w = 1<<glaresize, h = 1<<glaresize, blury = blurglare;
+    if(blurglare && blurglareaspect)
+    {
+        while(h > (1<<5) && (screenw*h)/w >= (screenh*4)/3) h /= 2;
+        blury = ((1 + 4*blurglare)*(screenw*h)/w + screenh*2)/(screenh*4);
+        blury = clamp(blury, 1, MAXBLURRADIUS);
+    }
+
+    glaretex.render(w, h, blurglare, blurglaresigma/100.0f, blury);
 }
 
+FVAR(glaremod, 0.5f, 0.75f, 1);
 FVARP(glarescale, 0, 1, 8);
 
 void addglare()
 {
-    if(!glare || renderpath==R_FIXEDFUNCTION) return;
+    if(!glare) return;
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
 
-    SETSHADER(glare);
+    SETSHADER(screenrect);
 
     glBindTexture(GL_TEXTURE_2D, glaretex.rendertex);
 
-    setlocalparamf("glarescale", SHPARAM_PIXEL, 0, glarescale, glarescale, glarescale);
+    float g = glarescale*glaremod;
+    gle::colorf(g, g, g);
 
-    glBegin(GL_TRIANGLE_STRIP);
-    glTexCoord2f(0, 0); glVertex3f(-1, -1, 0);
-    glTexCoord2f(1, 0); glVertex3f( 1, -1, 0);
-    glTexCoord2f(0, 1); glVertex3f(-1,  1, 0);
-    glTexCoord2f(1, 1); glVertex3f( 1,  1, 0);
-    glEnd();
+    screenquad(1, 1);
 
     glDisable(GL_BLEND);
 }

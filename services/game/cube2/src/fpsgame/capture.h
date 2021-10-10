@@ -37,9 +37,11 @@ struct captureclientmode : clientmode
         string name, info;
         entitylight light;
 #endif
-        int ammogroup, ammotype, ammo, owners, enemies, converted, capturetime;
+        int ammogroup, ammotype, tag, ammo, owners, enemies, converted, capturetime;
 
         baseinfo() { reset(); }
+
+        bool valid() const { return ammotype>0 && ammotype<=I_CARTRIDGES-I_SHELLS+1; }
 
         void noenemy()
         {
@@ -55,6 +57,7 @@ struct captureclientmode : clientmode
             capturetime = -1;
             ammogroup = 0;
             ammotype = 0;
+            tag = -1;
             ammo = 0;
             owners = 0;
         }
@@ -181,7 +184,7 @@ struct captureclientmode : clientmode
         if(bases.length() >= MAXBASES) return;
         baseinfo &b = bases.add();
         b.ammogroup = min(ammotype, 0);
-        b.ammotype = ammotype > 0 ? ammotype : rnd(5)+1;
+        b.ammotype = ammotype > 0 ? ammotype : rnd(I_GRENADES-I_SHELLS+1)+1;
         b.o = o;
 
         if(b.ammogroup)
@@ -191,7 +194,8 @@ struct captureclientmode : clientmode
                 b.ammotype = bases[i].ammotype;
                 return;
             }
-            int uses[5] = { 0, 0, 0, 0, 0 };
+            int uses[I_GRENADES-I_SHELLS+1];
+            memset(uses, 0, sizeof(uses));
             loopi(bases.length()-1) if(bases[i].ammogroup)
             {
                 loopj(i) if(bases[j].ammogroup == bases[i].ammogroup) goto nextbase;
@@ -199,9 +203,9 @@ struct captureclientmode : clientmode
                 nextbase:;
             }
             int mintype = 0;
-            loopi(5) if(uses[i] < uses[mintype]) mintype = i;
-            int numavail = 0, avail[5];
-            loopi(5) if(uses[i] == uses[mintype]) avail[numavail++] = i+1;
+            loopi(I_GRENADES-I_SHELLS+1) if(uses[i] < uses[mintype]) mintype = i;
+            int numavail = 0, avail[I_GRENADES-I_SHELLS+1];
+            loopi(I_GRENADES-I_SHELLS+1) if(uses[i] == uses[mintype]) avail[numavail++] = i+1;
             b.ammotype = avail[rnd(numavail)];
         }
     }
@@ -227,18 +231,6 @@ struct captureclientmode : clientmode
         return false;
     }
 
-    float disttoenemy(baseinfo &b)
-    {
-        float dist = 1e10f;
-        loopv(bases)
-        {
-            baseinfo &e = bases[i];
-            if(e.owner[0] && strcmp(b.owner, e.owner))
-                dist = min(dist, b.o.dist(e.o));
-        }
-        return dist;
-    }
-
     bool insidebase(const baseinfo &b, const vec &o)
     {
         float dx = (b.o.x-o.x), dy = (b.o.y-o.y), dz = (b.o.z-o.z);
@@ -262,7 +254,7 @@ struct captureclientmode : clientmode
         loopv(bases)
         {
             baseinfo &b = bases[i];
-            if(b.ammotype>0 && b.ammotype<=I_CARTRIDGES-I_SHELLS+1 && insidebase(b, player1->feetpos()) && player1->hasmaxammo(b.ammotype-1+I_SHELLS)) return;
+            if(b.valid() && insidebase(b, player1->feetpos()) && player1->hasmaxammo(b.ammotype-1+I_SHELLS)) return;
         }
         addmsg(N_REPAMMO, "rc", player1);
     }
@@ -283,7 +275,7 @@ struct captureclientmode : clientmode
         loopv(bases)
         {
             baseinfo &b = bases[i];
-            if(b.ammotype>0 && b.ammotype<=I_CARTRIDGES-I_SHELLS+1 && insidebase(b, d->feetpos()) && !strcmp(b.owner, d->team) && b.o.dist(o) < 12)
+            if(b.valid() && insidebase(b, d->feetpos()) && !strcmp(b.owner, d->team) && b.o.dist(o) < 12)
             {
                 if(d->lastrepammo!=i)
                 {
@@ -306,7 +298,7 @@ struct captureclientmode : clientmode
             loopv(bases)
             {
                 baseinfo &b = bases[i];
-                if(!insidebase(b, d->feetpos()) || (strcmp(b.owner, d->team) && strcmp(b.enemy, d->team))) continue;
+                if(!b.valid() || !insidebase(b, d->feetpos()) || (strcmp(b.owner, d->team) && strcmp(b.enemy, d->team))) continue;
                 if(d->lastbase < 0 && (lookupmaterial(d->feetpos())&MATF_CLIP) == MAT_GAMECLIP) break;
                 particle_flare(pos, vec(b.ammopos.x, b.ammopos.y, b.ammopos.z - AMMOHEIGHT - 4.4f), 0, PART_LIGHTNING, strcmp(d->team, player1->team) ? 0xFF2222 : 0x2222FF, 1.0f);
                 if(oldbase < 0)
@@ -326,8 +318,10 @@ struct captureclientmode : clientmode
 
     void preload()
     {
-        static const char *basemodels[3] = { "base/neutral", "base/red", "base/blue" };
+        static const char * const basemodels[3] = { "base/neutral", "base/red", "base/blue" };
         loopi(3) preloadmodel(basemodels[i]);
+        preloadsound(S_V_BASECAP);
+        preloadsound(S_V_BASELOST);
     }
 
     void rendergame()
@@ -344,6 +338,7 @@ struct captureclientmode : clientmode
         loopv(bases)
         {
             baseinfo &b = bases[i];
+            if(!b.valid()) continue;
             const char *basename = b.owner[0] ? (strcmp(b.owner, player1->team) ? "base/red" : "base/blue") : "base/neutral";
             rendermodel(&b.light, basename, ANIM_MAPMODEL|ANIM_LOOP, b.o, 0, 0, MDL_SHADOW | MDL_CULL_VFC | MDL_CULL_OCCLUDED);
             float fradius = 1.0f, fheight = 0.5f;
@@ -352,26 +347,23 @@ struct captureclientmode : clientmode
 
 //            particle_fireball(b.ammopos, 4.8f, PART_EXPLOSION, 0, b.owner[0] ? (strcmp(b.owner, player1->team) ? 0x802020 : 0x2020FF) : 0x208020, 4.8f);
 
-            if(b.ammotype>0 && b.ammotype<=I_CARTRIDGES-I_SHELLS+1)
+            const char *ammoname = entities::entmdlname(I_SHELLS+b.ammotype-1);
+            if(m_regencapture)
             {
-                const char *ammoname = entities::entmdlname(I_SHELLS+b.ammotype-1);
-                if(m_regencapture)
-                {
-                    vec height(0, 0, 0);
-                    abovemodel(height, ammoname);
-                    vec ammopos(b.ammopos);
-                    ammopos.z -= height.z/2 + sinf(lastmillis/100.0f)/20;
-                    rendermodel(&b.light, ammoname, ANIM_MAPMODEL|ANIM_LOOP, ammopos, lastmillis/10.0f, 0, MDL_SHADOW | MDL_CULL_VFC | MDL_CULL_OCCLUDED);
-                }
-                else loopj(b.ammo)
-                {
-                    float angle = 2*M_PI*(lastmillis/4000.0f + j/float(MAXAMMO));
-                    vec ammopos(b.o);
-                    ammopos.x += 10*cosf(angle);
-                    ammopos.y += 10*sinf(angle);
-                    ammopos.z += 4;
-                    rendermodel(&b.light, entities::entmdlname(I_SHELLS+b.ammotype-1), ANIM_MAPMODEL|ANIM_LOOP, ammopos, 0, 0, MDL_SHADOW | MDL_CULL_VFC | MDL_CULL_OCCLUDED);
-                }
+                vec height(0, 0, 0);
+                abovemodel(height, ammoname);
+                vec ammopos(b.ammopos);
+                ammopos.z -= height.z/2 + sinf(lastmillis/100.0f)/20;
+                rendermodel(&b.light, ammoname, ANIM_MAPMODEL|ANIM_LOOP, ammopos, lastmillis/10.0f, 0, MDL_SHADOW | MDL_CULL_VFC | MDL_CULL_OCCLUDED);
+            }
+            else loopj(b.ammo)
+            {
+                float angle = 2*M_PI*(lastmillis/4000.0f + j/float(MAXAMMO));
+                vec ammopos(b.o);
+                ammopos.x += 10*cosf(angle);
+                ammopos.y += 10*sinf(angle);
+                ammopos.z += 4;
+                rendermodel(&b.light, entities::entmdlname(I_SHELLS+b.ammotype-1), ANIM_MAPMODEL|ANIM_LOOP, ammopos, 0, 0, MDL_SHADOW | MDL_CULL_VFC | MDL_CULL_OCCLUDED);
             }
 
             int tcolor = 0x1EC850, mtype = -1, mcolor = 0xFFFFFF, mcolor2 = 0;
@@ -379,21 +371,21 @@ struct captureclientmode : clientmode
             {
                 bool isowner = !strcmp(b.owner, player1->team);
                 if(b.enemy[0]) { mtype = PART_METER_VS; mcolor = 0xFF1932; mcolor2 = 0x3219FF; if(!isowner) swap(mcolor, mcolor2); }
-                if(!b.name[0]) formatstring(b.info)("base %d: %s", i+1, b.owner);
-                else if(basenumbers) formatstring(b.info)("%s (%d): %s", b.name, i+1, b.owner);
-                else formatstring(b.info)("%s: %s", b.name, b.owner);
+                if(!b.name[0]) formatstring(b.info, "base %d: %s", b.tag, b.owner);
+                else if(basenumbers) formatstring(b.info, "%s (%d): %s", b.name, b.tag, b.owner);
+                else formatstring(b.info, "%s: %s", b.name, b.owner);
                 tcolor = isowner ? 0x6496FF : 0xFF4B19;
             }
             else if(b.enemy[0])
             {
-                if(!b.name[0]) formatstring(b.info)("base %d: %s", i+1, b.enemy);
-                else if(basenumbers) formatstring(b.info)("%s (%d): %s", b.name, i+1, b.enemy);
-                else formatstring(b.info)("%s: %s", b.name, b.enemy);
+                if(!b.name[0]) formatstring(b.info, "base %d: %s", b.tag, b.enemy);
+                else if(basenumbers) formatstring(b.info, "%s (%d): %s", b.name, b.tag, b.enemy);
+                else formatstring(b.info, "%s: %s", b.name, b.enemy);
                 if(strcmp(b.enemy, player1->team)) { tcolor = 0xFF4B19; mtype = PART_METER; mcolor = 0xFF1932; }
                 else { tcolor = 0x6496FF; mtype = PART_METER; mcolor = 0x3219FF; }
             }
-            else if(!b.name[0]) formatstring(b.info)("base %d", i+1);
-            else if(basenumbers) formatstring(b.info)("%s (%d)", b.name, i+1);
+            else if(!b.name[0]) formatstring(b.info, "base %d", b.tag);
+            else if(basenumbers) formatstring(b.info, "%s (%d)", b.name, b.tag);
             else copystring(b.info, b.name);
 
             vec above(b.ammopos);
@@ -414,6 +406,7 @@ struct captureclientmode : clientmode
         loopv(bases)
         {
             baseinfo &b = bases[i];
+            if(!b.valid()) continue;
             if(skipenemy && b.enemy[0]) continue;
             switch(type)
             {
@@ -430,29 +423,29 @@ struct captureclientmode : clientmode
             if(basenumbers)
             {
                 static string blip;
-                formatstring(blip)("%d", i+1);
+                formatstring(blip, "%d", b.tag);
                 int tw, th;
                 text_bounds(blip, tw, th);
                 draw_text(blip, int(0.5f*(dir.x*fw/blipsize - tw)), int(0.5f*(dir.y*fh/blipsize - th)));
             }
             else
             {
-                if(!blips) glBegin(GL_QUADS);
+                if(!blips) { gle::defvertex(2); gle::deftexcoord0(); gle::begin(GL_QUADS); }
                 float x = 0.5f*(dir.x*fw/blipsize - fw), y = 0.5f*(dir.y*fh/blipsize - fh);
-                glTexCoord2f(0.0f, 0.0f); glVertex2f(x,    y);
-                glTexCoord2f(1.0f, 0.0f); glVertex2f(x+fw, y);
-                glTexCoord2f(1.0f, 1.0f); glVertex2f(x+fw, y+fh);
-                glTexCoord2f(0.0f, 1.0f); glVertex2f(x,    y+fh);
+                gle::attribf(x,    y);    gle::attribf(0, 0);
+                gle::attribf(x+fw, y);    gle::attribf(1, 0);
+                gle::attribf(x+fw, y+fh); gle::attribf(1, 1);
+                gle::attribf(x,    y+fh); gle::attribf(0, 1);
             }
             blips++;
         }
-        if(blips && !basenumbers) glEnd();
+        if(blips && !basenumbers) gle::end();
     }
 
-    int respawnwait(fpsent *d)
+    int respawnwait(fpsent *d, int delay = 0)
     {
         if(m_regencapture) return -1;
-        return max(0, RESPAWNSECS-(lastmillis-d->lastpain)/1000);
+        return d->respawnwait(RESPAWNSECS, delay);
     }
 
     int clipconsole(int w, int h)
@@ -464,22 +457,23 @@ struct captureclientmode : clientmode
     {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         int s = 1800/4, x = 1800*w/h - s - s/10, y = s/10;
-        glColor4f(1, 1, 1, minimapalpha);
+        gle::colorf(1, 1, 1, minimapalpha);
         if(minimapalpha >= 1) glDisable(GL_BLEND);
         bindminimap();
         drawminimap(d, x, y, s);
         if(minimapalpha >= 1) glEnable(GL_BLEND);
-        glColor3f(1, 1, 1);
+        gle::colorf(1, 1, 1);
         float margin = 0.04f, roffset = s*margin, rsize = s + 2*roffset;
         settexture("packages/hud/radar.png", 3);
         drawradar(x - roffset, y - roffset, rsize);
         #if 0
         settexture("packages/hud/compass.png", 3);
-        glPushMatrix();
-        glTranslatef(x - roffset + 0.5f*rsize, y - roffset + 0.5f*rsize, 0);
-        glRotatef(camera1->yaw + 180, 0, 0, -1);
+        pushhudmatrix();
+        hudmatrix.translate(x - roffset + 0.5f*rsize, y - roffset + 0.5f*rsize, 0);
+        hudmatrix.rotate_around_z((camera1->yaw + 180)*-RAD);
+        flushhudmatrix();
         drawradar(-0.5f*rsize, -0.5f*rsize, rsize);
-        glPopMatrix();
+        pophudmatrix();
         #endif
         bool showenemies = lastmillis%1000 >= 500;
         int fw = 1, fh = 1;
@@ -490,10 +484,11 @@ struct captureclientmode : clientmode
             text_bounds(" ", fw, fh);
         }
         else settexture("packages/hud/blip_blue.png", 3);
-        glPushMatrix();
-        glTranslatef(x + 0.5f*s, y + 0.5f*s, 0);
         float blipsize = basenumbers ? 0.1f : 0.05f;
-        glScalef((s*blipsize)/fw, (s*blipsize)/fh, 1.0f);
+        pushhudmatrix();
+        hudmatrix.translate(x + 0.5f*s, y + 0.5f*s, 0);
+        hudmatrix.scale((s*blipsize)/fw, (s*blipsize)/fh, 1.0f);
+        flushhudmatrix();
         drawblips(d, blipsize, fw, fh, 1, showenemies);
         if(basenumbers) setfont("digit_grey");
         else settexture("packages/hud/blip_grey.png", 3);
@@ -502,18 +497,20 @@ struct captureclientmode : clientmode
         else settexture("packages/hud/blip_red.png", 3);
         drawblips(d, blipsize, fw, fh, -1, showenemies);
         if(showenemies) drawblips(d, blipsize, fw, fh, -2);
-        glPopMatrix();
+        pophudmatrix();
         if(basenumbers) popfont();
+        drawteammates(d, x, y, s);
         if(d->state == CS_DEAD)
         {
             int wait = respawnwait(d);
             if(wait>=0)
             {
-                glPushMatrix();
-                glScalef(2, 2, 1);
+                pushhudmatrix();
+                hudmatrix.scale(2, 2, 1);
+                flushhudmatrix();
                 bool flash = wait>0 && d==player1 && lastspawnattempt>=d->lastpain && lastmillis < lastspawnattempt+100;
                 draw_textf("%s%d", (x+s/2)/2-(wait>=10 ? 28 : 16), (y+s/2)/2-32, flash ? "\f3" : "", wait);
-                glPopMatrix();
+                pophudmatrix();
             }
         }
     }
@@ -531,9 +528,10 @@ struct captureclientmode : clientmode
             abovemodel(b.ammopos, "base/neutral");
             b.ammopos.z += AMMOHEIGHT-2;
             b.ammotype = e->attr1;
-            defformatstring(alias)("base_%d", e->attr2);
+            defformatstring(alias, "base_%d", e->attr2);
             const char *name = getalias(alias);
             copystring(b.name, name);
+            b.tag = e->attr2>0 ? e->attr2 : bases.length();
             b.light = e->light;
         }
     }
@@ -560,17 +558,17 @@ struct captureclientmode : clientmode
         {
             if(strcmp(b.owner, owner))
             {
-                if(!b.name[0]) conoutf(CON_GAMEINFO, "%s captured base %d", owner, i+1);
-                else if(basenumbers) conoutf(CON_GAMEINFO, "%s captured %s (%d)", owner, b.name, i+1);
-                else conoutf(CON_GAMEINFO, "%s captured %s", owner, b.name);
+                if(!b.name[0]) conoutf(CON_GAMEINFO, "%s captured base %d", teamcolor(owner, owner), b.tag);
+                else if(basenumbers) conoutf(CON_GAMEINFO, "%s captured %s (%d)", teamcolor(owner, owner), b.name, b.tag);
+                else conoutf(CON_GAMEINFO, "%s captured %s", teamcolor(owner, owner), b.name);
                 if(!strcmp(owner, player1->team)) playsound(S_V_BASECAP);
             }
         }
         else if(b.owner[0])
         {
-            if(!b.name[0]) conoutf(CON_GAMEINFO, "%s lost base %d", b.owner, i+1);
-            else if(basenumbers) conoutf(CON_GAMEINFO, "%s lost %s (%d)", b.owner, b.name, i+1);
-            else conoutf(CON_GAMEINFO, "%s lost %s", b.owner, b.name);
+            if(!b.name[0]) conoutf(CON_GAMEINFO, "%s lost base %d", teamcolor(b.owner, b.owner), b.tag);
+            else if(basenumbers) conoutf(CON_GAMEINFO, "%s lost %s (%d)", teamcolor(b.owner, b.owner), b.name, b.tag);
+            else conoutf(CON_GAMEINFO, "%s lost %s", teamcolor(b.owner, b.owner), b.name);
             if(!strcmp(b.owner, player1->team)) playsound(S_V_BASELOST);
         }
         if(strcmp(b.owner, owner)) particle_splash(PART_SPARK, 200, 250, b.ammopos, owner[0] ? (strcmp(owner, player1->team) ? 0x802020 : 0x2020FF) : 0x208020, 0.24f);
@@ -580,7 +578,7 @@ struct captureclientmode : clientmode
         if(ammo>b.ammo)
         {
             playsound(S_ITEMSPAWN, &b.o);
-            int icon = b.ammotype>0 && b.ammotype<=I_CARTRIDGES-I_SHELLS+1 ? itemstats[b.ammotype-1].icon : -1;
+            int icon = b.valid() ? itemstats[b.ammotype-1].icon : -1;
             if(icon >= 0) particle_icon(vec(b.ammopos.x, b.ammopos.y, b.ammopos.z + AMMOHEIGHT + 1.0f), icon%4, icon/4, PART_HUD_ICON, 2000, 0xFFFFFF, 2.0f, -8);
         }
         b.ammo = ammo;
@@ -589,13 +587,13 @@ struct captureclientmode : clientmode
     void setscore(int base, const char *team, int total)
     {
         findscore(team).total = total;
-        if(total>=10000) conoutf(CON_GAMEINFO, "team %s captured all bases", team);
+        if(total>=10000) conoutf(CON_GAMEINFO, "%s captured all bases", teamcolor(team, team));
         else if(bases.inrange(base))
         {
             baseinfo &b = bases[base];
             if(!strcmp(b.owner, team))
             {
-                defformatstring(msg)("%d", total);
+                defformatstring(msg, "%d", total);
                 vec above(b.ammopos);
                 above.z += AMMOHEIGHT+1.0f;
                 particle_textcopy(above, msg, PART_TEXT, 2000, isteam(team, player1->team) ? 0x6496FF : 0xFF4B19, 4.0f, -8);
@@ -603,65 +601,17 @@ struct captureclientmode : clientmode
         }
     }
 
-    int closesttoenemy(const char *team, bool noattacked = false, bool farthest = false)
+    // prefer spawning near friendly base
+    float ratespawn(fpsent *d, const extentity &e)
     {
-        float bestdist = farthest ? -1e10f : 1e10f;
-        int best = -1;
-        int attackers = INT_MAX, attacked = -1;
+        float minbasedist = 1e16f;
         loopv(bases)
         {
             baseinfo &b = bases[i];
-            if(!b.owner[0] || strcmp(b.owner, team)) continue;
-            if(noattacked && b.enemy[0]) continue;
-            float dist = disttoenemy(b);
-            if(farthest ? dist > bestdist : dist < bestdist)
-            {
-                best = i;
-                bestdist = dist;
-            }
-            else if(b.enemy[0] && b.enemies < attackers)
-            {
-                attacked = i;
-                attackers = b.enemies;
-            }
+            if(!b.owner[0] || strcmp(b.owner, d->team)) continue;
+            minbasedist = min(minbasedist, e.o.dist(b.o));
         }
-        if(best < 0) return attacked;
-        return best;
-    }
-
-    int pickteamspawn(const char *team)
-    {
-        int closest = closesttoenemy(team, true, m_regencapture);
-        if(!m_regencapture && closest < 0) closest = closesttoenemy(team, false);
-        if(closest < 0) return -1;
-        baseinfo &b = bases[closest];
-
-        float bestdist = 1e10f, altdist = 1e10f;
-        int best = -1, alt = -1;
-        loopv(entities::ents)
-        {
-            extentity *e = entities::ents[i];
-            if(e->type!=PLAYERSTART || e->attr2) continue;
-            float dist = e->o.dist(b.o);
-            if(dist < bestdist)
-            {
-                alt = best;
-                altdist = bestdist;
-                best = i;
-                bestdist = dist;
-            }
-            else if(dist < altdist)
-            {
-                alt = i;
-                altdist = dist;
-            }
-        }
-        return rnd(2) ? best : alt;
-    }
-
-    void pickspawn(fpsent *d)
-    {
-        findplayerspawn(d, pickteamspawn(d->team));
+        return minbasedist < 1e16f ? proximityscore(minbasedist, 128.0f, 512.0f) : 1.0f;
     }
 
 	bool aicheck(fpsent *d, ai::aistate &b)
@@ -675,6 +625,7 @@ struct captureclientmode : clientmode
 		loopvj(bases)
 		{
 			baseinfo &f = bases[j];
+            if(!f.valid()) continue;
 			static vector<int> targets; // build a list of others who are interested in this
 			targets.setsize(0);
 			ai::checkothers(targets, d, ai::AI_S_DEFEND, ai::AI_T_AFFINITY, j, true);
@@ -683,7 +634,7 @@ struct captureclientmode : clientmode
 			if(m_regencapture)
 			{
 				int gun = f.ammotype-1+I_SHELLS;
-				if(f.ammo > 0 && f.ammotype > 0 && f.ammotype <= I_CARTRIDGES-I_SHELLS+1 && !d->hasmaxammo(gun))
+				if(f.ammo > 0 && !d->hasmaxammo(gun))
 					regen = gun != d->ai->weappref ? 2 : 4;
 			}
 			loopi(numdynents()) if((e = (fpsent *)iterdynents(i)) && !e->ai && e->state == CS_ALIVE && isteam(d->team, e->team))
@@ -706,44 +657,42 @@ struct captureclientmode : clientmode
 
 	bool aidefend(fpsent *d, ai::aistate &b)
 	{
-		if(bases.inrange(b.target))
+        if(!bases.inrange(b.target)) return false;
+        baseinfo &f = bases[b.target];
+        if(!f.valid()) return false;
+		bool regen = !m_regencapture || d->health >= 100 ? false : true;
+		if(!regen && m_regencapture)
 		{
-			baseinfo &f = bases[b.target];
-			bool regen = !m_regencapture || d->health >= 100 ? false : true;
-			if(!regen && m_regencapture)
-			{
-				int gun = f.ammotype-1+I_SHELLS;
-				if(f.ammo > 0 && f.ammotype > 0 && f.ammotype <= I_CARTRIDGES-I_SHELLS+1 && !d->hasmaxammo(gun))
-					regen = true;
-			}
-			int walk = 0;
-			if(!regen && !f.enemy[0] && f.owner[0] && !strcmp(f.owner, d->team))
-			{
-				static vector<int> targets; // build a list of others who are interested in this
-				targets.setsize(0);
-				ai::checkothers(targets, d, ai::AI_S_DEFEND, ai::AI_T_AFFINITY, b.target, true);
-				fpsent *e = NULL;
-				loopi(numdynents()) if((e = (fpsent *)iterdynents(i)) && !e->ai && e->state == CS_ALIVE && isteam(d->team, e->team))
-				{ // try to guess what non ai are doing
-					vec ep = e->feetpos();
-					if(targets.find(e->clientnum) < 0 && (ep.squaredist(f.o) <= (CAPTURERADIUS*CAPTURERADIUS*4)))
-						targets.add(e->clientnum);
-				}
-				if(!targets.empty())
-				{
-					if(lastmillis-b.millis >= (201-d->skill)*33)
-					{
-						d->ai->trywipe = true; // re-evaluate so as not to herd
-						return true;
-					}
-					else walk = 2;
-				}
-				else walk = 1;
-				b.millis = lastmillis;
-			}
-			return ai::defend(d, b, f.o, float(CAPTURERADIUS), float(CAPTURERADIUS*(2+(walk*2))), walk); // less wander than ctf
+			int gun = f.ammotype-1+I_SHELLS;
+			if(f.ammo > 0 && !d->hasmaxammo(gun))
+				regen = true;
 		}
-		return false;
+		int walk = 0;
+		if(!regen && !f.enemy[0] && f.owner[0] && !strcmp(f.owner, d->team))
+		{
+			static vector<int> targets; // build a list of others who are interested in this
+			targets.setsize(0);
+			ai::checkothers(targets, d, ai::AI_S_DEFEND, ai::AI_T_AFFINITY, b.target, true);
+			fpsent *e = NULL;
+			loopi(numdynents()) if((e = (fpsent *)iterdynents(i)) && !e->ai && e->state == CS_ALIVE && isteam(d->team, e->team))
+			{ // try to guess what non ai are doing
+				vec ep = e->feetpos();
+				if(targets.find(e->clientnum) < 0 && (ep.squaredist(f.o) <= (CAPTURERADIUS*CAPTURERADIUS*4)))
+					targets.add(e->clientnum);
+			}
+			if(!targets.empty())
+			{
+				if(lastmillis-b.millis >= (201-d->skill)*33)
+				{
+					d->ai->trywipe = true; // re-evaluate so as not to herd
+					return true;
+				}
+				else walk = 2;
+			}
+			else walk = 1;
+			b.millis = lastmillis;
+		}
+		return ai::defend(d, b, f.o, float(CAPTURERADIUS), float(CAPTURERADIUS*(2+(walk*2))), walk); // less wander than ctf
 	}
 
 	bool aipursue(fpsent *d, ai::aistate &b)
@@ -760,10 +709,11 @@ ICOMMAND(insidebases, "", (),
     vector<char> buf;
     if(m_capture && player1->state == CS_ALIVE) loopv(capturemode.bases)
     {
-        if(capturemode.insidebase(capturemode.bases[i], player1->feetpos()))
+        captureclientmode::baseinfo &b = capturemode.bases[i];
+        if(b.valid() && capturemode.insidebase(b, player1->feetpos()))
         {
             if(buf.length()) buf.add(' ');
-            defformatstring(basenum)("%d", i+1);
+            defformatstring(basenum, "%d", b.tag);
             buf.put(basenum, strlen(basenum));
         }
     }
@@ -796,7 +746,7 @@ ICOMMAND(insidebases, "", (),
             entity &e = ments[i];
             if(e.type != BASE) continue;
             int ammotype = e.attr1;
-            addbase(ammotype>=GUN_SG && ammotype<=GUN_PISTOL ? ammotype : min(ammotype, 0), e.o); 
+            addbase(ammotype, e.o); 
         }
         notgotbases = false;
         sendbases();
@@ -826,7 +776,7 @@ ICOMMAND(insidebases, "", (),
         loopv(bases)
         {
             baseinfo &b = bases[i];
-            if(b.ammotype>0 && b.ammotype<=I_CARTRIDGES-I_SHELLS+1 && insidebase(b, ci->state.o) && !ci->state.hasmaxammo(b.ammotype-1+I_SHELLS) && b.takeammo(ci->team))
+            if(b.valid() && insidebase(b, ci->state.o) && !ci->state.hasmaxammo(b.ammotype-1+I_SHELLS) && b.takeammo(ci->team))
             {
                 sendbaseinfo(i);
                 sendf(-1, 1, "riii", N_REPAMMO, ci->clientnum, b.ammotype);
@@ -842,6 +792,7 @@ ICOMMAND(insidebases, "", (),
         loopv(bases)
         {
             baseinfo &b = bases[i];
+            if(!b.valid()) continue;
             bool leave = !oldclip && insidebase(b, oldpos),
                  enter = !newclip && insidebase(b, newpos);
             if(leave && !enter && b.leave(team)) sendbaseinfo(i);
@@ -881,22 +832,27 @@ ICOMMAND(insidebases, "", (),
                     ci->state.health = min(ci->state.health + ticks*REGENHEALTH, ci->state.maxhealth);
                     notify = true;
                 }
-                if(ci->state.armour < itemstats[I_GREENARMOUR-I_SHELLS].max)
+                if(ci->state.armourtype != A_GREEN || ci->state.armour < itemstats[I_GREENARMOUR-I_SHELLS].max)
                 {
+                    if(ci->state.armourtype != A_GREEN)
+                    {
+                        ci->state.armourtype = A_GREEN;
+                        ci->state.armour = 0;
+                    }
                     ci->state.armour = min(ci->state.armour + ticks*REGENARMOUR, itemstats[I_GREENARMOUR-I_SHELLS].max);
                     notify = true;
                 }
-                if(b.ammotype>0)
+                if(b.valid())
                 {
                     int ammotype = b.ammotype-1+I_SHELLS;
-                    if(ammotype<=I_CARTRIDGES && !ci->state.hasmaxammo(ammotype))
+                    if(!ci->state.hasmaxammo(ammotype))
                     {
                         ci->state.addammo(b.ammotype, ticks*REGENAMMO, 100);
                         notify = true;
                     }
                 }
                 if(notify)
-                    sendf(-1, 1, "ri6", N_BASEREGEN, ci->clientnum, ci->state.health, ci->state.armour, b.ammotype, b.ammotype>0 ? ci->state.ammo[b.ammotype] : 0);
+                    sendf(-1, 1, "ri6", N_BASEREGEN, ci->clientnum, ci->state.health, ci->state.armour, b.ammotype, b.valid() ? ci->state.ammo[b.ammotype] : 0);
             }
         }
     }
@@ -910,6 +866,7 @@ ICOMMAND(insidebases, "", (),
         loopv(bases)
         {
             baseinfo &b = bases[i];
+            if(!b.valid()) continue;
             if(b.enemy[0])
             {
                 if(!b.owners || !b.enemies) b.occupy(b.enemy, OCCUPYBONUS*(b.enemies ? 1 : -1) + OCCUPYPOINTS*(b.enemies ? b.enemies : -(1+b.owners))*t);
@@ -967,7 +924,7 @@ ICOMMAND(insidebases, "", (),
         loopv(bases)
         {
             baseinfo &b = bases[i];
-            putint(p, min(max(b.ammotype, 1), I_CARTRIDGES+1));
+            putint(p, b.ammotype);
             sendstring(b.owner, p);
             sendstring(b.enemy, p);
             putint(p, b.converted);
@@ -982,6 +939,7 @@ ICOMMAND(insidebases, "", (),
         loopv(bases)
         {
             baseinfo &b = bases[i];
+            if(!b.valid()) continue;
             if(b.owner[0])
             {
                 if(!lastteam) lastteam = b.owner;
@@ -1026,6 +984,11 @@ ICOMMAND(insidebases, "", (),
     {
         if(notgotbases || ci->gameclip) return;
         leavebases(ci->team, ci->state.o);
+    }
+
+    bool canspawn(clientinfo *ci, bool connecting)
+    {
+        return m_regencapture || connecting || !ci->state.lastdeath || gamemillis+curtime-ci->state.lastdeath >= RESPAWNSECS*1000;
     }
 
     void moved(clientinfo *ci, const vec &oldpos, bool oldclip, const vec &newpos, bool newclip)
@@ -1104,6 +1067,7 @@ case N_BASEREGEN:
     if(regen && m_capture)
     {
         regen->health = health;
+        regen->armourtype = A_GREEN;
         regen->armour = armour;
         if(ammotype>=GUN_SG && ammotype<=GUN_PISTOL) regen->ammo[ammotype] = ammo;
     }

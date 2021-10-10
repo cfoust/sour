@@ -425,7 +425,8 @@ int main(int argc, char **argv)
         if(outborder > 0) FT_Glyph_StrokeBorder(&p, s, 0, 0);
         if(inborder > 0) FT_Glyph_StrokeBorder(&p2, s2, 1, 0);
         FT_Glyph_To_Bitmap(&p, FT_RENDER_MODE_NORMAL, 0, 1);
-        FT_Glyph_To_Bitmap(&p2, FT_RENDER_MODE_NORMAL, 0, 1);
+        if(inborder > 0 || outborder > 0) FT_Glyph_To_Bitmap(&p2, FT_RENDER_MODE_NORMAL, 0, 1);
+        else p2 = p;
         b = (FT_BitmapGlyph)p;
         b2 = (FT_BitmapGlyph)p2;
         dst->tex = -1;
@@ -543,7 +544,7 @@ int main(int argc, char **argv)
     writecfg(argv[2], chars, numchars, x1, y1, x2, y2, sw, sh, argc, argv);
     for(i = 0; i < numchars; i++)
     {
-        FT_Done_Glyph((FT_Glyph)chars[i].alpha);
+        if(chars[i].alpha != chars[i].color) FT_Done_Glyph((FT_Glyph)chars[i].alpha);
         FT_Done_Glyph((FT_Glyph)chars[i].color);
     }
     FT_Stroker_Done(s);

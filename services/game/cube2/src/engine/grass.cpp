@@ -4,8 +4,10 @@ VARP(grass, 0, 0, 1);
 VAR(dbggrass, 0, 0, 1);
 VARP(grassdist, 0, 256, 10000);
 FVARP(grasstaper, 0, 0.2, 1);
-FVARP(grassstep, 0.5, 2, 8);
+FVARP(grassstep, 0.5, 3, 8);
 VARP(grassheight, 1, 4, 64);
+VARP(grassmargin, 0, 8, 32);
+FVAR(grassmarginfade, 0, 0.5f, 1);
 
 #define NUMGRASSWEDGES 8
 
@@ -13,6 +15,7 @@ static struct grasswedge
 {
     vec dir, across, edge1, edge2;
     plane bound1, bound2;
+    bvec4 vertbounds;
 
     grasswedge(int i) :
       dir(2*M_PI*(i+0.5f)/float(NUMGRASSWEDGES), 0),
@@ -23,17 +26,25 @@ static struct grasswedge
       bound2(vec(2*M_PI*((i+1)/float(NUMGRASSWEDGES) + 0.25f), 0), 0)
     {
         across.div(-across.dot(bound1));
+
+        bvec vertbound1(bound1), vertbound2(bound2);
+        vertbounds = bvec4(vertbound1.x, vertbound1.y, vertbound2.x, vertbound2.y);
+        vertbounds.flip();
     }
 } grasswedges[NUMGRASSWEDGES] = { 0, 1, 2, 3, 4, 5, 6, 7 };
 
 struct grassvert
 {
     vec pos;
-    uchar color[4];
-    float u, v, lmu, lmv;
+    bvec4 color;
+    vec2 tc;
+    svec2 lm;
+    bvec4 bounds;
 };
 
 static vector<grassvert> grassverts;
+static GLuint grassvbo = 0;
+static int grassvbosize = 0;
 
 struct grassgroup
 {
@@ -66,7 +77,7 @@ HVARFR(grasscolour, 0, 0xFFFFFF, 0xFFFFFF,
     grasscolor = bvec((grasscolour>>16)&0xFF, (grasscolour>>8)&0xFF, grasscolour&0xFF);
 });
 FVARR(grassalpha, 0, 1, 1);
- 
+
 static void gengrassquads(grassgroup *&group, const grasswedge &w, const grasstri &g, Texture *tex)
 {
     float t = camera1->o.dot(w.dir);
@@ -85,9 +96,9 @@ static void gengrassquads(grassgroup *&group, const grasswedge &w, const grasstr
     vec tc;
     tc.cross(g.surface, w.dir).mul(texscale);
 
-    int color = tstep + maxstep;
-    if(color < 0) color = NUMGRASSOFFSETS - (-color)%NUMGRASSOFFSETS;
-    color += numsteps + NUMGRASSOFFSETS - numsteps%NUMGRASSOFFSETS;
+    int offset = tstep + maxstep;
+    if(offset < 0) offset = NUMGRASSOFFSETS - (-offset)%NUMGRASSOFFSETS;
+    offset += numsteps + NUMGRASSOFFSETS - numsteps%NUMGRASSOFFSETS;
 
     float leftdist = t0;
     const vec *leftv = &g.v[0];
@@ -102,7 +113,7 @@ static void gengrassquads(grassgroup *&group, const grasswedge &w, const grasstr
           taperscale = 1.0f / (grassdist - taperdist),
           dist = maxstep*grassstep + tstart,
           leftb = 0, rightb = 0, leftdb = 0, rightdb = 0;
-    for(int i = maxstep; i >= minstep; i--, color--, leftp.add(leftdir), rightp.add(rightdir), leftb += leftdb, rightb += rightdb, dist -= grassstep)
+    for(int i = maxstep; i >= minstep; i--, offset--, leftp.add(leftdir), rightp.add(rightdir), leftb += leftdb, rightb += rightdb, dist -= grassstep)
     {
         if(dist <= leftdist)
         {
@@ -143,15 +154,15 @@ static void gengrassquads(grassgroup *&group, const grasswedge &w, const grasstr
             rightdb = w.bound2.dot(rightdir);
         }
         vec p1 = leftp, p2 = rightp;
-        if(leftb > 0)
+        if(leftb > grassmargin)
         {
-            if(w.bound1.dist(p2) >= 0) continue;
-            p1.add(vec(across).mul(leftb));
+            if(w.bound1.dist(p2) >= grassmargin) continue;
+            p1.add(vec(across).mul(leftb - grassmargin));
         } 
-        if(rightb > 0)
+        if(rightb > grassmargin)
         {
-            if(w.bound2.dist(p1) >= 0) continue;
-            p2.sub(vec(across).mul(rightb));
+            if(w.bound2.dist(p1) >= grassmargin) continue;
+            p2.sub(vec(across).mul(rightb - grassmargin));
         }
 
         if(!group)
@@ -163,33 +174,34 @@ static void gengrassquads(grassgroup *&group, const grasswedge &w, const grasstr
             extern int fullbright;
             int lmid = brightengeom && (g.lmid < LMID_RESERVED || (fullbright && editmode)) ? LMID_BRIGHT : g.lmid;
             group->lmtex = lightmaptexs.inrange(lmid) ? lightmaptexs[lmid].id : notexture->id;
-            group->offset = grassverts.length();
+            group->offset = grassverts.length()/4;
             group->numquads = 0;
             if(lastgrassanim!=lastmillis) animategrass();
         }
   
         group->numquads++;
  
-        float offset = grassoffsets[color%NUMGRASSOFFSETS],
-              animoffset = animscale*grassanimoffsets[color%NUMGRASSOFFSETS],
-              tc1 = tc.dot(p1) + offset, tc2 = tc.dot(p2) + offset,
-              lm1u = g.tcu.dot(p1), lm1v = g.tcv.dot(p1),
-              lm2u = g.tcu.dot(p2), lm2v = g.tcv.dot(p2),
+        float tcoffset = grassoffsets[offset%NUMGRASSOFFSETS],
+              animoffset = animscale*grassanimoffsets[offset%NUMGRASSOFFSETS],
+              tc1 = tc.dot(p1) + tcoffset, tc2 = tc.dot(p2) + tcoffset,
               fade = dist - t > taperdist ? (grassdist - (dist - t))*taperscale : 1,
               height = grassheight * fade;
-        uchar color[4] = { grasscolor.x, grasscolor.y, grasscolor.z, uchar(fade*grassalpha*255) };
+        svec2 lm1(short(g.tcu.dot(p1)), short(g.tcv.dot(p1))),
+              lm2(short(g.tcu.dot(p2)), short(g.tcv.dot(p2)));
+        bvec4 color(grasscolor, uchar(fade*grassalpha*255));
 
         #define GRASSVERT(n, tcv, modify) { \
             grassvert &gv = grassverts.add(); \
             gv.pos = p##n; \
-            memcpy(gv.color, color, sizeof(color)); \
-            gv.u = tc##n; gv.v = tcv; \
-            gv.lmu = lm##n##u; gv.lmv = lm##n##v; \
+            gv.color = color; \
+            gv.tc = vec2(tc##n, tcv); \
+            gv.lm = lm##n; \
+            gv.bounds = w.vertbounds; \
             modify; \
         }
     
-        GRASSVERT(2, 0, { gv.pos.z += height; gv.u += animoffset; });
-        GRASSVERT(1, 0, { gv.pos.z += height; gv.u += animoffset; });
+        GRASSVERT(2, 0, { gv.pos.z += height; gv.tc.x += animoffset; });
+        GRASSVERT(1, 0, { gv.pos.z += height; gv.tc.x += animoffset; });
         GRASSVERT(1, 1, );
         GRASSVERT(2, 1, );
     }
@@ -215,7 +227,7 @@ static void gengrassquads(vtxarray *va)
         loopi(NUMGRASSWEDGES)
         {
             grasswedge &w = grasswedges[i];    
-            if(w.bound1.dist(g.center) > g.radius || w.bound2.dist(g.center) > g.radius) continue;
+            if(w.bound1.dist(g.center) > g.radius + grassmargin || w.bound2.dist(g.center) > g.radius + grassmargin) continue;
             gengrassquads(group, w, g, s.grasstex);
         }
         if(group) group->dist = dist;
@@ -243,7 +255,6 @@ void generategrass()
         w.bound2.offset = -camera1->o.dot(w.bound2);
     }
 
-    extern vtxarray *visibleva;
     for(vtxarray *va = visibleva; va; va = va->next)
     {
         if(va->grasstris.empty() || va->occluded >= OCCLUDE_GEOM) continue;
@@ -252,7 +263,17 @@ void generategrass()
         gengrassquads(va);
     }
 
+    if(grassgroups.empty()) return;
+
     grassgroups.sort(comparegrassgroups);
+
+    if(!grassvbo) glGenBuffers_(1, &grassvbo);
+    gle::bindvbo(grassvbo);
+    int size = grassverts.length()*sizeof(grassvert);
+    grassvbosize = max(grassvbosize, size);
+    glBufferData_(GL_ARRAY_BUFFER, grassvbosize, size == grassvbosize ? grassverts.getbuf() : NULL, GL_STREAM_DRAW);
+    if(size != grassvbosize) glBufferSubData_(GL_ARRAY_BUFFER, 0, size, grassverts.getbuf());
+    gle::clearvbo();
 }
 
 void rendergrass()
@@ -261,31 +282,29 @@ void rendergrass()
 
     glDisable(GL_CULL_FACE);
     glEnable(GL_BLEND);
-    glBlendFunc(renderpath==R_FIXEDFUNCTION ? GL_SRC_ALPHA : GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);
+
+    GLOBALPARAM(camera, camera1->o);
 
     SETSHADER(grass);
 
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glVertexPointer(3, GL_FLOAT, sizeof(grassvert), grassverts[0].pos.v);
+    LOCALPARAMF(grassmargin, grassmargin, grassmargin ? grassmarginfade / grassmargin : 0.0f, grassmargin ? grassmarginfade : 1.0f);
+ 
+    gle::bindvbo(grassvbo);
 
-    glEnableClientState(GL_COLOR_ARRAY);
-    glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(grassvert), grassverts[0].color);
-
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    glTexCoordPointer(2, GL_FLOAT, sizeof(grassvert), &grassverts[0].u);
-
-    if(renderpath!=R_FIXEDFUNCTION || maxtmus>=2)
-    {
-        glActiveTexture_(GL_TEXTURE1_ARB);
-        glClientActiveTexture_(GL_TEXTURE1_ARB);
-        glEnable(GL_TEXTURE_2D);
-        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-        glTexCoordPointer(2, GL_FLOAT, sizeof(grassvert), &grassverts[0].lmu);
-        if(renderpath==R_FIXEDFUNCTION) setuptmu(1, "P * T x 2"); 
-        glClientActiveTexture_(GL_TEXTURE0_ARB);
-        glActiveTexture_(GL_TEXTURE0_ARB);
-    }
+    const grassvert *ptr = 0;
+    gle::vertexpointer(sizeof(grassvert), ptr->pos.v);
+    gle::colorpointer(sizeof(grassvert), ptr->color.v);
+    gle::texcoord0pointer(sizeof(grassvert), ptr->tc.v);
+    gle::texcoord1pointer(sizeof(grassvert), ptr->lm.v, GL_SHORT);
+    gle::tangentpointer(sizeof(grassvert), ptr->bounds.v, GL_BYTE);
+    gle::enablevertex();
+    gle::enablecolor();
+    gle::enabletexcoord0();
+    gle::enabletexcoord1();
+    gle::enabletangent();
+    gle::enablequads();
 
     int texid = -1, lmtexid = -1;
     loopv(grassgroups)
@@ -305,36 +324,33 @@ void rendergrass()
         }
         if(lmtexid != g.lmtex)
         {
-            if(renderpath!=R_FIXEDFUNCTION || maxtmus>=2)
-            {
-                glActiveTexture_(GL_TEXTURE1_ARB);
-                glBindTexture(GL_TEXTURE_2D, g.lmtex);
-                glActiveTexture_(GL_TEXTURE0_ARB);
-            }
+            glActiveTexture_(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, g.lmtex);
+            glActiveTexture_(GL_TEXTURE0);
             lmtexid = g.lmtex;
         }
 
-        glDrawArrays(GL_QUADS, g.offset, 4*g.numquads);
+        gle::drawquads(g.offset, g.numquads);
         xtravertsva += 4*g.numquads;
     }
 
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_COLOR_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    gle::disablequads();
+    gle::disablevertex();
+    gle::disablecolor();
+    gle::disabletexcoord0();
+    gle::disabletexcoord1();
+    gle::disabletangent();
 
-    if(renderpath!=R_FIXEDFUNCTION || maxtmus>=2)
-    {
-        glActiveTexture_(GL_TEXTURE1_ARB);
-        glClientActiveTexture_(GL_TEXTURE1_ARB);
-        if(renderpath==R_FIXEDFUNCTION) resettmu(1);
-        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        glDisable(GL_TEXTURE_2D);
-        glClientActiveTexture_(GL_TEXTURE0_ARB);
-        glActiveTexture_(GL_TEXTURE0_ARB);
-    }
+    gle::clearvbo();
 
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);
     glEnable(GL_CULL_FACE);
+}
+
+void cleanupgrass()
+{   
+    if(grassvbo) { glDeleteBuffers_(1, &grassvbo); grassvbo = 0; }
+    grassvbosize = 0;
 }
 

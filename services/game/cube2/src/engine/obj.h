@@ -1,11 +1,12 @@
 struct obj;
 
-struct obj : vertmodel, vertloader<obj>
+struct obj : vertloader<obj>
 {
-    obj(const char *name) : vertmodel(name) {}
+    obj(const char *name) : vertloader(name) {}
 
     static const char *formatname() { return "obj"; }
     static bool animated() { return false; }
+    bool flipy() const { return true; }
     int type() const { return MDL_OBJ; }
 
     struct objmeshgroup : vertmeshgroup
@@ -22,7 +23,7 @@ struct obj : vertmodel, vertloader<obj>
             }
         }
 
-        bool load(char *filename, float smooth)
+        bool load(const char *filename, float smooth)
         {
             int len = strlen(filename);
             if(len < 4 || strcasecmp(&filename[len-4], ".obj")) return false;
@@ -133,8 +134,7 @@ struct obj : vertmodel, vertloader<obj>
                                 v.norm = vkey.z < 0 ? vec(0, 0, 0) : attrib[2][vkey.z];
                                 v.norm = vec(v.norm.z, -v.norm.x, v.norm.y);
                                 tcvert &tcv = tcverts.add();
-                                if(vkey.y < 0) tcv.u = tcv.v = 0;
-                                else { tcv.u = attrib[1][vkey.y].x; tcv.v = 1-attrib[1][vkey.y].y; }
+                                tcv.tc = vkey.y < 0 ? vec2(0, 0) : vec2(attrib[1][vkey.y].x, 1-attrib[1][vkey.y].y);
                             }
                             if(v0 < 0) v0 = *index;
                             else if(v1 < 0) v1 = *index;
@@ -160,7 +160,7 @@ struct obj : vertmodel, vertloader<obj>
         }
     };
 
-    meshgroup *loadmeshes(char *name, va_list args)
+    meshgroup *loadmeshes(const char *name, va_list args)
     {
         objmeshgroup *group = new objmeshgroup;
         if(!group->load(name, va_arg(args, double))) { delete group; return NULL; }
@@ -169,52 +169,21 @@ struct obj : vertmodel, vertloader<obj>
 
     bool loaddefaultparts()
     {
-        part &mdl = *new part;
-        parts.add(&mdl);
-        mdl.model = this;
-        mdl.index = 0;
-        const char *pname = parentdir(loadname);
-        defformatstring(name1)("packages/models/%s/tris.obj", loadname);
+        part &mdl = addpart();
+        const char *pname = parentdir(name);
+        defformatstring(name1, "packages/models/%s/tris.obj", name);
         mdl.meshes = sharemeshes(path(name1), 2.0);
         if(!mdl.meshes)
         {
-            defformatstring(name2)("packages/models/%s/tris.obj", pname);    // try obj in parent folder (vert sharing)
+            defformatstring(name2, "packages/models/%s/tris.obj", pname);    // try obj in parent folder (vert sharing)
             mdl.meshes = sharemeshes(path(name2), 2.0);
             if(!mdl.meshes) return false;
         }
         Texture *tex, *masks;
-        loadskin(loadname, pname, tex, masks);
+        loadskin(name, pname, tex, masks);
         mdl.initskins(tex, masks);
-        if(tex==notexture) conoutf("could not load model skin for %s", name1);
+        if(tex==notexture) conoutf(CON_ERROR, "could not load model skin for %s", name1);
         return true;
-    }
-
-    bool load()
-    { 
-        if(loaded) return true;
-        formatstring(dir)("packages/models/%s", loadname);
-        defformatstring(cfgname)("packages/models/%s/obj.cfg", loadname);
-
-        loading = this;
-        identflags &= ~IDF_PERSIST;
-        if(execfile(cfgname, false) && parts.length()) // configured obj, will call the obj* commands below
-        {
-            identflags |= IDF_PERSIST;
-            loading = NULL;
-            loopv(parts) if(!parts[i]->meshes) return false;
-        }
-        else // obj without configuration, try default tris and skin
-        {
-            identflags |= IDF_PERSIST;
-            loading = NULL;
-            if(!loaddefaultparts()) return false;
-        }
-        scale /= 4;
-        translate.y = -translate.y;
-        parts[0]->translate = translate;
-        loopv(parts) parts[i]->meshes->shared++;
-        preloadshaders();
-        return loaded = true;
     }
 };
 
