@@ -248,7 +248,7 @@ void gl_checkextensions()
     else glversion = glmajorversion*100 + glminorversion*10;
 
 	// XXX EMSCRIPTEN
-	glversion = 200;
+	glversion = 300;
 
     //extern int shaderprecision;
     // default to low precision shaders on certain cards, can be overridden with -f3
@@ -381,6 +381,9 @@ void gl_checkextensions()
     uint glslmajorversion, glslminorversion;
     if(glslstr && sscanf(glslstr, " %u.%u", &glslmajorversion, &glslminorversion) == 2) glslversion = glslmajorversion*100 + glslminorversion;
 
+#if __EMSCRIPTEN__
+	glslversion = 300;
+#endif
     if(glslversion < 120) fatal("GLSL 1.20 or greater is required!");
 
     parseglexts();
