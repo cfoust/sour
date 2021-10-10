@@ -159,22 +159,21 @@ static void compileglslshader(GLenum type, GLuint &obj, const char *def, const c
     int numparts = 0;
     static const struct { int version; const char * const header; } glslversions[] =
     {
-        { 330, "#version 330\n" },
-#if __EMSCRIPTEN__
-        { 300, "#version 300 es\n" },
-#endif
-        { 150, "#version 150\n" },
-        { 130, "#version 130\n" },
-        { 120, "#version 120\n" }
+		{ 330, "#version 330\n" },
+		{ 150, "#version 150\n" },
+		{ 130, "#version 130\n" },
+		{ 120, "#version 120\n" }
     };
+#ifndef __EMSCRIPTEN__
     loopi(sizeof(glslversions)/sizeof(glslversions[0])) if(glslversion >= glslversions[i].version)
     {
         parts[numparts++] = glslversions[i].header;
         break;
     }
+#endif
 
 #if __EMSCRIPTEN__
-	parts[numparts++] = "precision highp float;\n";
+	//parts[numparts++] = "precision highp float;\n";
 #endif
 
     if(glslversion >= 130)

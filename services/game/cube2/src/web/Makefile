@@ -11,7 +11,7 @@ EMCONFIGURE = $(EMSCRIPTEN)/emconfigure
 EMMAKE = $(EMSCRIPTEN)/emmake
 
 # -O2+ fails on new emscripten, likely due to undefined behavior somewhere...
-CXXFLAGS= -O1 -s USE_ZLIB=1 -s USE_SDL=2 -s USE_SDL_IMAGE=2 -s USE_SDL_MIXER=2 -s USE_WEBGL2=1 -s FULL_ES3=1 -std=c++03 -w
+CXXFLAGS= -O1 -s USE_ZLIB=1 -s USE_SDL=2 -s USE_SDL_IMAGE=2 -s USE_SDL_MIXER=2 -s LEGACY_GL_EMULATION=1 -std=c++03 -w
 override CXXFLAGS+= -Wall -fsigned-char -fno-exceptions -fno-rtti
 
 PLATFORM= emscripten
