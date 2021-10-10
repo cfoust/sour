@@ -1154,6 +1154,7 @@ void initserver(bool listen, bool dedicated) //, const char *path
     if(listen) setuplistenserver(dedicated);
     
     server::serverinit();
+	logoutf("Protocol version: %d", PROTOCOL_VERSION);
     
     if(listen)
     {
