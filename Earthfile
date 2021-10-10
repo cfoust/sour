@@ -34,7 +34,7 @@ game:
     WORKDIR /cube2
     COPY services/game/cube2 cube2
     RUN cd cube2/src/web && emmake make client -j8
-    RUN mkdir -p dist/game && \
+    RUN --mount=type=cache,target=/emsdk/upstream/emscripten/cache/ mkdir -p dist/game && \
         cd cube2 && \
         # Need to get rid of some unseemly behavior
         patch sauerbraten.js file_create.patch && \
