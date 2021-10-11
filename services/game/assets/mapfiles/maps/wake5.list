@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/aard/aardograss_1.jpg
 packages/base/wake5.cfg
 packages/base/wake5.jpg
@@ -11,7 +10,7 @@ packages/egyptsoc/128-02a.jpg
 packages/egyptsoc/128-04a.jpg
 packages/egyptsoc/block01d.jpg
 packages/egyptsoc/lig_032-01r1.jpg
-packages/golgotha/water2.jpg
+packages/fanatic/4.ogg
 packages/ik2k/ik_brick_6464a.jpg
 packages/ik2k/ik_floor_wood128b.jpg
 packages/ik2k/ik_wpaperplain128b.jpg
@@ -20,9 +19,17 @@ packages/ikbase/ik_gtrimv_lit3b.jpg
 packages/models/objects/torch/masks.jpg
 packages/models/objects/torch/md3.cfg
 packages/models/objects/torch/skin.jpg
+packages/models/objects/torch/tris.md2
 packages/models/objects/torch/tris.md3
-packages/models/vwep/chaing/m134.png
+packages/models/objects/tris.md2
+packages/skyboxes/evilsky_bk.jpg
+packages/skyboxes/evilsky_dn.jpg
+packages/skyboxes/evilsky_ft.jpg
+packages/skyboxes/evilsky_lf.jpg
+packages/skyboxes/evilsky_rt.jpg
+packages/skyboxes/evilsky_up.jpg
 packages/tech1soc/032-10a.jpg
 packages/tech1soc/064-20a.jpg
 packages/tech1soc/s064-03a.jpg
 packages/tech1soc/s256-01c.jpg
+packages/textures/sky.png

@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/aard/aardograss_1.jpg
 packages/base/wdcd.cfg
 packages/base/wdcd.jpg
@@ -15,12 +14,12 @@ packages/dg/floor_paving_littleStones3.jpg
 packages/dg/mad063.jpg
 packages/dg/mad065.jpg
 packages/dg/mur060.jpg
-packages/dg/mur073.jpg
 packages/dg/muv158.jpg
 packages/egyptsoc/lig_032-01b1.jpg
 packages/egyptsoc/lig_032-01r1.jpg
 packages/egyptsoc/lig_064-04r1.jpg
-packages/golgotha/water2.jpg
+packages/fanatic/5.ogg
+packages/fanatic/6.ogg
 packages/ik2k/ik_brick_3216d.jpg
 packages/ik2k/ik_brick_6464c.jpg
 packages/ik2k/ik_floor_brick128a.jpg
@@ -29,7 +28,6 @@ packages/ik2k/ik_ground_cobbles128.jpg
 packages/ik2k/ik_woodv256a.jpg
 packages/ikbase/ik_wtrimh_32a.jpg
 packages/jf1/jfgrid.jpg
-packages/models/vwep/chaing/m134.png
 packages/tech1soc/032-10a.jpg
 packages/tech1soc/032-15a.jpg
 packages/tech1soc/032lig12bb.jpg

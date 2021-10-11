@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/base/depot.cfg
 packages/base/depot.jpg
 packages/base/depot.ogz
@@ -8,7 +7,8 @@ packages/dg/mur060.jpg
 packages/dg/mur067.jpg
 packages/dg/muv204.jpg
 packages/dg/sue011.jpg
-packages/golgotha/water2.jpg
+packages/fanatic/5.ogg
+packages/fanatic/6.ogg
 packages/gor/ST_GK_003_cc.jpg
 packages/gor/ST_GK_003_hm.jpg
 packages/gor/ST_GK_003_nm.jpg
@@ -18,11 +18,12 @@ packages/ikbase/ik_wtrimh_32a.jpg
 packages/mitaman/mm-grassdead42.jpg
 packages/mitaman/mm-grassdead42_normal.jpg
 packages/mitaman/mm-grassdead42_spec.jpg
+packages/models/mitaman/chainlinkfence/masks.jpg
 packages/models/mitaman/chainlinkfence/masks.png
 packages/models/mitaman/chainlinkfence/md2.cfg
+packages/models/mitaman/chainlinkfence/skin.jpg
 packages/models/mitaman/chainlinkfence/skin.png
 packages/models/mitaman/chainlinkfence/tris.md2
-packages/models/vwep/chaing/m134.png
 packages/tech1soc/032-10a.jpg
 packages/tech1soc/032-10b.jpg
 packages/tech1soc/032-12d.jpg
@@ -66,5 +67,10 @@ packages/tech1soc/s256-02a.jpg
 packages/tech1soc/s256-02b.jpg
 packages/tech1soc/sqrlig02wb.jpg
 packages/tech1soc/sqrlig03bc.jpg
+packages/textures/default.png
+packages/textures/nieb/concrete-tan.jpg
+packages/textures/nieb/rock02.jpg
+packages/textures/nieb/rubber-trim.jpg
+packages/textures/sky.png
 packages/than_ind/floor05.jpg
 packages/trak5/glass.jpg

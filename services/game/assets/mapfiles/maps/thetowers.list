@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/base/thetowers.cfg
 packages/base/thetowers.jpg
 packages/base/thetowers.ogz
@@ -8,12 +7,12 @@ packages/dash/moon_ft.jpg
 packages/dash/moon_lf.jpg
 packages/dash/moon_rt.jpg
 packages/dash/moon_up.jpg
-packages/golgotha/water2.jpg
+packages/fanatic/2.ogg
+packages/fanatic/4.ogg
 packages/ikbase/ik_gtrimh_lit1a.jpg
 packages/ikbase/ik_gtrimv_lit1a.jpg
 packages/ikbase/ik_htrimh_64c.jpg
 packages/ikbase/ik_htrimv_64c.jpg
-packages/models/vwep/chaing/m134.png
 packages/rorschach/128_ivbr_trim02.jpg
 packages/rorschach/128_tar_metflr01.jpg
 packages/rorschach/1_concrete01.jpg

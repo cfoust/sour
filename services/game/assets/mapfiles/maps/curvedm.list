@@ -1,9 +1,9 @@
-data/logo_1024.png
 packages/base/curvedm.cfg
 packages/base/curvedm.jpg
 packages/base/curvedm.ogz
+packages/fanatic/1.ogg
+packages/fanatic/2.ogg
 packages/ik2k/ik_sky_day_back.jpg
-packages/models/vwep/chaing/m134.png
 packages/rorschach/128_ivbr_trim02.jpg
 packages/rorschach/128_tar_metflr01.jpg
 packages/rorschach/1_concrete01.jpg
@@ -22,3 +22,9 @@ packages/rorschach/3r_plaster02.jpg
 packages/rorschach/4_conc_floor01.jpg
 packages/rorschach/4_met05b.jpg
 packages/rorschach/hh3_m_light01.jpg
+packages/skyboxes/remus/sky01_bk.jpg
+packages/skyboxes/remus/sky01_dn.jpg
+packages/skyboxes/remus/sky01_ft.jpg
+packages/skyboxes/remus/sky01_lf.jpg
+packages/skyboxes/remus/sky01_rt.jpg
+packages/skyboxes/remus/sky01_up.jpg

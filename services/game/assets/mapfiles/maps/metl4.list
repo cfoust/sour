@@ -1,8 +1,8 @@
-data/logo_1024.png
 packages/base/metl4.cfg
 packages/base/metl4.jpg
 packages/base/metl4.ogz
-packages/golgotha/water2.jpg
+packages/fanatic/2.ogg
+packages/fanatic/7.ogg
 packages/ik2k/ik_sky_day_back.jpg
 packages/lunaran/box1a_d.jpg
 packages/lunaran/box1a_h.jpg
@@ -168,7 +168,6 @@ packages/lunaran/wires1_d.jpg
 packages/lunaran/wires1_h.jpg
 packages/lunaran/wires1_local.jpg
 packages/lunaran/wires1_s.jpg
-packages/models/vwep/chaing/m134.png
 packages/staffy/staffy_bk.jpg
 packages/staffy/staffy_dn.jpg
 packages/staffy/staffy_ft.jpg

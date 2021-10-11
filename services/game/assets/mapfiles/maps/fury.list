@@ -1,7 +1,8 @@
-data/logo_1024.png
 packages/base/fury.cfg
 packages/base/fury.jpg
 packages/base/fury.ogz
+packages/fanatic/1.ogg
+packages/fanatic/5.ogg
 packages/lunaran/cord1_d.jpg
 packages/lunaran/cord1_h.jpg
 packages/lunaran/cord1_local.jpg
@@ -10,7 +11,6 @@ packages/lunaran/light_jail_d.jpg
 packages/lunaran/light_jail_g.jpg
 packages/lunaran/light_jail_h.jpg
 packages/lunaran/light_jail_local.jpg
-packages/models/vwep/chaing/m134.png
 packages/penguins/wrath_bk.jpg
 packages/penguins/wrath_dn.jpg
 packages/penguins/wrath_ft.jpg

@@ -1,16 +1,14 @@
-data/logo_1024.png
 packages/base/complex.cfg
 packages/base/complex.jpg
 packages/base/complex.ogz
 packages/dg/mad065.jpg
 packages/dg/mad067.jpg
 packages/dg/mur013.jpg
-packages/dg/mur073.jpg
 packages/dg/muv204.jpg
 packages/dg/trail.jpg
-packages/golgotha/water2.jpg
-packages/models/vwep/chaing/m134.png
-packages/payne/Box12b.jpg
+packages/fanatic/1.ogg
+packages/fanatic/7.ogg
+packages/ik2k/ik_sky_day_back.jpg
 packages/rorschach/128_tar_metflr01.jpg
 packages/rorschach/1_concrete01.jpg
 packages/rorschach/1r_squ_pan04b.jpg
@@ -29,6 +27,7 @@ packages/rorschach/3r_metblock01.jpg
 packages/rorschach/4_met05b.jpg
 packages/rorschach/hh3_m_light03.jpg
 packages/rorschach/j128_metpan01.jpg
+packages/sounds/kaiser/fx/hum7.wav
 packages/subverse/metal_scratch_tile.jpg
 packages/tech1soc/032-10b.jpg
 packages/tech1soc/032-15a.jpg

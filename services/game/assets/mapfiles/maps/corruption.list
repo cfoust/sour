@@ -1,11 +1,13 @@
-data/logo_1024.png
 packages/base/corruption.cfg
 packages/base/corruption.jpg
 packages/base/corruption.ogz
+packages/fanatic/1.ogg
+packages/fanatic/8.ogg
 packages/gor/GR_GK_009_cc.jpg
 packages/gor/GR_GK_009_hm.jpg
 packages/gor/GR_GK_009_nm.jpg
 packages/gor/GR_GK_009_sc.jpg
+packages/ik2k/ik_sky_day_back.jpg
 packages/lunaran/bigmet1_d.jpg
 packages/lunaran/bigmet1_h.jpg
 packages/lunaran/bigmet1_local.jpg
@@ -136,7 +138,6 @@ packages/models/dcp/jumppad2/masks.jpg
 packages/models/dcp/jumppad2/md2.cfg
 packages/models/dcp/jumppad2/skin.jpg
 packages/models/dcp/jumppad2/tris.md2
-packages/models/vwep/chaing/m134.png
 packages/philipk/pk01_door01_add.jpg
 packages/philipk/pk01_door01b_d.jpg
 packages/philipk/pk01_door01_local.jpg
@@ -180,6 +181,12 @@ packages/philipk/pk01_pan_wall02b1_d.jpg
 packages/philipk/pk01_pan_wall02b2_d.jpg
 packages/philipk/pk01_pan_wall02b_local.jpg
 packages/philipk/pk01_pan_wall02b_s.jpg
+packages/philipk/pk01_roof01_d.jpg
+packages/philipk/pk01_roof01_local.jpg
+packages/philipk/pk01_roof01_s.jpg
+packages/philipk/pk01_thin_wall01b_d.jpg
+packages/philipk/pk01_thin_wall01_local.jpg
+packages/philipk/pk01_thin_wall01_s.jpg
 packages/philipk/pk01_thin_wall02a_d.jpg
 packages/philipk/pk01_thin_wall02b_d.jpg
 packages/philipk/pk01_thin_wall02_local.jpg

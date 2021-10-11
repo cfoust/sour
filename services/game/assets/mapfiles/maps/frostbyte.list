@@ -1,14 +1,11 @@
-data/logo_1024.png
 packages/base/frostbyte.cfg
 packages/base/frostbyte.jpg
 packages/base/frostbyte.ogz
 packages/blikjebier/concrete/concrete_002.jpg
 packages/blikjebier/concrete/concrete_004.jpg
 packages/blikjebier/concrete/concrete_005.jpg
-packages/blikjebier/concrete/package.cfg
 packages/blikjebier/metal/metal_005.jpg
 packages/blikjebier/metal/metal_006.jpg
-packages/blikjebier/metal/package.cfg
 packages/blikjebier/skybox/grey64_bk.jpg
 packages/blikjebier/skybox/grey64_dn.jpg
 packages/blikjebier/skybox/grey64_ft.jpg
@@ -31,5 +28,6 @@ packages/blikjebier/snow/snow_tl.jpg
 packages/blikjebier/snow/snow_tm.jpg
 packages/blikjebier/snow/snow_tmp.jpg
 packages/blikjebier/snow/snow_tr.jpg
-packages/models/vwep/chaing/m134.png
+packages/fanatic/4.ogg
+packages/fanatic/5.ogg
 packages/rorschach/hh3_64by64_light_c01.jpg

@@ -1,8 +1,8 @@
-data/logo_1024.png
 packages/base/thor.cfg
 packages/base/thor.jpg
 packages/base/thor.ogz
-packages/golgotha/water2.jpg
+packages/fanatic/1.ogg
+packages/fanatic/3.ogg
 packages/gor/DW_GK_001_cc.jpg
 packages/gor/DW_GK_001_nm.jpg
 packages/gor/DW_GK_001_sc.jpg
@@ -109,8 +109,9 @@ packages/gor/WT_GK_015_sc.jpg
 packages/models/objects/torch/masks.jpg
 packages/models/objects/torch/md3.cfg
 packages/models/objects/torch/skin.jpg
+packages/models/objects/torch/tris.md2
 packages/models/objects/torch/tris.md3
-packages/models/vwep/chaing/m134.png
+packages/models/objects/tris.md2
 packages/staffy/staffy_bk.jpg
 packages/staffy/staffy_dn.jpg
 packages/staffy/staffy_ft.jpg

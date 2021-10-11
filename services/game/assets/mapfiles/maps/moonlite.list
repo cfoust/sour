@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/base/moonlite.cfg
 packages/base/moonlite.jpg
 packages/base/moonlite.ogz
@@ -8,7 +7,8 @@ packages/dash/moon_ft.jpg
 packages/dash/moon_lf.jpg
 packages/dash/moon_rt.jpg
 packages/dash/moon_up.jpg
-packages/golgotha/water2.jpg
+packages/fanatic/5.ogg
+packages/fanatic/6.ogg
 packages/ik2k/ik_sky_day_back.jpg
 packages/ikbase/ik_floor_met64e.jpg
 packages/ikbase/ik_gtrimh_64b.jpg
@@ -16,7 +16,6 @@ packages/ikbase/ik_gtrimh_lit1a.jpg
 packages/ikbase/ik_gtrimv_64b.jpg
 packages/ikbase/ik_gtrimv_lit1a.jpg
 packages/ikbase/ik_wtrimh_32a.jpg
-packages/models/vwep/chaing/m134.png
 packages/rorschach/128_tar_metflr01.jpg
 packages/rorschach/1_concrete01.jpg
 packages/rorschach/1r_clocktrim01.jpg
@@ -30,3 +29,9 @@ packages/rorschach/2_floor02.jpg
 packages/rorschach/3r_plaster02.jpg
 packages/rorschach/4_conc_floor01.jpg
 packages/rorschach/5_light01b.jpg
+packages/skyboxes/remus/sky01_bk.jpg
+packages/skyboxes/remus/sky01_dn.jpg
+packages/skyboxes/remus/sky01_ft.jpg
+packages/skyboxes/remus/sky01_lf.jpg
+packages/skyboxes/remus/sky01_rt.jpg
+packages/skyboxes/remus/sky01_up.jpg

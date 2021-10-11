@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/base/metl3.cfg
 packages/base/metl3.jpg
 packages/base/metl3.ogz
@@ -9,6 +8,9 @@ packages/egyptsoc/block01d.jpg
 packages/egyptsoc/lig_064-02r1.jpg
 packages/egyptsoc/v064-02a.jpg
 packages/egyptsoc/v128-03a.jpg
+packages/fanatic/2.ogg
+packages/fanatic/7.ogg
+packages/ik2k/ik_brick_3216d.jpg
 packages/ik2k/ik_brick_6464a.jpg
 packages/ik2k/ik_brickwall_gry.jpg
 packages/ik2k/ik_floor_brick128a.jpg
@@ -17,7 +19,6 @@ packages/ik2k/ik_sky_day_back.jpg
 packages/ikbase/ik_gtrimv_lit1a.jpg
 packages/ikbase/ik_wtrimh_32b.jpg
 packages/ikbase/ik_wtrimv_32b.jpg
-packages/models/vwep/chaing/m134.png
 packages/tech1soc/032-10a.jpg
 packages/tech1soc/032-10b.jpg
 packages/tech1soc/032-12d.jpg

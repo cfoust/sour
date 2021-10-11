@@ -1,4 +1,4 @@
-data/logo_1024.png
+packages/base/osiris.cfg
 packages/base/osiris.jpg
 packages/base/osiris.ogz
 packages/dg/floor_pavement_stone4_3.jpg
@@ -57,13 +57,17 @@ packages/egyptsoc/v128-02a.jpg
 packages/egyptsoc/v128-03a.jpg
 packages/egyptsoc/wood17.jpg
 packages/egyptsoc/woodmgrid1a.jpg
+packages/fanatic/3.ogg
+packages/fanatic/5.ogg
 packages/models/vegetation/skin_dieing.png
 packages/models/vegetation/skin_green1.png
 packages/models/vegetation/tree00/md3.cfg
+packages/models/vegetation/tree00/tris.md2
 packages/models/vegetation/tree00/tris.md3
 packages/models/vegetation/tree05/md3.cfg
+packages/models/vegetation/tree05/tris.md2
 packages/models/vegetation/tree05/tris.md3
-packages/models/vwep/chaing/m134.png
+packages/models/vegetation/tris.md2
 packages/ratboy/skyboxes/coward_bk.jpg
 packages/ratboy/skyboxes/coward_dn.jpg
 packages/ratboy/skyboxes/coward_ft.jpg
