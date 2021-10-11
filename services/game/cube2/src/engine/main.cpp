@@ -689,7 +689,7 @@ void setupscreen()
 #ifdef __EMSCRIPTEN__
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     screen = SDL_CreateWindow("Cube 2: Sauerbraten", winx, winy, winw, winh, SDL_WINDOW_OPENGL);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     glcontext = SDL_GL_CreateContext(screen);
@@ -1324,8 +1324,8 @@ int main(int argc, char **argv)
 #if __EMSCRIPTEN__
     emscripten_set_main_loop(main_loop_caller, 0, 0);
     emscripten_set_main_loop_expected_blockers(28);
-#endif
     emscripten_push_main_loop_blocker(main2, NULL);
+#endif
 }
 
 void main2(void *arg)
