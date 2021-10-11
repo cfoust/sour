@@ -248,7 +248,7 @@ void gl_checkextensions()
     else glversion = glmajorversion*100 + glminorversion*10;
 
 	// XXX EMSCRIPTEN
-	glversion = 200;
+	glversion = 300;
 
     //extern int shaderprecision;
     // default to low precision shaders on certain cards, can be overridden with -f3
@@ -382,7 +382,7 @@ void gl_checkextensions()
     if(glslstr && sscanf(glslstr, " %u.%u", &glslmajorversion, &glslminorversion) == 2) glslversion = glslmajorversion*100 + glslminorversion;
 
 #if __EMSCRIPTEN__
-	glslversion = 120;
+	glslversion = 330;
 #endif
     if(glslversion < 120) fatal("GLSL 1.20 or greater is required!");
 
@@ -1942,7 +1942,8 @@ void gl_drawframe()
     renderdecals(true);
 
     rendermapmodels();
-    rendergame(true);
+
+    //rendergame(true);
     renderavatar();
 
     if(wireframe && editmode) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -1966,10 +1967,12 @@ void gl_drawframe()
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
 
+#if !__EMSCRIPTEN__
     addmotionblur();
     addglare();
     if(isliquid(fogmat&MATF_VOLUME)) drawfogoverlay(fogmat, fogblend, abovemat);
     renderpostfx();
+#endif
 
     gl_drawhud();
 

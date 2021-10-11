@@ -293,12 +293,16 @@ VAR(oqwait, 0, 1, 1);
 
 void startquery(occludequery *query)
 {
+#ifndef __EMSCRIPTEN__
     glBeginQuery_(GL_SAMPLES_PASSED, query->id);
+#endif
 }
 
 void endquery(occludequery *query)
 {
+#ifndef __EMSCRIPTEN__
     glEndQuery_(GL_SAMPLES_PASSED);
+#endif
 }
 
 bool checkquery(occludequery *query, bool nowait)
@@ -456,7 +460,11 @@ void findvisiblemms(const vector<extentity *> &ents, bool doquery)
     }
 }
 
+#if !__EMSCRIPTEN__
 VAR(oqmm, 0, 4, 8);
+#else
+VAR(oqmm, 0, 0, 8);
+#endif
 
 void rendermapmodel(extentity &e)
 {
