@@ -1,0 +1,11 @@
+anubis by Redon
+version 1 (26 September 2018)
+
+A small FFA duel map situated inside a pyramid. The layout was loosely inspired by Fatum's tumwalk.
+For questions or feedback, please leave a comment on Quadropolis or contact me via Sauerworld.
+
+"anubis.ogz" is covered by the Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA) 4.0 license.
+Egyptian texture pack by SimonOC (licensed under GNU GPLv2). 
+The file "packages/textures/redon/wood18_diagonal.jpg" is simply a rotated version of "textures/egypt_soc/mat/wood18.jpg", see above.
+
+

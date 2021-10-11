@@ -1,0 +1,9 @@
+collide by FixxxerSA and Redon
+version 1 (October 2018)
+
+Layout by FixxxerSA, with help from Gangler and Redon
+Details & Textures by FixxxerSA, with help from Redon
+Item placement by Redon and Gangler
+Lighting by Redon
+
+"collide.ogz" is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International license.

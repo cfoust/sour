@@ -1,0 +1,43 @@
+Gorans Lava Set by goran svensson for Marathon Infinity 
+================================================================================
+I couldn't find any license for these textures, but almost all third-party texture packs for the Marathon games are freely usable for non-commercial purposes.
+
+For clarity's sake, I renamed the pack from "Lava" to "spht" so no one blunders upon this folder when trying to mod sauer's lava texture.
+
+You can find the full original download for this pack at:
+http://simplici7y.com/items/gorans-lava-set
+
+	-Ao1|Pointblank
+
+
+To be on the safe side, assume the following license applies: 
+================================================================================
+Creative Commons Deed / Attribution Non-commercial Share-Alike (AT-NC-SA)
+
+You are free:
+	* to copy, distribute, display, and perform the work
+	* to make derivative works
+
+Under the following conditions:
+	- Attribution. You must give the original author credit.
+	- Non-Commercial. You may not use this work for commercial purposes.
+	- Share Alike. If you alter, transform, or build upon this work, you may
+	  distribute the resulting work only under a licence identical to this one.
+
+For any reuse or distribution, you must make clear to others the licence terms of this work.
+Any of these conditions can be waived if you get permission from the copyright holder.
+
+Your fair use and other rights are in no way affected by the above.
+================================================================================
+
+
+
+Written by Goran in the original download's .pdf: 
+================================================================================
+Thanks goes to:
+Treellama for support and answering questions Hopper for support and answering questions Quartz for giving me feedback on textures
+Crater Creator for giving med feedback on textures TychoVII for lending me his PS brushes .
+
+Contact:
+goransvensson@gmail.com
+================================================================================

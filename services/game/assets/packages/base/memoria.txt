@@ -1,0 +1,12 @@
+Memoria by Salatiel (salatielsauer.github.io)
+21/06/2017 | last update: 07/01/2020
+http://cubebr.com
+
+Special thanks:
+ Doko - Fixing Mountains, tips and news stuffs in layout.
+ Ardelico - Illumination/Light tips.
+ Galaxy, Akari & Dim - Map tests and feedback.
+ 
+ bot[128] and bot[129] - Testing waypoints. :P
+ 
+Inspired by Justice.

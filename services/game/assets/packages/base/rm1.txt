@@ -1,0 +1,35 @@
+///////////////////////////////////////////////////////////////////////////////////////////////
+Made for: Cube 2: Sauerbraten
+Map Title: rm1
+Author(s): HeWho & Nieb
+Build Time: ~28 Hours
+Version: Alpha Release
+Current Release Date: July 2015
+Custom Texture/Skybox Authors: Zeus by SkiingPenguins
+Suggested Game Modes: FFA & Insta duel or small group/team matches.
+                      (No more than 6 players, otherwise eats ammo quickly)
+///////////////////////////////////////////////////////////////////////////////////////////////
+About the Map: A small tech themed map focusing on flow and line of sight elements. The map is
+               set built into part of a mountain with a single entry door jammed. The remaining
+               Ogros are left to fend for themselves amongst the limited ammo and supplies of
+               this sandy base under a blue sky.
+///////////////////////////////////////////////////////////////////////////////////////////////
+Special Thanks:
+   - To Nieb for inspiring me to finish this map.
+   - To all the people I asked for critique from on the cm|CubicMatter server, namely:
+    Galaxie, Boxx, nopnotme, degrave, swatllama, Doko, Suicizer, Doom, Sheik, and jangelelcary.
+///////////////////////////////////////////////////////////////////////////////////////////////
+Version:
+	 Beta 1: Rough draft of layout, was considered abandoned.
+	 Beta 2: Finished Layout adjustments and full texturing with the help of Nieb also with some
+            items and clipping.
+	 Beta 3: Finished lighting, layout, and item placement, lots of playtesting on modes.
+	Alpha 1: Additional tweaks to layout and item placement, background, clipping, and lighting.
+            Waypoints created, screenshots taken, and posted to quad.
+///////////////////////////////////////////////////////////////////////////////////////////////
+License:
+
+   This work is licensed under a Creative Commons
+   Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+
+   http://creativecommons.org/licenses/by-nc-sa/3.0/

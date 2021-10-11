@@ -1,0 +1,10 @@
+enigma by Gangler with help from Redon, Fatality, Nieb, Fixxxer and shuzo.
+Made in September 2019
+
+enigma is a ctf map. 
+For questions or feedback, please leave a comment on Quadropolis or contact me via Discord.
+
+enigma is licensed under a Creative Commons (BY-NC-ND) license
+
+
+

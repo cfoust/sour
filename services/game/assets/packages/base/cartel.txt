@@ -1,0 +1,25 @@
+
+Readme for Cartel by Fatality
+Made in 2014
+
+Licensed under a Creative Commons (BY-NC-ND) license.
+
+
+
+Much thanks goes to:
+
+ Redon for much help with building and the expansion of the layout.
+
+ Pyccna, who built most of the exterior and scenery of the map.
+
+ Footknight for inspiring me to build this map with his map "Adstradia".
+
+ Swatllama for constant feedback and help with placing of the items. 
+
+ Briggzy and Death14 for some help in the very beginning.
+
+ Everyone who commented on quadropolis.us and sauerworld.org.
+
+ Lee “eihrul” Salzman and Wouter “Aardappel” van Oortmerssen for the Cube2 Engine.
+
+

@@ -1,0 +1,71 @@
+January 05, 2002
+
+Name: evil lair's Quake 3:Arena texture set 8  
+Short Name: e8
+Author: Yves Allaire aka "evil lair" (original author of the diffuse and glowmapped textures) and Suicizer (made al files named "_n" or "_z" after the origin texture)
+Email: yves@evillair.net (and supersauer@live.nl for contacting Suicizer)
+URL: http://evillair.net
+
+[Description]
+Quake 3: Arena texture set in a concrete/metal theme.
+
+[Instructions for Q3Radiant/GTKRadiant users]
+
+Basic usage:
+Extract the .zip file into your "baseq3" folder.
+
+Add:
+evil8_env
+evil8_floor
+evil8_base
+evil8_fx
+evil8_grate
+evil8_lights
+evil8_trim
+evil8_wall
+To your shaderlist.txt file to see them in Q3Radient/GTKRadient
+
+Suggested usage:
+I'd encourage you to make your own directories for my textures for your map like so ... 
+
+"baseq3/textures/mymapname/" (place my textures here.)
+
+"baseq3/scripts/mymapname.shader" (add my shaders here, making sure to edit the paths in the original shader file.)
+
+[Instructions for Cube Engine 2 users]
+
+Basic usage:
+Extract the .zip file into your "Sauerbraten" folder, or "yves_allaire" folders within the .zip-file into any other mod on Cube Engine 2.
+
+Suggested usage:
+I'd encourage you to use the very same directories as provided. Do not make your own directories for the textures for your map, unless there are modified versions of the textures involved. In that case, put the modified versions like so...
+
+"Sauerbraten/packages/textures/yves_allaire/e8/your_name/e8base_purple.jpg" (for Sauerbraten)
+
+"Red Eclipse/data/yves_allaire/e8/your_name/e8base_purple.jpg" (for Red Eclipse)
+
+"Tesseract/media/texture/yves_allaire/e8/your_name/e8base_purple.jpg" (for Tesseract)
+
+Always copy-paste everything within the "package.cfg" file into your own map's .cfg (to prevent missing textures when the original texturepack would be updated).
+
+
+[Thanks]
+Everyone who had kind words to say about my other sets and
+the people at the mapcenter forums (http://mapcenter.digitalarenas.com)Quake3World.com Level Editing Forum.
+All the people who helped me out in IRC #mapceneter on enterthegame
+
+Everyone who has used/will use my textures in their maps.
+This is why I make them. :)
+
+[Stuff]
+If you use any of the textures it would be cool if you emailed me with the url to some screenshots if possible. 
+I really would like to see what uses mappers have made of them.
+
+[Copyright/Permissions]
+This texturepack is now CC-BY-SA 4.0 Licensed.
+
+QUAKE, QUAKE II and QUAKE3:ARENA are registered trademarks
+of id Software, Inc.
+
+
+

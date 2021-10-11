@@ -1,0 +1,10 @@
+Purgatory by Frosty & Nieb
+(2020-11-21)
+
+A medium-sized FFA duel map with an eerie old castle feel and strawberry jam. The layout was inspired by Kevin "Tyrann" Shanahan's Aggressor. Special thanks to Nieb for his help, particularly with the texturing and detailing. Also a small thanks to Redon for his Sauerbraten geometry font (nymono), and to those who playtested the map and gave feedback.
+
+This map is licensed under the Creative Commons (CC BY-NC-SA 4.0) license, which can be viewed at creativecommons.org (https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+Thanks to Yves Allaire for creating the textures used with this map (http://www.evillair.net/v4/gametextures/), and to Suicizer for creating the secondary textures used for shaders and other features (http://quadropolis.us/node/2790).
+
+The textures are licensed under the Creative Commons (CC BY-SA 4.0) license, which can be viewed at creativecommons.org (https://creativecommons.org/licenses/by-sa/4.0/).

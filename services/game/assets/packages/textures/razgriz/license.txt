@@ -1,0 +1,9 @@
+nieb_redux - original color textures by Nieb, sourced initially from CGtextures.com
+
+The following are created by "RaZgRiZ":
+
+black.png - cc0 - black base for general use.
+white.png - cc0 - black base for general use.
+cloud01.png - cc0 - 2K cloudlayer for general use.
+cloud02.png - cc0 - 2K cloudlayer for general use.
+cloud03.png - cc0 - 2K cloudlayer for general use.

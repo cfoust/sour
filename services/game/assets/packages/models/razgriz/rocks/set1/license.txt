@@ -1,0 +1,8 @@
+Original model by "3DMaesen", found on Sketchfab.com:
+https://sketchfab.com/3d-models/rocks-set-4-e7af5af7ce56449e879434cf5ec3a84d
+
+Licensed under CC-BY 4.0:
+https://creativecommons.org/licenses/by/4.0/
+
+Textures "skin*.png" and "skin_n*.png" edited by "RaZgRiZ" to better match the engine requirements.
+Additional texture "mask.png" created by "RaZgRiZ" for the same reason.

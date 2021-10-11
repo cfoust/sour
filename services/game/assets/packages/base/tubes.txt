@@ -1,0 +1,11 @@
+tubes by Gangler with help from Razgriz and Gergely
+Made in July 2020
+
+tubes is a ctf map. 
+For questions or feedback, please leave a comment on Quadropolis or Sauerworld or contact me via Discord.
+
+tubes is licensed under a Creative Commons (BY-NC-ND) license
+The mapmodels are from Gergely
+
+
+

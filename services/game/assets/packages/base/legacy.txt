@@ -1,0 +1,18 @@
+
+Readme for Legacy by Fatality
+
+
+Licensed under a Creative Commons (BY-NC-ND) license.
+
+
+Legacy was built in February 2015
+
+
+Much thanks goes to:
+
+ Hades, swatllama and others for testing and feedback/suggestions.
+
+ Everyone who commented on quadropolis.us and sauerworld.org.
+
+ Lee “eihrul” Salzman and Wouter “Aardappel” van Oortmerssen for the Cube2 Engine.
+

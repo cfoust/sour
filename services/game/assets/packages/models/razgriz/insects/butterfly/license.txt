@@ -1,0 +1,5 @@
+Original model by "Ricky Thomson", textures sourced from the OpenClipArt library.
+Animations by "Dziq". Further textures modifications by "RaZgRiZ".
+
+Collectively licensed under the CC-BY-SA 4.0 license:
+https://creativecommons.org/licenses/by-sa/4.0/

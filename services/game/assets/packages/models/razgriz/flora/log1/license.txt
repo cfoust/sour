@@ -1,0 +1,7 @@
+Original model by "Arkikon", found on Sketchfab.com:
+https://sketchfab.com/3d-models/log-27624ee05fea49899ba2a63e2f6d1e34
+
+Licensed under CC-BY 4.0:
+https://creativecommons.org/licenses/by/4.0/
+
+Textures "skin*.png" and "skin_n*.png" edited by "RaZgRiZ" to better match the engine requirements.
