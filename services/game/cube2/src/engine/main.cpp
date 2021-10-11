@@ -693,6 +693,9 @@ void setupscreen()
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     glcontext = SDL_GL_CreateContext(screen);
+    EM_ASM(
+        GL.initExtensions();
+    );
 #else
 	// TODO(cfoust): 10/09/21 this is suspicious
     #if !defined(WIN32) && !defined(__APPLE__)
