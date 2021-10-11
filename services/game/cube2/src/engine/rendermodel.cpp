@@ -952,7 +952,9 @@ void rendermodel(entitylight *light, const char *mdl, int anim, const vec &o, fl
         b.d = d;
         b.attached = a ? modelattached.length() : -1;
         if(a) for(int i = 0;; i++) { modelattached.add(a[i]); if(!a[i].tag) break; }
+#if !__EMSCRIPTEN__
         if(flags&MDL_CULL_QUERY) d->query = b.query = newquery(d);
+#endif
         return;
     }
 
@@ -976,15 +978,19 @@ void rendermodel(entitylight *light, const char *mdl, int anim, const vec &o, fl
         if(flags&MDL_GHOST) anim |= ANIM_GHOST;
     }
 
+#if !__EMSCRIPTEN__
     if(flags&MDL_CULL_QUERY)
     {
         d->query = newquery(d);
         if(d->query) startquery(d->query);
     }
+#endif
 
     m->render(anim, basetime, basetime2, o, yaw, pitch, d, a, lightcolor, lightdir, trans);
 
+#if !__EMSCRIPTEN__
     if(flags&MDL_CULL_QUERY && d->query) endquery(d->query);
+#endif
 
     m->endrender();
 }

@@ -1943,7 +1943,7 @@ void gl_drawframe()
 
     rendermapmodels();
 
-    //rendergame(true);
+    rendergame(true);
     renderavatar();
 
     if(wireframe && editmode) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

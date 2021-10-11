@@ -1521,7 +1521,11 @@ static void rendergeommultipass(renderstate &cur, int pass, bool fogpass)
     if(geombatches.length()) renderbatches(cur, pass);
 }
 
+#if !__EMSCRIPTEN__
 VAR(oqgeom, 0, 1, 1);
+#else
+VAR(oqgeom, 0, 0, 1);
+#endif
 
 void rendergeom(float causticspass, bool fogpass)
 {
