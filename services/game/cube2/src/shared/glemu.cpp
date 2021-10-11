@@ -166,12 +166,6 @@ namespace gle
                 break;
         }
 
-		GLenum err;
-		while((err = glGetError()) != GL_NO_ERROR)
-		{
-			conoutf("glVertexAttribPointer_ error type=%d size=%d format=%d offset=%d", a.type, a.size, a.format, a.offset);
-		}
-
         if(!(enabled&(1<<a.type)))
         {
             glEnableVertexAttribArray_(a.type);
@@ -276,8 +270,14 @@ namespace gle
                     vbooffset = 0;
                 }
                 else if(!lastvertexsize) glBindBuffer_(GL_ARRAY_BUFFER, vbo);
+#if __EMSCRIPTEN__
+                // XXX WebGL 2 only supports this access flag, but does it mess anything up?
+                void *dst = intel_mapbufferrange_bug ? NULL :
+                    glMapBufferRange_(GL_ARRAY_BUFFER, vbooffset, attribbuf.length(), GL_MAP_WRITE_BIT|GL_MAP_INVALIDATE_BUFFER_BIT);
+#else
                 void *dst = intel_mapbufferrange_bug ? NULL :
                     glMapBufferRange_(GL_ARRAY_BUFFER, vbooffset, attribbuf.length(), GL_MAP_WRITE_BIT|GL_MAP_INVALIDATE_RANGE_BIT|GL_MAP_UNSYNCHRONIZED_BIT);
+#endif
                 if(dst)
                 {
                     memcpy(dst, attribbuf.getbuf(), attribbuf.length());
@@ -296,12 +296,6 @@ namespace gle
             }
             vbooffset += attribbuf.length();
         }
-#if __EMSCRIPTEN__
-		if(!vbo) glGenBuffers_(1, &vbo);
-		glBindBuffer_(GL_ARRAY_BUFFER, vbo);
-		glBufferData_(GL_ARRAY_BUFFER, MAXVBOSIZE, NULL, GL_STREAM_DRAW);
-		glBufferSubData_(GL_ARRAY_BUFFER, 0, attribbuf.length(), attribbuf.getbuf());
-#endif
         setattribs(buf);
         int numvertexes = attribbuf.length()/vertexsize;
         if(primtype == GL_QUADS)
