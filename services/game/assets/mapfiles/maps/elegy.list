@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/aftas/caibro1.jpg
 packages/aftas/caibro1_n.jpg
 packages/aftas/caibro1_s.jpg
@@ -6,9 +5,12 @@ packages/aftas/piso5_h.jpg
 packages/aftas/piso5.jpg
 packages/aftas/piso5_n.jpg
 packages/aftas/piso5_s.jpg
+packages/base/elegy.cfg
 packages/base/elegy.jpg
 packages/base/elegy.ogz
 packages/egyptsoc/block01d.jpg
+packages/fanatic/1.ogg
+packages/fanatic/8.ogg
 packages/gor/GR_GK_009_cc.jpg
 packages/gor/GR_GK_009_hm.jpg
 packages/gor/GR_GK_009_nm.jpg
@@ -40,12 +42,17 @@ packages/lunaran/light_fifty_g.jpg
 packages/lunaran/light_fifty_h.jpg
 packages/lunaran/light_fifty_local.jpg
 packages/lunaran/light_fifty_s.jpg
+packages/models/dcp/blade_y/blade_y.md5mesh
+packages/models/dcp/blade_y/md3.cfg
+packages/models/dcp/blade_y/md5.cfg
 packages/models/dcp/blade_y/model.obj
 packages/models/dcp/blade_y/obj.cfg
+packages/models/dcp/blade_y/tris.md2
+packages/models/dcp/blade_y/tris.md3
+packages/models/dcp/tris.md2
+packages/models/dcp/tris.md3
 packages/models/dcp/vent/masks.jpg
 packages/models/dcp/vent/skin.jpg
-packages/models/vwep/chaing/m134.png
-packages/payne/Box12b.jpg
 packages/philipk/pk01_trim04b_add.jpg
 packages/philipk/pk01_trim04b_d.jpg
 packages/philipk/pk01_trim04_local.jpg
@@ -54,6 +61,8 @@ packages/rorschach/128_tar_metflr01_hm.jpg
 packages/rorschach/128_tar_metflr01.jpg
 packages/rorschach/128_tar_metflr01_nm.jpg
 packages/rorschach/128_tar_metflr01_sm.jpg
+packages/skyboxes/clouds03.jpg
+packages/skyboxes/clouds03.png
 packages/tech1soc/032-01c.jpg
 packages/tech1soc/032-02b.jpg
 packages/tech1soc/032-03d.jpg
@@ -97,6 +106,9 @@ packages/tech1soc/s256-02a.jpg
 packages/tech1soc/s256-02b.jpg
 packages/tech1soc/sqrlig02wb.jpg
 packages/tech1soc/sqrlig03bc.jpg
+packages/textures/default.png
+packages/textures/nieb/rock01.jpg
+packages/textures/sky.png
 packages/than_ind/floor05.jpg
 packages/trak5/light3a_g.jpg
 packages/trak5/light3a.jpg

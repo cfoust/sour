@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/aftas/par10_a_h.jpg
 packages/aftas/par10_a.jpg
 packages/aftas/par10_a_n.jpg
@@ -14,7 +13,6 @@ packages/dg/floor_lava2.jpg
 packages/dg/mad065.jpg
 packages/dg/mur033.jpg
 packages/dg/mur054.jpg
-packages/dg/mur073.jpg
 packages/dg/mur142.jpg
 packages/dg/muv204.jpg
 packages/evil_textures/e7beam01b.jpg
@@ -54,7 +52,8 @@ packages/evil_textures/e7walldesign01b_NRM.jpg
 packages/evil_textures/e8bolttrim.jpg
 packages/evil_textures/e8_rlight.blend.jpg
 packages/evil_textures/e8_rlight.jpg
-packages/golgotha/water2.jpg
+packages/fanatic/4.ogg
+packages/fanatic/8.ogg
 packages/gor/GR_GK_010_cc.jpg
 packages/gor/GR_GK_010_hm.jpg
 packages/gor/GR_GK_010_nm.jpg
@@ -68,6 +67,11 @@ packages/models/dcp/ivy/masks.jpg
 packages/models/dcp/ivy/md2.cfg
 packages/models/dcp/ivy/skin.jpg
 packages/models/dcp/ivy/tris.md2
-packages/models/vwep/chaing/m134.png
 packages/rorschach/128_ivbr_trim02.jpg
 packages/rorschach/package.cfg
+packages/skyboxes/evilsky_bk.jpg
+packages/skyboxes/evilsky_dn.jpg
+packages/skyboxes/evilsky_ft.jpg
+packages/skyboxes/evilsky_lf.jpg
+packages/skyboxes/evilsky_rt.jpg
+packages/skyboxes/evilsky_up.jpg

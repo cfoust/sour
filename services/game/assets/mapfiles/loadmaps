@@ -3,21 +3,30 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Default FFA maps:
-FFA_MAPS="complex douze ot academy metl2 metl3 dust2 justice turbine hashi mbt2 fanatic_quake dock renegade curvy_castle nmp8 tartech aard3c skrdm1 bvdm_01 outpost park tumwalk industry injustice mbt10 curvedm kalking1 hog2 kffa fragplaza collusion duel8 alithia island frozen memento neondevastation alloy ruine DM_BS1 shinmei1 osiris sdm1 powerplant oasis metl4 ruby shindou dune gubo teahupoo rm5 depot masdm orbe torment legazzo fury mbt9 refuge shadowed dirtndust force killfactory moonlite castle_trap orion ogrosupply nucleus elegy shiva arbana simplicity pitch_black duel7 suburb roughinery stemple tejen pgdm deathtek hades corruption paradigm lostinspace sauerstruck phosgene neonpanic akaritori konkuri-to katrez_d oddworld guacamole wake5 frostbyte thor aqueducts ksauer1 kmap5 thetowers darkdeath wdcd"
+#FFA_MAPS="complex douze ot academy metl2 metl3 dust2 justice turbine hashi mbt2 fanatic_quake dock renegade curvy_castle nmp8 tartech aard3c skrdm1 bvdm_01 outpost park tumwalk industry injustice mbt10 curvedm kalking1 hog2 kffa fragplaza collusion duel8 alithia island frozen memento neondevastation alloy ruine DM_BS1 shinmei1 osiris sdm1 powerplant oasis metl4 ruby shindou dune gubo teahupoo rm5 depot masdm orbe torment legazzo fury mbt9 refuge shadowed dirtndust force killfactory moonlite castle_trap orion ogrosupply nucleus elegy shiva arbana simplicity pitch_black duel7 suburb roughinery stemple tejen pgdm deathtek hades corruption paradigm lostinspace sauerstruck phosgene neonpanic akaritori konkuri-to katrez_d oddworld guacamole wake5 frostbyte thor aqueducts ksauer1 kmap5 thetowers darkdeath wdcd"
 
-for mapfile in $FFA_MAPS; do
+# Janky as heck but here we are
+SAUERBRATEN="$1"
+EXE_PATH="$2"
+
+for f in $(find ../packages/base -name '*.ogz'); do
+  mapfile=$(basename -s .ogz "$f")
   outfile="maps/$mapfile.list"
 
   if [ -f "$outfile" ]; then
     continue
   fi
 
-  strace -e trace=open,openat,close,read -o "$mapfile.strace" \
-    sauerbraten \
+  current=$(pwd)
+  cd "$SAUERBRATEN"
+  strace -e trace=open,openat,close,read -o "$current/$mapfile.strace" \
+    "$EXE_PATH" \
     "-l$mapfile" \
-    -x"sleep 10000 [ quit ]"
+    -x"quit"
 
-  cat "$mapfile.strace" | perl -n -e'/sauerbraten\/(.+)"/ && print "$1\n"' | sort -u > "$mapfile.raw"
+  cd "$current"
+
+  cat "$mapfile.strace" | perl -n -e'/packages\/(.+)"/ && print "packages/$1\n"' | sort -u > "$mapfile.raw"
   comm -23 "$mapfile.raw" common.list > "$outfile"
   rm "$mapfile.strace" "$mapfile.raw"
 done

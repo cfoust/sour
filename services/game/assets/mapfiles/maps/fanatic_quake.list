@@ -1,7 +1,8 @@
-data/logo_1024.png
 packages/base/fanatic_quake.cfg
 packages/base/fanatic_quake.jpg
 packages/base/fanatic_quake.ogz
+packages/fanatic/5.ogg
+packages/fanatic/6.ogg
 packages/gibbie/base02_d.jpg
 packages/gibbie/base02_h.jpg
 packages/gibbie/base02_local.jpg
@@ -151,4 +152,9 @@ packages/gibbie/teletop_d.jpg
 packages/gibbie/teletop_h.jpg
 packages/gibbie/teletop_local.jpg
 packages/gibbie/teletop_s.jpg
-packages/models/vwep/chaing/m134.png
+packages/skyboxes/black_bk.jpg
+packages/skyboxes/black_dn.jpg
+packages/skyboxes/black_ft.jpg
+packages/skyboxes/black_lf.jpg
+packages/skyboxes/black_rt.jpg
+packages/skyboxes/black_up.jpg

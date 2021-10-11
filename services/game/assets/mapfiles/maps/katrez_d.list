@@ -1,9 +1,9 @@
-data/logo_1024.png
 packages/base/katrez_d.cfg
 packages/base/katrez_d.jpg
 packages/base/katrez_d.ogz
 packages/egyptsoc/block01d.jpg
-packages/golgotha/water2.jpg
+packages/fanatic/2.ogg
+packages/fanatic/8.ogg
 packages/ik2k/ik_sky_day_back.jpg
 packages/ik2k/ik_wpaperplain128c.jpg
 packages/ik2k/ik_wpaperplain128d.jpg
@@ -28,7 +28,6 @@ packages/jf1/jf64.jpg
 packages/jf1/jflite.jpg
 packages/jf1/jfrust.jpg
 packages/jf1/jfwall.jpg
-packages/models/vwep/chaing/m134.png
 packages/ratboy/katrez/rb_light.jpg
 packages/ratboy/katrez/rb_metal_01.jpg
 packages/ratboy/katrez/rb_metal_02.jpg
@@ -47,6 +46,12 @@ packages/ratboy/skyboxes/coward_ft.jpg
 packages/ratboy/skyboxes/coward_lf.jpg
 packages/ratboy/skyboxes/coward_rt.jpg
 packages/ratboy/skyboxes/coward_up.jpg
+packages/skyboxes/remus/sky01_bk.jpg
+packages/skyboxes/remus/sky01_dn.jpg
+packages/skyboxes/remus/sky01_ft.jpg
+packages/skyboxes/remus/sky01_lf.jpg
+packages/skyboxes/remus/sky01_rt.jpg
+packages/skyboxes/remus/sky01_up.jpg
 packages/tech1soc/032-10b.jpg
 packages/tech1soc/032lig10bb.jpg
 packages/tech1soc/032lig20yb.jpg

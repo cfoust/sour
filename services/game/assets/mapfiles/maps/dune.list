@@ -1,8 +1,9 @@
-data/logo_1024.png
 packages/base/dune.cfg
 packages/base/dune.jpg
 packages/base/dune.ogz
 packages/egyptsoc/s064-01b.jpg
+packages/fanatic/3.ogg
+packages/fanatic/7.ogg
 packages/gibbie/base02_d.jpg
 packages/gibbie/base02_h.jpg
 packages/gibbie/base02_local.jpg
@@ -145,7 +146,6 @@ packages/gibbie/teletop_d.jpg
 packages/gibbie/teletop_h.jpg
 packages/gibbie/teletop_local.jpg
 packages/gibbie/teletop_s.jpg
-packages/golgotha/water2.jpg
 packages/ik2k/ik_brick_3216d.jpg
 packages/ik2k/ik_brick_6464c.jpg
 packages/ik2k/ik_floor_wood128b.jpg
@@ -243,11 +243,17 @@ packages/lunaran/support1_d.jpg
 packages/lunaran/support1_h.jpg
 packages/lunaran/support1_local.jpg
 packages/lunaran/support1_s.jpg
+packages/models/dcp/blade_x/blade_x.md5mesh
+packages/models/dcp/blade_x/md3.cfg
+packages/models/dcp/blade_x/md5.cfg
 packages/models/dcp/blade_x/model.obj
 packages/models/dcp/blade_x/obj.cfg
+packages/models/dcp/blade_x/tris.md2
+packages/models/dcp/blade_x/tris.md3
+packages/models/dcp/tris.md2
+packages/models/dcp/tris.md3
 packages/models/dcp/vent/masks.jpg
 packages/models/dcp/vent/skin.jpg
-packages/models/vwep/chaing/m134.png
 packages/penguins/wrath_bk.jpg
 packages/penguins/wrath_dn.jpg
 packages/penguins/wrath_ft.jpg
@@ -256,3 +262,5 @@ packages/penguins/wrath_rt.jpg
 packages/penguins/wrath_up.jpg
 packages/tech1soc/half_grill_wall01b.jpg
 packages/tech1soc/met_wall01a.jpg
+packages/textures/default.png
+packages/textures/sky.png

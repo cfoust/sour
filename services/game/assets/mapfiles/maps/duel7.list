@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/base/duel7.cfg
 packages/base/duel7.jpg
 packages/base/duel7.ogz
@@ -13,7 +12,6 @@ packages/dg/mur043.jpg
 packages/dg/mur060.jpg
 packages/dg/mur063.jpg
 packages/dg/mur067.jpg
-packages/dg/mur073.jpg
 packages/dg/mur079.jpg
 packages/dg/mur109_old.jpg
 packages/dg/muv158.jpg
@@ -26,7 +24,8 @@ packages/egyptsoc/128-01pc.jpg
 packages/egyptsoc/block01a.jpg
 packages/egyptsoc/stone01a.jpg
 packages/egyptsoc/v064-02a.jpg
-packages/golgotha/water2.jpg
+packages/fanatic/4.ogg
+packages/fanatic/8.ogg
 packages/ik2k/ik_brick_6464c.jpg
 packages/ik2k/ik_sky_day_back.jpg
 packages/ik2k/ik_wpaperplain128c.jpg
@@ -39,13 +38,19 @@ packages/mitaman/mm-brick13.jpg
 packages/mitaman/mm-wood-worn.jpg
 packages/mitaman/mm-wood-worn_normal.jpg
 packages/mitaman/mm-wood-worn_spec.jpg
+packages/models/dcp/grass/masks.jpg
+packages/models/dcp/grass/masks.png
 packages/models/dcp/grass/md2.cfg
 packages/models/dcp/grass/skin.jpg
 packages/models/dcp/grass/tris.md2
+packages/models/dcp/masks.jpg
+packages/models/dcp/masks.png
 packages/models/makke/moon/mask.jpg
 packages/models/makke/moon/md3.cfg
 packages/models/makke/moon/skin.jpg
+packages/models/makke/moon/tris.md2
 packages/models/makke/moon/tris.md3
+packages/models/makke/tris.md2
 packages/models/objects/lamp01/masks.jpg
 packages/models/objects/lamp01/md2.cfg
 packages/models/objects/lamp01/skin.jpg
@@ -53,7 +58,14 @@ packages/models/objects/lamp01/tris.md2
 packages/models/objects/torch_cold/masks.jpg
 packages/models/objects/torch_cold/md3.cfg
 packages/models/objects/torch_cold/skin.jpg
+packages/models/objects/torch_cold/tris.md2
 packages/models/objects/torch_cold/tris.md3
+packages/models/objects/tris.md2
+packages/models/tentus/chains/chain/masks.jpg
+packages/models/tentus/chains/chain/masks.png
+packages/models/tentus/chains/chain/md2.cfg
+packages/models/tentus/chains/chain/skin.jpg
+packages/models/tentus/chains/chain/skin.png
 packages/models/tentus/chains/chain/tris.md2
 packages/models/tentus/chains/masks.jpg
 packages/models/tentus/chains/md2.cfg
@@ -62,8 +74,6 @@ packages/models/tentus/moneybag/masks.jpg
 packages/models/tentus/moneybag/md2.cfg
 packages/models/tentus/moneybag/skin.jpg
 packages/models/tentus/moneybag/tris.md2
-packages/models/vwep/chaing/m134.png
-packages/payne/Box12b.jpg
 packages/payne/Brick58_512x512.jpg
 packages/payne/Tile41a.jpg
 packages/rorschach/5_bricks01.jpg
@@ -73,3 +83,4 @@ packages/staffy/staffy_ft.jpg
 packages/staffy/staffy_lf.jpg
 packages/staffy/staffy_rt.jpg
 packages/staffy/staffy_up.jpg
+packages/textures/nieb/rock01.jpg

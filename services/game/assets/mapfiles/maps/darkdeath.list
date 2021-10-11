@@ -1,9 +1,9 @@
-data/logo_1024.png
 packages/base/darkdeath.cfg
 packages/base/darkdeath.jpg
 packages/base/darkdeath.ogz
+packages/fanatic/2.ogg
+packages/fanatic/6.ogg
 packages/ik2k/ik_sky_day_back.jpg
-packages/models/vwep/chaing/m134.png
 packages/rorschach/128_ivbr_trim02.jpg
 packages/rorschach/128_tar_metflr01.jpg
 packages/rorschach/1r_clocktrim01.jpg
@@ -28,6 +28,12 @@ packages/rorschach/3r_lighthh01b.jpg
 packages/rorschach/4_met05b.jpg
 packages/rorschach/5_bricks01.jpg
 packages/rorschach/j128_brick01.jpg
+packages/skyboxes/remus/sky01_bk.jpg
+packages/skyboxes/remus/sky01_dn.jpg
+packages/skyboxes/remus/sky01_ft.jpg
+packages/skyboxes/remus/sky01_lf.jpg
+packages/skyboxes/remus/sky01_rt.jpg
+packages/skyboxes/remus/sky01_up.jpg
 packages/staffy/staffy_bk.jpg
 packages/staffy/staffy_dn.jpg
 packages/staffy/staffy_ft.jpg

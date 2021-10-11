@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/aard/aardograss_1.jpg
 packages/base/phosgene.cfg
 packages/base/phosgene.jpg
@@ -7,6 +6,8 @@ packages/cloward/cobblestonesDepth.jpg
 packages/cloward/cobblestonesDiffuse.jpg
 packages/cloward/cobblestonesNormal.jpg
 packages/egyptsoc/lig_032-01r1.jpg
+packages/fanatic/5.ogg
+packages/fanatic/6.ogg
 packages/ik2k/ik_brick_3216d.jpg
 packages/ik2k/ik_floor_brick128a.jpg
 packages/ik2k/ik_floor_wood128b.jpg
@@ -169,12 +170,12 @@ packages/models/dcp/barrel/masks.jpg
 packages/models/dcp/barrel/md2.cfg
 packages/models/dcp/barrel/skin.jpg
 packages/models/dcp/barrel/tris.md2
+packages/models/makke/md2.cfg
 packages/models/makke/nocamp/masks.jpg
+packages/models/makke/nocamp/md2.cfg
 packages/models/makke/nocamp/skin.jpg
 packages/models/makke/nocamp/tris.md2
-packages/models/vwep/chaing/m134.png
 packages/payne/Box12b_depth.jpg
-packages/payne/Box12b.jpg
 packages/payne/Box12b_normal.jpg
 packages/tech1soc/blank02a_depth.jpg
 packages/tech1soc/blank02a.jpg

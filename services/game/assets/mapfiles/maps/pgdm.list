@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/aard/aardograss_1.jpg
 packages/base/pgdm.cfg
 packages/base/pgdm.jpg
@@ -7,7 +6,8 @@ packages/dg/floor_pavement_stone4_3.jpg
 packages/dg/mur059.jpg
 packages/dg/muv185.jpg
 packages/egyptsoc/lig_032-01r1.jpg
-packages/golgotha/water2.jpg
+packages/fanatic/1.ogg
+packages/fanatic/3.ogg
 packages/ik2k/ik_brick_3216d.jpg
 packages/ik2k/ik_brick_6464c.jpg
 packages/ik2k/ik_floor_brick128a.jpg
@@ -15,8 +15,13 @@ packages/ik2k/ik_ground_cobbles128.jpg
 packages/ik2k/ik_sky_day_back.jpg
 packages/ikbase/ik_gtrimh_lit1a.jpg
 packages/jf1/jflitestr.jpg
-packages/models/vwep/chaing/m134.png
 packages/schwenz/dt_tile_check.01.jpg
+packages/skyboxes/remus/sky01_bk.jpg
+packages/skyboxes/remus/sky01_dn.jpg
+packages/skyboxes/remus/sky01_ft.jpg
+packages/skyboxes/remus/sky01_lf.jpg
+packages/skyboxes/remus/sky01_rt.jpg
+packages/skyboxes/remus/sky01_up.jpg
 packages/staffy/staffy_bk.jpg
 packages/staffy/staffy_dn.jpg
 packages/staffy/staffy_ft.jpg

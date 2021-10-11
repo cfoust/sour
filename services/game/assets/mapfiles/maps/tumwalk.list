@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/base/tumwalk.cfg
 packages/base/tumwalk.jpg
 packages/base/tumwalk.ogz
@@ -9,10 +8,10 @@ packages/dg/floor_pavingStone.jpg
 packages/dg/mur049.jpg
 packages/dg/mur060.jpg
 packages/dg/mur067.jpg
-packages/dg/mur073.jpg
 packages/dg/muv158.jpg
 packages/egyptsoc/lig_032-01r1.jpg
-packages/g_pack/g-floor10.jpg
+packages/fanatic/1.ogg
+packages/fanatic/8.ogg
 packages/ik2k/ik_brickwall_gry.jpg
 packages/ikbase/ik_floor_met1f.jpg
 packages/ikbase/ik_floor_met64e.jpg
@@ -36,7 +35,14 @@ packages/models/dcp/chest/tris.md2
 packages/models/objects/torch_cold/masks.jpg
 packages/models/objects/torch_cold/md3.cfg
 packages/models/objects/torch_cold/skin.jpg
+packages/models/objects/torch_cold/tris.md2
 packages/models/objects/torch_cold/tris.md3
+packages/models/objects/tris.md2
+packages/models/tentus/chains/curvechain/masks.jpg
+packages/models/tentus/chains/curvechain/masks.png
+packages/models/tentus/chains/curvechain/md2.cfg
+packages/models/tentus/chains/curvechain/skin.jpg
+packages/models/tentus/chains/curvechain/skin.png
 packages/models/tentus/chains/curvechain/tris.md2
 packages/models/tentus/chains/masks.jpg
 packages/models/tentus/chains/md2.cfg
@@ -45,7 +51,6 @@ packages/models/tentus/sidebarrel/masks.jpg
 packages/models/tentus/sidebarrel/md2.cfg
 packages/models/tentus/sidebarrel/skin.jpg
 packages/models/tentus/sidebarrel/tris.md2
-packages/models/vwep/chaing/m134.png
 packages/ratboy/skyboxes/coward_bk.jpg
 packages/ratboy/skyboxes/coward_dn.jpg
 packages/ratboy/skyboxes/coward_ft.jpg
@@ -65,4 +70,8 @@ packages/tech1soc/half_grill_wall03b.jpg
 packages/tech1soc/met_wall01a.jpg
 packages/tech1soc/s256-02a.jpg
 packages/tech1soc/s256-02b.jpg
+packages/textures/default.png
+packages/textures/nieb/rock01.jpg
+packages/textures/nieb/rock02.jpg
+packages/textures/sky.png
 packages/than_ind/floor02.jpg

@@ -1,7 +1,8 @@
-data/logo_1024.png
 packages/base/force.cfg
 packages/base/force.jpg
 packages/base/force.ogz
+packages/fanatic/1.ogg
+packages/fanatic/5.ogg
 packages/gibbie/flrtile1_d.jpg
 packages/gibbie/flrtile1_h.jpg
 packages/gibbie/flrtile1_local.jpg
@@ -151,7 +152,6 @@ packages/mitaman/mm-metalplates51_spec.jpg
 packages/mitaman/mm-tile38.jpg
 packages/mitaman/mm-tile38_normal.jpg
 packages/mitaman/mm-tile38_spec.jpg
-packages/models/vwep/chaing/m134.png
 packages/philipk/pk01_floor01b_d.jpg
 packages/philipk/pk01_floor01_local.jpg
 packages/philipk/pk01_floor01_s.jpg
@@ -166,13 +166,18 @@ packages/philipk/pk01_trim02b_add.jpg
 packages/philipk/pk01_trim02b_d.jpg
 packages/philipk/pk01_trim02_local.jpg
 packages/philipk/pk01_trim02_s.jpg
+packages/skyboxes/clouds02.jpg
+packages/skyboxes/clouds02.png
 packages/socksky/grave_bk.jpg
 packages/socksky/grave_dn.jpg
 packages/socksky/grave_ft.jpg
 packages/socksky/grave_lf.jpg
 packages/socksky/grave_rt.jpg
 packages/socksky/grave_up.jpg
+packages/sounds/blindabuser/rain.ogg
 packages/subverse/crate_space_vents.jpg
+packages/textures/default.png
+packages/textures/sky.png
 packages/trak5/ceil1a.jpg
 packages/trak5/ceil1_n.png
 packages/trak5/ceil1_s.jpg

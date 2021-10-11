@@ -1,8 +1,8 @@
-data/logo_1024.png
 packages/aftas/par12_h.jpg
 packages/aftas/par12.jpg
 packages/aftas/par12_n.jpg
 packages/aftas/par12_s.jpg
+packages/base/gubo.cfg
 packages/base/gubo.jpg
 packages/base/gubo.ogz
 packages/dg/floor_pavement_stone4_3.jpg
@@ -16,6 +16,8 @@ packages/egyptsoc/032-03a.jpg
 packages/egyptsoc/256-01a.jpg
 packages/egyptsoc/block01a.jpg
 packages/egyptsoc/stone01a.jpg
+packages/fanatic/6.ogg
+packages/fanatic/8.ogg
 packages/gor/GR_GK_007_cc.jpg
 packages/gor/GR_GK_007_hm.jpg
 packages/gor/GR_GK_007_nm.jpg
@@ -83,12 +85,16 @@ packages/models/tentus/sidebarrel/masks.jpg
 packages/models/tentus/sidebarrel/md2.cfg
 packages/models/tentus/sidebarrel/skin.jpg
 packages/models/tentus/sidebarrel/tris.md2
-packages/models/vwep/chaing/m134.png
 packages/painkillah/pk_arlequin_cc.jpg
 packages/painkillah/pk_arlequin_hm.jpg
 packages/painkillah/pk_arlequin_nm.jpg
 packages/painkillah/pk_arlequin_sc.jpg
-packages/payne/Box12b.jpg
 packages/payne/Brick58_512x512.jpg
+packages/skyboxes/clouds02.jpg
+packages/skyboxes/clouds02.png
 packages/tech1soc/032-15a.jpg
 packages/tech1soc/mix_wall03ab.jpg
+packages/textures/nieb/box1.jpg
+packages/textures/nieb/box2.jpg
+packages/textures/nieb/rough1.jpg
+packages/textures/sky.png

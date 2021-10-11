@@ -1,4 +1,4 @@
-data/logo_1024.png
+packages/base/kffa.cfg
 packages/base/kffa.jpg
 packages/base/kffa.ogz
 packages/darc/forge_bk.jpg
@@ -8,6 +8,8 @@ packages/darc/forge_lf.jpg
 packages/darc/forge_rt.jpg
 packages/darc/forge_up.jpg
 packages/dg/muv204.jpg
+packages/fanatic/6.ogg
+packages/fanatic/7.ogg
 packages/ik2k/ik_brick_trimh32a.jpg
 packages/ik2k/ik_floor_brick128a.jpg
 packages/ik2k/ik_floor_wood128b.jpg
@@ -45,8 +47,6 @@ packages/lunaran/support1_local.jpg
 packages/lunaran/support1_s.jpg
 packages/mitaman/mm-bricksmall06.jpg
 packages/mitaman/mm-bricksmall06_normal.jpg
-packages/models/vwep/chaing/m134.png
-packages/payne/Box12b.jpg
 packages/philipk/pk01_gra_floor02_d.jpg
 packages/philipk/pk01_gra_floor02_local.jpg
 packages/philipk/pk01_gra_floor02_s.jpg
@@ -54,3 +54,5 @@ packages/tech1soc/032-15a.jpg
 packages/tech1soc/chain_mesh2.jpg
 packages/tech1soc/flr_tmtl_drk.jpg
 packages/tech1soc/spring3.jpg
+packages/textures/nieb/rock01.jpg
+packages/textures/sky.png

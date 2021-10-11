@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/base/shinmei1.cfg
 packages/base/shinmei1.jpg
 packages/base/shinmei1.ogz
@@ -9,13 +8,13 @@ packages/dg/floor_paving_littleStones3_2.jpg
 packages/dg/floor_pavingStone.jpg
 packages/dg/mur060.jpg
 packages/dg/muv204.jpg
+packages/fanatic/2.ogg
+packages/fanatic/7.ogg
 packages/gibbie/lite2_add.jpg
 packages/gibbie/lite2_d.jpg
 packages/gibbie/lite2_h.jpg
 packages/gibbie/lite2_local.jpg
 packages/gibbie/lite2_s.jpg
-packages/golgotha/water2.jpg
-packages/models/vwep/chaing/m134.png
 packages/staffy/staffy_bk.jpg
 packages/staffy/staffy_dn.jpg
 packages/staffy/staffy_ft.jpg
@@ -30,4 +29,5 @@ packages/tech1soc/mat4b.jpg
 packages/tech1soc/met_wall01a.jpg
 packages/tech1soc/met_wall01c.jpg
 packages/tech1soc/zdet_trim5b.jpg
+packages/textures/sky.png
 packages/than_ind/floor05.jpg

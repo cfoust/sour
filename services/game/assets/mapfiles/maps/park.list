@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/base/park.cfg
 packages/base/park.jpg
 packages/base/park.ogz
@@ -12,17 +11,23 @@ packages/dg/mad067.jpg
 packages/dg/mur039.jpg
 packages/dg/mur043.jpg
 packages/dg/mur060.jpg
-packages/dg/mur073.jpg
 packages/dg/muv204.jpg
 packages/egyptsoc/block01d.jpg
+packages/fanatic/7.ogg
+packages/fanatic/8.ogg
 packages/models/dcp/jumppad2/masks.jpg
 packages/models/dcp/jumppad2/md2.cfg
 packages/models/dcp/jumppad2/skin.jpg
 packages/models/dcp/jumppad2/tris.md2
-packages/models/vwep/chaing/m134.png
-packages/payne/Box12b.jpg
 packages/rorschach/128_tar_metflr01.jpg
 packages/rorschach/package.cfg
+packages/skyboxes/clearsky052_bk.jpg
+packages/skyboxes/clearsky052_dn.jpg
+packages/skyboxes/clearsky052_ft.jpg
+packages/skyboxes/clearsky052_lf.jpg
+packages/skyboxes/clearsky052_rt.jpg
+packages/skyboxes/clearsky052_up.jpg
+packages/sounds/kaiser/fx/hum7.wav
 packages/tech1soc/032-02b.jpg
 packages/tech1soc/032-15a.jpg
 packages/tech1soc/032-15b.jpg
@@ -41,3 +46,4 @@ packages/tech1soc/s256-01d.jpg
 packages/tech1soc/s256-02a.jpg
 packages/tech1soc/s256-02b.jpg
 packages/tech1soc/sqrlig02wb.jpg
+packages/textures/nieb/rock01.jpg

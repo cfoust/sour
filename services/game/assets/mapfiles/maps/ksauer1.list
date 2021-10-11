@@ -1,8 +1,9 @@
-data/logo_1024.png
 packages/aard/aardograss_1.jpg
 packages/base/ksauer1.cfg
 packages/base/ksauer1.jpg
 packages/base/ksauer1.ogz
+packages/fanatic/1.ogg
+packages/fanatic/4.ogg
 packages/ik2k/ik_brick_3216d.jpg
 packages/ik2k/ik_floor_brick128a.jpg
 packages/ik2k/ik_floor_wood128b.jpg
@@ -10,7 +11,12 @@ packages/ikbase/ik_floor_met64e.jpg
 packages/ikbase/ik_floor_met64f.jpg
 packages/ikbase/ik_wtrimh_32c.jpg
 packages/ikbase/ik_wtrimv_32c.jpg
-packages/models/vwep/chaing/m134.png
+packages/skyboxes/remus/sky01_bk.jpg
+packages/skyboxes/remus/sky01_dn.jpg
+packages/skyboxes/remus/sky01_ft.jpg
+packages/skyboxes/remus/sky01_lf.jpg
+packages/skyboxes/remus/sky01_rt.jpg
+packages/skyboxes/remus/sky01_up.jpg
 packages/tech1soc/032-03d.jpg
 packages/tech1soc/032lig12bb.jpg
 packages/tech1soc/064-22b.jpg
@@ -24,4 +30,5 @@ packages/tech1soc/grate1b.jpg
 packages/tech1soc/half_grill_wall03b.jpg
 packages/tech1soc/s128-02a.jpg
 packages/tech1soc/sqrlig03bc.jpg
+packages/textures/sky.png
 packages/than_ind/light03.jpg

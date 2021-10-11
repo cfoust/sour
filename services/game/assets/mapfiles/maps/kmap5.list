@@ -1,4 +1,3 @@
-data/logo_1024.png
 packages/base/kmap5.cfg
 packages/base/kmap5.jpg
 packages/base/kmap5.ogz
@@ -12,7 +11,8 @@ packages/egyptsoc/lig_032-01b1.jpg
 packages/egyptsoc/lig_032-01r1.jpg
 packages/egyptsoc/lig_064-02r1.jpg
 packages/egyptsoc/solidgrate1b.jpg
-packages/golgotha/water2.jpg
+packages/fanatic/3.ogg
+packages/fanatic/6.ogg
 packages/ik2k/ik_floor_brick128a.jpg
 packages/ik2k/ik_floor_wood128b.jpg
 packages/ik2k/ik_ground_pebbles128.jpg
@@ -28,7 +28,6 @@ packages/ikbase/ik_wtrimh_32d.jpg
 packages/ikbase/ik_wtrimh_64d.jpg
 packages/ikbase/ik_wtrimv_32d.jpg
 packages/ikbase/ik_wtrimv_64d.jpg
-packages/models/vwep/chaing/m134.png
 packages/tech1soc/128-05c.jpg
 packages/tech1soc/blank03a.jpg
 packages/tech1soc/block10b.jpg

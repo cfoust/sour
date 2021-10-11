@@ -1,8 +1,8 @@
-data/logo_1024.png
 packages/base/teahupoo.cfg
 packages/base/teahupoo.jpg
 packages/base/teahupoo.ogz
-packages/golgotha/water2.jpg
+packages/fanatic/2.ogg
+packages/fanatic/5.ogg
 packages/lunaran/glue1_d.jpg
 packages/lunaran/glue1_h.jpg
 packages/lunaran/glue1_local.jpg
@@ -136,7 +136,6 @@ packages/mitaman/mm-woodshutter_spec.jpg
 packages/mitaman/mm-wood-worn.jpg
 packages/mitaman/mm-wood-worn_normal.jpg
 packages/mitaman/mm-wood-worn_spec.jpg
-packages/models/vwep/chaing/m134.png
 packages/noctua/conc01.jpg
 packages/noctua/conc01_normal.jpg
 packages/noctua/conc01_spec.jpg
@@ -149,6 +148,9 @@ packages/shmutzwurst/london_ft.jpg
 packages/shmutzwurst/london_lf.jpg
 packages/shmutzwurst/london_rt.jpg
 packages/shmutzwurst/london_up.jpg
+packages/skyboxes/clouds03.jpg
+packages/skyboxes/clouds03.png
 packages/subverse/solid_vent.jpg
 packages/subverse/wood_crate_05.jpg
 packages/subverse/wood_crate_1.jpg
+packages/textures/sky.png
