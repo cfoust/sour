@@ -69,7 +69,10 @@ package_map() {
 }
 
 package_files base $(cat mapfiles/common.trimmed.list)
+package_map "packages/base/complex"
 
-for file in $(find packages/base/ -name '*.cfg'); do
-  package_map "$file"
-done
+#for file in $(find packages/base/ -name '*.cfg'); do
+  #package_map "$file" &
+#done
+
+wait
