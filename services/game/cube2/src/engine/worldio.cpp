@@ -1048,7 +1048,7 @@ bool really_load_world(const char *mname, const char *cname)        // still sup
 #endif
     load_world_f = f;
     if(!f) { conoutf(CON_ERROR, "could not read map %s", ogzname); return false; }
-    octaheader hdr;
+    octaheader &hdr = load_world_hdr;
     if(f->read(&hdr, 7*sizeof(int)) != 7*sizeof(int)) { conoutf(CON_ERROR, "map %s has malformatted header", ogzname); delete f; return false; }
     lilswap(&hdr.version, 6);
     if(memcmp(hdr.magic, "OCTA", 4) || hdr.worldsize <= 0|| hdr.numents < 0) { conoutf(CON_ERROR, "map %s has malformatted header", ogzname); delete f; return false; }

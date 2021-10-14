@@ -167,6 +167,7 @@ function App() {
     Module.desiredHeight = height
     if (Module.setCanvasSize == null) return
     Module.setCanvasSize(width, height)
+    BananaBread.execute(`screenres ${width} ${height}`)
   }, [width, height])
 
   React.useLayoutEffect(() => {
