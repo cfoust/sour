@@ -1948,7 +1948,8 @@ void gl_drawframe()
 
     if(wireframe && editmode) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    drawglaretex();
+    // TODO(cfoust): 10/14/21 re-enable
+    //drawglaretex();
     drawdepthfxtex();
     drawreflections();
 
@@ -1962,7 +1963,8 @@ void gl_drawframe()
 
     if(wireframe && editmode) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    renderparticles(true);
+    // TODO(cfoust): 10/14/21 re-enable
+    //renderparticles(true);
 
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
