@@ -107,9 +107,6 @@ function App() {
       Module.tweakDetail()
       BananaBread.execute('spawnitems')
       BananaBread.execute('clearconsole')
-      setState({
-        type: GameStateType.Connected,
-      })
     }
 
     Module.postRun.push(() => {
@@ -129,6 +126,12 @@ function App() {
       if (text === 'init: sdl') {
         setState({
           type: GameStateType.Running,
+        })
+      }
+
+      if (text === 'init: mainloop') {
+        setState({
+          type: GameStateType.Ready,
         })
       }
 
@@ -198,13 +201,13 @@ function App() {
       <GameContainer ref={containerRef}>
         <canvas
           className="game"
-          style={{ opacity: state.type !== GameStateType.Connected ? 0 : 1 }}
+          style={{ opacity: state.type !== GameStateType.Ready ? 0 : 1 }}
           id="canvas"
           ref={(canvas) => (Module.canvas = canvas)}
           onContextMenu={(event) => event.preventDefault()}
         ></canvas>
       </GameContainer>
-      {state.type !== GameStateType.Connected && (
+      {state.type !== GameStateType.Ready && (
         <LoadingContainer>
           <Box w="100%" h="100%">
             <Heading>🍋Sour</Heading>

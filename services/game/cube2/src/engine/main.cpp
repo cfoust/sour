@@ -180,10 +180,6 @@ void bgquad(float x, float y, float w, float h, float tx = 0, float ty = 0, floa
 
 void renderbackground(const char *caption, Texture *mapshot, const char *mapname, const char *mapinfo, bool restore, bool force)
 {
-#if __EMSCRIPTEN__
-    return;
-#endif
-
     if(!inbetweenframes && !force) return;
 
     if(!restore || force) stopsounds(); // stop sounds while loading
@@ -330,10 +326,6 @@ float loadprogress = 0;
 
 void renderprogress(float bar, const char *text, GLuint tex, bool background)   // also used during loading
 {
-	// TODO(cfoust): 10/09/21 I'm not really sure why we don't render this
-#if __EMSCRIPTEN__
-	return;
-#endif
     if(!inbetweenframes || drawtex) return;
 
     extern int menufps, maxfps;
@@ -1471,13 +1463,10 @@ void main_loop_iter()
 
         if(minimized) return;
 
-        extern bool maploaded;
-        if (maploaded) {
-            inbetweenframes = false;
-            if(mainmenu) gl_drawmainmenu();
-            else gl_drawframe();
-            swapbuffers();
-            renderedframe = inbetweenframes = true;
-        }
+        inbetweenframes = false;
+        if(mainmenu) gl_drawmainmenu();
+        else gl_drawframe();
+        swapbuffers();
+        renderedframe = inbetweenframes = true;
 }
 
