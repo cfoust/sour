@@ -1923,17 +1923,11 @@ void gl_drawframe()
 
     rendergeom(causticspass);
 
-#if 0 // EMSCRIPTEN
-    // Debugging: Stop GL logging after geometry rendering
-    if (!mainmenu) {
-      emscripten_run_script("throw 'we are done with one geom frame';");
-    }
-#endif
-
     extern int outline;
     if(!wireframe && editmode && outline) renderoutline();
 
-    queryreflections();
+    // TODO(cfoust): 10/16/21 re-enable
+    //queryreflections();
 
     generategrass();
 
