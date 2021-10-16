@@ -6,9 +6,8 @@ export enum GameStateType {
   MapChange,
   // The game is starting up
   Running,
-  // Attempting to connect to server
-  Connecting,
-  Connected,
+  // At the main menu
+  Ready,
   GameError,
 }
 
@@ -31,12 +30,8 @@ export type RunningState = {
   type: GameStateType.Running
 }
 
-export type ConnectingState = {
-  type: GameStateType.Connecting
-}
-
-export type ConnectedState = {
-  type: GameStateType.Connected
+export type ReadyState = {
+  type: GameStateType.Ready
 }
 
 export type ErrorState = {
@@ -48,6 +43,5 @@ export type GameState =
   | DownloadingState
   | MapChangeState
   | RunningState
-  | ConnectingState
-  | ConnectedState
+  | ReadyState
   | ErrorState

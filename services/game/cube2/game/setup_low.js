@@ -12,5 +12,4 @@ Module.tweakDetail = function() {
 };
 
 Module.loadDefaultMap = function() {
-  BananaBread.execute('sleep 10 [ connect ]');
 };
