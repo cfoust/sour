@@ -8,6 +8,8 @@ MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.or
 
 `sour` is a complete [Cube 2: Sauerbraten](http://sauerbraten.org/) experience in the web delivered as a single Docker image
 
+## Warning: I am still fixing issues after rebasing onto Sauerbraten 2020. Sour is not working. Use the r4349 tag if you want a working copy.
+
 ## Overview
 
 I have always loved playing Sauerbraten because of its simplicity: it's fast to download, easy to pick up, and keeps you in the action with instant respawns. Despite playing lots of games over the course of my life I haven't really found anything that scratches the same itch.
@@ -41,6 +43,23 @@ The resulting Docker image will run services on these ports when started:
 * `tcp:1234`: An nginx server that serves up the `client`, compiled Sauerbraten binaries, and assets.
 * `tcp:28785`: The hacky `wsproxy` version we use that proxies WS connections to the container's UDP port `28786`.
 * `udp:28786`: A real QServCollect server. Typically you don't expose this, but if you want to do crossplay (connect with real Sauerbraten) you absolutely can.
+
+## Contributing
+
+All contributions are welcome. Check out the roadmap below to see what you might be able to help with.
+
+* [ ] Restore the rendering pipeline to working condition (this is currently partially broken)
+* [ ] Fix up the main menu
+  * [ ] Make sure textures used in the main menu are not downsized
+  * [ ] Remove options not pertinent to the web version
+  * [ ] Allow the user to connect to the Sour server
+* [ ] Fix all of the nasty canvas sizing and full screen UX
+* [ ] Fix the transparency in the cursor texture
+* [ ] Fix model textures. For some reason none of them are working.
+* [ ] Issue with name being malformed (bad welcome packet?)
+* [ ] Save demos for any game played to IndexedDB and allow for download
+* [ ] Demo player with seek/play/pause
+  * [ ] Stretch goal: generate gifs in the browser
 
 ## License
 
