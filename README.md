@@ -52,8 +52,8 @@ To hack on Sour:
 1. Run `earthly +game` (compiles the game), `earthly +assets` (builds its assets for the web,) and `earthly +image-slim` (builds the Sour image without assets.)
 2. If you want to work on multiplayer, run this Docker container: `docker run --rm -it -p 28785:28785 sour:slim`. It makes the QServCollect server available (over a WebSocket) on `28785`.
 3. Start the web client.
-  * If you have [warm](https://github.com/cfoust/warm/blob/master/warm), run `warm shell`, `cd services/client` and run `yarn serve`.
-  * If you do not have `warm`, run `docker run --rm -it --volume=$(pwd):$(pwd) -w $(pwd) --init --network=host node:14.17.5 /bin/bash`, `cd services/client` and run `yarn serve`.
+  1. If you have [warm](https://github.com/cfoust/warm/blob/master/warm), run `warm shell`, `cd services/client` and run `yarn serve`.
+  2. If you do not have `warm`, run `docker run --rm -it --volume=$(pwd):$(pwd) -w $(pwd) --init --network=host node:14.17.5 /bin/bash`, `cd services/client` and run `yarn serve`.
 4. Navigate to `http://localhost:1234`. To recompile the game, just do `earthly +game` and refresh the page. The same applies to `earthly +assets`. If you change the client code, also just refresh.
 
 Check out the roadmap below to see what you might be able to help with.
@@ -67,6 +67,11 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Fix the transparency in the cursor texture
 * [ ] Fix model textures. For some reason none of them are working.
 * [ ] Issue with name being malformed (bad welcome packet?)
+* [ ] Make it so players cannot change the map to one that does not exist
+  * [ ] Come up with a better cache invalidation strategy (likely commit hash?)
+* [ ] Allow for players to create custom matches
+* [ ] Allow Sour to read from the real master server and connect to real Sauerbraten servers
+* [ ] Support saving and loading `.ogz` maps from the user's device
 * [ ] Save demos for any game played to IndexedDB and allow for download
 * [ ] Demo player with seek/play/pause
   * [ ] Stretch goal: generate gifs in the browser
