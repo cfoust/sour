@@ -1,7 +1,12 @@
-sour
-====
+# sour
+<p align="center">
+  <img src="gh-assets/header.gif">
+</p>
 
-`sour` is a complete multiplayer [Sauerbraten](http://sauerbraten.org/) experience in the web delivered as a single Docker image.
+[![License:
+MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+`sour` is a complete [Cube 2: Sauerbraten](http://sauerbraten.org/) experience in the web delivered as a single Docker image
 
 ## Overview
 
@@ -13,22 +18,29 @@ My goal was to ship an updated version of it in a single Docker image that I cou
 
 ## Getting started
 
-All you need is [Earthly](https://earthly.dev/) to build. Just run `earthly +docker` and it will make the `sour:latest` image.
+All you need is Docker and [Earthly](https://earthly.dev/) to build. Just run `earthly +image` and it will make the `sour:latest` image.
 
-To use, the `sour` image, expose ports `1234` and `28785` when you run a container like this:
+To use the `sour` image, expose ports `1234` and `28785` when you run a container like this:
 
 ```bash
 docker run --rm -it -p 1234:1234 -p 28785:28785 sour:latest
 ```
 
-It's worth nothing that you can change the first mapping (`1234`) to whatever you want (e.g `80`) but the second one has to be `28785`, since the frontend expects the proxy service to be at that port.
+It's worth nothing that you can change the first mapping (`1234:1234`) to whatever you want (e.g `80:1234`) but the second one has to be `28785`, since the frontend expects the proxy service to be at that port.
 
 ## Architecture
 
-The current implementation involves three services, each of which corresponds to a directory in `services/`:
-* `client/`: A fork of [BananaBread](https://github.com/kripken/BananaBread) with lots of modifications to add support for QServCollect's protocol and the WebSocket intermediary. There are also significant UI changes.
-* `server/`: A fork of [QServCollect](https://github.com/deathstar/QServCollect), which is a dedicated Sauerbraten server.
-* `proxy/`: A fork of [wsproxy](https://github.com/FWGS/wsproxy) which I changed to only allow proxying from TCP `28785` to UDP `28786`. This was the quickest way I found to get client/server communication working, though presumably you could just do this in a Python script.
+Here is a high level description of the repository's directory structure:
+* `services/game/cube2`: A fork of [BananaBread](https://github.com/kripken/BananaBread), which was kripken's initial attempt at getting a version of Sauerbraten running using Emscripten. He forked Sauerbraten at the mainline [r4059](https://sourceforge.net/p/sauerbraten/code/4059), I upgraded to [r4349](https://sourceforge.net/p/sauerbraten/code/4349), then finally upgraded to the latest mainline at the time [r6519](https://sourceforge.net/p/sauerbraten/code/6519). Contains a handful of modifications and restrictions to make sure it can run well in the web.
+* `services/game/assets`: A checkout of Sauerbraten's `packages/` directory, which contains all of the game's default assets. Also includes Sour's asset bundling mechanism to generate prepackaged Emscripten file bundles for each game map.
+* `services/server/`: A fork of [QServCollect](https://github.com/deathstar/QServCollect), which is a dedicated Sauerbraten server.
+* `services/proxy/`: A fork of [wsproxy](https://github.com/FWGS/wsproxy) which I changed to only allow proxying from TCP `28785` to UDP `28786`. This was the quickest way I found to get client/server communication working, though presumably you could just do this in a Python script.
+* `services/client/`: A React web application that glues together the compiled Sauerbraten code and our asset fetching mechanism.
+
+The resulting Docker image will run services on these ports when started:
+* `tcp:1234`: An nginx server that serves up the `client`, compiled Sauerbraten binaries, and assets.
+* `tcp:28785`: The hacky `wsproxy` version we use that proxies WS connections to the container's UDP port `28786`.
+* `udp:28786`: A real QServCollect server. Typically you don't expose this, but if you want to do crossplay (connect with real Sauerbraten) you absolutely can.
 
 ## License
 
