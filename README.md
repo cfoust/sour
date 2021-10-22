@@ -46,7 +46,17 @@ The resulting Docker image will run services on these ports when started:
 
 ## Contributing
 
-All contributions are welcome. Check out the roadmap below to see what you might be able to help with.
+All contributions are welcome. Developing Sour is made a bit easier with Earthly but there are still some caveats.
+
+To hack on Sour:
+1. Run `earthly +game` (compiles the game), `earthly +assets` (builds its assets for the web,) and `earthly +image-slim` (builds the Sour image without assets.)
+2. If you want to work on multiplayer, run this Docker container: `docker run --rm -it -p 28785:28785 sour:slim`. It makes the QServCollect server available (over a WebSocket) on `28785`.
+3. Start the web client.
+  a. If you have [warm](https://github.com/cfoust/warm/blob/master/warm), run `warm shell`, `cd services/client` and run `yarn serve`.
+  b. If you do not have `warm`, run `docker run --rm -it --volume=$(pwd):$(pwd) -w $(pwd) --init --network=host node:14.17.5 /bin/bash`, `cd services/client` and run `yarn serve`.
+4. Navigate to `http://localhost:1234`. To recompile the game, just do `earthly +game` and refresh the page. The same applies to `earthly +assets`. If you change the client code, also just refresh.
+
+Check out the roadmap below to see what you might be able to help with.
 
 * [ ] Restore the rendering pipeline to working condition (this is currently partially broken)
 * [ ] Fix up the main menu
