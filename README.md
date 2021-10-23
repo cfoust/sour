@@ -69,7 +69,7 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Issue with name being malformed (bad welcome packet?)
 * [ ] Make it so players cannot change the map to one that does not exist
   * [ ] Come up with a better cache invalidation strategy (likely commit hash?)
-* **After this, we're back to working condition**
+**After this, we're back to working condition**
 * [ ] Allow for players to create custom matches
 * [ ] Allow Sour to read from the real master server and connect to real Sauerbraten servers
 * [ ] Support saving and loading `.ogz` maps from the user's device
