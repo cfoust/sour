@@ -59,10 +59,10 @@ To hack on Sour:
 Check out the roadmap below to see what you might be able to help with.
 
 * [X] Restore the rendering pipeline to working condition
-* [ ] Fix up the main menu
+* [X] Fix up the main menu
   * [X] Make sure textures used in the main menu are not downsized
-  * [ ] Remove options not pertinent to the web version
-  * [ ] Allow the user to connect to the Sour server
+  * [X] Remove options not pertinent to the web version
+  * [X] Allow the user to connect to the Sour server
 * [ ] Fix full screen UX
 * [ ] Add pretty loading screen before canvas is ready
 * [ ] Improve map transitions and use real `renderprogress` for asset downloads
