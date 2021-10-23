@@ -1562,15 +1562,17 @@ void drawcubemap(int size, const vec &o, float yaw, float pitch, const cubemapsi
 
         if(!limitsky()) drawskybox(farplane, false);
 
-//      queryreflections();
+#if !__EMSCRIPTEN__
+        queryreflections();
+#endif
 
         rendermapmodels();
         renderalphageom();
 
-//      drawreflections();
+        drawreflections();
 
-//      renderwater();
-//      rendermaterials();
+        renderwater();
+        rendermaterials();
 
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
@@ -1926,8 +1928,9 @@ void gl_drawframe()
     extern int outline;
     if(!wireframe && editmode && outline) renderoutline();
 
-    // TODO(cfoust): 10/16/21 re-enable
-    //queryreflections();
+#if !__EMSCRIPTEN__
+    queryreflections();
+#endif
 
     generategrass();
 
