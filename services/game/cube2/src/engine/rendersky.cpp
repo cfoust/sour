@@ -565,18 +565,22 @@ void drawskyoutline()
 
     glDepthMask(GL_FALSE);
     extern int wireframe;
+#if !__EMSCRIPTEN__
     if(!wireframe)
     {
         enablepolygonoffset(GL_POLYGON_OFFSET_LINE);
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     }
+#endif
     gle::colorf(0.5f, 0.0f, 0.5f);
     rendersky(true);
+#if !__EMSCRIPTEN__
     if(!wireframe) 
     {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         disablepolygonoffset(GL_POLYGON_OFFSET_LINE);
     }
+#endif
     glDepthMask(GL_TRUE);
 }
 
