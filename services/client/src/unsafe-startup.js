@@ -71,7 +71,8 @@ export default function start() {
       if (isFullScreen) {
         BananaBread.execute('screenres ' + screen.width + ' ' + screen.height)
       } else {
-        BananaBread.execute('screenres ' + 640 + ' ' + 480)
+        const { innerWidth: width, innerHeight: height } = window
+        BananaBread.execute(`screenres ${width} ${height}`)
       }
     },
   }

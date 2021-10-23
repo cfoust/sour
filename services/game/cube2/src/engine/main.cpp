@@ -530,7 +530,6 @@ bool initwindowpos = false;
 void setfullscreen(bool enable)
 {
     if(!screen) return;
-    //initwarning(enable ? "fullscreen" : "windowed");
     extern int fullscreendesktop;
     SDL_SetWindowFullscreen(screen, enable ? (fullscreendesktop ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_FULLSCREEN) : 0);
     if(!enable)
@@ -557,7 +556,11 @@ void resetfullscreen()
     setfullscreen(true);
 }
 
+#if __EMSCRIPTEN__
+VARF(fullscreendesktop, 0, 1, 1, if(fullscreen) resetfullscreen());
+#else
 VARF(fullscreendesktop, 0, 0, 1, if(fullscreen) resetfullscreen());
+#endif
 
 void screenres(int w, int h)
 {               
@@ -572,7 +575,14 @@ void screenres(int w, int h)
         }
         if(SDL_GetWindowFlags(screen) & SDL_WINDOW_FULLSCREEN)
         {
-            if(fullscreendesktop) gl_resize();
+            if(fullscreendesktop) {
+                // XXX I'm not sure why this was necessary.
+#if __EMSCRIPTEN__
+                screenw = scr_w;
+                screenh = scr_h;
+#endif
+                gl_resize();
+            }
             else resetfullscreen();
             initwindowpos = true;
         } 
