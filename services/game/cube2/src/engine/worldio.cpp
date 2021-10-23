@@ -1383,7 +1383,6 @@ void load_world_6(void *)
     // Do stuff like stop the loading music etc., and play music (right here, at the very end of world loading)
     emscripten_run_script("Module['postLoadWorld']()");
 #endif
-    execute("playasong");
 
     if (load_world_mname) delete load_world_mname;
     if (load_world_cname) delete load_world_cname;
