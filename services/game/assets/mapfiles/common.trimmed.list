@@ -699,6 +699,7 @@ packages/noctua/package.cfg
 packages/painkillah/package.cfg
 packages/particles/blood.png
 packages/particles/bullet.png
+packages/particles/explosion.png
 packages/particles/flare.jpg
 packages/particles/muzzleflash1.jpg
 packages/particles/muzzleflash2.jpg
