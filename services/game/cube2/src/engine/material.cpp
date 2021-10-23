@@ -537,7 +537,9 @@ void sortmaterials(vector<materialsurface *> &vismats)
 void rendermatgrid(vector<materialsurface *> &vismats)
 {
     enablepolygonoffset(GL_POLYGON_OFFSET_LINE);
+#if !__EMSCRIPTEN__
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
     int lastmat = -1;
     bvec4 color(0, 0, 0, 0);
     loopvrev(vismats)
@@ -562,7 +564,9 @@ void rendermatgrid(vector<materialsurface *> &vismats)
         drawmaterial(m, -0.1f, color);
     }
     xtraverts += gle::end();
+#if !__EMSCRIPTEN__
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
     disablepolygonoffset(GL_POLYGON_OFFSET_LINE);
 }
 

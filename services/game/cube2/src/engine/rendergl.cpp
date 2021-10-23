@@ -1965,8 +1965,8 @@ void gl_drawframe()
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
 
-#if !__EMSCRIPTEN__
     addmotionblur();
+#if !__EMSCRIPTEN__
     addglare();
     if(isliquid(fogmat&MATF_VOLUME)) drawfogoverlay(fogmat, fogblend, abovemat);
     renderpostfx();
