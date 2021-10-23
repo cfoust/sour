@@ -5,6 +5,33 @@ export default function start() {
 
   Module = {
     ...Module,
+    setPlayerModels: function () {
+      BananaBread.setPlayerModelInfo(
+        'snoutx10k',
+        'snoutx10k',
+        'snoutx10k',
+        'snoutx10k/hudguns',
+        0,
+        0,
+        0,
+        0,
+        0,
+        'snoutx10k',
+        'snoutx10k',
+        'snoutx10k',
+        true
+      )
+    },
+    tweakDetail: () => {
+      BananaBread.execute('fog 10000') // disable fog
+      BananaBread.execute('maxdebris 10')
+    },
+    loadDefaultMap: () => {
+      const { innerWidth: width, innerHeight: height } = window
+      Module.setCanvasSize(width, height)
+      BananaBread.execute(`screenres ${width} ${height}`)
+      BananaBread.execute('map complex')
+    },
     locateFile: (file) => {
       if (file.endsWith('.data')) return `${ASSET_PREFIX}/${file}`
       if (file.endsWith('.wasm')) return `/game/${file}`

@@ -41,7 +41,6 @@ game:
           js/zee.js \
           game/zee-worker.js \
           game/gl-matrix.js \
-          game/setup_low.js \
           sauerbraten.* \
           ../dist
     SAVE ARTIFACT dist AS LOCAL "build/game"

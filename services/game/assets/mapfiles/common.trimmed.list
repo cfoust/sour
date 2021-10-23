@@ -115,6 +115,7 @@ packages/g_pack/package2.cfg
 packages/gibbie/package.cfg
 packages/golgotha/water2.jpg
 packages/gor/package.cfg
+packages/hud/damage.png
 packages/hud/digit_blue.png
 packages/hud/digit_font.cfg
 packages/hud/digit_grey.png
