@@ -36,7 +36,8 @@ package_files() {
       continue
     fi
 
-    if [[ "$size" -lt 128000 ]]; then
+    # Ignore small files and anything in data/ since those are the game's basic assets
+    if [[ "$size" -lt 128000 ]] || [[ "$infile" == data* ]]; then
       cp "$infile" "$outfile"
       continue
     fi
