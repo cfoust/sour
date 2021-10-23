@@ -1957,8 +1957,7 @@ void gl_drawframe()
 
     if(wireframe && editmode) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    // TODO(cfoust): 10/14/21 re-enable
-    //renderparticles(true);
+    renderparticles(true);
 
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
