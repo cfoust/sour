@@ -1945,8 +1945,7 @@ void gl_drawframe()
 
     if(wireframe && editmode) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    // TODO(cfoust): 10/14/21 re-enable
-    //drawglaretex();
+    drawglaretex();
     drawdepthfxtex();
     drawreflections();
 
