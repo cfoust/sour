@@ -63,7 +63,9 @@ Check out the roadmap below to see what you might be able to help with.
   * [ ] Make sure textures used in the main menu are not downsized
   * [ ] Remove options not pertinent to the web version
   * [ ] Allow the user to connect to the Sour server
-* [ ] Fix all of the nasty canvas sizing and full screen UX
+* [ ] Fix full screen UX
+* [ ] Add pretty loading screen before canvas is ready
+* [ ] Improve map transitions and use real `renderprogress` for asset downloads
 * [ ] Fix the transparency in the cursor texture
 * [ ] Fix model textures. For some reason none of them are working.
 * [ ] Issue with name being malformed (bad welcome packet?)
