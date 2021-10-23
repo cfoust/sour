@@ -64,7 +64,7 @@ Check out the roadmap below to see what you might be able to help with.
   * [X] Remove options not pertinent to the web version
   * [X] Allow the user to connect to the Sour server
 * [X] Fix full screen UX
-* [ ] Fix cursor and crosshair transparency
+* [X] Fix cursor and crosshair transparency
 * [ ] Add pretty loading screen before canvas is ready
 * [ ] Improve map transitions and use real `renderprogress` for asset downloads
 * [ ] Fix the transparency in the cursor texture
