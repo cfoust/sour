@@ -8,7 +8,7 @@ MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.or
 
 `sour` is a complete [Cube 2: Sauerbraten](http://sauerbraten.org/) experience in the web delivered as a single Docker image
 
-## Warning: I am still fixing issues after rebasing onto Sauerbraten 2020. Sour is not working. Use the r4349 tag if you want a working copy.
+## Warning: I am still fixing issues after rebasing onto Sauerbraten 2020. Multiplayer is not working. Use the r4349 tag if you want a working copy.
 
 ## Overview
 
@@ -58,7 +58,7 @@ To hack on Sour:
 
 Check out the roadmap below to see what you might be able to help with.
 
-* [ ] Restore the rendering pipeline to working condition (this is currently partially broken)
+* [X] Restore the rendering pipeline to working condition
 * [ ] Fix up the main menu
   * [ ] Make sure textures used in the main menu are not downsized
   * [ ] Remove options not pertinent to the web version
