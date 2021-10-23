@@ -60,7 +60,7 @@ Check out the roadmap below to see what you might be able to help with.
 
 * [X] Restore the rendering pipeline to working condition
 * [ ] Fix up the main menu
-  * [ ] Make sure textures used in the main menu are not downsized
+  * [X] Make sure textures used in the main menu are not downsized
   * [ ] Remove options not pertinent to the web version
   * [ ] Allow the user to connect to the Sour server
 * [ ] Fix full screen UX
