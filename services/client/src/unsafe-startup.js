@@ -30,7 +30,6 @@ export default function start() {
       const { innerWidth: width, innerHeight: height } = window
       Module.setCanvasSize(width, height)
       BananaBread.execute(`screenres ${width} ${height}`)
-      BananaBread.execute('newmap')
     },
     locateFile: (file) => {
       if (file.endsWith('.data')) return `${ASSET_PREFIX}/${file}`

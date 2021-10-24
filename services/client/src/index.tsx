@@ -204,11 +204,20 @@ function App() {
       <GameContainer ref={containerRef}>
         <canvas
           className="game"
+          style={{ opacity: state.type !== GameStateType.Ready ? 0 : 1 }}
           id="canvas"
           ref={(canvas) => (Module.canvas = canvas)}
           onContextMenu={(event) => event.preventDefault()}
         ></canvas>
       </GameContainer>
+      {state.type !== GameStateType.Ready && (
+        <LoadingContainer>
+          <Box w="100%" h="100%">
+            <Heading>🍋Sour</Heading>
+            <StatusOverlay state={state} />
+          </Box>
+        </LoadingContainer>
+      )}
     </OuterContainer>
   )
 }
