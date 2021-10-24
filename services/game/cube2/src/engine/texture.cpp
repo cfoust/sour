@@ -3139,6 +3139,11 @@ bool loaddds(const char *filename, ImageData &image, int force)
     lilswap((uint *)&d, sizeof(d)/sizeof(uint));
     if(d.dwSize != sizeof(DDSURFACEDESC2) || d.ddpfPixelFormat.dwSize != sizeof(DDPIXELFORMAT)) { delete f; return false; }
     bool supported = false;
+    // XXX Not sure why this is necessary either...
+    // Without it DDS textures don't render
+#if __EMSCRIPTEN__
+    force = 1;
+#endif
     if(d.ddpfPixelFormat.dwFlags & DDPF_FOURCC)
     {
         switch(d.ddpfPixelFormat.dwFourCC)
