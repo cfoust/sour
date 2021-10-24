@@ -69,8 +69,8 @@ Check out the roadmap below to see what you might be able to help with.
 * [X] Improve map transitions and use real `renderprogress` for asset downloads
 * [X] Fix model textures. For some reason none of them are working.
 * [ ] Issue with name being malformed (bad welcome packet?)
-* [ ] Make it so players cannot change the map to one that does not exist
-  * [ ] Come up with a better cache invalidation strategy (likely commit hash?)
+* [X] Make it so players cannot change the map to one that does not exist
+* [ ] Come up with a better cache invalidation strategy (likely commit hash?)
 
 **After this, we're back to working condition**
 
