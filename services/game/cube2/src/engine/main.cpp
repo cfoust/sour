@@ -1473,10 +1473,13 @@ void main_loop_iter()
 
         if(minimized) return;
 
-        inbetweenframes = false;
-        if(mainmenu) gl_drawmainmenu();
-        else gl_drawframe();
-        swapbuffers();
-        renderedframe = inbetweenframes = true;
+		extern bool loading_map_file;
+		if (!loading_map_file) {
+			inbetweenframes = false;
+			if(mainmenu) gl_drawmainmenu();
+			else gl_drawframe();
+			swapbuffers();
+			renderedframe = inbetweenframes = true;
+		}
 }
 

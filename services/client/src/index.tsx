@@ -94,13 +94,13 @@ function App() {
 
     Module.setStatus = (text) => {
       // Sometimes we get download progress this way, handle it here
-      handleDownload(text, (downloadedBytes, totalBytes) =>
-        setState({
-          type: GameStateType.Downloading,
-          downloadedBytes,
-          totalBytes,
-        })
-      )
+      handleDownload(text, (downloadedBytes, totalBytes) => {
+        if (BananaBread.renderprogress == null) return
+        BananaBread.renderprogress(
+          downloadedBytes / totalBytes,
+          'loading map data..'
+        )
+      })
     }
 
     Module.postLoadWorld = function () {
