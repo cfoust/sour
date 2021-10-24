@@ -69,12 +69,19 @@ package_map() {
   package_files "$mapname" $(cat $maplist)
 }
 
-package_files base $(cat mapfiles/common.trimmed.list)
-package_map "packages/base/dust2"
-package_map "packages/base/xenon"
+maps="dust2 xenon"
+#maps=$(find packages/base/ -name '*.cfg')
 
-#for file in $(find packages/base/ -name '*.cfg'); do
-  #package_map "$file" &
-#done
+for map in $maps; do
+  mapstub="packages/base/$map.stub"
+  touch "$mapstub"
+  echo "$mapstub" >> mapfiles/maps.list
+done
+
+package_files base $(cat mapfiles/maps.list mapfiles/common.trimmed.list)
+
+for map in $maps; do
+  package_map "$map" &
+done
 
 wait
