@@ -320,7 +320,7 @@ void renderbackground(const char *caption, Texture *mapshot, const char *mapname
     if(!restore) setbackgroundinfo(caption, mapshot, mapname, mapinfo);
 }
 
-VAR(progressbackground, 0, 0, 1);
+VAR(progressbackground, 0, 1, 1);
 
 float loadprogress = 0;
 

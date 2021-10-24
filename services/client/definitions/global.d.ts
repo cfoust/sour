@@ -17,5 +17,6 @@ declare const ASSET_PREFIX: string
 
 type BananaBreadType = {
   execute: (command: string) => void
+  renderprogress: (progress: number, text: string) => void
 }
 declare const BananaBread: BananaBreadType
