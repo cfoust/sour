@@ -12,7 +12,7 @@ mkdir -p "$WORKING_DIR"
 
 package_files() {
   target="$1"
-	shift 2
+	shift 1
 	files="$@"
 
   target_dir="$WORKING_DIR/$target"
@@ -70,7 +70,8 @@ package_map() {
 }
 
 package_files base $(cat mapfiles/common.trimmed.list)
-package_map "packages/base/complex"
+package_map "packages/base/dust2"
+package_map "packages/base/xenon"
 
 #for file in $(find packages/base/ -name '*.cfg'); do
   #package_map "$file" &
