@@ -3683,7 +3683,7 @@ void listtex()
     loopi(maxlisted+1)
         if (listtextures->access(i) && slots.inrange(i))
             loopj(slots[i]->sts.length())
-                printf("%s\r\n", slots[i]->sts[j].name);
+                printf("%d: %s\r\n", i, slots[i]->sts[j].name);
     delete listtextures;
 }
 

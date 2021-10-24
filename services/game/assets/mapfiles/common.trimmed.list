@@ -29,9 +29,6 @@ data/stdlib.cfg
 init.cfg
 once.cfg
 packages/aftas/package.cfg
-packages/base/complex.cfg
-packages/base/complex.jpg
-packages/base/complex.ogz
 packages/blendbrush/circle_128_hard.png
 packages/blendbrush/circle_128_soft.png
 packages/blendbrush/circle_128_solid.png
@@ -700,6 +697,7 @@ packages/painkillah/package.cfg
 packages/particles/blood.png
 packages/particles/bullet.png
 packages/particles/explosion.png
+packages/particles/flames.png
 packages/particles/flare.jpg
 packages/particles/muzzleflash1.jpg
 packages/particles/muzzleflash2.jpg

@@ -1329,8 +1329,8 @@ void load_world_1c(void *)
     clearmainmenu();
 
     identflags |= IDF_OVERRIDDEN;
-    execfile("data/default_map_settings.cfg", false);
-    execfile(cfgname, false);
+    execfile("data/default_map_settings.cfg", true);
+    execfile(cfgname, true);
     identflags &= ~IDF_OVERRIDDEN;
 
     extern void fixlightmapnormals();
