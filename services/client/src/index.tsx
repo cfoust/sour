@@ -148,11 +148,6 @@ function App() {
         const map = text.split(': ')[1]
         loadMap(map)
 
-        setState({
-          type: GameStateType.MapChange,
-          map,
-        })
-
         removeSubscribers.push((file) => {
           if (!file.endsWith(`${map}.data`)) return false
           setTimeout(() => {
