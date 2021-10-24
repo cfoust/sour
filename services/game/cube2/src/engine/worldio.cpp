@@ -1026,15 +1026,19 @@ Texture *load_world_mapshot;
 const char *load_world_mname;
 const char *load_world_cname;
 bool load_world_failed;
-bool maploaded = false; // XXX EMSCRIPTEN: set to true after a map is loaded (marking the end of startup)
+// XXX EMSCRIPTEN: we don't want the game to render while we load the world
+bool loading_map_file = false; 
 
 bool load_world(const char *mname, const char *cname) {
     conoutf("load data for world: %s", mname);
+	renderprogress(0, "fetching map data...");
+	loading_map_file = true;
     return false;
 }
 
 bool really_load_world(const char *mname, const char *cname)        // still supports all map formats that have existed since the earliest cube betas!
 {
+	loading_map_file = false;
     load_world_mname = mname ? newstring(mname) : mname;
     load_world_cname = cname ? newstring(cname) : cname;
 
@@ -1386,8 +1390,6 @@ void load_world_6(void *)
 
     if (load_world_mname) delete load_world_mname;
     if (load_world_cname) delete load_world_cname;
-
-    maploaded = true;
 }
 
 void reallyloadworld(char *mname) { really_load_world(mname, NULL); }
