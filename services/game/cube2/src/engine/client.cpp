@@ -169,6 +169,8 @@ void disconnect(bool async, bool cleanup)
         enet_host_destroy(clienthost);
         clienthost = NULL;
     }
+	extern bool loading_map_file;
+	loading_map_file = false;
 }
 
 void trydisconnect(bool local)
