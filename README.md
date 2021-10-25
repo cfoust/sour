@@ -65,12 +65,11 @@ Check out the roadmap below to see what you might be able to help with.
   * [X] Allow the user to connect to the Sour server
 * [X] Fix full screen UX
 * [X] Fix cursor and crosshair transparency
-* [ ] Add pretty loading screen before canvas is ready
 * [X] Improve map transitions and use real `renderprogress` for asset downloads
 * [X] Fix model textures. For some reason none of them are working.
-* [ ] Issue with name being malformed (bad welcome packet?)
 * [X] Make it so players cannot change the map to one that does not exist
-* [ ] Come up with a better cache invalidation strategy (likely commit hash?)
+* [ ] Restore multiplayer to working order (bad welcome packet?)
+* [ ] Come up with a better asset cache invalidation strategy (likely commit hash?)
 
 **After this, we're back to working condition**
 

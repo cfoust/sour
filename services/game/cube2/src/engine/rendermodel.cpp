@@ -850,12 +850,14 @@ void rendermodel(entitylight *light, const char *mdl, int anim, const vec &o, fl
         int culled = cullmodel(m, center, radius, flags, d, shadow);
         if(culled)
         {
+#if !__EMSCRIPTEN__
             if(culled&(MDL_CULL_OCCLUDED|MDL_CULL_QUERY) && flags&MDL_CULL_QUERY && !reflecting && !refracting)
             {
                 enablecullmodelquery();
                 rendercullmodelquery(m, d, center, radius);
                 disablecullmodelquery();
             }
+#endif
             return;
         }
 
