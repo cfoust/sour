@@ -237,6 +237,13 @@ struct databuf
         return read;
     }
     
+    T *pad(int numvals)
+    {
+        T *vals = &buf[len];
+        len += min(numvals, maxlen-len);
+        return vals;
+    }
+
     void offset(int n)
     {
         n = min(n, maxlen);
