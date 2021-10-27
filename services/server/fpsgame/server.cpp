@@ -1803,6 +1803,7 @@ namespace server {
                 putint(p, oi->state.state);
                 putint(p, oi->state.frags);
                 putint(p, oi->state.flags);
+                putint(p, oi->state.deaths);
                 putint(p, oi->state.quadmillis);
                 sendstate(oi->state, p);
             }

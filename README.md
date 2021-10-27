@@ -68,7 +68,7 @@ Check out the roadmap below to see what you might be able to help with.
 * [X] Improve map transitions and use real `renderprogress` for asset downloads
 * [X] Fix model textures. For some reason none of them are working.
 * [X] Make it so players cannot change the map to one that does not exist
-* [ ] Restore multiplayer to working order (bad welcome packet?)
+* [X] Restore multiplayer to working order (bad welcome packet?)
 * [ ] Come up with a better asset cache invalidation strategy (likely commit hash?)
 
 **After this, we're back to working condition**

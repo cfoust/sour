@@ -17,6 +17,7 @@ data/guioverlay.png
 data/guiskin.png
 data/guislider.png
 data/heightmap.cfg
+data/hit.png
 data/keymap.cfg
 data/loading_bar.png
 data/loading_frame.png

@@ -857,8 +857,8 @@ void rendermodel(entitylight *light, const char *mdl, int anim, const vec &o, fl
                 rendercullmodelquery(m, d, center, radius);
                 disablecullmodelquery();
             }
-#endif
             return;
+#endif
         }
 
         if(reflecting || refracting || shadowmapping) flags &= ~MDL_CULL_QUERY;
