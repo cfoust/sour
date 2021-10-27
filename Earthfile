@@ -20,11 +20,12 @@ server:
     SAVE ARTIFACT qserv AS LOCAL "build/qserv"
 
 assets:
+    ARG hash
     FROM emscripten/emsdk:1.39.20
     WORKDIR /tmp
     RUN apt-get update && apt-get install -y imagemagick
     COPY services/game/assets assets
-    RUN --mount=type=cache,target=/tmp/assets/working cd assets && ./package
+    RUN --mount=type=cache,target=/tmp/assets/working cd assets && ./package $hash
     SAVE ARTIFACT assets/output AS LOCAL "build/assets"
 
 game:

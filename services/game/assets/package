@@ -2,6 +2,9 @@
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+# Prefixed to filenames
+HASH="$1"
+
 # The actual output directory
 OUTPUT_DIR="$SCRIPT_DIR/output"
 mkdir -p "$OUTPUT_DIR"
@@ -17,7 +20,7 @@ package_files() {
 
   target_dir="$WORKING_DIR/$target"
 
-  echo "Packaging $target.data"
+  echo "Packaging $HASH.$target.data"
 
 	# Preprocess the files
 	for infile in $files; do
@@ -50,9 +53,9 @@ package_files() {
 	# Package the files up
   cd "$target_dir"
   python3 "/emsdk/upstream/emscripten/tools/file_packager.py" \
-					"$OUTPUT_DIR/$target.data" \
+					"$OUTPUT_DIR/$HASH.$target.data" \
 					--use-preload-plugins \
-					--preload $files > "$OUTPUT_DIR/preload_$target.js"
+					--preload $files > "$OUTPUT_DIR/$HASH.preload_$target.js"
   cd "$SCRIPT_DIR"
 }
 
@@ -69,11 +72,11 @@ package_map() {
   package_files "$mapname" $(cat $maplist)
 }
 
-maps="dust2 xenon"
-#maps=$(find packages/base/ -name '*.cfg')
+maps=$(find packages/base/ -name '*.cfg')
 
 for map in $maps; do
-  mapstub="packages/base/$map.stub"
+  mapfile=$(basename -s .cfg "$map")
+  mapstub="packages/base/$mapfile.stub"
   touch "$mapstub"
   echo "$mapstub" >> mapfiles/maps.list
 done
@@ -81,6 +84,7 @@ done
 package_files base $(cat mapfiles/maps.list mapfiles/common.trimmed.list)
 
 for map in $maps; do
+  mapfile=$(basename -s .cfg "$map")
   package_map "$map" &
 done
 
