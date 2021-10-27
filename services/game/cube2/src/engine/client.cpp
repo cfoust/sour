@@ -100,7 +100,7 @@ void connectserv(const char *servername, int serverport, const char *serverpassw
             return;
         }
 #else
-		char * servername = emscripten_run_script_string("window.location.hostname");
+		char * servername = "REPLACED";
 		enet_address_set_host(&address, servername);
 #endif
 
@@ -227,6 +227,7 @@ void gets2c()           // get updates from the server
     if(!clienthost) return;
     if(connpeer && totalmillis/3000 > connmillis/3000)
     {
+
         conoutf("attempting to connect...");
         connmillis = totalmillis;
         ++connattempts; 

@@ -14,6 +14,7 @@ type ModuleType = {
 declare const Module: ModuleType
 
 declare const ASSET_PREFIX: string
+declare const GAME_SERVER: string
 
 type BananaBreadType = {
   execute: (command: string) => void

@@ -1,10 +1,15 @@
 export default function start() {
   const base = document.createElement('script')
-  base.src = `${ASSET_PREFIX}/preload_base.js`
+  base.src = `${ASSET_PREFIX}preload_base.js`
   document.body.appendChild(base)
 
   Module = {
     ...Module,
+    // This makes it so Emscripten's WS connections just go to this regardless
+    // of the host
+    websocket: {
+      url: GAME_SERVER,
+    },
     setPlayerModels: function () {
       BananaBread.setPlayerModelInfo(
         'snoutx10k',
@@ -32,7 +37,11 @@ export default function start() {
       BananaBread.execute(`screenres ${width} ${height}`)
     },
     locateFile: (file) => {
-      if (file.endsWith('.data')) return `${ASSET_PREFIX}/${file}`
+      if (file.endsWith('.data')) {
+        // Strip the hash
+        const stripped = file.split('.').slice(1).join('.')
+        return `${ASSET_PREFIX}${stripped}`
+      }
       if (file.endsWith('.wasm')) return `/game/${file}`
       return null
     },

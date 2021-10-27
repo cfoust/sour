@@ -70,7 +70,7 @@ const handleDownload = (
 
 function loadMap(name: string) {
   const js = document.createElement('script')
-  js.src = `${ASSET_PREFIX}/preload_${name}.js`
+  js.src = `${ASSET_PREFIX}preload_${name}.js`
   js.onerror = () => {
     BananaBread.execute(`echo Failed to load map ${name}; disconnect`)
   }
