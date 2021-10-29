@@ -8,8 +8,6 @@ MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.or
 
 `sour` is a complete [Cube 2: Sauerbraten](http://sauerbraten.org/) experience in the web delivered as a single Docker image
 
-## Warning: I am still fixing issues after rebasing onto Sauerbraten 2020. Multiplayer is not working. Use the r4349 tag if you want a working copy.
-
 ## Overview
 
 I have always loved playing Sauerbraten because of its simplicity: it's fast to download, easy to pick up, and keeps you in the action with instant respawns. Despite playing lots of games over the course of my life I haven't really found anything that scratches the same itch.
@@ -58,23 +56,8 @@ To hack on Sour:
 
 Check out the roadmap below to see what you might be able to help with.
 
-* [X] Restore the rendering pipeline to working condition
-* [X] Fix up the main menu
-  * [X] Make sure textures used in the main menu are not downsized
-  * [X] Remove options not pertinent to the web version
-  * [X] Allow the user to connect to the Sour server
-* [X] Fix full screen UX
-* [X] Fix cursor and crosshair transparency
-* [X] Improve map transitions and use real `renderprogress` for asset downloads
-* [X] Fix model textures. For some reason none of them are working.
-* [X] Make it so players cannot change the map to one that does not exist
-* [X] Restore multiplayer to working order (bad welcome packet?)
-* [ ] Come up with a better asset cache invalidation strategy (likely commit hash?)
-
-**After this, we're back to working condition**
-
----
-
+* [ ] Fix performance issues (particularly on Firefox)
+* [ ] Make sure `getmap` and `sendmap` don't break the game server
 * [ ] Allow for players to create custom matches
 * [ ] Allow Sour to read from the real master server and connect to real Sauerbraten servers
 * [ ] Support saving and loading `.ogz` maps from the user's device
