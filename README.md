@@ -56,7 +56,8 @@ To hack on Sour:
 
 Check out the roadmap below to see what you might be able to help with.
 
-* [ ] Fix performance issues (particularly on Firefox)
+* [X] Fix performance issues
+* [ ] Ensure the base assets are loaded prior to starting the game
 * [ ] Make sure `getmap` and `sendmap` don't break the game server
 * [ ] Allow for players to create custom matches
 * [ ] Allow Sour to read from the real master server and connect to real Sauerbraten servers
