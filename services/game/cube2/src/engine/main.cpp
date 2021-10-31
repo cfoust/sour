@@ -1386,7 +1386,8 @@ void main3(void *arg)
 
     logoutf("init: render");
     restoregamma();
-    restorevsync();
+    // 2021-10-31 requestAnimationFrame means we're already vsynced
+    //restorevsync();
     loadshaders();
     initparticles();
     initdecals();
