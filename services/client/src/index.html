@@ -28,7 +28,9 @@
       // Nothing like a good old-fashioned global scope that Emscripten's
       // modules strictly depend on
       var Module = typeof Module !== 'undefined' ? Module : {}
+      Module.preInit = []
       Module.preRun = []
+      Module.noInitialRun = true
       Module.postRun = []
     </script>
     <script src="index.js"></script>

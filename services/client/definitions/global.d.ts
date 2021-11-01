@@ -9,7 +9,9 @@ type ModuleType = {
   setStatus: (text: string) => void
   print: (text: string) => void
   removeRunDependency: (file: string) => void
-  postRun: Array<(() => void)>
+  preInit: Array<() => void>
+  postRun: Array<() => void>
+  run: () => void
 }
 declare const Module: ModuleType
 
@@ -21,3 +23,4 @@ type BananaBreadType = {
   renderprogress: (progress: number, text: string) => void
 }
 declare const BananaBread: BananaBreadType
+declare let shouldRunNow: boolean

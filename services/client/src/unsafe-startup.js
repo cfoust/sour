@@ -1,8 +1,4 @@
 export default function start() {
-  const base = document.createElement('script')
-  base.src = `${ASSET_PREFIX}preload_base.js`
-  document.body.appendChild(base)
-
   Module = {
     ...Module,
     // This makes it so Emscripten's WS connections just go to this regardless
