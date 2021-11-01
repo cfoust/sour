@@ -68,11 +68,11 @@ const handleDownload = (
   handler(downloadedBytes, totalBytes)
 }
 
-function loadMap(name: string) {
+function loadData(name: string) {
   const js = document.createElement('script')
   js.src = `${ASSET_PREFIX}preload_${name}.js`
   js.onerror = () => {
-    BananaBread.execute(`echo Failed to load map ${name}; disconnect`)
+    BananaBread.execute(`echo Failed to load data ${name}; disconnect`)
   }
   document.body.appendChild(js)
 }
@@ -95,6 +95,32 @@ function App() {
   React.useEffect(() => {
     let removeSubscribers: Array<(arg0: string) => boolean> = []
 
+    Module.preInit.push(() => {
+      const _removeRunDependency = Module.removeRunDependency
+      Module.removeRunDependency = (file) => {
+        let newSubscribers = []
+        for (const callback of removeSubscribers) {
+          if (!callback(file)) newSubscribers.push(callback)
+        }
+        removeSubscribers = newSubscribers
+
+        _removeRunDependency(file)
+      }
+    })
+
+    // Load the basic required data for the game
+    loadData('base')
+
+    // Wait for it to be ready
+    removeSubscribers.push((file) => {
+      if (!file.endsWith(`base.data`)) return false
+
+      shouldRunNow = true
+      Module.run()
+
+      return true
+    })
+
     Module.setStatus = (text) => {
       // Sometimes we get download progress this way, handle it here
       handleDownload(text, (downloadedBytes, totalBytes) => {
@@ -111,19 +137,6 @@ function App() {
       BananaBread.execute('spawnitems')
       BananaBread.execute('clearconsole')
     }
-
-    Module.postRun.push(() => {
-      const _removeRunDependency = Module.removeRunDependency
-      Module.removeRunDependency = (file) => {
-        let newSubscribers = []
-        for (const callback of removeSubscribers) {
-          if (!callback(file)) newSubscribers.push(callback)
-        }
-        removeSubscribers = newSubscribers
-
-        _removeRunDependency(file)
-      }
-    })
 
     Module.print = (text) => {
       if (text === 'init: sdl') {
@@ -146,7 +159,7 @@ function App() {
 
       if (text.startsWith('load data for world: ')) {
         const map = text.split(': ')[1]
-        loadMap(map)
+        loadData(map)
 
         removeSubscribers.push((file) => {
           if (!file.endsWith(`${map}.data`)) return false
