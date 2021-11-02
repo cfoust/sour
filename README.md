@@ -59,6 +59,7 @@ Check out the roadmap below to see what you might be able to help with.
 * [X] Fix performance issues
 * [X] Ensure the base assets are loaded prior to starting the game
 * [ ] Evict the previous map from memory when we change maps
+* [ ] Investigate differences in font colors between the real Sauer and Sour
 * [ ] Make sure `getmap` and `sendmap` don't break the game server
 * [ ] Allow for players to create custom matches
 * [ ] Allow Sour to read from the real master server and connect to real Sauerbraten servers
