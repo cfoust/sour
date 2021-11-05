@@ -51,7 +51,7 @@ client:
     WORKDIR /client
     COPY services/client .
     RUN --mount=type=cache,target=/code/node_modules yarn install
-    RUN rm -r dist && yarn build && cp src/index.html src/favicon.ico dist
+    RUN rm -rf dist && yarn build && cp src/index.html src/favicon.ico dist
     SAVE ARTIFACT dist AS LOCAL "build/client"
 
 image-slim:
