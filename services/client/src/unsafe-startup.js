@@ -57,6 +57,7 @@ export default function start() {
     },
     totalDependencies: 0,
     monitorRunDependencies: function (left) {
+      Module.runDependencies = left
       this.totalDependencies = Math.max(this.totalDependencies, left)
       Module.setStatus(
         left

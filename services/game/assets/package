@@ -52,17 +52,21 @@ package_files() {
 
 	# Package the files up
   cd "$target_dir"
+  js_target="$OUTPUT_DIR/$HASH.preload_$target.js"
   python3 "/emsdk/upstream/emscripten/tools/file_packager.py" \
 					"$OUTPUT_DIR/$HASH.$target.data" \
 					--use-preload-plugins \
-					--preload $files > "$OUTPUT_DIR/$HASH.preload_$target.js"
+					--preload $files > "$js_target"
+
+  # Insert our _free() hack
+  sed -i '/getMemory/a Module["registerNode"]({ name: REMOTE_PACKAGE_BASE, pointer: ptr, files: metadata["files"] });' "$js_target"
   cd "$SCRIPT_DIR"
 }
 
 package_map() {
   target="$1"
 
-  mapname="$(basename -s .cfg "$target")"
+  mapname="$(basename -s .ogz "$target")"
   maplist="mapfiles/maps/$mapname.list"
 
   if ! [ -f "$maplist" ]; then
@@ -72,10 +76,11 @@ package_map() {
   package_files "$mapname" $(cat $maplist)
 }
 
-maps=$(find packages/base/ -name '*.cfg')
+maps=$(find packages/base/ -name '*.ogz')
+maps="packages/base/xenon.ogz packages/base/complex.ogz"
 
 for map in $maps; do
-  mapfile=$(basename -s .cfg "$map")
+  mapfile=$(basename -s .ogz "$map")
   mapstub="packages/base/$mapfile.stub"
   touch "$mapstub"
   echo "$mapstub" >> mapfiles/maps.list
@@ -84,7 +89,7 @@ done
 package_files base $(cat mapfiles/maps.list mapfiles/common.trimmed.list)
 
 for map in $maps; do
-  mapfile=$(basename -s .cfg "$map")
+  mapfile=$(basename -s .ogz "$map")
   package_map "$map" &
 done
 
