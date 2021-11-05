@@ -8,13 +8,20 @@ MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.or
 
 `sour` is a complete [Cube 2: Sauerbraten](http://sauerbraten.org/) experience in the web delivered as a single Docker image
 
-## Overview
+## Introduction
 
 I have always loved playing Sauerbraten because of its simplicity: it's fast to download, easy to pick up, and keeps you in the action with instant respawns. Despite playing lots of games over the course of my life I haven't really found anything that scratches the same itch.
 
 Some years ago I found [BananaBread](https://github.com/kripken/BananaBread), which was a basic tech demo that uses Emscripten to compile Sauerbraten for the web. The project was limited in scope and done at a time when bandwidth was a lot more precious. It also lacked multiplayer out of the box.
 
 My goal was to ship an updated version of it in a single Docker image that I could deploy anywhere and play without forcing anyone to download the whole game. That's where `sour` comes in.
+
+## Project goals
+
+The Sauerbraten community is small and it will probably always remain that way. There are a few main goals for this project:
+* Make it easier to play Sauerbraten. Web technologies and bandwidth have gotten to the point where it is practical and desirable to play Sauerbraten in the browser, without forcing players to download a desktop client.
+* Mimic the experience of playing the original game as closely as possible. While it is possible that Sour may someday support arbitrary game modes, assets, clients, and server code, the vanilla game experience should still be available.
+* Deployment of Sour on your own infrastructure with whatever configuration you like should be easy. Every aspect of Sour should be configurable.
 
 ## Getting started
 
@@ -58,7 +65,12 @@ Check out the roadmap below to see what you might be able to help with.
 
 * [X] Fix performance issues
 * [X] Ensure the base assets are loaded prior to starting the game
-* [ ] Evict the previous map from memory when we change maps
+* [ ] Evict the previous map from memory when we change maps (it appears there's a memory leak)
+* [ ] Better development experience with simple docker-compose setup
+* [ ] Better documentation on services, how to build assets, et cetera
+* [ ] Support all player models (right now it's just snout)
+* [ ] Add CTF assets to the base game
+* [ ] Explore running Sour in a Web Worker rather than the rendering thread
 * [ ] Investigate differences in font colors between the real Sauer and Sour
 * [ ] Make sure `getmap` and `sendmap` don't break the game server
 * [ ] Allow for players to create custom matches
