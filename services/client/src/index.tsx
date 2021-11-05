@@ -2,6 +2,7 @@ import styled from '@emotion/styled'
 import { useResizeDetector } from 'react-resize-detector'
 import start from './unsafe-startup'
 import * as React from 'react'
+import * as R from 'ramda'
 import ReactDOM from 'react-dom'
 import {
   Center,
@@ -68,9 +69,12 @@ const handleDownload = (
   handler(downloadedBytes, totalBytes)
 }
 
+const getPreloadName = (name: string) => `preload_${name}.js`
+const getDataName = (name: string) => `${name}.data`
+
 function loadData(name: string) {
   const js = document.createElement('script')
-  js.src = `${ASSET_PREFIX}preload_${name}.js`
+  js.src = `${ASSET_PREFIX}${getPreloadName(name)}`
   js.onerror = () => {
     BananaBread.execute(`echo Failed to load data ${name}; disconnect`)
   }
@@ -86,6 +90,11 @@ const handleBlocker = (text: string, handler: (func: string) => void) => {
   handler(func)
 }
 
+enum NodeType {
+  Game,
+  Map,
+}
+
 function App() {
   const [state, setState] = React.useState<GameState>({
     type: GameStateType.PageLoading,
@@ -94,6 +103,15 @@ function App() {
 
   React.useEffect(() => {
     let removeSubscribers: Array<(arg0: string) => boolean> = []
+
+    // All of the files loaded by a map
+    let nodes: PreloadNode[] = []
+    let lastMap: Maybe<string> = null
+    let haveStarted: boolean = false
+
+    Module.registerNode = (node) => {
+      nodes.push(node)
+    }
 
     Module.preInit.push(() => {
       const _removeRunDependency = Module.removeRunDependency
@@ -106,20 +124,21 @@ function App() {
 
         _removeRunDependency(file)
       }
+
+      const _monitorRunDependencies = Module.monitorRunDependencies
+      Module.monitorRunDependencies = (left) => {
+        _monitorRunDependencies(left)
+
+        // Wait for it to be ready
+        if (nodes.length > 0 && left === 0 && !haveStarted) {
+          shouldRunNow = true
+          Module.run()
+        }
+      }
     })
 
     // Load the basic required data for the game
     loadData('base')
-
-    // Wait for it to be ready
-    removeSubscribers.push((file) => {
-      if (!file.endsWith(`base.data`)) return false
-
-      shouldRunNow = true
-      Module.run()
-
-      return true
-    })
 
     Module.setStatus = (text) => {
       // Sometimes we get download progress this way, handle it here
@@ -136,6 +155,21 @@ function App() {
       Module.tweakDetail()
       BananaBread.execute('spawnitems')
       BananaBread.execute('clearconsole')
+
+      if (lastMap != null) {
+        const preload = R.find(
+          ({ name }) => name.endsWith(getDataName(lastMap)),
+          nodes
+        )
+        console.log(preload, getDataName(lastMap), nodes)
+        if (preload != null) {
+          Module._free(preload.pointer)
+          nodes = nodes.filter(({ name }) => name !== preload.name)
+          console.log('free', preload.name, preload.pointer)
+        }
+      }
+
+      lastMap = map
     }
 
     Module.print = (text) => {
@@ -159,10 +193,29 @@ function App() {
 
       if (text.startsWith('load data for world: ')) {
         const map = text.split(': ')[1]
+
+        // Clear out all of the old map files
+        if (lastMap != null) {
+          const preload = R.find(
+            ({ name }) => name.endsWith(getDataName(lastMap)),
+            nodes
+          )
+          if (preload != null) {
+            for (const file of preload.files) {
+              try {
+                FS.unlink(file)
+              } catch (e) {
+                console.error(`Failed to remove old map file: ${file}`)
+              }
+            }
+          }
+        }
+
         loadData(map)
 
         removeSubscribers.push((file) => {
           if (!file.endsWith(`${map}.data`)) return false
+
           setTimeout(() => {
             BananaBread.execute(`reallyloadworld ${map}`)
           }, 1000)
