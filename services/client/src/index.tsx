@@ -71,6 +71,7 @@ const handleDownload = (
 
 const getPreloadName = (name: string) => `preload_${name}.js`
 const getDataName = (name: string) => `${name}.data`
+const getBaseName = (dataName: string) => dataName.split('.')[1]
 
 function loadData(name: string) {
   const js = document.createElement('script')
@@ -155,21 +156,6 @@ function App() {
       Module.tweakDetail()
       BananaBread.execute('spawnitems')
       BananaBread.execute('clearconsole')
-
-      if (lastMap != null) {
-        const preload = R.find(
-          ({ name }) => name.endsWith(getDataName(lastMap)),
-          nodes
-        )
-        console.log(preload, getDataName(lastMap), nodes)
-        if (preload != null) {
-          Module._free(preload.pointer)
-          nodes = nodes.filter(({ name }) => name !== preload.name)
-          console.log('free', preload.name, preload.pointer)
-        }
-      }
-
-      lastMap = map
     }
 
     Module.print = (text) => {
@@ -195,20 +181,40 @@ function App() {
         const map = text.split(': ')[1]
 
         // Clear out all of the old map files
-        if (lastMap != null) {
-          const preload = R.find(
-            ({ name }) => name.endsWith(getDataName(lastMap)),
-            nodes
-          )
-          if (preload != null) {
-            for (const file of preload.files) {
-              try {
-                FS.unlink(file)
-              } catch (e) {
-                console.error(`Failed to remove old map file: ${file}`)
-              }
+        const need = ['base', map]
+        const [have, dontNeed] = R.partition(
+          ({ name }) => need.includes(getBaseName(name)),
+          nodes
+        )
+        for (const node of dontNeed) {
+          for (const file of node.files) {
+            try {
+              FS.unlink(file.filename)
+            } catch (e) {
+              console.error(`Failed to remove old map file: ${file}`)
             }
           }
+
+          Module._free(node.pointer)
+          nodes = nodes.filter(({ name }) => name !== node.name)
+        }
+
+        const dontHave = R.filter(
+          (base) =>
+            R.find(({ name }) => name.endsWith(getDataName(base)), nodes) ==
+            null,
+          need
+        )
+
+        const loadMap = () => {
+          setTimeout(() => {
+            BananaBread.execute(`reallyloadworld ${map}`)
+          }, 1000)
+        }
+
+        if (dontHave.length === 0) {
+          loadMap()
+          return
         }
 
         loadData(map)
@@ -216,9 +222,7 @@ function App() {
         removeSubscribers.push((file) => {
           if (!file.endsWith(`${map}.data`)) return false
 
-          setTimeout(() => {
-            BananaBread.execute(`reallyloadworld ${map}`)
-          }, 1000)
+          loadMap()
 
           return true
         })
