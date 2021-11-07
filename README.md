@@ -65,7 +65,7 @@ Check out the roadmap below to see what you might be able to help with.
 
 * [X] Fix performance issues
 * [X] Ensure the base assets are loaded prior to starting the game
-* [ ] Evict the previous map from memory when we change maps (it appears there's a memory leak)
+* [X] Evict the previous map from memory when we change maps
 * [ ] Better development experience with simple docker-compose setup
 * [ ] Better documentation on services, how to build assets, et cetera
 * [ ] Support all player models (right now it's just snout)
