@@ -1,5 +1,5 @@
 cpp:
-    FROM ubuntu:20.10
+    FROM ubuntu:20.04
     ## for apt to be noninteractive
     ENV DEBIAN_FRONTEND noninteractive
     ENV DEBCONF_NONINTERACTIVE_SEEN true
