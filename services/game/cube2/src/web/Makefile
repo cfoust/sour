@@ -34,7 +34,7 @@ CLIENT_INCLUDES= $(INCLUDES) -Iinclude
 CLIENT_LIBS= -mwindows -Llib -lSDL -lzdll -lopengl32 -lenet -lws2_32 -lwinmm
 else	
 CLIENT_INCLUDES= $(INCLUDES)
-CLIENT_LIBS= -Lenet/.libs -lenet -L/usr/X11R6/lib -lX11 `sdl2-config --libs` -lz -lGL
+CLIENT_LIBS= -Lenet -lenet -L/usr/X11R6/lib -lX11 `sdl2-config --libs` -lz -lGL
 endif
 ifeq ($(PLATFORM),Linux)
 CLIENT_LIBS+= -lrt
@@ -133,12 +133,10 @@ default: all
 
 all: client server
 
-enet/Makefile:
+enet/libenet.a:
 	cp -r ../enet/* enet/  
-	cd enet; $(EMCONFIGURE) ./configure --enable-shared=no --enable-static=yes
-	
-libenet: enet/Makefile
-	$(EMMAKE) $(MAKE)	-C enet/ all
+	$(EMMAKE) $(MAKE) -C enet CC='$(CC)' AR='$(AR)'
+libenet: enet/libenet.a
 
 clean-enet: enet/Makefile
 	$(MAKE) -C enet/ clean
@@ -181,7 +179,7 @@ client.bc:	libenet $(CLIENT_OBJS)
 TOTAL_MEMORY = 301989888 # May need to adjust this for very large levels
 
 client: client.bc
-	cd .. ; cd .. ; $(CXX) $(CXXFLAGS) src/web/client.bc -o sauerbraten.js -lidbfs.js -s DISABLE_EXCEPTION_CATCHING=1 -s EXPORTED_FUNCTIONS="['_main', '__ZN4game18setplayermodelinfoEPKcS1_S1_S1_S1_S1_S1_S1_S1_S1_S1_S1_b', '__Z14renderprogressfPKcjb', '__Z7executePKc', '__Z10executestrPKc', '_setforcecamera', '_bb_splash', '_bb_playsoundname']" src/web/enet/.libs/libenet.a -s TOTAL_MEMORY=$(TOTAL_MEMORY) -Oz -s NO_EXIT_RUNTIME=1 -s FORCE_FILESYSTEM=1 -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["cwrap"]' --profiling -s ERROR_ON_UNDEFINED_SYMBOLS=0 # --closure 1 -s IGNORE_CLOSURE_COMPILER_ERRORS=1
+	cd .. ; cd .. ; $(CXX) $(CXXFLAGS) src/web/client.bc -o sauerbraten.js -lidbfs.js -s DISABLE_EXCEPTION_CATCHING=1 -s EXPORTED_FUNCTIONS="['_main', '__ZN4game18setplayermodelinfoEPKcS1_S1_S1_S1_S1_S1_S1_S1_S1_S1_S1_b', '__Z14renderprogressfPKcjb', '__Z7executePKc', '__Z10executestrPKc', '_setforcecamera', '_bb_splash', '_bb_playsoundname']" src/web/enet/libenet.a -s TOTAL_MEMORY=$(TOTAL_MEMORY) -Oz -s NO_EXIT_RUNTIME=1 -s FORCE_FILESYSTEM=1 -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["cwrap"]' --profiling -s ERROR_ON_UNDEFINED_SYMBOLS=0 # --closure 1 -s IGNORE_CLOSURE_COMPILER_ERRORS=1
 
 server.bc:	libenet $(SERVER_OBJS)
 	$(CXX) $(CXXFLAGS) -o server.bc $(SERVER_OBJS) $(SERVER_LIBS)  
