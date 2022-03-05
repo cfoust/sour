@@ -134,7 +134,7 @@ default: all
 all: client server
 
 enet/libenet.a:
-	cp -r ../enet/* enet/  
+	cp -r ../enet enet
 	$(EMMAKE) $(MAKE) -C enet CC='$(CC)' AR='$(AR)'
 libenet: enet/libenet.a
 
