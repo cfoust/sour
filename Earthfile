@@ -55,7 +55,7 @@ client:
     SAVE ARTIFACT dist AS LOCAL "build/client"
 
 image-slim:
-  FROM ubuntu:20.10
+  FROM ubuntu:20.04
   # We would just use nginx:stable-alpine but the other services use some
   # dynamic libraries.
   RUN apt-get update && apt-get install -y nginx
