@@ -6,15 +6,41 @@
 [![License:
 MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-`sour` is a complete [Cube 2: Sauerbraten](http://sauerbraten.org/) experience in the web delivered as a single Docker image
+`sour` is a complete [Cube 2: Sauerbraten](http://sauerbraten.org/) experience in the web delivered as a single Docker image. [Give it a try.](https://sourga.me/)
 
 ## Introduction
 
-I have always loved playing Sauerbraten because of its simplicity: it's fast to download, easy to pick up, and keeps you in the action with instant respawns. Despite playing lots of games over the course of my life I haven't really found anything that scratches the same itch.
+Sauerbraten has a special place in my heart: it's fast to download, easy to pick up, and keeps you in the action with instant respawns. Despite playing lots of games over the course of my life I haven't really found anything that scratches the same itch.
 
 Some years ago I found [BananaBread](https://github.com/kripken/BananaBread), which was a basic tech demo that uses Emscripten to compile Sauerbraten for the web. The project was limited in scope and done at a time when bandwidth was a lot more precious. It also lacked multiplayer out of the box.
 
 My goal was to ship an updated version of it in a single Docker image that I could deploy anywhere and play without forcing anyone to download the whole game. That's where `sour` comes in.
+
+## Running Sour
+
+I publish public Sour images for your convenience. You can pull and use it like this:
+
+```
+docker run --rm -it -p 1234:1234 -p 28785:28785 ghcr.io/cfoust/sour
+```
+
+You can then access Sour at `http://localhost:1234/`.
+
+**Note:** The public Docker image only ships with the `complex` and `xenon` maps for now. While Sour supports _all_ of Sauerbraten's maps, images that include all of them are very big. Your mileage may vary.
+
+The Sour container provides two services:
+* TCP `1234`: An NGINX instance serving the static files (JavaScript, WebAssembly, game assets). You can change this port arbitrarily (i.e. `-p 80:1234`) and nothing will break.
+* TCP `28785`: A WebSocket<->UDP proxy used to communicate with the Sauerbraten game server.
+
+Should you wish to change where the WebSocket service is hosted **you must also indicate that to the static site.** You can do this by providing an environment variable:
+
+```
+docker run --rm -it -p 1234:1234 -p 28785:28785 -e GAME_SERVER=wss://server.sourga.me ghcr.io/cfoust/sour
+```
+
+## Deploying
+
+If you wish to deploy Sour more seriously, I provide an example configuration for Docker compose [here](https://github.com/cfoust/sour/blob/main/examples/docker-compose.yml) using [letsencrypt-nginx-sidecar](https://github.com/jwulf/letsencrypt-nginx-sidecar).
 
 ## Project goals
 
@@ -23,7 +49,7 @@ The Sauerbraten community is small and it will probably always remain that way. 
 * Mimic the experience of playing the original game as closely as possible. While it is possible that Sour may someday support arbitrary game modes, assets, clients, and server code, the vanilla game experience should still be available.
 * Deployment of Sour on your own infrastructure with whatever configuration you like should be easy. Every aspect of Sour should be configurable.
 
-## Getting started
+## Building
 
 All you need is Docker and [Earthly](https://earthly.dev/) to build. Just run `earthly +image` and it will make the `sour:latest` image.
 
@@ -68,6 +94,7 @@ Check out the roadmap below to see what you might be able to help with.
 * [X] Evict the previous map from memory when we change maps
 * [ ] Better development experience with simple docker-compose setup
 * [ ] Better documentation on services, how to build assets, et cetera
+* [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Support all player models (right now it's just snout)
 * [ ] Add CTF assets to the base game
 * [ ] Explore running Sour in a Web Worker rather than the rendering thread
