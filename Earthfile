@@ -74,6 +74,10 @@ image:
   COPY +assets/output /app/assets/
   SAVE IMAGE sour:latest
 
+github:
+  FROM +image
+  SAVE IMAGE --push ghcr.io/cfoust/sour:latest
+
 push-slim:
   FROM +image-slim
   SAVE IMAGE --push registry.digitalocean.com/cfoust/sour:latest
