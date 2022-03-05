@@ -1,0 +1,37 @@
+version: '3'
+
+services:
+  sour-site:
+    image: registry.digitalocean.com/cfoust/sour:latest
+    container_name: sour-site
+    environment:
+      VIRTUAL_HOST: sourga.me
+      VIRTUAL_HOST_ALIAS: www.sourga.me
+      VIRTUAL_PORT: 1234
+      LETSENCRYPT_HOST: sourga.me
+      LETSENCRYPT_EMAIL: XXXXXXX
+      ASSET_PREFIX: https://d2pz4qr8rxo7le.cloudfront.net/2bfc017.
+      GAME_SERVER: wss://server.sourga.me
+    stdin_open: True
+    tty: True
+    networks:
+      - letsencrypt
+
+  sour-server:
+    image: registry.digitalocean.com/cfoust/sour:latest
+    container_name: sour-server
+    environment:
+      VIRTUAL_HOST: server.sourga.me
+      VIRTUAL_PORT: 28785
+      LETSENCRYPT_HOST: server.sourga.me
+      LETSENCRYPT_EMAIL: XXXXXXX
+    stdin_open: True
+    tty: True
+    networks:
+      - letsencrypt
+
+networks:
+  letsencrypt:
+    external: true
+
+# vim: expandtab tabstop=2 softtabstop=2 shiftwidth=2
