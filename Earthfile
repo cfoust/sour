@@ -19,17 +19,21 @@ server:
     RUN ./build
     SAVE ARTIFACT qserv AS LOCAL "build/qserv"
 
+emscripten:
+    FROM emscripten/emsdk:1.39.20
+    RUN apt-get update && apt-get install -y inotify-tools imagemagick
+    SAVE IMAGE sour:emscripten
+
 assets:
     ARG hash
-    FROM emscripten/emsdk:1.39.20
+    FROM sour:emscripten
     WORKDIR /tmp
-    RUN apt-get update && apt-get install -y imagemagick
     COPY services/game/assets assets
-    RUN --mount=type=cache,target=/tmp/assets/working cd assets && ./package $hash
+    RUN --mount=type=cache,target=/tmp/assets/working ./build
     SAVE ARTIFACT assets/output AS LOCAL "build/assets"
 
 game:
-    FROM emscripten/emsdk:1.39.20
+    FROM sour:emscripten
     WORKDIR /cube2
     COPY services/game/cube2 cube2
     RUN --mount=type=cache,target=/emsdk/upstream/emscripten/cache/ ./build

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+earthly +cpp
+earthly +emscripten
+docker-compose -f services/docker-compose.yml up
