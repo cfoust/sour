@@ -7,9 +7,15 @@ cd "$SCRIPT_DIR/../"
 set -e
 
 cd "$SCRIPT_DIR/src/web"
+
+# When you restart the container, this is not there
+if ! [ -f "/emsdk/upstream/emscripten/cache/wasm/libz.a" ]; then
+  emmake make clean
+fi
+
 emmake make client -j8
+cd "$SCRIPT_DIR"
 mkdir -p dist/game
-cd cube2
 # Need to get rid of some unseemly behavior
 patch sauerbraten.js file_create.patch
 cp -r \
@@ -18,4 +24,4 @@ cp -r \
   game/zee-worker.js \
   game/gl-matrix.js \
   sauerbraten.* \
-  ../dist
+  dist/game

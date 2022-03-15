@@ -41,6 +41,6 @@ repl() {
 repl $@
 
 while true; do
-  inotifywait -qr "$path" -e MODIFY > /dev/null 2>&1
+  inotifywait -qr "$path" -e MODIFY
   repl $@
 done
