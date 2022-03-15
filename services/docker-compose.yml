@@ -1,0 +1,28 @@
+version: "3"
+
+services:
+  server:
+    image: sour:cpp
+    command: "watch /server ./qserv"
+    volumes:
+      - "../watch:/usr/bin/watch"
+      - "./server:/server"
+    network_mode: host
+
+  proxy:
+    image: sour:cpp
+    command: "watch /proxy ./wsproxy 28785"
+    volumes:
+      - "../watch:/usr/bin/watch"
+      - "./proxy:/proxy"
+    network_mode: host
+
+  game:
+    image: emscripten/emsdk:1.39.20
+    command: "watch /game cat"
+    volumes:
+      - "../watch:/usr/bin/watch"
+      - "./game/cube2:/game"
+    network_mode: host
+
+# vim: expandtab tabstop=2 softtabstop=2 shiftwidth=2

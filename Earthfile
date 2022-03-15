@@ -4,19 +4,19 @@ cpp:
     ENV DEBIAN_FRONTEND noninteractive
     ENV DEBCONF_NONINTERACTIVE_SEEN true
     WORKDIR /code
-    RUN apt-get update && apt-get install -y build-essential cmake zlib1g-dev
+    RUN apt-get update && apt-get install -y build-essential cmake zlib1g-dev inotify-tools
+    SAVE IMAGE sour:cpp
 
 proxy:
     FROM +cpp
     COPY services/proxy .
-    RUN make
+    RUN ./build
     SAVE ARTIFACT wsproxy AS LOCAL "build/wsproxy"
 
 server:
     FROM +cpp
     COPY services/server .
-    RUN cmake .
-    RUN make
+    RUN ./build
     SAVE ARTIFACT qserv AS LOCAL "build/qserv"
 
 assets:
@@ -32,18 +32,7 @@ game:
     FROM emscripten/emsdk:1.39.20
     WORKDIR /cube2
     COPY services/game/cube2 cube2
-    RUN cd cube2/src/web && emmake make client -j8
-    RUN --mount=type=cache,target=/emsdk/upstream/emscripten/cache/ mkdir -p dist/game && \
-        cd cube2 && \
-        # Need to get rid of some unseemly behavior
-        patch sauerbraten.js file_create.patch && \
-        cp -r \
-          js/api.js \
-          js/zee.js \
-          game/zee-worker.js \
-          game/gl-matrix.js \
-          sauerbraten.* \
-          ../dist
+    RUN --mount=type=cache,target=/emsdk/upstream/emscripten/cache/ ./build
     SAVE ARTIFACT dist AS LOCAL "build/game"
 
 client:

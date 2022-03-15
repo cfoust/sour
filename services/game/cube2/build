@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+cd "$SCRIPT_DIR/../"
+
+set -e
+
+cd "$SCRIPT_DIR/src/web"
+emmake make client -j8
+mkdir -p dist/game
+cd cube2
+# Need to get rid of some unseemly behavior
+patch sauerbraten.js file_create.patch
+cp -r \
+  js/api.js \
+  js/zee.js \
+  game/zee-worker.js \
+  game/gl-matrix.js \
+  sauerbraten.* \
+  ../dist
