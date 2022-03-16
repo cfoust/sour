@@ -67,7 +67,8 @@ To hack on Sour, just run `./serve`. You will need Earthly, Docker, and `docker-
 
 Check out the roadmap below to see what you might be able to help with.
 
-* [ ] Better development experience with simple docker-compose setup
+* [X] Better development experience with simple docker-compose setup
+* [ ] Support easy Gitpod development workflow
 * [ ] Better documentation on services, how to build assets, et cetera
 * [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Support all player models (right now it's just snout)
