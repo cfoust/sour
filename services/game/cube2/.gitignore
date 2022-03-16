@@ -24,3 +24,8 @@ servers.cfg
 *.diff
 *.crn
 
+dist/**
+sauerbraten.js
+sauerbraten.js.orig
+sauerbraten.wasm
+src/web/client.bc
