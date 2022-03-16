@@ -38,10 +38,15 @@ services:
 
   client:
     image: node:14.17.5
+    environment:
+      IN_DOCKER: 1
     command: "/client/build"
     volumes:
       - "./client:/client"
+      - "../build:/client/dist"
       - "../build/client-node-modules:/client/node_modules"
     network_mode: host
+    tty: true
+    stdin_open: true
 
 # vim: expandtab tabstop=2 softtabstop=2 shiftwidth=2
