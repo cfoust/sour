@@ -69,7 +69,8 @@ image:
 
 github:
   FROM +image
-  SAVE IMAGE --push ghcr.io/cfoust/sour:latest
+  ARG tag
+  SAVE IMAGE --push ghcr.io/cfoust/sour:$tag
 
 push-slim:
   FROM +image-slim

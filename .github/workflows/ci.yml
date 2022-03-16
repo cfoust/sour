@@ -40,4 +40,15 @@ jobs:
       run: earthly --version
 
     - name: Run build
-      run: earthly --ci --push +github
+      run: |
+        GITHUB_SHA
+        branch=""
+        if [ -n "$GITHUB_HEAD_REF" ]; then
+          branch="$GITHUB_HEAD_REF"
+        else
+          branch="${GITHUB_REF##*/}"
+        fi
+        earthly --build-arg tag="$GITHUB_SHA" --ci --push +github
+        if [ "$branch" = "main" ]; then
+          earthly --build-arg tag="latest" --ci --push +github
+        fi
