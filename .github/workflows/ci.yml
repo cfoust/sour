@@ -41,7 +41,6 @@ jobs:
 
     - name: Run build
       run: |
-        GITHUB_SHA
         branch=""
         if [ -n "$GITHUB_HEAD_REF" ]; then
           branch="$GITHUB_HEAD_REF"
