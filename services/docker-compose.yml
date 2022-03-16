@@ -1,0 +1,52 @@
+version: "3"
+
+services:
+  server:
+    image: sour:cpp
+    command: "watch /server ./qserv"
+    volumes:
+      - "../watch:/usr/bin/watch"
+      - "./server:/server"
+    network_mode: host
+
+  proxy:
+    image: sour:cpp
+    command: "watch /proxy ./wsproxy 28785"
+    volumes:
+      - "../watch:/usr/bin/watch"
+      - "./proxy:/proxy"
+    network_mode: host
+
+  game:
+    image: sour:emscripten
+    command: "watch /game cat"
+    volumes:
+      - "../watch:/usr/bin/watch"
+      - "./game/cube2:/game"
+      - "../build/game:/game/dist/game"
+      - "../build/emscripten-cache:/emsdk/upstream/emscripten/cache"
+    network_mode: host
+
+  assets:
+    image: sour:emscripten
+    command: "watch /assets cat"
+    volumes:
+      - "../watch:/usr/bin/watch"
+      - "./game/assets:/assets"
+      - "../build/assets:/assets/output"
+    network_mode: host
+
+  client:
+    image: node:14.17.5
+    environment:
+      IN_DOCKER: 1
+    command: "/client/build"
+    volumes:
+      - "./client:/client"
+      - "../build:/client/dist"
+      - "../build/client-node-modules:/client/node_modules"
+    network_mode: host
+    tty: true
+    stdin_open: true
+
+# vim: expandtab tabstop=2 softtabstop=2 shiftwidth=2

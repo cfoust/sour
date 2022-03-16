@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+path="$1"
+shift 1
+
+cd "$path"
+
+run_build() {
+  "$path/build"
+}
+
+run_build
+
+job_id=""
+
+repl() {
+  if ! [ -z "$job_id" ]; then
+    kill "$job_id"
+    wait "$job_id"
+    sleep 1
+    job_id=""
+  fi
+
+  if ! run_build; then
+    echo "Building $path failed."
+    return 1
+  fi
+
+  $@ &
+  result="$?"
+  job_id="$!"
+  echo "Ran service with pid=$job_id"
+  if [ "$result" -gt 0 ]; then
+    echo "Running $path failed."
+    job_id=""
+    return 1
+  fi
+  return 0
+}
+
+repl $@
+
+while true; do
+  inotifywait -qr "$path" -e MODIFY
+  repl $@
+done
