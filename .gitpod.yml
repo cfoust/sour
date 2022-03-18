@@ -25,3 +25,12 @@ tasks:
     env:
       GAME_OUTPUT_DIR: /workspace/sour/build/game
     command: ./watch /workspace/sour/services/game/cube2 cat
+
+ports:
+  - port: 1234
+    onOpen: open-browser
+    visibility: public
+
+  - port: 28785
+    onOpen: ignore
+    visibility: public
