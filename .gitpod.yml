@@ -16,8 +16,8 @@ tasks:
 
   - name: Assets
     init: ./services/game/assets/build
-    command: ./watch ./services/game/assets cat
+    command: ./watch /workspace/sour/services/game/assets cat
 
   - name: Sauerbraten
     init: ./services/game/cube2/build
-    command: ./watch ./services/game/cube2 cat
+    command: ./watch /workspace/sour/services/game/cube2 cat
