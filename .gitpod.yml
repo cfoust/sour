@@ -1,0 +1,7 @@
+image:
+  file: gitpod/Dockerfile
+
+tasks:
+  - name: Game server
+    init: ./services/server/build
+    command: ./watch ./server ./qserv
