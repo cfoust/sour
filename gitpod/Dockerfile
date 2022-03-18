@@ -17,6 +17,7 @@ RUN cd /home/gitpod && \
   git checkout 0ea8f8a8707070e9a7c83fbb4a3065683bcf1799 && \
   ./emsdk install 1.39.20 && \
   ./emsdk activate 1.39.20 && \
+  bash -c 'source /home/gitpod/emsdk/emsdk_env.sh && npm install -g yarn@1.22.5' && \
   echo 'source "/home/gitpod/emsdk/emsdk_env.sh"' >> /home/gitpod/.bashrc
 
 RUN /bin/bash -c 'source /home/gitpod/.nvm/nvm.sh && nvm install 14.17.5 && nvm alias default 14.17.5' && \
