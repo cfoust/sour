@@ -13,6 +13,9 @@ mkdir -p "$OUTPUT_DIR"
 WORKING_DIR="$SCRIPT_DIR/working"
 mkdir -p "$WORKING_DIR"
 
+# /home/gitpod/emsdk
+EMSDK_DIR=${EMSDK:-/emsdk}
+
 package_files() {
   target="$1"
 	shift 1
@@ -53,7 +56,7 @@ package_files() {
 	# Package the files up
   cd "$target_dir"
   js_target="$OUTPUT_DIR/$HASH.preload_$target.js"
-  python3 "/emsdk/upstream/emscripten/tools/file_packager.py" \
+  python3 "$EMSDK_DIR/upstream/emscripten/tools/file_packager.py" \
 					"$OUTPUT_DIR/$HASH.$target.data" \
 					--use-preload-plugins \
 					--preload $files > "$js_target"
