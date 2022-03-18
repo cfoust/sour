@@ -4,4 +4,11 @@ image:
 tasks:
   - name: Game server
     init: ./services/server/build
-    command: ./watch ./server ./qserv
+    command: ./watch /workspace/sour/services/server ./qserv
+
+  - name: WebSocket proxy
+    init: ./services/proxy/build
+    command: ./watch /workspace/sour/services/proxy ./qserv
+
+  - name: Client
+    command: ./services/client/build
