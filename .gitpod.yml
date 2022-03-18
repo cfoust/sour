@@ -1,0 +1,40 @@
+github:
+  prebuilds:
+    addComment: true
+
+image:
+  file: gitpod/Dockerfile
+
+tasks:
+  - name: Game server
+    init: ./services/server/build
+    command: ./watch /workspace/sour/services/server ./qserv
+
+  - name: WebSocket proxy
+    init: ./services/proxy/build
+    command: ./watch /workspace/sour/services/proxy ./wsproxy 28785
+
+  - name: Client
+    init: cd services/client && yarn install
+    command: ./services/client/build
+
+  - name: Assets
+    env:
+      ASSET_OUTPUT_DIR: /workspace/sour/build/assets
+    init: ./services/game/assets/build
+    command: ./watch /workspace/sour/services/game/assets cat
+
+  - name: Sauerbraten
+    init: ./services/game/cube2/build
+    env:
+      GAME_OUTPUT_DIR: /workspace/sour/build/game
+    command: ./watch /workspace/sour/services/game/cube2 cat
+
+ports:
+  - port: 1234
+    onOpen: open-preview
+    visibility: public
+
+  - port: 28785
+    onOpen: ignore
+    visibility: public

@@ -6,6 +6,9 @@
 [![License:
 MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/cfoust/sour)
+
+
 `sour` is a complete [Cube 2: Sauerbraten](http://sauerbraten.org/) experience in the web delivered as a single Docker image. [Give it a try.](https://sourga.me/)
 
 ## Introduction
@@ -48,10 +51,6 @@ docker run --rm -it -p 1234:1234 -p 28785:28785 -e GAME_SERVER=wss://server.sour
 
 If you wish to deploy Sour more seriously, I provide an example configuration for [docker-compose](https://docs.docker.com/compose/) [here](https://github.com/cfoust/sour/blob/main/examples/docker-compose.yml) using [letsencrypt-nginx-sidecar](https://github.com/jwulf/letsencrypt-nginx-sidecar).
 
-## Building
-
-All you need is Docker and [Earthly](https://earthly.dev/) to build. Just run `earthly +image` and it will make the `sour:latest` image.
-
 ## Architecture
 
 Here is a high level description of the repository's directory structure:
@@ -63,12 +62,16 @@ Here is a high level description of the repository's directory structure:
 
 ## Contributing
 
-To hack on Sour, just run `./serve`. You will need Earthly, Docker, and `docker-compose`. Then navigate to `http://localhost:1234`. All of the game's services will recompile and restart when you make changes.
+The easiest way to hack on Sour is in Gitpod using the button below. Gitpod is a web-based VSCode environment that runs everything necessary for development in a cloud-based container, meaning that everything is set up and working for you right away. You do not even have to use VSCode; Gitpod supports [custom dotfiles](https://www.gitpod.io/docs/config-dotfiles) which allows me to use my full [vim-based setup](https://github.com/cfoust/cawnfig/tree/master/configs/vim) from a browser tab.
+
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/cfoust/sour)
+
+If you want to run things locally (some people are old fashioned that way) all you need is Docker, [Earthly](https://earthly.dev/), and `docker-compose`. After that, just run `./serve`. Then navigate to `http://localhost:1234`. All of the game's services will recompile and restart when you make changes.
 
 Check out the roadmap below to see what you might be able to help with.
 
 * [X] Better development experience with simple docker-compose setup
-* [ ] Support easy Gitpod development workflow
+* [X] Support easy Gitpod development workflow
 * [ ] Better documentation on services, how to build assets, et cetera
 * [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Support all player models (right now it's just snout)

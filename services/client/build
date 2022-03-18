@@ -4,4 +4,9 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cd "$SCRIPT_DIR"
 yarn install
+
+if ! [ -z "$GITPOD_WORKSPACE_ID" ]; then
+  export GAME_SERVER="wss://28785-$GITPOD_WORKSPACE_ID.$GITPOD_WORKSPACE_CLUSTER_HOST"
+fi
+
 yarn serve
