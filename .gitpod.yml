@@ -1,3 +1,7 @@
+github:
+  prebuilds:
+    addComment: true
+
 image:
   file: gitpod/Dockerfile
 
