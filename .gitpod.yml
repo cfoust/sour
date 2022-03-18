@@ -8,7 +8,16 @@ tasks:
 
   - name: WebSocket proxy
     init: ./services/proxy/build
-    command: ./watch /workspace/sour/services/proxy ./qserv
+    command: ./watch /workspace/sour/services/proxy ./wsproxy 28785
 
   - name: Client
+    init: cd services/client && yarn install
     command: ./services/client/build
+
+  - name: Assets
+    init: ./services/game/assets/build
+    command: ./watch ./services/game/assets cat
+
+  - name: Sauerbraten
+    init: ./services/game/cube2/build
+    command: ./watch ./services/game/cube2 cat
