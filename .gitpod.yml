@@ -32,7 +32,7 @@ tasks:
 
 ports:
   - port: 1234
-    onOpen: open-browser
+    onOpen: open-preview
     visibility: public
 
   - port: 28785
