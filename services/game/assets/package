@@ -6,7 +6,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 HASH="$1"
 
 # The actual output directory
-OUTPUT_DIR="$SCRIPT_DIR/output"
+OUTPUT_DIR=${ASSET_OUTPUT_DIR:-$SCRIPT_DIR/output}
 mkdir -p "$OUTPUT_DIR"
 
 # Contains all of the interim calculations

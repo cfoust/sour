@@ -15,9 +15,13 @@ tasks:
     command: ./services/client/build
 
   - name: Assets
+    env:
+      ASSET_OUTPUT_DIR: /workspace/sour/build/assets
     init: ./services/game/assets/build
     command: ./watch /workspace/sour/services/game/assets cat
 
   - name: Sauerbraten
     init: ./services/game/cube2/build
+    env:
+      GAME_OUTPUT_DIR: /workspace/sour/build/game
     command: ./watch /workspace/sour/services/game/cube2 cat
