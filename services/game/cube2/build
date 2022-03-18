@@ -15,7 +15,9 @@ fi
 
 emmake make client -j8
 cd "$SCRIPT_DIR"
-mkdir -p dist/game
+
+OUTPUT_DIR=${GAME_OUTPUT_DIR:-dist/game}
+mkdir -p "$OUTPUT_DIR"
 # Need to get rid of some unseemly behavior
 patch sauerbraten.js file_create.patch
 cp -r \
@@ -24,4 +26,4 @@ cp -r \
   game/zee-worker.js \
   game/gl-matrix.js \
   sauerbraten.* \
-  dist/game
+  "$OUTPUT_DIR"
