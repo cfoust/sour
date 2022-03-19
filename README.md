@@ -1,6 +1,6 @@
 # sour
 <p align="center">
-  <img src="gh-assets/header.gif">
+  <img src="gh-assets/header.png">
 </p>
 
 [![License:
