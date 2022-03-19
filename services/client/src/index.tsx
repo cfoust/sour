@@ -238,6 +238,7 @@ function App() {
     Module.desiredHeight = height
     if (Module.setCanvasSize == null) return
     Module.setCanvasSize(width, height)
+    if (BananaBread == null || BananaBread.execute == null) return
     BananaBread.execute(`screenres ${width} ${height}`)
   }, [width, height])
 
