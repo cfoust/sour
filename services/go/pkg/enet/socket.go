@@ -25,7 +25,46 @@ ENetSocket initSocket(const char *host, int port) {
 }
 
 void destroySocket(ENetSocket sock) {
-    enet_socket_destroy(sock);
+	enet_socket_destroy(sock);
+}
+
+int sendSocket(ENetSocket sock, const void * req, size_t numBytes) {
+	int reqlen = numBytes;
+	ENetBuffer buf;
+	while(reqlen > 0)
+	{
+		enet_uint32 events = ENET_SOCKET_WAIT_SEND;
+		if(enet_socket_wait(sock, &events, 250) >= 0 && events) 
+		{
+			buf.data = (void *)req;
+			buf.dataLength = reqlen;
+			int sent = enet_socket_send(sock, NULL, &buf, 1);
+			if(sent < 0) break;
+			req += sent;
+			reqlen -= sent;
+			if(reqlen <= 0) break;
+		}
+	}
+}
+
+int receiveSocket(ENetSocket sock, void * data, size_t maxSize) {
+	ENetBuffer buf;
+	size_t dataLength = 0;
+	for (;;)
+	{
+		enet_uint32 events = ENET_SOCKET_WAIT_RECEIVE;
+		if(enet_socket_wait(sock, &events, 250) >= 0 && events)
+		{
+			if(dataLength >= maxSize) return -1;
+			buf.data = data + dataLength;
+			buf.dataLength = maxSize - dataLength;
+			int recv = enet_socket_receive(sock, NULL, &buf, 1);
+			if(recv <= 0) break;
+			dataLength += recv;
+		}
+	}
+
+	return dataLength;
 }
 
 */
@@ -33,6 +72,8 @@ import "C"
 
 import (
 	"errors"
+	"log"
+	"unsafe"
 )
 
 type Socket struct {
@@ -52,4 +93,25 @@ func NewSocket(host string, port int) (*Socket, error) {
 
 func (sock *Socket) DestroySocket() {
 	C.destroySocket(sock.cSocket)
+}
+
+func (sock *Socket) SendString(str string) error {
+	sock.Send([]byte(str))
+	return nil
+}
+
+func (sock *Socket) Send(payload []byte) {
+	if len(payload) == 0 {
+		return
+	}
+
+	log.Println("sending", string(payload))
+
+	C.sendSocket(sock.cSocket, unsafe.Pointer(&payload[0]), C.size_t(len(payload)))
+}
+
+func (sock *Socket) Receive() (string, int) {
+	buf := make([]byte, 8192)
+	length := C.receiveSocket(sock.cSocket, unsafe.Pointer(&buf[0]), C.size_t(len(buf)))
+	return string(buf), int(length)
 }
