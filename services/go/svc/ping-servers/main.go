@@ -33,8 +33,9 @@ void pingServer(ENetSocket socket, const char *host, int port) {
 	sleep(1);
 
 	enet_uint32 events = ENET_SOCKET_WAIT_RECEIVE;
-	buf.data = ping;
-	buf.dataLength = 200;
+	char response[8192];
+	buf.data = response;
+	buf.dataLength = 8192;
 	while(enet_socket_wait(socket, &events, 0) >= 0 && events)
 	{
 		int len = enet_socket_receive(socket, &serverAddress, &buf, 1);
