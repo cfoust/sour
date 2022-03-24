@@ -31,7 +31,7 @@ package_files() {
     extension="${infile##*.}"
     size=$(wc -c "$infile" | cut -f1 -d' ')
 
-    if ! [ -f "$infile" ] || [ -f "$outfile" ]; then
+    if ! [ -f "$infile" ]; then
       continue
     fi
 
@@ -39,6 +39,10 @@ package_files() {
 
     if [ "$extension" != "dds" ] && [ "$extension" != "jpg" ] && [ "$extension" != "png" ]; then
       cp "$infile" "$outfile"
+      continue
+    fi
+
+    if [ -f "$outfile" ]; then
       continue
     fi
 
