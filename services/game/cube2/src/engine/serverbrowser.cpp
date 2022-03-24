@@ -675,6 +675,9 @@ bool updatedservers = false;
 
 void updatefrommaster()
 {
+#if __EMSCRIPTEN__
+    return;
+#endif
     vector<char> data;
     retrieveservers(data);
     if(data.empty()) conoutf(CON_ERROR, "master server not replying");
