@@ -7,7 +7,7 @@ package enet
 #include <enet/enet.h>
 
 
-ENetSocket initSocket(const char *host, int port) {
+ENetSocket _initSocket(const char *host, int port) {
 	ENetAddress serverAddress = { ENET_HOST_ANY, ENET_PORT_ANY };
         serverAddress.port = port;
 
@@ -24,7 +24,7 @@ ENetSocket initSocket(const char *host, int port) {
 	return sock;
 }
 
-void destroySocket(ENetSocket sock) {
+void _destroySocket(ENetSocket sock) {
 	enet_socket_destroy(sock);
 }
 
@@ -81,7 +81,7 @@ type Socket struct {
 }
 
 func NewSocket(host string, port int) (*Socket, error) {
-	cSocket := C.initSocket(C.CString(host), C.int(port))
+	cSocket := C._initSocket(C.CString(host), C.int(port))
 	if cSocket == C.ENET_SOCKET_NULL {
 		return nil, errors.New("an error occured initializing the ENet socket in C")
 	}
@@ -92,7 +92,7 @@ func NewSocket(host string, port int) (*Socket, error) {
 }
 
 func (sock *Socket) DestroySocket() {
-	C.destroySocket(sock.cSocket)
+	C._destroySocket(sock.cSocket)
 }
 
 func (sock *Socket) SendString(str string) error {
