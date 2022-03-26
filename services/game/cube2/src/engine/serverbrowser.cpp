@@ -543,6 +543,9 @@ VARP(autoupdateservers, 0, 1, 1);
 
 void refreshservers()
 {
+#if __EMSCRIPTEN__
+    return;
+#endif
     static int lastrefresh = 0;
     if(lastrefresh==totalmillis) return;
     if(totalmillis - lastrefresh > 1000) 
@@ -676,6 +679,7 @@ bool updatedservers = false;
 void updatefrommaster()
 {
 #if __EMSCRIPTEN__
+    // We update this in other ways in Sour
     return;
 #endif
     vector<char> data;
