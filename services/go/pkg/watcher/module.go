@@ -82,9 +82,9 @@ type ServerInfo struct {
 }
 
 type Server struct {
-	address *C.ENetAddress
-	socket  C.ENetSocket
-	info    *ServerInfo
+	address *C.ENetAddress `cbor:"-"`
+	socket  C.ENetSocket   `cbor:"-"`
+	info    []byte
 }
 
 type Servers map[Address]Server
@@ -143,7 +143,7 @@ func FetchServers() (Servers, error) {
 
 		servers[Address{host, port}] = Server{
 			address: nil,
-			info:    nil,
+			info:    make([]byte, 256),
 		}
 	}
 
@@ -210,16 +210,25 @@ func (watcher *Watcher) ReceivePings() {
 		if address == nil || socket == 0 {
 			continue
 		}
-		result := make([]byte, 128)
+		result := make([]byte, 256)
 		bytesRead := C.receiveServer(socket, *address, unsafe.Pointer(&result[0]))
-		if bytesRead > 0 {
-			fmt.Printf("Received %d bytes from %s:%d\n", bytesRead, key.hostname, key.port)
+		if bytesRead <= 0 {
+			continue
 		}
+		server.info = result
+		watcher.servers[key] = server
 	}
 	watcher.serverMutex.Unlock()
 }
 
-func (watcher *Watcher) Watch(out chan Servers) error {
+func (watcher *Watcher) Get() Servers {
+	watcher.serverMutex.Lock()
+	servers := watcher.servers
+	watcher.serverMutex.Unlock()
+	return servers
+}
+
+func (watcher *Watcher) Watch() error {
 	done := make(chan bool)
 
 	go watcher.UpdateServerList()

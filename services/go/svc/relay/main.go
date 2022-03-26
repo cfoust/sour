@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/watcher"
+	"github.com/fxamacker/cbor/v2"
 	"nhooyr.io/websocket"
 )
 
@@ -28,20 +29,25 @@ type RelayServer struct {
 
 	clientMutex sync.Mutex
 	clients     map[*Client]struct{}
+
+	serverWatcher *watcher.Watcher
 }
 
-func NewRelayServer() *RelayServer {
+func NewRelayServer(serverWatcher *watcher.Watcher) *RelayServer {
 	server := &RelayServer{
 		clientMessageLimit: 16,
 		logf:               log.Printf,
 		clients:            make(map[*Client]struct{}),
+		serverWatcher:      serverWatcher,
 	}
 
 	return server
 }
 
 func (server *RelayServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{})
+	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		OriginPatterns: []string{"*"},
+	})
 
 	if err != nil {
 		server.logf("%v", err)
@@ -120,33 +126,36 @@ func (server *RelayServer) RemoveClient(client *Client) {
 func WriteTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn, msg []byte) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	return c.Write(ctx, websocket.MessageText, msg)
+	return c.Write(ctx, websocket.MessageBinary, msg)
 }
 
 func main() {
-	l, _ := net.Listen("tcp", "localhost:1233")
+	l, _ := net.Listen("tcp", "0.0.0.0:29999")
 	log.Printf("listening on http://%v", l.Addr())
 
-	server := NewRelayServer()
+	watcher := watcher.NewWatcher()
+	go watcher.Watch()
+
+	server := NewRelayServer(watcher)
 	httpServer := &http.Server{
 		Handler: server,
 	}
 
-	serverChannel := make(chan watcher.Servers)
-	watcher := watcher.NewWatcher()
-
-	go watcher.Watch(serverChannel)
-
-	announceTicker := time.NewTicker(1 * time.Second)
-	announceChannel := make(chan bool)
+	broadcastTicker := time.NewTicker(10 * time.Second)
+	broadcastChannel := make(chan bool)
 	go func() {
 		for {
 			select {
-			case <-announceChannel:
+			case <-broadcastChannel:
 				return
-			case <-announceTicker.C:
-				server.Broadcast(make([]byte, 2))
-
+			case <-broadcastTicker.C:
+				servers := watcher.Get()
+				bytes, err := cbor.Marshal(servers)
+				if err != nil {
+					server.logf("%v", err)
+					return
+				}
+				server.Broadcast(bytes)
 			}
 		}
 	}()
@@ -167,6 +176,6 @@ func main() {
 	}
 
 	httpServer.Shutdown(context.Background())
-	announceTicker.Stop()
-	announceChannel <- true
+	broadcastTicker.Stop()
+	broadcastChannel <- true
 }
