@@ -72,7 +72,6 @@ import "C"
 
 import (
 	"errors"
-	"log"
 	"unsafe"
 )
 
@@ -104,8 +103,6 @@ func (sock *Socket) Send(payload []byte) {
 	if len(payload) == 0 {
 		return
 	}
-
-	log.Println("sending", string(payload))
 
 	C.sendSocket(sock.cSocket, unsafe.Pointer(&payload[0]), C.size_t(len(payload)))
 }
