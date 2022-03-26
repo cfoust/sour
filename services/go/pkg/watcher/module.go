@@ -238,6 +238,7 @@ func (watcher *Watcher) Watch(out chan Servers) error {
 		}
 	}()
 
+	// We send pings every 5 seconds, but don't block while waiting for results
 	pingTicker := time.NewTicker(5 * time.Second)
 	go func() {
 		for {
@@ -251,6 +252,7 @@ func (watcher *Watcher) Watch(out chan Servers) error {
 		}
 	}()
 
+	// Every second we just check for any pings that came back
 	receiveTicker := time.NewTicker(1 * time.Second)
 	go func() {
 		for {
