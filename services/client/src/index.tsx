@@ -276,6 +276,7 @@ function App() {
         // Free memory
         Module._free(pointer);
       }, servers)
+      BananaBread.execute('sortservers')
     }
   }, [])
 
