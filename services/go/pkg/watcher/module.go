@@ -71,8 +71,8 @@ import "C"
 // By default Sauerbraten seems to only allow one game server per IP address
 // (or at least hostname) which is a little weird.
 type Address struct {
-	hostname string
-	port     int
+	Host string
+	Port int
 }
 
 type ServerInfo struct {
@@ -84,7 +84,7 @@ type ServerInfo struct {
 type Server struct {
 	address *C.ENetAddress `cbor:"-"`
 	socket  C.ENetSocket   `cbor:"-"`
-	info    []byte
+	Info    []byte         `cbor:"info"`
 }
 
 type Servers map[Address]Server
@@ -143,13 +143,13 @@ func FetchServers() (Servers, error) {
 
 		servers[Address{host, port}] = Server{
 			address: nil,
-			info:    make([]byte, 256),
+			Info:    make([]byte, 256),
 		}
 	}
 
 	// Resolve them to IPs
 	for address, server := range servers {
-		enetAddress := C.resolveServer(C.CString(address.hostname), C.int(address.port+1))
+		enetAddress := C.resolveServer(C.CString(address.Host), C.int(address.Port+1))
 		if enetAddress.host == C.ENET_HOST_ANY {
 			continue
 		}
@@ -215,7 +215,7 @@ func (watcher *Watcher) ReceivePings() {
 		if bytesRead <= 0 {
 			continue
 		}
-		server.info = result
+		server.Info = result
 		watcher.servers[key] = server
 	}
 	watcher.serverMutex.Unlock()
