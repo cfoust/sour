@@ -1,6 +1,7 @@
 import styled from '@emotion/styled'
 import { useResizeDetector } from 'react-resize-detector'
 import start from './unsafe-startup'
+import CBOR from 'cbor-js'
 import * as React from 'react'
 import * as R from 'ramda'
 import ReactDOM from 'react-dom'
@@ -241,6 +242,14 @@ function App() {
     if (BananaBread == null || BananaBread.execute == null) return
     BananaBread.execute(`screenres ${width} ${height}`)
   }, [width, height])
+
+  React.useEffect(() => {
+    const ws = new WebSocket('wss://29999-cfoust-sour-jvu1d8tt818.ws-us38xl.gitpod.io/')
+    ws.binaryType = "arraybuffer";
+    ws.onmessage = (evt) => {
+      console.log(CBOR.decode(evt.data));
+    }
+  }, [])
 
   React.useLayoutEffect(() => {
     const canvas = document.getElementById('canvas')

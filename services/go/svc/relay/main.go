@@ -129,14 +129,20 @@ func WriteTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn,
 	return c.Write(ctx, websocket.MessageBinary, msg)
 }
 
+type AggregatedServer struct {
+	Host string
+	Port int
+	Info []byte
+}
+
 func main() {
 	l, _ := net.Listen("tcp", "0.0.0.0:29999")
 	log.Printf("listening on http://%v", l.Addr())
 
-	watcher := watcher.NewWatcher()
-	go watcher.Watch()
+	serverWatcher := watcher.NewWatcher()
+	go serverWatcher.Watch()
 
-	server := NewRelayServer(watcher)
+	server := NewRelayServer(serverWatcher)
 	httpServer := &http.Server{
 		Handler: server,
 	}
@@ -149,8 +155,20 @@ func main() {
 			case <-broadcastChannel:
 				return
 			case <-broadcastTicker.C:
-				servers := watcher.Get()
-				bytes, err := cbor.Marshal(servers)
+				servers := serverWatcher.Get()
+
+				serverArray := make([]AggregatedServer, len(servers))
+				index := 0
+				for key, server := range servers {
+					serverArray[index] = AggregatedServer{
+						Host: key.Host,
+						Port: key.Port,
+						Info: server.Info,
+					}
+					index++
+				}
+
+				bytes, err := cbor.Marshal(serverArray)
 				if err != nil {
 					server.logf("%v", err)
 					return
