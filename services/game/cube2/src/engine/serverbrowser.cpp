@@ -553,11 +553,12 @@ void injectserver(char* name, int port, uchar* ping, int numBytes)
     int millis = getint(p);
     loopv(servers)
     {
-        if(strcmp(name, servers[i]->name) && port == servers[i]->port) { si = servers[i]; break; }
+        if(strcmp(name, servers[i]->name) == 0 && port == servers[i]->port) { si = servers[i]; break; }
     }
-    if (si == NULL)
+    if (!si)
     {
-        return;
+        si = newserver(name, port);
+        if (!si) return;
     }
     si->numplayers = getint(p);
     int numattr = getint(p);
