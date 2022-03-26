@@ -1,0 +1,12 @@
+--- sauerbraten.js.orig	2022-03-26 06:56:34.149134145 +0000
++++ sauerbraten.js	2022-03-26 06:57:24.892768208 +0000
+@@ -4547,6 +4547,9 @@
+       if ("string" === typeof Module["websocket"]["url"]) {
+        url = Module["websocket"]["url"];
+       }
++      if ("function" === typeof Module["websocket"]["url"]) {
++       url = Module["websocket"]["url"](addr, port);
++      }
+      }
+      if (url === "ws://" || url === "wss://") {
+       var parts = addr.split("/");

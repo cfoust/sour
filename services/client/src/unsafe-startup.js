@@ -4,7 +4,9 @@ export default function start() {
     // This makes it so Emscripten's WS connections just go to this regardless
     // of the host
     websocket: {
-      url: GAME_SERVER,
+      url: (addr, port) => {
+        return `${GAME_SERVER}/u/${addr}:${port}`
+      },
     },
     setPlayerModels: function () {
       BananaBread.setPlayerModelInfo(

@@ -20,6 +20,7 @@ OUTPUT_DIR=${GAME_OUTPUT_DIR:-dist/game}
 mkdir -p "$OUTPUT_DIR"
 # Need to get rid of some unseemly behavior
 patch sauerbraten.js file_create.patch
+patch sauerbraten.js websocket_hook.patch
 cp -r \
   js/api.js \
   js/zee.js \
