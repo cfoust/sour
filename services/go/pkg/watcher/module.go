@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/cfoust/sour/pkg/enet"
 )
@@ -38,27 +39,25 @@ ENetSocket initSocket() {
 	return sock;
 }
 
-void pingServer(ENetSocket socket, ENetAddress address, void * output) {
-	ENetAddress serverAddress = { ENET_HOST_ANY, ENET_PORT_ANY };
-	serverAddress.host = address.host;
-	serverAddress.port = address.port + 1;
-
+void pingServer(ENetSocket socket, ENetAddress address) {
 	ENetBuffer buf;
 	char ping[10];
 	ping[0] = 2;
 	buf.data = ping;
 	buf.dataLength = 10;
-	enet_socket_send(socket, &serverAddress, &buf, 1);
+	enet_socket_send(socket, &address, &buf, 1);
 
-	sleep(1);
+}
 
+int receiveServer(ENetSocket socket, ENetAddress address, void * output) {
 	enet_uint32 events = ENET_SOCKET_WAIT_RECEIVE;
+	ENetBuffer buf;
 	buf.data = output;
 	buf.dataLength = 128;
 	while(enet_socket_wait(socket, &events, 0) >= 0 && events)
 	{
-		int len = enet_socket_receive(socket, &serverAddress, &buf, 1);
-		if (len <= 0) return;
+		int len = enet_socket_receive(socket, &address, &buf, 1);
+		return len;
 	}
 }
 
@@ -169,7 +168,55 @@ func (watcher *Watcher) UpdateServerList() {
 		fmt.Println("Failed to fetch servers")
 		return
 	}
-	fmt.Println(newServers)
+
+	watcher.serverMutex.Lock()
+	oldServers := watcher.servers
+	// We want to preserve the sockets from the old servers as
+	// pings may have arrived as this operation happened
+	for key, _ := range newServers {
+		if oldServer, exists := oldServers[key]; exists {
+			newServers[key] = oldServer
+		}
+	}
+
+	// Also clean up old sockets if servers go away
+	for key, oldServer := range oldServers {
+		if _, exists := newServers[key]; !exists {
+			C.destroySocket(oldServer.socket)
+		}
+	}
+	watcher.servers = newServers
+	watcher.serverMutex.Unlock()
+}
+
+func (watcher *Watcher) PingServers() {
+	watcher.serverMutex.Lock()
+	for _, server := range watcher.servers {
+		address := server.address
+		socket := server.socket
+		if address == nil || socket == 0 {
+			continue
+		}
+		C.pingServer(socket, *address)
+	}
+	watcher.serverMutex.Unlock()
+}
+
+func (watcher *Watcher) ReceivePings() {
+	watcher.serverMutex.Lock()
+	for key, server := range watcher.servers {
+		address := server.address
+		socket := server.socket
+		if address == nil || socket == 0 {
+			continue
+		}
+		result := make([]byte, 128)
+		bytesRead := C.receiveServer(socket, *address, unsafe.Pointer(&result[0]))
+		if bytesRead > 0 {
+			fmt.Printf("Received %d bytes from %s:%d\n", bytesRead, key.hostname, key.port)
+		}
+	}
+	watcher.serverMutex.Unlock()
 }
 
 func (watcher *Watcher) Watch(out chan Servers) error {
@@ -191,23 +238,31 @@ func (watcher *Watcher) Watch(out chan Servers) error {
 		}
 	}()
 
+	pingTicker := time.NewTicker(5 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-pingTicker.C:
+				go watcher.PingServers()
+
+			}
+		}
+	}()
+
+	receiveTicker := time.NewTicker(1 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-receiveTicker.C:
+				go watcher.ReceivePings()
+
+			}
+		}
+	}()
+
 	return nil
 }
-
-//func FetchServers() []Server {
-
-//// Fill in information about them
-//for _, server := range servers {
-//address := server.address
-//socket := server.socket
-//if address == nil || socket == 0 {
-//continue
-//}
-//result := make([]byte, 128)
-//C.pingServer(socket, *address, unsafe.Pointer(&result[0]))
-//fmt.Println(result)
-//break
-//}
-
-//return servers
-//}
