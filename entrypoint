@@ -10,6 +10,10 @@ run_proxy() {
   wsproxy 28785
 }
 
+run_relay() {
+  relay
+}
+
 run_server() {
   cd /qserv
   qserv
@@ -21,6 +25,7 @@ run_site() {
 
 run_proxy &
 run_server &
+run_relay &
 run_site &
 
 tail -F /bin/entrypoint

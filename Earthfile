@@ -19,6 +19,13 @@ server:
     RUN ./build
     SAVE ARTIFACT qserv AS LOCAL "earthly/qserv"
 
+relay:
+    FROM golang:1.17-alpine
+    COPY services/go .
+    RUN apt-get update && apt-get install -qqy libenet-dev
+    RUN ./build
+    SAVE ARTIFACT relay AS LOCAL "earthly/relay"
+
 emscripten:
     FROM emscripten/emsdk:1.39.20
     RUN apt-get update && apt-get install -y inotify-tools imagemagick
@@ -53,6 +60,7 @@ image-slim:
   # dynamic libraries.
   RUN apt-get update && apt-get install -y nginx
   COPY +server/qserv /bin/qserv
+  COPY +relay/relay /bin/relay
   COPY +proxy/wsproxy /bin/wsproxy
   COPY +game/game /app/game/
   COPY +client/dist /app/
