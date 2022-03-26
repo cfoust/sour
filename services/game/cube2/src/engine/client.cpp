@@ -100,7 +100,6 @@ void connectserv(const char *servername, int serverport, const char *serverpassw
             return;
         }
 #else
-		char * servername = "REPLACED";
 		enet_address_set_host(&address, servername);
 #endif
 
