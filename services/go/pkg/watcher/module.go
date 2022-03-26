@@ -44,7 +44,7 @@ void pingServer(ENetSocket socket, ENetAddress address) {
 	char ping[10];
 	ping[0] = 2;
 	buf.data = ping;
-	buf.dataLength = 10;
+	buf.dataLength = 1;
 	enet_socket_send(socket, &address, &buf, 1);
 
 }
@@ -85,6 +85,7 @@ type Server struct {
 	address *C.ENetAddress `cbor:"-"`
 	socket  C.ENetSocket   `cbor:"-"`
 	Info    []byte         `cbor:"info"`
+	Length  int
 }
 
 type Servers map[Address]Server
@@ -216,6 +217,7 @@ func (watcher *Watcher) ReceivePings() {
 			continue
 		}
 		server.Info = result
+		server.Length = int(bytesRead)
 		watcher.servers[key] = server
 	}
 	watcher.serverMutex.Unlock()
