@@ -550,9 +550,6 @@ void injectserver(char* name, int port, uchar* ping, int numBytes)
     serverinfo *si = NULL;
     char text[MAXTRANS];
     ucharbuf p(ping, numBytes);
-    //for (int i = 0; i < numBytes; i++) {
-        //conoutf("ping[%d]=%d (%c)", i, ping[i], ping[i]);
-    //}
     int millis = getint(p);
     loopv(servers)
     {
@@ -560,22 +557,17 @@ void injectserver(char* name, int port, uchar* ping, int numBytes)
     }
     if (si == NULL)
     {
-        conoutf("Failed to find server matching %s:%d", name, port);
         return;
     }
     si->numplayers = getint(p);
-    conoutf("numplayers=%d", si->numplayers);
     int numattr = getint(p);
-    conoutf("numattr=%d", numattr);
     si->attr.setsize(0);
-    loopj(numattr) { int attr = getint(p); if(p.overread()) break; si->attr.add(attr); conoutf("attr=%d", attr); }
+    loopj(numattr) { int attr = getint(p); if(p.overread()) break; si->attr.add(attr); }
     getstring(text, p);
-    conoutf("map=%s", text);
     filtertext(si->map, text, false);
     getstring(text, p);
-    conoutf("desc=%s", text);
     filtertext(si->sdesc, text, true, true);
-    //conoutf("Data loaded for %s:%d players=%d map=%s desc=%s", name, port, si->numplayers, si->map, si->sdesc);
+    si->ping = 5;
 }
 #endif
 
@@ -624,9 +616,17 @@ const char *showservers(g3d_gui *cgui, uint *header, int pagemin, int pagemax)
                 if(!i && j+1 - start >= pagemin && (j+1 - start >= pagemax || cgui->shouldtab())) { end = j; break; }
                 serverinfo &si = *servers[j];
                 const char *sdesc = si.sdesc;
+#if !__EMSCRIPTEN__
                 if(si.address.host == ENET_HOST_ANY) sdesc = "[unknown host]";
                 else if(si.ping == serverinfo::WAITING) sdesc = "[waiting for response]";
+#else
+                if(si.ping == serverinfo::WAITING) sdesc = "[waiting for response]";
+#endif
+#if !__EMSCRIPTEN__
                 if(game::serverinfoentry(cgui, i, si.name, si.port, sdesc, si.map, sdesc == si.sdesc ? si.ping : -1, si.attr, si.numplayers))
+#else
+                if(game::serverinfoentry(cgui, i, si.name, si.port, sdesc, si.map, 1, si.attr, si.numplayers))
+#endif
                     sc = &si;
             }
             game::serverinfoendcolumn(cgui, i);
