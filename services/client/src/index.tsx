@@ -246,8 +246,36 @@ function App() {
   React.useEffect(() => {
     const ws = new WebSocket('wss://29999-cfoust-sour-jvu1d8tt818.ws-us38xl.gitpod.io/')
     ws.binaryType = "arraybuffer";
+    const added = new Set<string>([])
     ws.onmessage = (evt) => {
-      console.log(CBOR.decode(evt.data));
+      const servers = CBOR.decode(evt.data)
+
+      if (BananaBread == null || BananaBread.execute == null || BananaBread.injectServer == null) return
+
+      R.map((server) => {
+        const { Host, Port } = server
+        const key = `${Host}:${Port}`
+        if (added.has(key)) return
+        BananaBread.execute(`addserver ${Host} ${Port}`)
+        added.add(key)
+      }, servers)
+
+      R.map((server) => {
+        const { Host, Port, Info, Length } = server
+
+        // Get data byte size, allocate memory on Emscripten heap, and get pointer
+        const pointer = Module._malloc(Length);
+
+        // Copy data to Emscripten heap (directly accessed from Module.HEAPU8)
+        const dataHeap = new Uint8Array(Module.HEAPU8.buffer, pointer, Length);
+        dataHeap.set(new Uint8Array(Info.buffer, Info.byteOffset, Length));
+
+        // Call function and get result
+        BananaBread.injectServer(Host, Port, pointer, Length)
+
+        // Free memory
+        Module._free(pointer);
+      }, servers)
     }
   }, [])
 

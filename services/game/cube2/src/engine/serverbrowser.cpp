@@ -1,6 +1,9 @@
 // serverbrowser.cpp: eihrul's concurrent resolver, and server browser window management
 
 #include "engine.h"
+#if __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 struct resolverthread
 {
@@ -540,6 +543,41 @@ COMMAND(sortservers, "");
 
 VARP(autosortservers, 0, 1, 1);
 VARP(autoupdateservers, 0, 1, 1);
+
+#if __EMSCRIPTEN__
+void injectserver(char* name, int port, uchar* ping, int numBytes)
+{
+    serverinfo *si = NULL;
+    char text[MAXTRANS];
+    ucharbuf p(ping, numBytes);
+    //for (int i = 0; i < numBytes; i++) {
+        //conoutf("ping[%d]=%d (%c)", i, ping[i], ping[i]);
+    //}
+    int millis = getint(p);
+    loopv(servers)
+    {
+        if(strcmp(name, servers[i]->name) && port == servers[i]->port) { si = servers[i]; break; }
+    }
+    if (si == NULL)
+    {
+        conoutf("Failed to find server matching %s:%d", name, port);
+        return;
+    }
+    si->numplayers = getint(p);
+    conoutf("numplayers=%d", si->numplayers);
+    int numattr = getint(p);
+    conoutf("numattr=%d", numattr);
+    si->attr.setsize(0);
+    loopj(numattr) { int attr = getint(p); if(p.overread()) break; si->attr.add(attr); conoutf("attr=%d", attr); }
+    getstring(text, p);
+    conoutf("map=%s", text);
+    filtertext(si->map, text, false);
+    getstring(text, p);
+    conoutf("desc=%s", text);
+    filtertext(si->sdesc, text, true, true);
+    //conoutf("Data loaded for %s:%d players=%d map=%s desc=%s", name, port, si->numplayers, si->map, si->sdesc);
+}
+#endif
 
 void refreshservers()
 {

@@ -130,9 +130,10 @@ func WriteTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn,
 }
 
 type AggregatedServer struct {
-	Host string
-	Port int
-	Info []byte
+	Host   string
+	Port   int
+	Info   []byte
+	Length int
 }
 
 func main() {
@@ -161,9 +162,10 @@ func main() {
 				index := 0
 				for key, server := range servers {
 					serverArray[index] = AggregatedServer{
-						Host: key.Host,
-						Port: key.Port,
-						Info: server.Info,
+						Host:   key.Host,
+						Port:   key.Port,
+						Info:   server.Info,
+						Length: server.Length,
 					}
 					index++
 				}
