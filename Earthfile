@@ -23,7 +23,7 @@ relay:
     FROM golang:1.17
     COPY services/go .
     RUN apt-get update && apt-get install -qqy libenet-dev
-    RUN ./build
+    RUN unset GOPATH && ./build
     SAVE ARTIFACT relay AS LOCAL "earthly/relay"
 
 emscripten:
