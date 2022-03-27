@@ -20,7 +20,7 @@ server:
     SAVE ARTIFACT qserv AS LOCAL "earthly/qserv"
 
 relay:
-    FROM golang:1.17-alpine
+    FROM golang:1.17
     COPY services/go .
     RUN apt-get update && apt-get install -qqy libenet-dev
     RUN ./build
