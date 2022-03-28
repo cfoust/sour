@@ -23,4 +23,9 @@ if [ -z "$IN_DOCKER" ]; then
   ensure_link "$SRC_DIR/../../../build/assets" "$DIST_DIR/assets"
 fi
 cd "$SCRIPT_DIR/../"
-yarn serve:site
+
+if ! [ -z "$GITPOD_WORKSPACE_ID" ]; then
+  yarn serve:gitpod
+else
+  yarn serve:site
+fi
