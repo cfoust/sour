@@ -64,7 +64,7 @@ image-slim:
   COPY +proxy/wsproxy /bin/wsproxy
   COPY +game/game /app/game/
   COPY +client/dist /app/
-  COPY services/client/nginx.conf /etc/nginx/conf.d/default.conf
+  COPY services/ingress/production.conf /etc/nginx/conf.d/default.conf
   COPY services/server/config /qserv/config
   COPY entrypoint /bin/entrypoint
   CMD ["/bin/entrypoint"]
