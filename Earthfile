@@ -58,7 +58,7 @@ image-slim:
   FROM ubuntu:20.04
   # We would just use nginx:stable-alpine but the other services use some
   # dynamic libraries.
-  RUN apt-get update && apt-get install -y nginx
+  RUN apt-get update && apt-get install -y nginx libenet-dev
   COPY +server/qserv /bin/qserv
   COPY +relay/relay /bin/relay
   COPY +proxy/wsproxy /bin/wsproxy
