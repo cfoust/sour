@@ -5,7 +5,12 @@ export default function start() {
     // of the host
     websocket: {
       url: (addr, port) => {
-        return `${GAME_SERVER}/u/${addr}:${port}`
+        const { protocol, hostname } = window.location
+        const prefix = `${
+          protocol === 'https:' ? 'wss://' : 'ws:/'
+        }${hostname}/service/proxy/`
+
+        return addr === 'sour' ? prefix : `${prefix}u/${addr}:${port}`
       },
     },
     setPlayerModels: function () {

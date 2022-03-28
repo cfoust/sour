@@ -2,6 +2,7 @@
 
 #include "engine.h"
 #include <emscripten.h>
+#include <string.h>
 
 ENetHost *clienthost = NULL;
 ENetPeer *curpeer = NULL, *connpeer = NULL;
@@ -100,7 +101,12 @@ void connectserv(const char *servername, int serverport, const char *serverpassw
             return;
         }
 #else
-		enet_address_set_host(&address, servername);
+        int length = strlen(servername);
+        if (length == 0) {
+            enet_address_set_host(&address, "sour");
+        } else {
+            enet_address_set_host(&address, servername);
+        }
 #endif
 
     }
