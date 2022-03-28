@@ -14,7 +14,12 @@ jobs:
     env:
       FORCE_COLOR: 1
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3                                                                                                             
+      with:                                                                                                                                 
+        lfs: true                                                                                                                           
+                                                                                                                                            
+    - name: Checkout LFS objects                                                                                                            
+      run: git lfs checkout   
 
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v1
