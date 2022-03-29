@@ -2,4 +2,5 @@
 
 earthly +cpp
 earthly +emscripten
+earthly +go
 docker-compose -f services/docker-compose.yml up

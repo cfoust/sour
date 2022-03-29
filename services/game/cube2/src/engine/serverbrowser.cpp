@@ -1,6 +1,9 @@
 // serverbrowser.cpp: eihrul's concurrent resolver, and server browser window management
 
 #include "engine.h"
+#if __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 struct resolverthread
 {
@@ -541,8 +544,39 @@ COMMAND(sortservers, "");
 VARP(autosortservers, 0, 1, 1);
 VARP(autoupdateservers, 0, 1, 1);
 
+#if __EMSCRIPTEN__
+void injectserver(char* name, int port, uchar* ping, int numBytes)
+{
+    serverinfo *si = NULL;
+    char text[MAXTRANS];
+    ucharbuf p(ping, numBytes);
+    int millis = getint(p);
+    loopv(servers)
+    {
+        if(strcmp(name, servers[i]->name) == 0 && port == servers[i]->port) { si = servers[i]; break; }
+    }
+    if (!si)
+    {
+        si = newserver(name, port);
+        if (!si) return;
+    }
+    si->numplayers = getint(p);
+    int numattr = getint(p);
+    si->attr.setsize(0);
+    loopj(numattr) { int attr = getint(p); if(p.overread()) break; si->attr.add(attr); }
+    getstring(text, p);
+    filtertext(si->map, text, false);
+    getstring(text, p);
+    filtertext(si->sdesc, text, true, true);
+    si->ping = 5;
+}
+#endif
+
 void refreshservers()
 {
+#if __EMSCRIPTEN__
+    return;
+#endif
     static int lastrefresh = 0;
     if(lastrefresh==totalmillis) return;
     if(totalmillis - lastrefresh > 1000) 
@@ -583,9 +617,17 @@ const char *showservers(g3d_gui *cgui, uint *header, int pagemin, int pagemax)
                 if(!i && j+1 - start >= pagemin && (j+1 - start >= pagemax || cgui->shouldtab())) { end = j; break; }
                 serverinfo &si = *servers[j];
                 const char *sdesc = si.sdesc;
+#if !__EMSCRIPTEN__
                 if(si.address.host == ENET_HOST_ANY) sdesc = "[unknown host]";
                 else if(si.ping == serverinfo::WAITING) sdesc = "[waiting for response]";
+#else
+                if(si.ping == serverinfo::WAITING) sdesc = "[waiting for response]";
+#endif
+#if !__EMSCRIPTEN__
                 if(game::serverinfoentry(cgui, i, si.name, si.port, sdesc, si.map, sdesc == si.sdesc ? si.ping : -1, si.attr, si.numplayers))
+#else
+                if(game::serverinfoentry(cgui, i, si.name, si.port, sdesc, si.map, 1, si.attr, si.numplayers))
+#endif
                     sc = &si;
             }
             game::serverinfoendcolumn(cgui, i);
@@ -675,6 +717,10 @@ bool updatedservers = false;
 
 void updatefrommaster()
 {
+#if __EMSCRIPTEN__
+    // We update this in other ways in Sour
+    return;
+#endif
     vector<char> data;
     retrieveservers(data);
     if(data.empty()) conoutf(CON_ERROR, "master server not replying");

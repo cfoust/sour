@@ -1,6 +1,7 @@
 import styled from '@emotion/styled'
 import { useResizeDetector } from 'react-resize-detector'
 import start from './unsafe-startup'
+import CBOR from 'cbor-js'
 import * as React from 'react'
 import * as R from 'ramda'
 import ReactDOM from 'react-dom'
@@ -241,6 +242,42 @@ function App() {
     if (BananaBread == null || BananaBread.execute == null) return
     BananaBread.execute(`screenres ${width} ${height}`)
   }, [width, height])
+
+  React.useEffect(() => {
+    const { protocol, host } = window.location
+    const ws = new WebSocket(
+      `${protocol === 'https:' ? 'wss://' : 'ws:/'}${host}/service/relay/`
+    )
+    ws.binaryType = 'arraybuffer'
+    ws.onmessage = (evt) => {
+      const servers = CBOR.decode(evt.data)
+
+      if (
+        BananaBread == null ||
+        BananaBread.execute == null ||
+        BananaBread.injectServer == null
+      )
+        return
+
+      R.map((server) => {
+        const { Host, Port, Info, Length } = server
+
+        // Get data byte size, allocate memory on Emscripten heap, and get pointer
+        const pointer = Module._malloc(Length)
+
+        // Copy data to Emscripten heap (directly accessed from Module.HEAPU8)
+        const dataHeap = new Uint8Array(Module.HEAPU8.buffer, pointer, Length)
+        dataHeap.set(new Uint8Array(Info.buffer, Info.byteOffset, Length))
+
+        // Call function and get result
+        BananaBread.injectServer(Host, Port, pointer, Length)
+
+        // Free memory
+        Module._free(pointer)
+      }, servers)
+      BananaBread.execute('sortservers')
+    }
+  }, [])
 
   React.useLayoutEffect(() => {
     const canvas = document.getElementById('canvas')

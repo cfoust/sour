@@ -6,6 +6,7 @@ RUN sudo apt-get update && \
     cmake \
     imagemagick \
     inotify-tools \
+    libenet-dev \
     nginx \
     zlib1g-dev \
     && \
