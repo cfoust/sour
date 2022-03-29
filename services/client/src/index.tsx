@@ -244,9 +244,9 @@ function App() {
   }, [width, height])
 
   React.useEffect(() => {
-    const { protocol, hostname } = window.location
+    const { protocol, host } = window.location
     const ws = new WebSocket(
-      `${protocol === 'https:' ? 'wss://' : 'ws:/'}${hostname}/service/relay/`
+      `${protocol === 'https:' ? 'wss://' : 'ws:/'}${host}/service/relay/`
     )
     ws.binaryType = 'arraybuffer'
     ws.onmessage = (evt) => {

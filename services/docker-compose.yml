@@ -1,6 +1,12 @@
 version: "3"
 
 services:
+  ingress:
+    image: nginx:stable-alpine
+    volumes:
+      - "./ingress/local.conf:/etc/nginx/conf.d/default.conf"
+    network_mode: host
+
   server:
     image: sour:cpp
     command: "watch /server ./qserv"
@@ -15,6 +21,14 @@ services:
     volumes:
       - "../watch:/usr/bin/watch"
       - "./proxy:/proxy"
+    network_mode: host
+
+  relay:
+    image: sour:go
+    command: "watch /go ./relay"
+    volumes:
+      - "../watch:/usr/bin/watch"
+      - "./go:/go"
     network_mode: host
 
   game:
