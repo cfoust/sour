@@ -24,8 +24,4 @@ if [ -z "$IN_DOCKER" ]; then
 fi
 cd "$SCRIPT_DIR/../"
 
-if ! [ -z "$GITPOD_WORKSPACE_ID" ]; then
-  yarn serve:gitpod
-else
-  yarn serve:site
-fi
+yarn serve:site

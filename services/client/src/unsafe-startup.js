@@ -5,10 +5,10 @@ export default function start() {
     // of the host
     websocket: {
       url: (addr, port) => {
-        const { protocol, hostname } = window.location
+        const { protocol, host } = window.location
         const prefix = `${
           protocol === 'https:' ? 'wss://' : 'ws:/'
-        }${hostname}/service/proxy/`
+        }${host}/service/proxy/`
 
         return addr === 'sour' ? prefix : `${prefix}u/${addr}:${port}`
       },

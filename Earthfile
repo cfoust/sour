@@ -19,11 +19,15 @@ server:
     RUN ./build
     SAVE ARTIFACT qserv AS LOCAL "earthly/qserv"
 
-relay:
+go:
     FROM golang:1.17
+    RUN apt-get update && apt-get install -qqy libenet-dev inotify-tools
+    SAVE IMAGE sour:go
+
+relay:
+    FROM +go
     COPY services/go .
-    RUN apt-get update && apt-get install -qqy libenet-dev
-    RUN unset GOPATH && ./build
+    RUN ./build
     SAVE ARTIFACT relay AS LOCAL "earthly/relay"
 
 emscripten:
