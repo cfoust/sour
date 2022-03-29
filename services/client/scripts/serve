@@ -23,4 +23,5 @@ if [ -z "$IN_DOCKER" ]; then
   ensure_link "$SRC_DIR/../../../build/assets" "$DIST_DIR/assets"
 fi
 cd "$SCRIPT_DIR/../"
+
 yarn serve:site

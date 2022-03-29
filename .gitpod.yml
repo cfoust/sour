@@ -6,6 +6,9 @@ image:
   file: gitpod/Dockerfile
 
 tasks:
+  - name: Ingress
+    command: ./services/ingress/build
+
   - name: Game server
     init: ./services/server/build
     command: ./watch /workspace/sour/services/server ./qserv
@@ -13,6 +16,10 @@ tasks:
   - name: WebSocket proxy
     init: ./services/proxy/build
     command: ./watch /workspace/sour/services/proxy ./wsproxy 28785
+
+  - name: Broadcast service
+    init: ./services/go/build
+    command: ./watch /workspace/sour/services/go ./relay
 
   - name: Client
     init: cd services/client && yarn install

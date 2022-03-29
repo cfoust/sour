@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+cd "$SCRIPT_DIR"
+
+CONFIG="$SCRIPT_DIR/local.conf"
+if ! [ -z "$GITPOD_WORKSPACE_ID" ]; then
+  CONFIG="$SCRIPT_DIR/gitpod.conf"
+fi
+
+sudo nginx -g 'daemon off;' -c "$CONFIG"

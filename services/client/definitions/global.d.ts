@@ -12,21 +12,23 @@ type PreloadNode = {
 
 // Lets us use the Module API in a type safe way
 type ModuleType = {
-  tweakDetail: () => void
-  postLoadWorld: () => void
-  desiredWidth: number
-  desiredHeight: number
+  HEAPU8: Uint8Array
+  _free: (pointer: number) => void
+  _malloc: (length: number) => number
   canvas: HTMLCanvasElement | null
+  desiredHeight: number
+  desiredWidth: number
+  monitorRunDependencies: (left: number) => void
+  postLoadWorld: () => void
+  postRun: Array<() => void>
+  preInit: Array<() => void>
+  print: (text: string) => void
+  registerNode: (node: PreloadNode) => void
+  removeRunDependency: (file: string) => void
+  run: () => void
   setCanvasSize: ((width: number, height: number) => void) | null
   setStatus: (text: string) => void
-  print: (text: string) => void
-  removeRunDependency: (file: string) => void
-  monitorRunDependencies: (left: number) => void
-  registerNode: (node: PreloadNode) => void
-  preInit: Array<() => void>
-  postRun: Array<() => void>
-  run: () => void
-  _free: (pointer: number) => void
+  tweakDetail: () => void
 }
 declare const Module: ModuleType
 declare type Maybe<T> = T | null | undefined
@@ -41,6 +43,12 @@ declare const GAME_SERVER: string
 type BananaBreadType = {
   execute: (command: string) => void
   renderprogress: (progress: number, text: string) => void
+  injectServer: (
+    host: string,
+    port: number,
+    infoPointer: number,
+    infoLength: number
+  ) => void
 }
 declare const BananaBread: BananaBreadType
 declare let shouldRunNow: boolean

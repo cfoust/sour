@@ -45,9 +45,6 @@ export default function StatusOverlay(props: Props) {
         {state.type === GameStateType.MapChange && (
           <Heading>Loading map {state.map}...</Heading>
         )}
-        {state.type === GameStateType.Connecting && (
-          <Heading>Connecting to server...</Heading>
-        )}
         {state.type === GameStateType.GameError && (
           <Heading>There was an unknown error with the game.</Heading>
         )}

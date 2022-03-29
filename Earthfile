@@ -19,6 +19,17 @@ server:
     RUN ./build
     SAVE ARTIFACT qserv AS LOCAL "earthly/qserv"
 
+go:
+    FROM golang:1.17
+    RUN apt-get update && apt-get install -qqy libenet-dev inotify-tools
+    SAVE IMAGE sour:go
+
+relay:
+    FROM +go
+    COPY services/go .
+    RUN ./build
+    SAVE ARTIFACT relay AS LOCAL "earthly/relay"
+
 emscripten:
     FROM emscripten/emsdk:1.39.20
     RUN apt-get update && apt-get install -y inotify-tools imagemagick
@@ -51,12 +62,13 @@ image-slim:
   FROM ubuntu:20.04
   # We would just use nginx:stable-alpine but the other services use some
   # dynamic libraries.
-  RUN apt-get update && apt-get install -y nginx
+  RUN apt-get update && apt-get install -y nginx libenet-dev
   COPY +server/qserv /bin/qserv
+  COPY +relay/relay /bin/relay
   COPY +proxy/wsproxy /bin/wsproxy
   COPY +game/game /app/game/
   COPY +client/dist /app/
-  COPY services/client/nginx.conf /etc/nginx/conf.d/default.conf
+  COPY services/ingress/production.conf /etc/nginx/conf.d/default.conf
   COPY services/server/config /qserv/config
   COPY entrypoint /bin/entrypoint
   CMD ["/bin/entrypoint"]
