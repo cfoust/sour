@@ -1770,7 +1770,10 @@ void drawminimap()
     xtravertsva = xtraverts = glde = gbatches = 0;
 
     visiblecubes(false);
+
+#if !__EMSCRIPTEN__
     queryreflections();
+#endif
     drawreflections();
 
     loopi(minimapheight > 0 && minimapheight < minimapcenter.z + minimapradius.z ? 2 : 1)
