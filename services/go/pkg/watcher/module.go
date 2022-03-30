@@ -91,8 +91,9 @@ type Server struct {
 type Servers map[Address]Server
 
 type Watcher struct {
-	serverMutex sync.Mutex
-	servers     Servers
+	masterSocket enet.Socket
+	serverMutex  sync.Mutex
+	servers      Servers
 }
 
 func NewWatcher() *Watcher {
@@ -103,15 +104,8 @@ func NewWatcher() *Watcher {
 	return watcher
 }
 
-func FetchServers() (Servers, error) {
-	socket, err := enet.NewSocket("master.sauerbraten.org", 28787)
-	defer socket.DestroySocket()
-	if err != nil {
-		fmt.Println("Error creating socket")
-		return make(Servers), err
-	}
-
-	err = socket.SendString("list\n")
+func FetchServers(socket enet.Socket) (Servers, error) {
+	err := socket.SendString("list\n")
 	if err != nil {
 		fmt.Println("Error listing servers")
 		return make(Servers), err
@@ -164,7 +158,7 @@ func FetchServers() (Servers, error) {
 }
 
 func (watcher *Watcher) UpdateServerList() {
-	newServers, err := FetchServers()
+	newServers, err := FetchServers(watcher.masterSocket)
 	if err != nil {
 		fmt.Println("Failed to fetch servers")
 		return
@@ -232,6 +226,13 @@ func (watcher *Watcher) Get() Servers {
 
 func (watcher *Watcher) Watch() error {
 	done := make(chan bool)
+
+	socket, err := enet.NewSocket("master.sauerbraten.org", 28787)
+	defer socket.DestroySocket()
+	if err != nil {
+		fmt.Println("Error creating socket")
+		return err
+	}
 
 	go watcher.UpdateServerList()
 
