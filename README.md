@@ -62,23 +62,31 @@ If you want to run things locally (some people are old fashioned that way) all y
 Check out the roadmap below to see what you might be able to help with.
 
 * [ ] Get all of the team-based game modes working
-  * [ ] Add CTF assets to the base game
-  * [ ] Fix the minimap
-* [ ] Fix the water shader so it works again
+  * [X] Add CTF assets to the base game
+  * [X] Fix the minimap
+  * [ ] Figure out why the snout skin is only rendering as green
+* [ ] Repair or port shaders that were disabled in the game upgrade
+  * [ ] Fix the water shader so it works again
+  * [ ] Fix the outline shader (pressing 7 in edit mode)
+* [ ] Support saving and loading `.ogz` maps from the user's device
+* [ ] Make sure `getmap` and `sendmap` don't break the game server
+* [ ] Make a cleaner start page that shows the progress for downloading the initial game package
+* [ ] Better documentation
+  * [ ] Create a README for each directory in `services/`
+  * [ ] Describe how asset generation works
+* [ ] Save demos for any game played to IndexedDB and allow for download
+* [ ] Update the URL to the current server on join eg `sourga.me/server/127.0.0.1:28785`
+* [ ] Allow players to create private servers with simple join links eg `sourga.me/server/ABCD`
+* [ ] Support all player models (right now it's just snout)
 * [ ] Add `<noscript>` with a plea to enable JavaScript
 * [ ] Ensure Sour works in Firefox
-* [ ] Better documentation on services, how to build assets, et cetera
 * [ ] Allow for providing the desired maps in an image as a build argument
-* [ ] Support all player models (right now it's just snout)
 * [ ] Explore running Sour in a Web Worker rather than the rendering thread
 * [ ] Investigate differences in font colors between the real Sauer and Sour
-* [ ] Make sure `getmap` and `sendmap` don't break the game server
-* [ ] Allow for players to create custom matches
-* [ ] Support saving and loading `.ogz` maps from the user's device
-* [ ] Upgrade the Emscripten version
-* [ ] Save demos for any game played to IndexedDB and allow for download
 * [ ] Demo player with seek/play/pause
   * [ ] Stretch goal: generate gifs in the browser
+* [ ] Upgrade the Emscripten version
+* [ ] Create archive of _all_ uploads to Quadropolis
 
 ## License
 
