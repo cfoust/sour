@@ -64,6 +64,7 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Get all of the team-based game modes working
   * [ ] Add CTF assets to the base game
   * [ ] Fix the minimap
+* [ ] Fix the water shader so it works again
 * [ ] Add `<noscript>` with a plea to enable JavaScript
 * [ ] Ensure Sour works in Firefox
 * [ ] Better documentation on services, how to build assets, et cetera
