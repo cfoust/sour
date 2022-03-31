@@ -91,7 +91,6 @@ type Server struct {
 type Servers map[Address]Server
 
 type Watcher struct {
-	masterSocket enet.Socket
 	serverMutex  sync.Mutex
 	servers      Servers
 }
@@ -104,21 +103,28 @@ func NewWatcher() *Watcher {
 	return watcher
 }
 
-func FetchServers(socket enet.Socket) (Servers, error) {
-	err := socket.SendString("list\n")
+func FetchServers(socket *enet.Socket) ([]Address, error) {
+	var servers []Address
+	socket, err := enet.NewSocket("master.sauerbraten.org", 28787)
+	defer socket.DestroySocket()
+	if err != nil {
+		fmt.Println("Error creating socket")
+		return servers, err
+	}
+
+	err = socket.SendString("list\n")
 	if err != nil {
 		fmt.Println("Error listing servers")
-		return make(Servers), err
+		return servers, err
 	}
 
 	output, length := socket.Receive()
 	if length < 0 {
 		fmt.Println("Error receiving server list")
-		return make(Servers), errors.New("Failed to receive server list")
+		return servers, errors.New("Failed to receive server list")
 	}
 
 	// Collect the list of servers
-	servers := make(Servers)
 	for _, line := range strings.Split(output, "\n") {
 		if !strings.HasPrefix(line, "addserver") {
 			continue
@@ -136,29 +142,14 @@ func FetchServers(socket enet.Socket) (Servers, error) {
 			continue
 		}
 
-		servers[Address{host, port}] = Server{
-			address: nil,
-			Info:    make([]byte, 256),
-		}
-	}
-
-	// Resolve them to IPs
-	for address, server := range servers {
-		enetAddress := C.resolveServer(C.CString(address.Host), C.int(address.Port+1))
-		if enetAddress.host == C.ENET_HOST_ANY {
-			continue
-		}
-
-		server.address = &enetAddress
-		server.socket = C.initSocket()
-		servers[address] = server
+		servers = append(servers, Address{host, port})
 	}
 
 	return servers, nil
 }
 
-func (watcher *Watcher) UpdateServerList() {
-	newServers, err := FetchServers(watcher.masterSocket)
+func (watcher *Watcher) UpdateServerList(socket *enet.Socket) {
+	newServers, err := FetchServers(socket)
 	if err != nil {
 		fmt.Println("Failed to fetch servers")
 		return
@@ -168,19 +159,27 @@ func (watcher *Watcher) UpdateServerList() {
 	oldServers := watcher.servers
 	// We want to preserve the sockets from the old servers as
 	// pings may have arrived as this operation happened
-	for key, _ := range newServers {
-		if oldServer, exists := oldServers[key]; exists {
-			newServers[key] = oldServer
+	for _, key := range newServers {
+		if _, exists := oldServers[key]; !exists {
+			server := Server{
+				address: nil,
+				Info:    make([]byte, 256),
+			}
+
+			enetAddress := C.resolveServer(C.CString(key.Host), C.int(key.Port+1))
+			if enetAddress.host == C.ENET_HOST_ANY {
+				continue
+			}
+
+			server.address = &enetAddress
+			server.socket = C.initSocket()
+			oldServers[key] = server
 		}
 	}
 
-	// Also clean up old sockets if servers go away
-	for key, oldServer := range oldServers {
-		if _, exists := newServers[key]; !exists {
-			C.destroySocket(oldServer.socket)
-		}
-	}
-	watcher.servers = newServers
+	// TODO(cfoust): 03/31/22 Detect when a server goes away and remove its fd
+
+	watcher.servers = oldServers
 	watcher.serverMutex.Unlock()
 }
 
@@ -228,13 +227,12 @@ func (watcher *Watcher) Watch() error {
 	done := make(chan bool)
 
 	socket, err := enet.NewSocket("master.sauerbraten.org", 28787)
-	defer socket.DestroySocket()
 	if err != nil {
 		fmt.Println("Error creating socket")
 		return err
 	}
 
-	go watcher.UpdateServerList()
+	go watcher.UpdateServerList(socket)
 
 	// We update the list of servers every minute
 	serverListTicker := time.NewTicker(1 * time.Minute)
@@ -244,7 +242,7 @@ func (watcher *Watcher) Watch() error {
 			case <-done:
 				return
 			case <-serverListTicker.C:
-				go watcher.UpdateServerList()
+				go watcher.UpdateServerList(socket)
 
 			}
 		}
