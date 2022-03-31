@@ -15,37 +15,26 @@ MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.or
 
 Sauerbraten has a special place in my heart: it's fast to download, easy to pick up, and keeps you in the action with instant respawns. Despite playing lots of games over the course of my life I haven't really found anything that scratches the same itch.
 
-Some years ago I found [BananaBread](https://github.com/kripken/BananaBread), which was a basic tech demo that uses [Emscripten](https://emscripten.org/) to compile Sauerbraten for the web. The project was limited in scope and done at a time when bandwidth was a lot more precious. It also lacked multiplayer out of the box.
+Some years ago I came across [BananaBread](https://github.com/kripken/BananaBread), which was a basic tech demo that used [Emscripten](https://emscripten.org/) to compile Sauerbraten for the web. The project was limited in scope and done at a time when bandwidth was a lot more precious. It also lacked multiplayer out of the box.
 
 My goal was to ship an updated version of it in a single Docker image that I could deploy anywhere and play without forcing anyone to download the whole game. That's where `sour` comes in.
 
 ## Project goals
 
 The Sauerbraten community is small and it will probably always remain that way. There are a few main goals for this project:
-* Make it easier to play Sauerbraten. Web technologies and bandwidth have gotten to the point where it is practical and desirable to play Sauerbraten in the browser without forcing players to download a desktop client.
+* Make it easier to play Sauerbraten. Web technologies and bandwidth have gotten to the point where it is practical and desirable to play Sauerbraten in the browser.
 * Mimic the experience of playing the original game as closely as possible. While it is possible that Sour may someday support arbitrary game modes, assets, clients, and server code, the vanilla game experience should still be available.
 * Deployment of Sour on your own infrastructure with whatever configuration you like should be easy. Every aspect of Sour should be configurable.
 
 ## Running
 
 ```
-docker run --rm -it -p 1234:1234 -p 28785:28785 ghcr.io/cfoust/sour
+docker run --rm -it -p 1234:1234 ghcr.io/cfoust/sour
 ```
 
 You can then access Sour at `http://localhost:1234/`.
 
 **Note:** The public Docker image only ships with the `complex` and `xenon` maps for now. While Sour supports _all_ of Sauerbraten's maps, images that include all of them are very big. Your mileage may vary.
-
-The Sour container runs services on these ports when started:
-* `tcp:1234`: An nginx server that serves up the game client, compiled Sauerbraten binaries, and assets.
-* `tcp:28785`: This is the port the client connects to by default to reach the game server. This proxies WS connections to the container's UDP port `28786`.
-* `udp:28786`: A real [QServCollect](https://github.com/deathstar/QServCollect) server. Typically you don't expose this, but if you want to do crossplay (connect with real Sauerbraten) you absolutely can.
-
-Should you wish to change where the WebSocket service is hosted **you must also indicate that to the static site.** You can do this by providing an environment variable:
-
-```
-docker run --rm -it -p 1234:1234 -p 28785:28785 -e GAME_SERVER=wss://server.sourga.me ghcr.io/cfoust/sour
-```
 
 ## Deploying
 
@@ -56,6 +45,8 @@ If you wish to deploy Sour more seriously, I provide an example configuration fo
 Here is a high level description of the repository's directory structure:
 * `services/game/cube2`: A fork of [BananaBread](https://github.com/kripken/BananaBread), which was kripken's initial attempt at getting a version of Sauerbraten running using Emscripten. He forked Sauerbraten at the mainline [r4059](https://sourceforge.net/p/sauerbraten/code/4059), I upgraded to [r4349](https://sourceforge.net/p/sauerbraten/code/4349), then finally upgraded to the latest mainline at the time [r6519](https://sourceforge.net/p/sauerbraten/code/6519). My fork contains a handful of modifications and restrictions to make sure it can run well in the web.
 * `services/game/assets`: A checkout of Sauerbraten's `packages/` directory, which contains all of the game's default assets. This directory also includes Sour's asset bundling mechanism to generate prepackaged Emscripten file bundles for each game map.
+* `services/go/`: Contains a Go service that periodically fetches Sauerbraten server information from the master server, pings all of the available servers, and makes that information available to the web client.
+* `services/ingress/`: `nginx` configurations for development, production, and Gitpod.
 * `services/server/`: A fork of [QServCollect](https://github.com/deathstar/QServCollect), which is a dedicated Sauerbraten server.
 * `services/proxy/`: A fork of [wsproxy](https://github.com/FWGS/wsproxy) which I changed to only allow proxying from TCP `28785` to UDP `28786`. This was the quickest way I found to get client/server communication working, though presumably you could just do this in a Python script.
 * `services/client/`: A React web application that glues together the compiled Sauerbraten code and our asset fetching mechanism.
@@ -70,17 +61,18 @@ If you want to run things locally (some people are old fashioned that way) all y
 
 Check out the roadmap below to see what you might be able to help with.
 
-* [X] Better development experience with simple docker-compose setup
-* [X] Support easy Gitpod development workflow
+* [ ] Get all of the team-based game modes working
+  * [ ] Add CTF assets to the base game
+  * [ ] Fix the minimap
+* [ ] Add `<noscript>` with a plea to enable JavaScript
+* [ ] Ensure Sour works in Firefox
 * [ ] Better documentation on services, how to build assets, et cetera
 * [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Support all player models (right now it's just snout)
-* [ ] Add CTF assets to the base game
 * [ ] Explore running Sour in a Web Worker rather than the rendering thread
 * [ ] Investigate differences in font colors between the real Sauer and Sour
 * [ ] Make sure `getmap` and `sendmap` don't break the game server
 * [ ] Allow for players to create custom matches
-* [ ] Allow Sour to read from the real master server and connect to real Sauerbraten servers
 * [ ] Support saving and loading `.ogz` maps from the user's device
 * [ ] Upgrade the Emscripten version
 * [ ] Save demos for any game played to IndexedDB and allow for download
