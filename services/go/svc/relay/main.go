@@ -83,6 +83,13 @@ func (server *RelayServer) Subscribe(ctx context.Context, c *websocket.Conn) err
 	server.AddClient(client)
 	defer server.RemoveClient(client)
 
+	broadcast, err := server.BuildBroadcast()
+	if err != nil {
+		server.logf("%v", err)
+		return err
+	}
+	err = WriteTimeout(ctx, time.Second*5, c, broadcast)
+
 	for {
 		select {
 		case msg := <-client.send:
@@ -107,6 +114,28 @@ func (server *RelayServer) Broadcast(msg []byte) {
 			go client.closeSlow()
 		}
 	}
+}
+
+func (server *RelayServer) BuildBroadcast() ([]byte, error) {
+	servers := server.serverWatcher.Get()
+	serverArray := make([]AggregatedServer, len(servers))
+	index := 0
+	for key, server := range servers {
+		serverArray[index] = AggregatedServer{
+			Host:   key.Host,
+			Port:   key.Port,
+			Info:   server.Info,
+			Length: server.Length,
+		}
+		index++
+	}
+
+	bytes, err := cbor.Marshal(serverArray)
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes, nil
 }
 
 // addSubscriber registers a subscriber.
@@ -156,25 +185,14 @@ func main() {
 			case <-broadcastChannel:
 				return
 			case <-broadcastTicker.C:
-				servers := serverWatcher.Get()
+				bytes, err := server.BuildBroadcast()
 
-				serverArray := make([]AggregatedServer, len(servers))
-				index := 0
-				for key, server := range servers {
-					serverArray[index] = AggregatedServer{
-						Host:   key.Host,
-						Port:   key.Port,
-						Info:   server.Info,
-						Length: server.Length,
-					}
-					index++
-				}
-
-				bytes, err := cbor.Marshal(serverArray)
 				if err != nil {
 					server.logf("%v", err)
 					return
 				}
+
+
 				server.Broadcast(bytes)
 			}
 		}

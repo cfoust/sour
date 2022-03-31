@@ -170,6 +170,7 @@ function App() {
         setState({
           type: GameStateType.Ready,
         })
+        Module.onGameReady()
       }
 
       // Randomly assign a new name if the user joins without one
@@ -249,16 +250,8 @@ function App() {
       `${protocol === 'https:' ? 'wss://' : 'ws:/'}${host}/service/relay/`
     )
     ws.binaryType = 'arraybuffer'
-    ws.onmessage = (evt) => {
-      const servers = CBOR.decode(evt.data)
 
-      if (
-        BananaBread == null ||
-        BananaBread.execute == null ||
-        BananaBread.injectServer == null
-      )
-        return
-
+    const injectServers = (servers: any) => {
       R.map((server) => {
         const { Host, Port, Info, Length } = server
 
@@ -276,6 +269,27 @@ function App() {
         Module._free(pointer)
       }, servers)
       BananaBread.execute('sortservers')
+    }
+
+    let cachedServers: Maybe<any> = null
+    Module.onGameReady = () => {
+      if (cachedServers == null) return
+      injectServers(cachedServers)
+    }
+
+    ws.onmessage = (evt) => {
+      const servers = CBOR.decode(evt.data)
+
+      if (
+        BananaBread == null ||
+        BananaBread.execute == null ||
+        BananaBread.injectServer == null
+      ) {
+        cachedServers = servers
+        return
+      }
+
+      injectServers(servers)
     }
   }, [])
 
