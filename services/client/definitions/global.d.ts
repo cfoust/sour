@@ -22,6 +22,7 @@ type ModuleType = {
   postLoadWorld: () => void
   postRun: Array<() => void>
   preInit: Array<() => void>
+  onGameReady: () => void
   print: (text: string) => void
   registerNode: (node: PreloadNode) => void
   removeRunDependency: (file: string) => void

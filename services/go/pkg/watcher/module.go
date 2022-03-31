@@ -103,8 +103,9 @@ func NewWatcher() *Watcher {
 	return watcher
 }
 
-func FetchServers(socket *enet.Socket) ([]Address, error) {
+func FetchServers() ([]Address, error) {
 	var servers []Address
+
 	socket, err := enet.NewSocket("master.sauerbraten.org", 28787)
 	defer socket.DestroySocket()
 	if err != nil {
@@ -148,8 +149,8 @@ func FetchServers(socket *enet.Socket) ([]Address, error) {
 	return servers, nil
 }
 
-func (watcher *Watcher) UpdateServerList(socket *enet.Socket) {
-	newServers, err := FetchServers(socket)
+func (watcher *Watcher) UpdateServerList() {
+	newServers, err := FetchServers()
 	if err != nil {
 		fmt.Println("Failed to fetch servers")
 		return
@@ -226,13 +227,7 @@ func (watcher *Watcher) Get() Servers {
 func (watcher *Watcher) Watch() error {
 	done := make(chan bool)
 
-	socket, err := enet.NewSocket("master.sauerbraten.org", 28787)
-	if err != nil {
-		fmt.Println("Error creating socket")
-		return err
-	}
-
-	go watcher.UpdateServerList(socket)
+	go watcher.UpdateServerList()
 
 	// We update the list of servers every minute
 	serverListTicker := time.NewTicker(1 * time.Minute)
@@ -242,7 +237,7 @@ func (watcher *Watcher) Watch() error {
 			case <-done:
 				return
 			case <-serverListTicker.C:
-				go watcher.UpdateServerList(socket)
+				go watcher.UpdateServerList()
 
 			}
 		}
