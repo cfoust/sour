@@ -339,6 +339,14 @@ packages/models/debris/debris04/tris.md2
 packages/models/debris/masks.jpg
 packages/models/debris/md2.cfg
 packages/models/debris/skin.jpg
+packages/models/flags/blue/skin.jpg
+packages/models/flags/license.txt
+packages/models/flags/masks.jpg
+packages/models/flags/md2.cfg
+packages/models/flags/neutral
+packages/models/flags/neutral/skin.jpg
+packages/models/flags/red/skin.jpg
+packages/models/flags/tris.md2
 packages/models/gibs/gib01/masks.jpg
 packages/models/gibs/gib01/masks.png
 packages/models/gibs/gib01/md2.cfg
@@ -816,6 +824,11 @@ packages/sounds/blindabuser/quad_damage.wav
 packages/sounds/blindabuser/quad_damage_in_10_seconds
 packages/sounds/blindabuser/quad_damage_in_10_seconds.ogg
 packages/sounds/blindabuser/quad_damage_in_10_seconds.wav
+packages/sounds/ctf/flagdrop.wav
+packages/sounds/ctf/flagfail.wav
+packages/sounds/ctf/flagpickup.wav
+packages/sounds/ctf/flagreturn.wav
+packages/sounds/ctf/flagscore.wav
 packages/sounds/free/acid5
 packages/sounds/free/acid5.wav
 packages/sounds/free/acid6
