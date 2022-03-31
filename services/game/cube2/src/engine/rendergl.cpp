@@ -1706,6 +1706,7 @@ void clipminimap(ivec &bbmin, ivec &bbmax, cube *c = worldroot, const ivec &co =
 
 void drawminimap()
 {
+    conoutf(CON_INIT, "drawminimap");
     if(!game::needminimap()) { clearminimap(); return; }
 
     renderprogress(0, "generating mini-map...", 0, !renderedframe);
@@ -1802,13 +1803,14 @@ void drawminimap()
     drawtex = 0;
 
     glBindTexture(GL_TEXTURE_2D, minimaptex);
-    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5, 0, 0, size, size, 0);
-    setuptexparameters(minimaptex, NULL, 3, 1, GL_RGB5, GL_TEXTURE_2D);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    GLfloat border[4] = { minimapcolor.x/255.0f, minimapcolor.y/255.0f, minimapcolor.z/255.0f, 1.0f };
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);
+    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 0, 0, size, size, 0);
+    setuptexparameters(minimaptex, NULL, 3, 1, GL_RGB, GL_TEXTURE_2D);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    //GLfloat border[4] = { minimapcolor.x/255.0f, minimapcolor.y/255.0f, minimapcolor.z/255.0f, 1.0f };
+    //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);
     glBindTexture(GL_TEXTURE_2D, 0);
+    conoutf(CON_INIT, "drawminimap end");
 }
 
 bool deferdrawtextures = false;
