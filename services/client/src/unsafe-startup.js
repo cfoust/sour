@@ -16,17 +16,17 @@ export default function start() {
     setPlayerModels: function () {
       BananaBread.setPlayerModelInfo(
         'snoutx10k',
-        'snoutx10k',
-        'snoutx10k',
+        'snoutx10k/blue',
+        'snoutx10k/red',
         'snoutx10k/hudguns',
         0,
-        0,
-        0,
-        0,
-        0,
+        'snoutx10k/wings',
+        'snoutx10k/armor/blue',
+        'snoutx10k/armor/green',
+        'snoutx10k/armor/yellow',
         'snoutx10k',
-        'snoutx10k',
-        'snoutx10k',
+        'snoutx10k_blue',
+        'snoutx10k_red',
         true
       )
     },
