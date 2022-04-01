@@ -61,10 +61,10 @@ If you want to run things locally (some people are old fashioned that way) all y
 
 Check out the roadmap below to see what you might be able to help with.
 
-* [ ] Get all of the team-based game modes working
+* [X] Get all of the team-based game modes working
   * [X] Add CTF assets to the base game
   * [X] Fix the minimap
-  * [ ] Figure out why the snout skin is only rendering as green
+  * [X] Figure out why the snout skin is only rendering as green
 * [ ] Repair or port shaders that were disabled in the game upgrade
   * [ ] Fix the water shader so it works again
   * [ ] Fix the outline shader (pressing 7 in edit mode)
