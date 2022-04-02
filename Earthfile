@@ -31,7 +31,7 @@ relay:
     SAVE ARTIFACT relay AS LOCAL "earthly/relay"
 
 emscripten:
-    FROM emscripten/emsdk:1.39.20
+    FROM emscripten/emsdk:3.1.8
     RUN apt-get update && apt-get install -y inotify-tools imagemagick
     SAVE IMAGE sour:emscripten
 
