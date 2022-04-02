@@ -1706,7 +1706,7 @@ void clipminimap(ivec &bbmin, ivec &bbmax, cube *c = worldroot, const ivec &co =
 
 void drawminimap()
 {
-    conoutf(CON_INIT, "drawminimap");
+    //conoutf(CON_INIT, "drawminimap");
     if(!game::needminimap()) { clearminimap(); return; }
 
     renderprogress(0, "generating mini-map...", 0, !renderedframe);
@@ -1810,7 +1810,7 @@ void drawminimap()
     //GLfloat border[4] = { minimapcolor.x/255.0f, minimapcolor.y/255.0f, minimapcolor.z/255.0f, 1.0f };
     //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);
     glBindTexture(GL_TEXTURE_2D, 0);
-    conoutf(CON_INIT, "drawminimap end");
+    //conoutf(CON_INIT, "drawminimap end");
 }
 
 bool deferdrawtextures = false;
