@@ -25,15 +25,20 @@ package_files() {
 
   echo "Packaging $HASH.$target.data"
 
+	found_files=""
+
 	# Preprocess the files
 	for infile in $files; do
     outfile="$target_dir/$infile"
     extension="${infile##*.}"
-    size=$(wc -c "$infile" | cut -f1 -d' ')
 
-    if ! [ -f "$infile" ]; then
+    if ! [ -f "$infile" ] || [ -d "$infile" ]; then
       continue
     fi
+
+    size=$(wc -c "$infile" | cut -f1 -d' ')
+
+		found_files+="$infile "
 
     mkdir -p "$(dirname "$outfile")"
 
@@ -63,7 +68,7 @@ package_files() {
   python3 "$EMSDK_DIR/upstream/emscripten/tools/file_packager.py" \
 					"$OUTPUT_DIR/$HASH.$target.data" \
 					--use-preload-plugins \
-					--preload $files > "$js_target"
+					--preload $found_files > "$js_target"
 
   # Insert our _free() hack
   sed -i '/getMemory/a Module["registerNode"]({ name: REMOTE_PACKAGE_BASE, pointer: ptr, files: metadata["files"] });' "$js_target"
