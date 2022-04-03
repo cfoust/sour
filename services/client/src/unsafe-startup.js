@@ -30,10 +30,7 @@ export default function start() {
         true
       )
     },
-    tweakDetail: () => {
-      BananaBread.execute('fog 10000') // disable fog
-      BananaBread.execute('maxdebris 10')
-    },
+    tweakDetail: () => {},
     loadDefaultMap: () => {
       const { innerWidth: width, innerHeight: height } = window
       Module.setCanvasSize(width, height)

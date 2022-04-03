@@ -70,7 +70,7 @@ Check out the roadmap below to see what you might be able to help with.
   * [X] Fix the water shader so it works again
   * [ ] Fix the outline shader (pressing 7 in edit mode)
 * [ ] Support saving and loading `.ogz` maps from the user's device
-* [ ] Make sure `getmap` and `sendmap` don't break the game server
+* [X] Make sure `getmap` and `sendmap` don't break the game server
 * [ ] Make a cleaner start page that shows the progress for downloading the initial game package
 * [ ] Better documentation
   * [ ] Create a README for each directory in `services/`

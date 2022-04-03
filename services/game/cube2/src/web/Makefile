@@ -181,7 +181,7 @@ client.o:	libenet $(CLIENT_OBJS)
 TOTAL_MEMORY = 301989888 # May need to adjust this for very large levels
 
 client: client.o
-	cd .. ; cd .. ; $(CXX) $(CXXFLAGS) -s USE_WEBGL2=1 -s FULL_ES3=1 src/web/client.o -o sauerbraten.js -lidbfs.js -s DISABLE_EXCEPTION_CATCHING=1 -s EXPORTED_FUNCTIONS="['_free','_main', '__Z12injectserverPciPhi', '__ZN4game18setplayermodelinfoEPKcS1_S1_S1_S1_S1_S1_S1_S1_S1_S1_S1_b', '__Z14renderprogressfPKcjb', '__Z7executePKc', '__Z10executestrPKc', '_setforcecamera', '_bb_splash', '_bb_playsoundname']" src/web/enet/libenet.a -s TOTAL_MEMORY=$(TOTAL_MEMORY) -Oz -s NO_EXIT_RUNTIME=1 -s FORCE_FILESYSTEM=1 -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["cwrap"]' --profiling -s ERROR_ON_UNDEFINED_SYMBOLS=0 # --closure 1 -s IGNORE_CLOSURE_COMPILER_ERRORS=1
+	cd .. ; cd .. ; $(CXX) $(CXXFLAGS) -s USE_WEBGL2=1 -s FULL_ES3=1 src/web/client.o -o sauerbraten.js -lidbfs.js -s DISABLE_EXCEPTION_CATCHING=1 -s EXPORTED_FUNCTIONS="['_free','_main', '__Z12injectserverPciPhi', '__ZN4game18setplayermodelinfoEPKcS1_S1_S1_S1_S1_S1_S1_S1_S1_S1_S1_b', '__Z14renderprogressfPKcjb', '__Z7executePKc', '__Z10executestrPKc', '_setforcecamera', '_bb_splash', '_bb_playsoundname', '__Z17really_load_worldPKcS0_']" src/web/enet/libenet.a -s TOTAL_MEMORY=$(TOTAL_MEMORY) -Oz -s NO_EXIT_RUNTIME=1 -s FORCE_FILESYSTEM=1 -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["cwrap"]' --profiling -s ERROR_ON_UNDEFINED_SYMBOLS=0 # --closure 1 -s IGNORE_CLOSURE_COMPILER_ERRORS=1
 
 server.bc:	libenet $(SERVER_OBJS)
 	$(CXX) $(CXXFLAGS) -o server.bc $(SERVER_OBJS) $(SERVER_LIBS)  
