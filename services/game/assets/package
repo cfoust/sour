@@ -72,7 +72,7 @@ package_files() {
 					--preload $found_files > "$js_target"
 
   # Insert our _free() hack
-	sed -i '/getMemory/a Module["registerNode"]({ name: REMOTE_PACKAGE_BASE, pointer: ptr, files: metadata["files"] });' "$js_target"
+	sed -i '/var files/a Module["registerNode"]({ name: REMOTE_PACKAGE_BASE, files: metadata["files"] });' "$js_target"
   cd "$SCRIPT_DIR"
 }
 
