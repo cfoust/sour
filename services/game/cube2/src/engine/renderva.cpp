@@ -631,7 +631,9 @@ void renderoutline()
 
     gle::enablevertex();
 
+#if !__EMSCRIPTEN__
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
     gle::color(vec::hexcolor(outlinecolour));
 
     enablepolygonoffset(GL_POLYGON_OFFSET_LINE);
@@ -670,7 +672,9 @@ void renderoutline()
 
     disablepolygonoffset(GL_POLYGON_OFFSET_LINE);
 
+#if !__EMSCRIPTEN__
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
 
     gle::clearvbo();
     gle::clearebo();
