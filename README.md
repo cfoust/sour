@@ -65,6 +65,7 @@ Check out the roadmap below to see what you might be able to help with.
   * [X] Add CTF assets to the base game
   * [X] Fix the minimap
   * [X] Figure out why the snout skin is only rendering as green
+* [X] Upgrade the Emscripten version to the latest
 * [ ] Repair or port shaders that were disabled in the game upgrade
   * [ ] Fix the water shader so it works again
   * [ ] Fix the outline shader (pressing 7 in edit mode)
@@ -85,7 +86,6 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Investigate differences in font colors between the real Sauer and Sour
 * [ ] Demo player with seek/play/pause
   * [ ] Stretch goal: generate gifs in the browser
-* [ ] Upgrade the Emscripten version
 * [ ] Create archive of _all_ uploads to Quadropolis
 
 ## License
