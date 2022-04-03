@@ -90,7 +90,7 @@ package_map() {
 }
 
 maps=$(find packages/base/ -name '*.ogz')
-maps="packages/base/complex.ogz"
+maps="packages/base/complex.ogz packages/base/dust2.ogz"
 
 for map in $maps; do
   mapfile=$(basename -s .ogz "$map")
