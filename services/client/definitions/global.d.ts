@@ -6,7 +6,6 @@ type PreloadFile = {
 }
 type PreloadNode = {
   name: string
-  pointer: number
   files: PreloadFile[]
 }
 

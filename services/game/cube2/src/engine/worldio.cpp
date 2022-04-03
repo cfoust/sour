@@ -1045,11 +1045,19 @@ bool really_load_world(const char *mname, const char *cname)        // still sup
     int &loadingstart = load_world_loadingstart;
     loadingstart = SDL_GetTicks();
     setmapfilenames(mname, cname);
-#if __EMSCRIPTEN__ // we gunzip the ogz file in parallel during preloading, to speed this up
-    stream *f = openrawfile(ogzname, "rb");
-#else
-    stream *f = opengzfile(ogzname, "rb");
-#endif
+
+    // If there's a stub file, it means that we've generated Sour data for this map
+    // If there's not, we just open it like any other map
+	static string s;
+	formatstring(s, "packages/base/%s.stub", mname);
+	stream *f = NULL;
+	if (!fileexists(s, "r")) {
+		f = opengzfile(ogzname, "rb");
+	} else {
+        // We gunzip the OGZ file in parallel during preloading, to speed this up
+		f = openrawfile(ogzname, "rb");
+	}
+
     load_world_f = f;
     if(!f) { conoutf(CON_ERROR, "could not read map %s", ogzname); return false; }
     octaheader &hdr = load_world_hdr;
