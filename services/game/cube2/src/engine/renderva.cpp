@@ -238,7 +238,9 @@ struct queryframe
         if(cur >= max)
         {
             if(max >= MAXQUERY) return NULL;
+#if !__EMSCRIPTEN__
             glGenQueries_(1, &queries[max++].id);
+#endif
         }
         occludequery *query = &queries[cur++];
         query->owner = owner;
@@ -252,7 +254,9 @@ struct queryframe
     {
         loopi(max)
         {
+#if !__EMSCRIPTEN__
             glDeleteQueries_(1, &queries[i].id);
+#endif
             queries[i].owner = NULL;
         }
         cur = max = 0;

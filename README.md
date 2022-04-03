@@ -67,7 +67,7 @@ Check out the roadmap below to see what you might be able to help with.
   * [X] Figure out why the snout skin is only rendering as green
 * [X] Upgrade the Emscripten version to the latest
 * [ ] Repair or port shaders that were disabled in the game upgrade
-  * [ ] Fix the water shader so it works again
+  * [X] Fix the water shader so it works again
   * [ ] Fix the outline shader (pressing 7 in edit mode)
 * [ ] Support saving and loading `.ogz` maps from the user's device
 * [ ] Make sure `getmap` and `sendmap` don't break the game server

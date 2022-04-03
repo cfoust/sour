@@ -1935,9 +1935,7 @@ void gl_drawframe()
     extern int outline;
     if(!wireframe && editmode && outline) renderoutline();
 
-#if !__EMSCRIPTEN__
     queryreflections();
-#endif
 
     generategrass();
 

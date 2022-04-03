@@ -1,7 +1,12 @@
 #include "engine.h"
 
+#if __EMSCRIPTEN__
+VARFP(waterreflect, 0, 0, 0, { cleanreflections(); preloadwatershaders(); });
+VARFP(waterrefract, 0, 0, 0, { cleanreflections(); preloadwatershaders(); });
+#else
 VARFP(waterreflect, 0, 1, 1, { cleanreflections(); preloadwatershaders(); });
 VARFP(waterrefract, 0, 1, 1, { cleanreflections(); preloadwatershaders(); });
+#endif
 VARFP(waterenvmap, 0, 1, 1, { cleanreflections(); preloadwatershaders(); });
 VARFP(waterfallrefract, 0, 0, 1, { cleanreflections(); preloadwatershaders(); });
 
@@ -351,7 +356,9 @@ void preloadwatershaders(bool force)
 void renderwater()
 {
     if(editmode && showmat && !drawtex) return;
+#if !__EMSCRIPTEN__
     if(!rplanes) return;
+#endif
 
     glDisable(GL_CULL_FACE);
 
