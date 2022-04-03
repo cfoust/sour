@@ -2032,13 +2032,22 @@ namespace game
                 defformatstring(fname, "packages/base/%s.ogz", mname);
                 stream *map = openrawfile(path(fname), "wb");
                 if(!map) return;
-                conoutf("received map");
                 ucharbuf b = p.subbuf(p.remaining());
                 map->write(b.buf, b.maxlen);
                 delete map;
-                if(load_world(mname, oldname[0] ? oldname : NULL))
-                    entities::spawnitems(true);
+
+#if __EMSCRIPTEN__
+				if (oldname[0]) {
+					conoutf("received map %s %s", mname, oldname);
+				} else {
+					conoutf("received map %s", mname);
+				}
+#else
+				if(really_load_world(mname, oldname[0] ? oldname : NULL))
+					entities::spawnitems(true);
+				// Doesn't matter in Emscripten since FS is in-memory anyway
                 remove(findfile(fname, "rb"));
+#endif
                 break;
             }
         }

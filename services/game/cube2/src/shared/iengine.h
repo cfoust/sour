@@ -365,6 +365,10 @@ enum
 extern void adddecal(int type, const vec &center, const vec &surface, float radius, const bvec &color = bvec(0xFF, 0xFF, 0xFF), int info = 0);
 
 // worldio
+#if __EMSCRIPTEN__
+// Separate in Emscripten because of how async world loading works
+extern bool really_load_world(const char *mname, const char *cname = NULL);
+#endif
 extern bool load_world(const char *mname, const char *cname = NULL);
 extern bool save_world(const char *mname, bool nolms = false);
 extern void fixmapname(char *name);

@@ -42,6 +42,7 @@ declare const GAME_SERVER: string
 
 type BananaBreadType = {
   execute: (command: string) => void
+  loadWorld: (map: string, cmap?: string) => void
   renderprogress: (progress: number, text: string) => void
   injectServer: (
     host: string,

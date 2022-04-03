@@ -110,6 +110,8 @@ function App() {
     let nodes: PreloadNode[] = []
     let lastMap: Maybe<string> = null
     let haveStarted: boolean = false
+    let loadingMap: Maybe<string> = null
+    let targetMap: Maybe<string> = null
 
     Module.registerNode = (node) => {
       nodes.push(node)
@@ -154,9 +156,63 @@ function App() {
     }
 
     Module.postLoadWorld = function () {
-      Module.tweakDetail()
       BananaBread.execute('spawnitems')
-      BananaBread.execute('clearconsole')
+    }
+
+    const loadMapData = (map: string) => {
+      if (loadingMap === map) return
+      loadingMap = map
+      const need = ['base', map]
+
+      // Clear out all of the old map files
+      const [have, dontNeed] = R.partition(
+        ({ name }) => need.includes(getBaseName(name)),
+        nodes
+      )
+      for (const node of dontNeed) {
+        for (const file of node.files) {
+          try {
+            FS.unlink(file.filename)
+          } catch (e) {
+            console.error(`Failed to remove old map file: ${file}`)
+          }
+        }
+
+        nodes = nodes.filter(({ name }) => name !== node.name)
+      }
+
+      const dontHave = R.filter(
+        (base) =>
+          R.find(({ name }) => name.endsWith(getDataName(base)), nodes) == null,
+        need
+      )
+
+      const loadMap = () => {
+        setTimeout(() => {
+          loadingMap = null
+          if (targetMap == null) {
+            BananaBread.loadWorld(map)
+          } else {
+            BananaBread.loadWorld(targetMap, map)
+            targetMap = null
+          }
+        }, 1000)
+      }
+
+      if (dontHave.length === 0) {
+        loadMap()
+        return
+      }
+
+      loadData(map)
+
+      removeSubscribers.push((file) => {
+        if (!file.endsWith(`${map}.data`)) return false
+
+        loadMap()
+
+        return true
+      })
     }
 
     Module.print = (text) => {
@@ -173,60 +229,29 @@ function App() {
         Module.onGameReady()
       }
 
+      if (text === 'connected to server') {
+        targetMap = null
+      }
+
       // Randomly assign a new name if the user joins without one
       if (text === 'setting name to: unnamed') {
         const name = NAMES[Math.floor(Math.random() * NAMES.length)]
         BananaBread.execute(`name ${name}`)
       }
 
+      if (text.startsWith('received map')) {
+        const [, , map, oldMap] = text.split(' ')
+        if (oldMap != null && !oldMap.startsWith('getmap_')) {
+          targetMap = map
+          loadMapData(oldMap)
+        } else {
+          BananaBread.loadWorld(map)
+        }
+      }
+
       if (text.startsWith('load data for world: ')) {
         const map = text.split(': ')[1]
-
-        // Clear out all of the old map files
-        const need = ['base', map]
-        const [have, dontNeed] = R.partition(
-          ({ name }) => need.includes(getBaseName(name)),
-          nodes
-        )
-        for (const node of dontNeed) {
-          for (const file of node.files) {
-            try {
-              FS.unlink(file.filename)
-            } catch (e) {
-              console.error(`Failed to remove old map file: ${file}`)
-            }
-          }
-
-          nodes = nodes.filter(({ name }) => name !== node.name)
-        }
-
-        const dontHave = R.filter(
-          (base) =>
-            R.find(({ name }) => name.endsWith(getDataName(base)), nodes) ==
-            null,
-          need
-        )
-
-        const loadMap = () => {
-          setTimeout(() => {
-            BananaBread.execute(`reallyloadworld ${map}`)
-          }, 1000)
-        }
-
-        if (dontHave.length === 0) {
-          loadMap()
-          return
-        }
-
-        loadData(map)
-
-        removeSubscribers.push((file) => {
-          if (!file.endsWith(`${map}.data`)) return false
-
-          loadMap()
-
-          return true
-        })
+        loadMapData(map)
       }
 
       console.log(text)
