@@ -1924,7 +1924,9 @@ void gl_drawframe()
 
     glClear(GL_DEPTH_BUFFER_BIT|(wireframe && editmode ? GL_COLOR_BUFFER_BIT : 0));
 
+#if !__EMSCRIPTEN__
     if(wireframe && editmode) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
 
     if(limitsky()) drawskybox(farplane, true);
 
@@ -1948,13 +1950,17 @@ void gl_drawframe()
     rendergame(true);
     renderavatar();
 
+#if !__EMSCRIPTEN__
     if(wireframe && editmode) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
 
     drawglaretex();
     drawdepthfxtex();
     drawreflections();
 
+#if !__EMSCRIPTEN__
     if(wireframe && editmode) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
 
     renderwater();
     rendergrass();
@@ -1962,7 +1968,9 @@ void gl_drawframe()
     rendermaterials();
     renderalphageom();
 
+#if !__EMSCRIPTEN__
     if(wireframe && editmode) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
 
     renderparticles(true);
 
