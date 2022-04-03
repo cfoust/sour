@@ -197,7 +197,6 @@ function App() {
             }
           }
 
-          Module._free(node.pointer)
           nodes = nodes.filter(({ name }) => name !== node.name)
         }
 
