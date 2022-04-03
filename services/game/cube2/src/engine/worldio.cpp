@@ -1045,10 +1045,17 @@ bool really_load_world(const char *mname, const char *cname)        // still sup
     int &loadingstart = load_world_loadingstart;
     loadingstart = SDL_GetTicks();
     setmapfilenames(mname, cname);
+
+	static string s;
+	formatstring(s, "packages/base/%s.stub", mname);
+	stream *f = NULL;
+	if (!fileexists(s, "r")) {
+		f = opengzfile(ogzname, "rb");
+	} else {
+		f = openrawfile(ogzname, "rb");
+	}
 #if __EMSCRIPTEN__ // we gunzip the ogz file in parallel during preloading, to speed this up
-    stream *f = openrawfile(ogzname, "rb");
 #else
-    stream *f = opengzfile(ogzname, "rb");
 #endif
     load_world_f = f;
     if(!f) { conoutf(CON_ERROR, "could not read map %s", ogzname); return false; }
