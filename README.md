@@ -71,12 +71,13 @@ Check out the roadmap below to see what you might be able to help with.
   * [ ] Fix the outline shader (pressing 7 in edit mode)
 * [ ] Support saving and loading `.ogz` maps from the user's device
 * [X] Make sure `getmap` and `sendmap` don't break the game server
-* [ ] Make a cleaner start page that shows the progress for downloading the initial game package
+* [ ] Asset caching mechanism that does not use [Emscripten's IndexedDB](https://github.com/emscripten-core/emscripten/blob/main/tools/file_packager.py#L42) because IndexedDB blocks the main thread pretty bad
 * [ ] Better documentation
   * [ ] Create a README for each directory in `services/`
   * [ ] Describe how asset generation works
 * [ ] Save demos for any game played to IndexedDB and allow for download
 * [ ] Update the URL to the current server on join eg `sourga.me/server/127.0.0.1:28785`
+* [ ] Clean loading page for slow connections (ensure page load time isn't horrible)
 * [ ] Allow players to create private servers with simple join links eg `sourga.me/server/ABCD`
 * [ ] Support all player models (right now it's just snout)
 * [ ] Add `<noscript>` with a plea to enable JavaScript
@@ -86,6 +87,8 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Investigate differences in font colors between the real Sauer and Sour
 * [ ] Demo player with seek/play/pause
   * [ ] Stretch goal: generate gifs in the browser
+* [ ] Modern, beautiful main menu
+* [ ] 1v1 duel server + rankings?
 * [ ] Create archive of _all_ uploads to Quadropolis
 
 ## License
