@@ -84,6 +84,7 @@ function loadData(name: string) {
 }
 
 const MAIN_LOOP_REGEX = /main loop blocker "(\w+)" took 1 ms/
+const CONNECTED_REGEX = /connected to server \(([\w\d.]+)?:(\d+)\)/
 
 const handleBlocker = (text: string, handler: (func: string) => void) => {
   const result = MAIN_LOOP_REGEX.exec(text)
@@ -91,6 +92,12 @@ const handleBlocker = (text: string, handler: (func: string) => void) => {
   const [, func] = result
   handler(func)
 }
+
+const pushURLState = (url: string) => {
+  window.history.pushState({}, '', url)
+}
+
+const clearURLState = () => pushURLState('/')
 
 enum NodeType {
   Game,
@@ -236,8 +243,19 @@ function App() {
         Module.onGameReady()
       }
 
-      if (text === 'connected to server') {
+      if (text.startsWith('connected to server')) {
         targetMap = null
+        const result = CONNECTED_REGEX.exec(text)
+        if (result == null) {
+          return
+        }
+        const [, host, port] = result
+        pushURLState(`/server/${host == null ? 'sour' : host}/${port}`)
+        return
+      }
+
+      if (text === 'disconnected') {
+        clearURLState()
       }
 
       // Randomly assign a new name if the user joins without one

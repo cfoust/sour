@@ -90,9 +90,9 @@ void connectserv(const char *servername, int serverport, const char *serverpassw
 
     if(servername)
     {
+		if(strcmp(servername, connectname)) setsvar("connectname", servername);
+		if(serverport != connectport) setvar("connectport", serverport);
 #if !__EMSCRIPTEN__
-        if(strcmp(servername, connectname)) setsvar("connectname", servername);
-        if(serverport != connectport) setvar("connectport", serverport);
         addserver(servername, serverport, serverpassword && serverpassword[0] ? serverpassword : NULL);
         conoutf("attempting to connect to %s:%d", servername, serverport);
         if(!resolverwait(servername, &address))
@@ -251,7 +251,7 @@ void gets2c()           // get updates from the server
             localdisconnect(false);
             curpeer = connpeer;
             connpeer = NULL;
-            conoutf("connected to server");
+            conoutf("connected to server (%s:%d)", connectname, connectport);
             throttle();
             if(rate) setrate(rate);
             game::gameconnect(true);
