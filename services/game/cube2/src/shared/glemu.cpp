@@ -321,9 +321,7 @@ namespace gle
             {
                 multidraw();
                 if(start) loopv(multidrawstart) multidrawstart[i] += start;
-#if !__EMSCRIPTEN__
                 glMultiDrawArrays_(primtype, multidrawstart.getbuf(), multidrawcount.getbuf(), multidrawstart.length());
-#endif
                 multidrawstart.setsize(0);
                 multidrawcount.setsize(0);
             }
