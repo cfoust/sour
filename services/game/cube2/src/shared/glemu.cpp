@@ -229,7 +229,11 @@ namespace gle
                 vbooffset = 0;
             }
             else if(!lastvertexsize) glBindBuffer_(GL_ARRAY_BUFFER, vbo);
+#if __EMSCRIPTEN__
+            void *buf = glMapBufferRange_(GL_ARRAY_BUFFER, vbooffset, len, GL_MAP_WRITE_BIT|GL_MAP_INVALIDATE_BUFFER_BIT);
+#else
             void *buf = glMapBufferRange_(GL_ARRAY_BUFFER, vbooffset, len, GL_MAP_WRITE_BIT|GL_MAP_INVALIDATE_RANGE_BIT|GL_MAP_UNSYNCHRONIZED_BIT);
+#endif
             if(buf) attribbuf.reset((uchar *)buf, len);
         }
     }
