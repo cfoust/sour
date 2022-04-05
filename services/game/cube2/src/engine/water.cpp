@@ -3,12 +3,14 @@
 #if __EMSCRIPTEN__
 VARFP(waterreflect, 0, 0, 0, { cleanreflections(); preloadwatershaders(); });
 VARFP(waterrefract, 0, 0, 0, { cleanreflections(); preloadwatershaders(); });
+VARFP(waterenvmap, 0, 0, 0, { cleanreflections(); preloadwatershaders(); });
+VARFP(waterfallrefract, 0, 0, 0, { cleanreflections(); preloadwatershaders(); });
 #else
 VARFP(waterreflect, 0, 1, 1, { cleanreflections(); preloadwatershaders(); });
 VARFP(waterrefract, 0, 1, 1, { cleanreflections(); preloadwatershaders(); });
-#endif
 VARFP(waterenvmap, 0, 1, 1, { cleanreflections(); preloadwatershaders(); });
 VARFP(waterfallrefract, 0, 0, 1, { cleanreflections(); preloadwatershaders(); });
+#endif
 
 /* vertex water */
 VARP(watersubdiv, 0, 2, 3);
