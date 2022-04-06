@@ -229,7 +229,11 @@ namespace gle
                 vbooffset = 0;
             }
             else if(!lastvertexsize) glBindBuffer_(GL_ARRAY_BUFFER, vbo);
+#if __EMSCRIPTEN__
+            void *buf = glMapBufferRange_(GL_ARRAY_BUFFER, vbooffset, len, GL_MAP_WRITE_BIT|GL_MAP_INVALIDATE_BUFFER_BIT);
+#else
             void *buf = glMapBufferRange_(GL_ARRAY_BUFFER, vbooffset, len, GL_MAP_WRITE_BIT|GL_MAP_INVALIDATE_RANGE_BIT|GL_MAP_UNSYNCHRONIZED_BIT);
+#endif
             if(buf) attribbuf.reset((uchar *)buf, len);
         }
     }
@@ -317,8 +321,14 @@ namespace gle
             {
                 multidraw();
                 if(start) loopv(multidrawstart) multidrawstart[i] += start;
-#if !__EMSCRIPTEN__
-                glMultiDrawArrays_(primtype, multidrawstart.getbuf(), multidrawcount.getbuf(), multidrawstart.length());
+
+#if __EMSCRIPTEN__
+				// Emscripten does not support glMultiDrawArrays_
+				loopi(multidrawstart.length()) {
+					glDrawArrays(primtype, multidrawstart[i], multidrawcount[i]);
+				}
+#else
+				glMultiDrawArrays_(primtype, multidrawstart.getbuf(), multidrawcount.getbuf(), multidrawstart.length());
 #endif
                 multidrawstart.setsize(0);
                 multidrawcount.setsize(0);
