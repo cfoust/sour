@@ -23,7 +23,7 @@ tasks:
 
   - name: Client
     init: cd services/client && yarn install
-    command: ./services/client/build
+    command: /workspace/sour/services/client/build
 
   - name: Assets
     env:
