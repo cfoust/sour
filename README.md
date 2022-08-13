@@ -13,8 +13,6 @@ MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.or
 
 ## Introduction
 
-Sauerbraten has a special place in my heart: it's fast to download, easy to pick up, and keeps you in the action with instant respawns. Despite playing lots of games over the course of my life I haven't really found anything that scratches the same itch.
-
 Some years ago I came across [BananaBread](https://github.com/kripken/BananaBread), which was a basic tech demo that used [Emscripten](https://emscripten.org/) to compile Sauerbraten for the web. The project was limited in scope and done at a time when bandwidth was a lot more precious. It also lacked multiplayer out of the box.
 
 My goal was to ship an updated version of it in a single Docker image that I could deploy anywhere and play without forcing anyone to download the whole game. That's where `sour` comes in.
@@ -68,20 +66,24 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Add `<noscript>` with a plea to enable JavaScript
 * [ ] Ensure Sour works in Firefox
 * [ ] Allow for providing the desired maps in an image as a build argument
+* [ ] Full Terraform support for deploying Sour
+* [ ] Alow parts of Sour to be configured with a high-level configuration file
 * [ ] Investigate differences in font colors between the real Sauer and Sour
-* [ ] Explore running Sour in a Web Worker rather than the rendering thread
-* [ ] Create archive of _all_ uploads to Quadropolis
 ### Gameplay
-* [ ] Update the URL to the current server on join eg `sourga.me/server/127.0.0.1:28785`
+* [ ] New asset caching mechanism
+  * [ ] Remove base game assets from the repository
 * [ ] Clean loading page for slow connections (ensure page load time isn't horrible)
-* [ ] Asset caching mechanism that does not use [Emscripten's IndexedDB](https://github.com/emscripten-core/emscripten/blob/main/tools/file_packager.py#L42) because IndexedDB blocks the main thread pretty bad
-* [ ] Save demos for any game played to IndexedDB and allow for download
-* [ ] Allow players to create private servers with simple join links eg `sourga.me/server/ABCD`
-* [ ] Support all player models (right now it's just snout)
 * [ ] Demo player with seek/play/pause
   * [ ] Stretch goal: generate gifs in the browser
+* [ ] Update the URL to the current server on join eg `sourga.me/server/127.0.0.1:28785`
 * [ ] 1v1 duel server + rankings?
+* [ ] Save demos for any game played to IndexedDB and allow for download
+* [ ] Allow players to create private servers with simple join links eg `sourga.me/server/ABCD`
+* [ ] Explore running Sour in a Web Worker rather than the rendering thread
+* [ ] Support all player models (right now it's just snout)
 * [ ] Modern, beautiful main menu
+* [ ] Create archive of _all_ uploads to Quadropolis
+  * [ ] Allow for loading of arbitrary archives from Quadropolis
 ### Map editing
 * [ ] Repair or port shaders that were disabled in the game upgrade
   * [ ] Fix the outline shader (pressing 7 in edit mode)
