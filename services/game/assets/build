@@ -6,4 +6,6 @@ cd "$SCRIPT_DIR"
 
 set -e
 
+git lfs pull
+
 ./package $hash
