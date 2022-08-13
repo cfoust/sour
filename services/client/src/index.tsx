@@ -76,7 +76,7 @@ const getBaseName = (dataName: string) => dataName.split('.')[1]
 
 function loadData(name: string) {
   const js = document.createElement('script')
-  js.src = `${ASSET_PREFIX}${getPreloadName(name)}`
+  js.src = `${process.env.ASSET_PREFIX}${getPreloadName(name)}`
   js.onerror = () => {
     BananaBread.execute(`echo Failed to load data ${name}; disconnect`)
   }

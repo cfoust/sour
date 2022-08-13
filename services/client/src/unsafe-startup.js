@@ -40,7 +40,7 @@ export default function start() {
       if (file.endsWith('.data')) {
         // Strip the hash
         const stripped = file.split('.').slice(1).join('.')
-        return `${ASSET_PREFIX}${stripped}`
+        return `${process.env.ASSET_PREFIX}${stripped}`
       }
       if (file.endsWith('.wasm')) return `/game/${file}`
       return null
