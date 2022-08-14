@@ -23,7 +23,7 @@ package_files() {
 
   target_dir="$WORKING_DIR/$target"
 
-  echo "Packaging $HASH.$target.data"
+  echo "Packaging $HASH.$target.sour"
 
 	found_files=""
 
@@ -65,11 +65,16 @@ package_files() {
 
 	# Package the files up
   cd "$target_dir"
-  js_target="$OUTPUT_DIR/$HASH.preload_$target.js"
+  js_target="/tmp/$HASH.preload_$target.js"
+  data_target="/tmp/$HASH.$target.data"
+  blob_target="$OUTPUT_DIR/$HASH.$target.sour"
+
   python3 "$EMSDK_DIR/upstream/emscripten/tools/file_packager.py" \
-					"$OUTPUT_DIR/$HASH.$target.data" \
+					"$data_target" \
 					--use-preload-plugins \
 					--preload $found_files > "$js_target"
+
+  python3 "$SCRIPT_DIR/condenser.py" "$data_target" "$js_target" "$blob_target"
 
   # Insert our _free() hack
 	sed -i '/var files/a Module["registerNode"]({ name: REMOTE_PACKAGE_BASE, files: metadata["files"] });' "$js_target"
