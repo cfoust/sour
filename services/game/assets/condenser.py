@@ -28,7 +28,8 @@ if __name__ == "__main__":
     if not package:
         exit(1)
 
-    # We could compute these directories from the file list alone, but I'm lazy.
+    # We could compute these directories from the file list alone, but I'm
+    # lazy.
     paths = []
     for directory in re.finditer('createPath...(.+), true', js):
         paths.append(json.loads('[%s]' % directory[1][:-6]))
