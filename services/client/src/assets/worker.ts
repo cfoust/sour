@@ -111,7 +111,7 @@ async function loadBundle(
   return bundle
 }
 
-async function processLoad(target: string, id: symbol) {
+async function processLoad(target: string, id: string) {
   const update = (state: BundleLoadState) => {
     updateBundle(target, {
       name: target,
