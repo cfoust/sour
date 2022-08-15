@@ -111,7 +111,7 @@ async function loadBundle(
   return bundle
 }
 
-async function processLoad(target: string) {
+async function processLoad(target: string, id: symbol) {
   const update = (state: BundleLoadState) => {
     updateBundle(target, {
       name: target,
@@ -132,6 +132,7 @@ async function processLoad(target: string) {
 
     const response: AssetBundleResponse = {
       op: ResponseType.Bundle,
+      id,
       target,
       bundle,
     }
@@ -154,7 +155,7 @@ self.onmessage = (evt) => {
     const { ASSET_PREFIX: newPrefix } = request
     ASSET_PREFIX = newPrefix
   } else if (request.op === RequestType.Load) {
-    const { target } = request
-    processLoad(target)
+    const { target, id } = request
+    processLoad(target, id)
   }
 }
