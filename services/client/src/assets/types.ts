@@ -81,7 +81,7 @@ export type AssetEnvironmentRequest = {
 
 export type AssetLoadRequest = {
   op: RequestType.Load
-  id: symbol
+  id: string
   target: string
 }
 
