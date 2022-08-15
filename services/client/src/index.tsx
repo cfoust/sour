@@ -19,6 +19,10 @@ import {
 
 import type { GameState } from './types'
 import { GameStateType } from './types'
+import {
+  ResponseType as AssetResponseType,
+  RequestType as AssetRequestType,
+} from './assets/types'
 import StatusOverlay from './Loading'
 import NAMES from './names'
 
@@ -74,15 +78,6 @@ const getPreloadName = (name: string) => `preload_${name}.js`
 const getDataName = (name: string) => `${name}.data`
 const getBaseName = (dataName: string) => dataName.split('.')[1]
 
-function loadData(name: string) {
-  const js = document.createElement('script')
-  js.src = `${process.env.ASSET_PREFIX}${getPreloadName(name)}`
-  js.onerror = () => {
-    BananaBread.execute(`echo Failed to load data ${name}; disconnect`)
-  }
-  document.body.appendChild(js)
-}
-
 const MAIN_LOOP_REGEX = /main loop blocker "(\w+)" took 1 ms/
 
 const handleBlocker = (text: string, handler: (func: string) => void) => {
@@ -102,6 +97,31 @@ function App() {
     type: GameStateType.PageLoading,
   })
   const { width, height, ref: containerRef } = useResizeDetector()
+
+  const assetWorkerRef = React.useRef<Worker>()
+  React.useEffect(() => {
+    const worker = new Worker(
+      // @ts-ignore
+      new URL('./assets/worker.ts', import.meta.url),
+      { type: 'module' }
+    )
+
+    worker.postMessage({
+      op: AssetRequestType.Environment,
+      ASSET_PREFIX: process.env.ASSET_PREFIX,
+    })
+
+    assetWorkerRef.current = worker
+  }, [])
+
+  const loadData = React.useCallback((target: string) => {
+    const { current: assetWorker } = assetWorkerRef
+    if (assetWorker == null) return
+    assetWorker.postMessage({
+      op: AssetRequestType.Load,
+      target,
+    })
+  }, [])
 
   React.useEffect(() => {
     let removeSubscribers: Array<(arg0: string) => boolean> = []

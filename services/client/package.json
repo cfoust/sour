@@ -11,6 +11,7 @@
     "build": "ASSET_PREFIX='__ASSET_PREFIX__' yarn run parcel build --target default"
   },
   "devDependencies": {
+    "@types/node": "^18.7.4",
     "@types/ramda": "0.27.44",
     "@types/react": "17.0.18",
     "@types/react-dom": "17.0.9",
