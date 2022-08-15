@@ -10,6 +10,8 @@ import type {
 } from './types'
 import { ResponseType, RequestType, BundleLoadStateType } from './types'
 
+import { getBundle as getSavedBundle, saveBundle, haveBundle } from './storage'
+
 class PullError extends Error {}
 
 let ASSET_PREFIX: string = ''
@@ -68,7 +70,7 @@ function unpackBundle(data: ArrayBuffer): Bundle {
 async function fetchBundle(
   target: string,
   progress: (bundle: BundleLoadState) => void
-): Promise<Bundle> {
+): Promise<ArrayBuffer> {
   const request = new XMLHttpRequest()
   const packageName = `${ASSET_PREFIX}${target}.sour`
   request.open('GET', packageName, true)
@@ -94,7 +96,7 @@ async function fetchBundle(
         (request.status == 0 && request.response)
       ) {
         const packageData = request.response
-        resolve(unpackBundle(request.response))
+        resolve(request.response)
       } else {
         throw new PullError(request.statusText + ' : ' + request.responseURL)
       }
@@ -107,8 +109,17 @@ async function loadBundle(
   target: string,
   progress: (bundle: BundleLoadState) => void
 ): Promise<Bundle> {
-  const bundle = await fetchBundle(target, progress)
-  return bundle
+  if (await haveBundle(target)) {
+    const buffer = await getSavedBundle(target)
+    if (buffer == null) {
+      throw new PullError(`Bundle ${target} did not exist`)
+    }
+    return unpackBundle(buffer)
+  }
+
+  const buffer = await fetchBundle(target, progress)
+  await saveBundle(target, buffer)
+  return unpackBundle(buffer)
 }
 
 async function processLoad(target: string, id: string) {
