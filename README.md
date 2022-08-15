@@ -70,8 +70,7 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Alow parts of Sour to be configured with a high-level configuration file
 * [ ] Investigate differences in font colors between the real Sauer and Sour
 ### Gameplay
-* [ ] New asset caching mechanism
-  * [ ] Remove base game assets from the repository
+* [ ] Remove base game assets from the repository
 * [ ] Clean loading page for slow connections (ensure page load time isn't horrible)
 * [ ] Demo player with seek/play/pause
   * [ ] Stretch goal: generate gifs in the browser
