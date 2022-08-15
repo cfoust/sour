@@ -62,6 +62,7 @@ export type AssetStateResponse = {
 
 export type AssetBundleResponse = {
   op: ResponseType.Bundle
+  target: string
   bundle: Bundle
 }
 

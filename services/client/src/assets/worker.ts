@@ -26,6 +26,13 @@ const sendState = (newState: BundleState[]) => {
 }
 
 const updateBundle = (target: string, state: BundleState) => {
+  const bundle = R.find(({ name }) => name === target, pullState)
+
+  if (bundle == null) {
+    sendState([...pullState, state])
+    return
+  }
+
   sendState(R.map((v) => (v.name === target ? state : v), pullState))
 }
 
@@ -66,7 +73,14 @@ async function fetchBundle(
   const packageName = `${ASSET_PREFIX}${target}.sour`
   request.open('GET', packageName, true)
   request.responseType = 'arraybuffer'
-  request.onprogress = (event) => {}
+  request.onprogress = (event) => {
+    if (!event.lengthComputable) return
+    progress({
+      type: BundleLoadStateType.Downloading,
+      downloadedBytes: event.loaded,
+      totalBytes: event.total,
+    })
+  }
   request.onerror = function (event) {
     throw new PullError('NetworkError for: ' + packageName)
   }
@@ -98,28 +112,36 @@ async function loadBundle(
 }
 
 async function processLoad(target: string) {
+  const update = (state: BundleLoadState) => {
+    updateBundle(target, {
+      name: target,
+      state,
+    })
+  }
+
+  update({
+    type: BundleLoadStateType.Waiting,
+  })
+
   try {
-    const bundle = await loadBundle(target, (state) =>
-      updateBundle(target, {
-        name: target,
-        state,
-      })
-    )
+    const bundle = await loadBundle(target, update)
+
+    update({
+      type: BundleLoadStateType.Ok,
+    })
 
     const response: AssetBundleResponse = {
       op: ResponseType.Bundle,
+      target,
       bundle,
     }
 
-    self.postMessage(response)
+    self.postMessage(response, [bundle.buffer])
   } catch (e) {
     if (!(e instanceof PullError)) throw e
 
-    updateBundle(target, {
-      name: target,
-      state: {
-        type: BundleLoadStateType.Failed,
-      },
+    update({
+      type: BundleLoadStateType.Failed,
     })
   }
 }

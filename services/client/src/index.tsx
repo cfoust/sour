@@ -19,9 +19,16 @@ import {
 
 import type { GameState } from './types'
 import { GameStateType } from './types'
+import type {
+  AssetResponse,
+  Bundle,
+  BundleState,
+  BundleDownloadingState,
+} from './assets/types'
 import {
   ResponseType as AssetResponseType,
   RequestType as AssetRequestType,
+  BundleLoadStateType,
 } from './assets/types'
 import StatusOverlay from './Loading'
 import NAMES from './names'
@@ -92,11 +99,62 @@ enum NodeType {
   Map,
 }
 
+function mountBundle(target: string, bundle: Bundle) {
+  const { directories, files, buffer, dataOffset } = bundle
+
+  Module.registerNode({
+    name: target,
+    files,
+  })
+
+  for (const directory of directories) {
+    Module.FS_createPath(...directory, true, true)
+  }
+
+  for (const file of files) {
+    const { filename, start, end, audio } = file
+    const offset = dataOffset + start
+    const ref = `fp ${filename}`
+    Module.addRunDependency(ref)
+    Module.FS_createPreloadedFile(
+      filename,
+      null,
+      new Uint8Array(buffer, offset, end - start),
+      true,
+      true,
+      () => {
+        Module.removeRunDependency(ref)
+      },
+      () => {
+        if (audio == 1) {
+          Module.removeRunDependency(ref)
+        } else {
+          new Error('Preloading file ' + filename + ' failed')
+        }
+      },
+      false,
+      true
+    )
+  }
+}
+
+// We want an extra layer of indirection in case the module is not running yet.
+function queueBundleMount(target: string, bundle: Bundle) {
+  if (Module.calledRun) {
+    mountBundle(target, bundle)
+  } else {
+    if (!Module.preRun) Module.preRun = []
+    Module.preRun.push(() => mountBundle(target, bundle))
+  }
+}
+
 function App() {
   const [state, setState] = React.useState<GameState>({
     type: GameStateType.PageLoading,
   })
   const { width, height, ref: containerRef } = useResizeDetector()
+
+  const [bundleState, setBundleState] = React.useState<BundleState[]>([])
 
   const assetWorkerRef = React.useRef<Worker>()
   React.useEffect(() => {
@@ -111,6 +169,60 @@ function App() {
       ASSET_PREFIX: process.env.ASSET_PREFIX,
     })
 
+    worker.onmessage = (evt) => {
+      const { data } = evt
+      const message: AssetResponse = data
+
+      if (message.op === AssetResponseType.State) {
+        const { state } = message
+
+        setBundleState(state)
+
+        const downloading: BundleDownloadingState[] = R.chain(({ state }) => {
+          if (state.type !== BundleLoadStateType.Downloading) return []
+          return [state]
+        }, state)
+
+        // Show progress if any bundles are downloading.
+        if (downloading.length > 0) {
+          const { downloadedBytes, totalBytes } = R.reduce(
+            (
+              { downloadedBytes: currentDownload, totalBytes: currentTotal },
+              { downloadedBytes: newDownload, totalBytes: newTotal }
+            ) => ({
+              downloadedBytes: currentDownload + newDownload,
+              totalBytes: newDownload + newTotal,
+            }),
+            {
+              downloadedBytes: 0,
+              totalBytes: 0,
+            },
+            downloading
+          )
+
+          if (BananaBread.renderprogress == null) {
+            setState({
+              type: GameStateType.Downloading,
+              downloadedBytes,
+              totalBytes,
+            })
+          } else {
+            BananaBread.renderprogress(
+              downloadedBytes / totalBytes,
+              'loading map data..'
+            )
+          }
+        }
+      } else if (message.op === AssetResponseType.Bundle) {
+        const { target, bundle } = message
+        if (target === 'base') {
+          mountBundle(target, bundle)
+          return
+        }
+        queueBundleMount(target, bundle)
+      }
+    }
+
     assetWorkerRef.current = worker
   }, [])
 
@@ -124,17 +236,29 @@ function App() {
   }, [])
 
   React.useEffect(() => {
+    let haveStarted: boolean = false
     let removeSubscribers: Array<(arg0: string) => boolean> = []
 
     // All of the files loaded by a map
     let nodes: PreloadNode[] = []
     let lastMap: Maybe<string> = null
-    let haveStarted: boolean = false
     let loadingMap: Maybe<string> = null
     let targetMap: Maybe<string> = null
 
     Module.registerNode = (node) => {
       nodes.push(node)
+    }
+
+    // Load the basic required data for the game
+    loadData('base')
+
+    Module.setStatus = (text) => {
+      // Sometimes we get download progress this way, handle it here
+      handleDownload(text, (downloadedBytes, totalBytes) => {})
+    }
+
+    Module.postLoadWorld = function () {
+      BananaBread.execute('spawnitems')
     }
 
     Module.preInit.push(() => {
@@ -150,41 +274,22 @@ function App() {
       }
 
       const _monitorRunDependencies = Module.monitorRunDependencies
+      let mutations = 0
       Module.monitorRunDependencies = (left) => {
         _monitorRunDependencies(left)
 
+        mutations++
+
         // Wait for it to be ready
-        if (nodes.length > 0 && left === 0 && !haveStarted) {
+        if (mutations > 50 && nodes.length > 0 && left === 0 && !haveStarted) {
           shouldRunNow = true
+          calledRun = false
+          Module.calledRun = false
           Module.run()
+          console.log('running module')
         }
       }
     })
-
-    // Load the basic required data for the game
-    loadData('base')
-
-    Module.setStatus = (text) => {
-      // Sometimes we get download progress this way, handle it here
-      handleDownload(text, (downloadedBytes, totalBytes) => {
-        if (BananaBread.renderprogress == null) {
-          setState({
-            type: GameStateType.Downloading,
-            downloadedBytes,
-            totalBytes,
-          })
-          return
-        }
-        BananaBread.renderprogress(
-          downloadedBytes / totalBytes,
-          'loading map data..'
-        )
-      })
-    }
-
-    Module.postLoadWorld = function () {
-      BananaBread.execute('spawnitems')
-    }
 
     const loadMapData = (map: string) => {
       if (loadingMap === map) return

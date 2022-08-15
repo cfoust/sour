@@ -2,7 +2,7 @@ type PreloadFile = {
   filename: string
   start: number
   end: number
-  audio: number
+  audio?: number
 }
 type PreloadNode = {
   name: string
@@ -20,6 +20,7 @@ type ModuleType = {
   monitorRunDependencies: (left: number) => void
   postLoadWorld: () => void
   postRun: Array<() => void>
+  preRun: Array<() => void>
   preInit: Array<() => void>
   onGameReady: () => void
   print: (text: string) => void
@@ -29,6 +30,11 @@ type ModuleType = {
   setCanvasSize: ((width: number, height: number) => void) | null
   setStatus: (text: string) => void
   tweakDetail: () => void
+
+  calledRun: boolean
+  FS_createPath: (...path: Array<string, boolean>) => void
+  FS_createPreloadedFile: (parent: string, name: Maybe<string>, url: string | Uint8Array, canRead: boolean, canWrite: boolean, onload: () => void, onerror: () => void, dontCreateFile: boolean, canOwn: boolean, preFinish?: () => void) => void
+  addRunDependency: (dependency: string) => void
 }
 declare const Module: ModuleType
 declare type Maybe<T> = T | null | undefined
@@ -53,3 +59,4 @@ type BananaBreadType = {
 }
 declare const BananaBread: BananaBreadType
 declare let shouldRunNow: boolean
+declare let calledRun: boolean
