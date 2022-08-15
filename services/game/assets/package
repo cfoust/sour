@@ -76,7 +76,6 @@ package_files() {
 
   python3 "$SCRIPT_DIR/condenser.py" "$data_target" "$js_target" "$blob_target"
 
-  # Insert our _free() hack
 	sed -i '/var files/a Module["registerNode"]({ name: REMOTE_PACKAGE_BASE, files: metadata["files"] });' "$js_target"
   cd "$SCRIPT_DIR"
 }
