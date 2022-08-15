@@ -15,11 +15,14 @@ export type PageLoadingState = {
   type: GameStateType.PageLoading
 }
 
-export type DownloadingState = {
-  type: GameStateType.Downloading
+export type DownloadState = {
   downloadedBytes: number
   totalBytes: number
 }
+
+export type DownloadingState = {
+  type: GameStateType.Downloading
+} & DownloadState
 
 export type MapChangeState = {
   type: GameStateType.MapChange
