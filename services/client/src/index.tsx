@@ -67,39 +67,37 @@ const LoadingContainer = styled.div`
   z-index: 1;
 `
 
-const DOWNLOAD_REGEX = /Downloading data... \((\d+)\/(\d+)\)/
-
-const handleDownload = (
-  text: string,
-  handler: (downloadedBytes: number, totalBytes: number) => void
-) => {
-  const result = DOWNLOAD_REGEX.exec(text)
-  if (result == null) return
-  const [, completedText, totalText] = result
-  const downloadedBytes = parseInt(completedText)
-  const totalBytes = parseInt(totalText)
-  handler(downloadedBytes, totalBytes)
-}
-
-const getPreloadName = (name: string) => `preload_${name}.js`
 const getDataName = (name: string) => `${name}.data`
 const getBaseName = (dataName: string) => dataName.split('.')[1]
-
-const MAIN_LOOP_REGEX = /main loop blocker "(\w+)" took 1 ms/
-
-const handleBlocker = (text: string, handler: (func: string) => void) => {
-  const result = MAIN_LOOP_REGEX.exec(text)
-  if (result == null) return
-  const [, func] = result
-  handler(func)
-}
 
 enum NodeType {
   Game,
   Map,
 }
 
-function mountBundle(target: string, bundle: Bundle) {
+type PromiseSet<T> = {
+  promise: Promise<T>
+  resolve: (value: T) => void
+  reject: (reason?: Error) => void
+}
+
+// Break up a promise into its resolve and reject functions for ease of use.
+function breakPromise<T>(): PromiseSet<T> {
+  let resolve: (value: T) => void = () => {}
+  let reject: (reason?: Error) => void = () => {}
+  const promise = new Promise<T>((_resolve, _reject) => {
+    resolve = _resolve
+    reject = _reject
+  })
+
+  return {
+    promise,
+    resolve,
+    reject,
+  }
+}
+
+async function mountBundle(target: string, bundle: Bundle): Promise<void> {
   const { directories, files, buffer, dataOffset } = bundle
 
   Module.registerNode({
@@ -111,41 +109,37 @@ function mountBundle(target: string, bundle: Bundle) {
     Module.FS_createPath(...directory, true, true)
   }
 
-  for (const file of files) {
-    const { filename, start, end, audio } = file
-    const offset = dataOffset + start
-    const ref = `fp ${filename}`
-    Module.addRunDependency(ref)
-    Module.FS_createPreloadedFile(
-      filename,
-      null,
-      new Uint8Array(buffer, offset, end - start),
-      true,
-      true,
-      () => {
-        Module.removeRunDependency(ref)
-      },
-      () => {
-        if (audio == 1) {
-          Module.removeRunDependency(ref)
-        } else {
+  return new Promise((resolve) => {
+    let remaining = files.length
+
+    for (const file of files) {
+      const { filename, start, end, audio } = file
+      const offset = dataOffset + start
+      const ref = `fp ${filename}`
+      Module.FS_createPreloadedFile(
+        filename,
+        null,
+        new Uint8Array(buffer, offset, end - start),
+        true,
+        true,
+        () => {},
+        () => {
           new Error('Preloading file ' + filename + ' failed')
+        },
+        false,
+        true,
+        () => {
+          remaining--
+          if (remaining === 0) resolve()
         }
-      },
-      false,
-      true
-    )
-  }
+      )
+    }
+  })
 }
 
-// We want an extra layer of indirection in case the module is not running yet.
-function queueBundleMount(target: string, bundle: Bundle) {
-  if (Module.calledRun) {
-    mountBundle(target, bundle)
-  } else {
-    if (!Module.preRun) Module.preRun = []
-    Module.preRun.push(() => mountBundle(target, bundle))
-  }
+type BundleRequest = {
+  id: string
+  promiseSet: PromiseSet<void>
 }
 
 function App() {
@@ -157,6 +151,34 @@ function App() {
   const [bundleState, setBundleState] = React.useState<BundleState[]>([])
 
   const assetWorkerRef = React.useRef<Worker>()
+  const requestStateRef = React.useRef<BundleRequest[]>([])
+
+  const loadData = React.useCallback(async (target: string) => {
+    const { current: assetWorker } = assetWorkerRef
+    if (assetWorker == null) return
+
+    const { current: requests } = requestStateRef
+
+    const id = target
+    const promiseSet = breakPromise<void>()
+
+    requestStateRef.current = [
+      ...requests,
+      {
+        id,
+        promiseSet,
+      },
+    ]
+
+    assetWorker.postMessage({
+      op: AssetRequestType.Load,
+      id,
+      target,
+    })
+
+    return promiseSet.promise
+  }, [])
+
   React.useEffect(() => {
     const worker = new Worker(
       // @ts-ignore
@@ -214,25 +236,30 @@ function App() {
           }
         }
       } else if (message.op === AssetResponseType.Bundle) {
-        const { target, bundle } = message
-        if (target === 'base') {
-          mountBundle(target, bundle)
-          return
-        }
-        queueBundleMount(target, bundle)
+        const { target, id, bundle } = message
+
+        ;(async () => {
+          const { current: requests } = requestStateRef
+          const request = R.find(({ id: otherId }) => id === otherId, requests)
+          if (request == null) return
+
+          await mountBundle(target, bundle)
+
+          const {
+            promiseSet: { resolve },
+          } = request
+
+          resolve()
+
+          requestStateRef.current = R.filter(
+            ({ id: otherId }) => id !== otherId,
+            requestStateRef.current
+          )
+        })()
       }
     }
 
     assetWorkerRef.current = worker
-  }, [])
-
-  const loadData = React.useCallback((target: string) => {
-    const { current: assetWorker } = assetWorkerRef
-    if (assetWorker == null) return
-    assetWorker.postMessage({
-      op: AssetRequestType.Load,
-      target,
-    })
   }, [])
 
   React.useEffect(() => {
@@ -250,55 +277,27 @@ function App() {
     }
 
     // Load the basic required data for the game
-    loadData('base')
+    ;(async () => {
+      await loadData('base')
 
-    Module.setStatus = (text) => {
-      // Sometimes we get download progress this way, handle it here
-      handleDownload(text, (downloadedBytes, totalBytes) => {})
-    }
+      shouldRunNow = true
+      calledRun = false
+      Module.calledRun = false
+      Module.run()
+    })()
 
     Module.postLoadWorld = function () {
       BananaBread.execute('spawnitems')
     }
 
-    Module.preInit.push(() => {
-      const _removeRunDependency = Module.removeRunDependency
-      Module.removeRunDependency = (file) => {
-        let newSubscribers = []
-        for (const callback of removeSubscribers) {
-          if (!callback(file)) newSubscribers.push(callback)
-        }
-        removeSubscribers = newSubscribers
-
-        _removeRunDependency(file)
-      }
-
-      const _monitorRunDependencies = Module.monitorRunDependencies
-      let mutations = 0
-      Module.monitorRunDependencies = (left) => {
-        _monitorRunDependencies(left)
-
-        mutations++
-
-        // Wait for it to be ready
-        if (mutations > 50 && nodes.length > 0 && left === 0 && !haveStarted) {
-          shouldRunNow = true
-          calledRun = false
-          Module.calledRun = false
-          Module.run()
-          console.log('running module')
-        }
-      }
-    })
-
-    const loadMapData = (map: string) => {
+    const loadMapData = async (map: string) => {
       if (loadingMap === map) return
       loadingMap = map
       const need = ['base', map]
 
       // Clear out all of the old map files
       const [have, dontNeed] = R.partition(
-        ({ name }) => need.includes(getBaseName(name)),
+        ({ name }) => need.includes(name),
         nodes
       )
       for (const node of dontNeed) {
@@ -336,15 +335,8 @@ function App() {
         return
       }
 
-      loadData(map)
-
-      removeSubscribers.push((file) => {
-        if (!file.endsWith(`${map}.data`)) return false
-
-        loadMap()
-
-        return true
-      })
+      await loadData(map)
+      loadMap()
     }
 
     Module.print = (text) => {

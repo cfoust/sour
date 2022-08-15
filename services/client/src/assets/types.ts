@@ -63,6 +63,7 @@ export type AssetStateResponse = {
 export type AssetBundleResponse = {
   op: ResponseType.Bundle
   target: string
+  id: string
   bundle: Bundle
 }
 
@@ -80,6 +81,7 @@ export type AssetEnvironmentRequest = {
 
 export type AssetLoadRequest = {
   op: RequestType.Load
+  id: symbol
   target: string
 }
 
