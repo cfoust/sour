@@ -98,6 +98,7 @@ function breakPromise<T>(): PromiseSet<T> {
 }
 
 async function mountBundle(target: string, bundle: Bundle): Promise<void> {
+  console.log(performance.now(), 'mountBundle');
   const { directories, files, buffer, dataOffset } = bundle
 
   Module.registerNode({
@@ -130,7 +131,10 @@ async function mountBundle(target: string, bundle: Bundle): Promise<void> {
         true,
         () => {
           remaining--
-          if (remaining === 0) resolve()
+          if (remaining === 0) {
+            console.log(performance.now(), 'resolve mountBundle');
+            resolve()
+          }
         }
       )
     }
@@ -321,6 +325,7 @@ function App() {
       const loadMap = () => {
         setTimeout(() => {
           loadingMap = null
+          console.log(performance.now(), 'calling loadWorld');
           if (targetMap == null) {
             BananaBread.loadWorld(map)
           } else {
@@ -335,7 +340,9 @@ function App() {
         return
       }
 
+      console.log(performance.now(), 'pre loadData');
       await loadData(map)
+      console.log(performance.now(), 'post loadData');
       loadMap()
     }
 
