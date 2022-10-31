@@ -21,40 +21,38 @@ package_files() {
 	shift 1
 	files="$@"
 
-  target_dir="$WORKING_DIR/$target"
-
   echo "Packaging $HASH.$target.sour"
 
 	found_files=""
 
 	# Preprocess the files
 	for infile in $files; do
-    outfile="$target_dir/$infile"
     extension="${infile##*.}"
+    hash=($(echo "$infile" | md5sum))
+    outfile="$WORKING_DIR/$hash.$extension"
 
-    #if ! [ -f "$infile" ] || [ -d "$infile" ]; then
     if ! [ -f "$infile" ]; then
       continue
     fi
 
     size=$(wc -c "$infile" | cut -f1 -d' ')
 
-		found_files+="$infile "
-
     mkdir -p "$(dirname "$outfile")"
 
     if [ "$extension" != "dds" ] && [ "$extension" != "jpg" ] && [ "$extension" != "png" ]; then
-      cp "$infile" "$outfile"
-      continue
-    fi
-
-    if [ -f "$outfile" ]; then
+      found_files+="$infile@$infile "
       continue
     fi
 
     # Ignore small files and anything in data/ since those are the game's basic assets
     if [[ "$size" -lt 128000 ]] || [[ "$infile" == data* ]]; then
-      cp "$infile" "$outfile"
+      found_files+="$infile@$infile "
+      continue
+    fi
+
+    found_files+="$outfile@$infile "
+
+    if [ -f "$outfile" ]; then
       continue
     fi
 
@@ -64,7 +62,6 @@ package_files() {
 	done
 
 	# Package the files up
-  cd "$target_dir"
   js_target="/tmp/$HASH.preload_$target.js"
   data_target="/tmp/$HASH.$target.data"
   blob_target="$OUTPUT_DIR/$HASH.$target.sour"
@@ -76,7 +73,6 @@ package_files() {
 
   python3 "$SCRIPT_DIR/condenser.py" "$data_target" "$js_target" "$blob_target"
 
-	sed -i '/var files/a Module["registerNode"]({ name: REMOTE_PACKAGE_BASE, files: metadata["files"] });' "$js_target"
   cd "$SCRIPT_DIR"
 }
 
@@ -94,11 +90,13 @@ package_map() {
 }
 
 maps=$(find packages/base/ -name '*.ogz')
-maps="packages/base/complex.ogz packages/base/dust2.ogz"
 
 for map in $maps; do
   mapfile=$(basename -s .ogz "$map")
   mapstub="packages/base/$mapfile.stub"
+  if [ -f "$mapstub" ]; then
+    rm "$mapstub"
+  fi
   touch "$mapstub"
   echo "$mapstub" >> mapfiles/maps.list
 done
@@ -107,7 +105,5 @@ package_files base $(cat mapfiles/maps.list mapfiles/common.trimmed.list)
 
 for map in $maps; do
   mapfile=$(basename -s .ogz "$map")
-  package_map "$map" &
+  package_map "$map"
 done
-
-wait

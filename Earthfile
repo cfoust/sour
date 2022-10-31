@@ -32,7 +32,7 @@ relay:
 
 emscripten:
     FROM emscripten/emsdk:3.1.8
-    RUN apt-get update && apt-get install -y inotify-tools imagemagick zlib1g-dev
+    RUN apt-get update && apt-get install -y ucommon-utils inotify-tools imagemagick zlib1g-dev
     SAVE IMAGE sour:emscripten
 
 assets:
