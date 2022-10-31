@@ -28,6 +28,9 @@ package_files() {
 	# Preprocess the files
 	for infile in $files; do
     extension="${infile##*.}"
+
+    # If multiple bundles rely on the same converted image, we don't want to
+    # redo the calculation.
     hash=($(echo "$infile" | md5sum))
     outfile="$WORKING_DIR/$hash.$extension"
 
@@ -44,7 +47,8 @@ package_files() {
       continue
     fi
 
-    # Ignore small files and anything in data/ since those are the game's basic assets
+    # Ignore small files and anything in data/ since those are the game's basic
+    # assets
     if [[ "$size" -lt 128000 ]] || [[ "$infile" == data* ]]; then
       found_files+="$infile@$infile "
       continue
