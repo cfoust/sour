@@ -98,7 +98,7 @@ function breakPromise<T>(): PromiseSet<T> {
 }
 
 async function mountBundle(target: string, bundle: Bundle): Promise<void> {
-  console.log(performance.now(), 'mountBundle');
+  console.log(performance.now(), 'mountBundle')
   const { directories, files, buffer, dataOffset } = bundle
 
   Module.registerNode({
@@ -110,35 +110,27 @@ async function mountBundle(target: string, bundle: Bundle): Promise<void> {
     Module.FS_createPath(...directory, true, true)
   }
 
-  return new Promise((resolve) => {
-    let remaining = files.length
-
-    for (const file of files) {
-      const { filename, start, end, audio } = file
+  return Promise.all(
+    R.map(({ filename, start, end, audio }) => {
       const offset = dataOffset + start
       const ref = `fp ${filename}`
-      Module.FS_createPreloadedFile(
-        filename,
-        null,
-        new Uint8Array(buffer, offset, end - start),
-        true,
-        true,
-        () => {},
-        () => {
-          new Error('Preloading file ' + filename + ' failed')
-        },
-        false,
-        true,
-        () => {
-          remaining--
-          if (remaining === 0) {
-            console.log(performance.now(), 'resolve mountBundle');
-            resolve()
-          }
-        }
-      )
-    }
-  })
+      return new Promise((resolve, reject) => {
+        Module.FS_createPreloadedFile(
+          filename,
+          null,
+          new Uint8Array(buffer, offset, end - start),
+          true,
+          true,
+          resolve,
+          () => {
+            reject(new Error('Preloading file ' + filename + ' failed'))
+          },
+          false,
+          true
+        )
+      })
+    }, files)
+  )
 }
 
 type BundleRequest = {
@@ -325,7 +317,7 @@ function App() {
       const loadMap = () => {
         setTimeout(() => {
           loadingMap = null
-          console.log(performance.now(), 'calling loadWorld');
+          console.log(performance.now(), 'calling loadWorld')
           if (targetMap == null) {
             BananaBread.loadWorld(map)
           } else {
@@ -340,9 +332,9 @@ function App() {
         return
       }
 
-      console.log(performance.now(), 'pre loadData');
+      console.log(performance.now(), 'pre loadData')
       await loadData(map)
-      console.log(performance.now(), 'post loadData');
+      console.log(performance.now(), 'post loadData')
       loadMap()
     }
 
