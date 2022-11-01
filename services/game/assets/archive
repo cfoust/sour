@@ -12,3 +12,4 @@ cd sauerbraten-code
 archive_target="sauerbraten-$(svn info --show-item revision).tar.gz"
 tar czvf "$archive_target" data/ packages/
 cp "$archive_target" "$SCRIPT_DIR"
+echo "$archive_target"
