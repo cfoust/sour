@@ -42,6 +42,8 @@ package_files() {
 
   echo "Packaging $name into $target.sour"
 
+  echo "$name $target" >> "$INDEX_FILE"
+
   # We can skip bundles with the same hash
   if [ -f "$blob_target" ]; then
     return 0
@@ -99,7 +101,6 @@ package_files() {
 					--preload $found_files > "$js_target"
 
   python3 "$SCRIPT_DIR/condenser.py" "$data_target" "$js_target" "$blob_target"
-  echo "$name $target" >> "$INDEX_FILE"
 }
 
 package_map() {
