@@ -116,7 +116,7 @@ package_map() {
 }
 
 # TODO(cfoust): 11/02/22 accept names without ogz
-maps="$1"
+maps="$@"
 
 # Default to all maps
 if [ -z "$maps" ]; then
