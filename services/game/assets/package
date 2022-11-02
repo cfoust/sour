@@ -2,37 +2,61 @@
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Prefixed to filenames
-HASH="$1"
-
 # The actual output directory
 OUTPUT_DIR=${ASSET_OUTPUT_DIR:-$SCRIPT_DIR/output}
 mkdir -p "$OUTPUT_DIR"
+
+# Prefix for the index file
+# This is necessary for serving Sour assets with a CDN
+INDEX_FILE="$OUTPUT_DIR/$PREFIX.index"
+rm -f "$INDEX_FILE"
 
 # Contains all of the interim calculations
 WORKING_DIR="$SCRIPT_DIR/working"
 mkdir -p "$WORKING_DIR"
 
-# /home/gitpod/emsdk
 EMSDK_DIR=${EMSDK:-/emsdk}
 
 package_files() {
-  target="$1"
+  cd "$SCRIPT_DIR"
+
+  name="$1"
 	shift 1
 	files="$@"
 
-  echo "Packaging $HASH.$target.sour"
+  # This gets rid of any missing files and weird names
+  sorted_files=$(find $@ 2>/dev/null | sort)
+
+
+  # Hash the bundle contents
+  # https://stackoverflow.com/a/64774578
+  target=($( \
+    tar cf - \
+    --ignore-failed-read \
+    --sort=name \
+    --mtime='UTC 2019-01-01' \
+    --group=0 --owner=0 --numeric-owner \
+    $sorted_files | sha256sum))
+
+  blob_target="$OUTPUT_DIR/$target.sour"
+
+  echo "Packaging $name into $target.sour"
+
+  # We can skip bundles with the same hash
+  if [ -f "$blob_target" ]; then
+    return 0
+  fi
 
 	found_files=""
 
 	# Preprocess the files
-	for infile in $files; do
+	for infile in $sorted_files; do
     extension="${infile##*.}"
 
     # If multiple bundles rely on the same converted image, we don't want to
     # redo the calculation.
-    hash=($(echo "$infile" | md5sum))
-    outfile="$WORKING_DIR/$hash.$extension"
+    file_hash=($(echo "$infile" | md5sum))
+    outfile="$WORKING_DIR/$file_hash.$extension"
 
     if ! [ -f "$infile" ]; then
       continue
@@ -66,9 +90,8 @@ package_files() {
 	done
 
 	# Package the files up
-  js_target="/tmp/$HASH.preload_$target.js"
-  data_target="/tmp/$HASH.$target.data"
-  blob_target="$OUTPUT_DIR/$HASH.$target.sour"
+  js_target="/tmp/preload_$target.js"
+  data_target="/tmp/$target.data"
 
   python3 "$EMSDK_DIR/upstream/emscripten/tools/file_packager.py" \
 					"$data_target" \
@@ -76,8 +99,7 @@ package_files() {
 					--preload $found_files > "$js_target"
 
   python3 "$SCRIPT_DIR/condenser.py" "$data_target" "$js_target" "$blob_target"
-
-  cd "$SCRIPT_DIR"
+  echo "$name $target" >> "$INDEX_FILE"
 }
 
 package_map() {
@@ -93,14 +115,19 @@ package_map() {
   package_files "$mapname" $(cat $maplist)
 }
 
-maps=$(find packages/base/ -name '*.ogz')
+# TODO(cfoust): 11/02/22 accept names without ogz
+maps="$1"
 
+# Default to all maps
+if [ -z "$maps" ]; then
+  maps=$(find packages/base/ -name '*.ogz')
+fi
+
+rm -f mapfiles/maps.list
 for map in $maps; do
   mapfile=$(basename -s .ogz "$map")
   mapstub="packages/base/$mapfile.stub"
-  if [ -f "$mapstub" ]; then
-    rm "$mapstub"
-  fi
+  rm -f "$mapstub"
   touch "$mapstub"
   echo "$mapstub" >> mapfiles/maps.list
 done
