@@ -15,7 +15,21 @@ import { getBundle as getSavedBundle, saveBundle, haveBundle } from './storage'
 class PullError extends Error {}
 
 let ASSET_PREFIX: string = ''
+let bundleIndex: Maybe<Record<string, string>> = null
 let pullState: BundleState[] = []
+
+async function fetchIndex(): Promise<Record<string, string>> {
+  const response = await fetch(`${ASSET_PREFIX}index`)
+  const index = await response.text()
+
+  const newIndex: Record<string, string> = {}
+  for (const line of index.split('\n')) {
+    const [name, hash] = line.split(' ')
+    newIndex[name] = hash
+  }
+
+  return newIndex
+}
 
 const sendState = (newState: BundleState[]) => {
   pullState = newState
@@ -67,12 +81,21 @@ function unpackBundle(data: ArrayBuffer): Bundle {
   }
 }
 
+function cleanPath(): string {
+  const lastSlash = ASSET_PREFIX.lastIndexOf('/')
+  if (lastSlash === -1) {
+    return ''
+  }
+
+  return ASSET_PREFIX.slice(0, lastSlash + 1)
+}
+
 async function fetchBundle(
-  target: string,
+  hash: string,
   progress: (bundle: BundleLoadState) => void
 ): Promise<ArrayBuffer> {
   const request = new XMLHttpRequest()
-  const packageName = `${ASSET_PREFIX}${target}.sour`
+  const packageName = `${cleanPath()}${hash}.sour`
   request.open('GET', packageName, true)
   request.responseType = 'arraybuffer'
   request.onprogress = (event) => {
@@ -106,23 +129,33 @@ async function fetchBundle(
 }
 
 async function loadBundle(
-  target: string,
+  hash: string,
   progress: (bundle: BundleLoadState) => void
 ): Promise<Bundle> {
-  if (await haveBundle(target)) {
-    const buffer = await getSavedBundle(target)
+  if (await haveBundle(hash)) {
+    const buffer = await getSavedBundle(hash)
     if (buffer == null) {
-      throw new PullError(`Bundle ${target} did not exist`)
+      throw new PullError(`Bundle ${hash} did not exist`)
     }
     return unpackBundle(buffer)
   }
 
-  const buffer = await fetchBundle(target, progress)
-  await saveBundle(target, buffer)
+  const buffer = await fetchBundle(hash, progress)
+  await saveBundle(hash, buffer)
   return unpackBundle(buffer)
 }
 
 async function processLoad(target: string, id: string) {
+  if (bundleIndex == null) {
+    bundleIndex = await fetchIndex()
+  }
+
+  const hash = bundleIndex[target]
+
+  if (hash == null) {
+    throw new Error(`No hash for ${target} found in index`)
+  }
+
   const update = (state: BundleLoadState) => {
     updateBundle(target, {
       name: target,
@@ -135,7 +168,7 @@ async function processLoad(target: string, id: string) {
   })
 
   try {
-    const bundle = await loadBundle(target, update)
+    const bundle = await loadBundle(hash, update)
 
     update({
       type: BundleLoadStateType.Ok,
