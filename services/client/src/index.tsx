@@ -208,7 +208,7 @@ function App() {
               { downloadedBytes: newDownload, totalBytes: newTotal }
             ) => ({
               downloadedBytes: currentDownload + newDownload,
-              totalBytes: newDownload + newTotal,
+              totalBytes: currentTotal + newTotal,
             }),
             {
               downloadedBytes: 0,
