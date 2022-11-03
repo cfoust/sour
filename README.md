@@ -60,6 +60,8 @@ If you want to run things locally (some people are old fashioned that way) all y
 Check out the roadmap below to see what you might be able to help with.
 
 ### General
+* [ ] Remove base game assets from the repository
+  * [X] Script for building archives of mainline sauerbraten assets
 * [ ] Better documentation
   * [ ] Create a README for each directory in `services/`
   * [ ] Describe how asset generation works
@@ -67,10 +69,15 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Ensure Sour works in Firefox
 * [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Full Terraform support for deploying Sour
-* [ ] Alow parts of Sour to be configured with a high-level configuration file
+* [ ] Allow parts of Sour to be configured with a high-level configuration file
+* [ ] Utility for calculating all of the files maps use
+  * Right now this uses `strace` and mainline sauerbraten, which is imperfect
 * [ ] Investigate differences in font colors between the real Sauer and Sour
 ### Gameplay
-* [ ] Remove base game assets from the repository
+* [ ] Investigate and fix issues with real servers
+  * [ ] Sour edits the map (???) on connect, which forces client to spectate on some servers
+  * [ ] CTF still doesn't work and flags don't show up
+* [ ] Particles still don't work and are not being included in base build
 * [ ] Clean loading page for slow connections (ensure page load time isn't horrible)
 * [ ] Demo player with seek/play/pause
   * [ ] Stretch goal: generate gifs in the browser
