@@ -106,15 +106,17 @@ func main() {
 			return
 		}
 
-		// TODO fill in the new header with this stuff
 		newHeader.BlendMap = int32(oldHeader.BlendMap)
 		newHeader.NumVars = 0
 		newHeader.NumVSlots = 0
 	} else {
 		err = binary.Read(reader, binary.LittleEndian, &newHeader)
+
+		// v29 had one fewer field
 		if header.Version == 29 {
 			reader.Seek(-4, io.SeekCurrent)
 		}
+
 		newHeader.NumVSlots = 0
 	}
 
@@ -133,6 +135,7 @@ func main() {
 		nameBytes int8
 	)
 
+	// These are apparently arbitrary Sauerbraten variables a map can set
 	for i := 0; i < int(newHeader.NumVars); i++ {
 		err = binary.Read(reader, binary.LittleEndian, &_type)
 		err = binary.Read(reader, binary.LittleEndian, &nameBytes)
@@ -150,11 +153,23 @@ func main() {
 			err = binary.Read(reader, binary.LittleEndian, &value)
 			log.Printf("%s=%f", name, value)
 		case ID_SVAR:
-			var valueBytes int8
+			var valueBytes uint16
 			err = binary.Read(reader, binary.LittleEndian, &valueBytes)
 			value := make([]byte, valueBytes+1)
 			err = binary.Read(reader, binary.LittleEndian, &value)
-			log.Printf("%s=%s", name, value)
+			reader.Seek(-1, io.SeekCurrent)
+			log.Printf("%s='%s'", name, value)
 		}
 	}
+
+	gameType := "fps"
+	if (header.Version >= 16) {
+		var typeBytes uint8
+		binary.Read(reader, binary.LittleEndian, &typeBytes)
+		fileGameType := make([]byte, typeBytes+1)
+		reader.Read(fileGameType)
+		gameType = string(fileGameType)
+	}
+
+	log.Printf("type %s", gameType)
 }
