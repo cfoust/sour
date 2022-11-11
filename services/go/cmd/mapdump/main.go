@@ -21,6 +21,12 @@ type Header struct {
 	NumVSlots  int32
 }
 
+const (
+	ID_VAR  byte = 0
+	ID_FVAR      = 1
+	ID_SVAR      = 2
+)
+
 func main() {
 	args := os.Args[1:]
 
@@ -67,30 +73,29 @@ func main() {
 	log.Printf("NumVSlots %d", header.NumVSlots)
 
 	var (
-		_type byte
+		_type     byte
 		nameBytes int8
 	)
 	for i := 0; i < int(header.NumVars); i++ {
 		err = binary.Read(reader, binary.LittleEndian, &_type)
 		err = binary.Read(reader, binary.LittleEndian, &nameBytes)
 
-		name := make([]byte, nameBytes + 1)
+		name := make([]byte, nameBytes+1)
 		_, err = reader.Read(name)
 
-
 		switch _type {
-		case 0:
+		case ID_VAR:
 			var value int32
 			err = binary.Read(reader, binary.LittleEndian, &value)
 			log.Printf("%s=%d", name, value)
-		case 1:
+		case ID_FVAR:
 			var value float32
 			err = binary.Read(reader, binary.LittleEndian, &value)
 			log.Printf("%s=%f", name, value)
-		case 2:
+		case ID_SVAR:
 			var valueBytes int8
 			err = binary.Read(reader, binary.LittleEndian, &valueBytes)
-			value := make([]byte, valueBytes + 1)
+			value := make([]byte, valueBytes+1)
 			err = binary.Read(reader, binary.LittleEndian, &value)
 			log.Printf("%s=%s", name, value)
 		}
