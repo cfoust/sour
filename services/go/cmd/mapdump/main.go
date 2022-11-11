@@ -46,10 +46,10 @@ func main() {
 	defer file.Close()
 	defer gz.Close()
 
-	scanner := bufio.NewReader(gz)
+	reader := bufio.NewReader(gz)
 
 	header := Header{}
-	err = binary.Read(scanner, binary.LittleEndian, &header)
+	err = binary.Read(reader, binary.LittleEndian, &header)
 	if err != nil {
 		log.Fatal(err)
 		log.Fatal("How did I end up here?")
@@ -65,4 +65,34 @@ func main() {
 	log.Printf("BlendMap %d", header.BlendMap)
 	log.Printf("NumVars %d", header.NumVars)
 	log.Printf("NumVSlots %d", header.NumVSlots)
+
+	var (
+		_type byte
+		nameBytes int8
+	)
+	for i := 0; i < int(header.NumVars); i++ {
+		err = binary.Read(reader, binary.LittleEndian, &_type)
+		err = binary.Read(reader, binary.LittleEndian, &nameBytes)
+
+		name := make([]byte, nameBytes + 1)
+		_, err = reader.Read(name)
+
+
+		switch _type {
+		case 0:
+			var value int32
+			err = binary.Read(reader, binary.LittleEndian, &value)
+			log.Printf("%s=%d", name, value)
+		case 1:
+			var value float32
+			err = binary.Read(reader, binary.LittleEndian, &value)
+			log.Printf("%s=%f", name, value)
+		case 2:
+			var valueBytes int8
+			err = binary.Read(reader, binary.LittleEndian, &valueBytes)
+			value := make([]byte, valueBytes + 1)
+			err = binary.Read(reader, binary.LittleEndian, &value)
+			log.Printf("%s=%s", name, value)
+		}
+	}
 }
