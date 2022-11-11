@@ -1,11 +1,12 @@
 package main
 
 import (
-	"bufio"
+	"bytes"
 	"compress/gzip"
 	"encoding/binary"
 	"log"
 	"os"
+	"io"
 )
 
 type Header struct {
@@ -16,9 +17,31 @@ type Header struct {
 	NumEnts    int32
 	NumPVs     int32
 	LightMaps  int32
+}
+
+type NewHeader struct {
 	BlendMap   int32
 	NumVars    int32
 	NumVSlots  int32
+}
+
+// For versions <=28
+type OldHeader struct {
+	LightPrecision int32
+	LightError     int32
+	LightLOD       int32
+	Ambient        byte
+	WaterColor     [3]byte
+	BlendMap       byte
+	LerpAngle      byte
+	LerpSubDiv     byte
+	LerpSubDivSize byte
+	BumpError      byte
+	SkyLight       [3]byte
+	LavaColor      [3]byte
+	WaterfallColor [3]byte
+	Reserved       [10]byte
+	MapTitle       [128]byte
 }
 
 const (
@@ -26,6 +49,8 @@ const (
 	ID_FVAR      = 1
 	ID_SVAR      = 2
 )
+
+const MAX_MAP_SIZE = 8388608
 
 func main() {
 	args := os.Args[1:]
@@ -52,7 +77,16 @@ func main() {
 	defer file.Close()
 	defer gz.Close()
 
-	reader := bufio.NewReader(gz)
+	// Read the entire file into memory -- maps are small
+	buffer := make([]byte, MAX_MAP_SIZE)
+	bytesRead, err := gz.Read(buffer)
+
+	if bytesRead == MAX_MAP_SIZE {
+		log.Fatal("Map file too big")
+		return
+	}
+
+	reader := bytes.NewReader(buffer)
 
 	header := Header{}
 	err = binary.Read(reader, binary.LittleEndian, &header)
@@ -62,21 +96,44 @@ func main() {
 		return
 	}
 
+	newHeader := NewHeader{}
+	oldHeader := OldHeader{}
+	if header.Version <= 28 {
+		reader.Seek(224, io.SeekStart) // 7 * 32, like in worldio.cpp
+		err = binary.Read(reader, binary.LittleEndian, &oldHeader)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		// TODO fill in the new header with this stuff
+		newHeader.BlendMap = int32(oldHeader.BlendMap)
+		newHeader.NumVars = 0
+		newHeader.NumVSlots = 0
+	} else {
+		err = binary.Read(reader, binary.LittleEndian, &newHeader)
+		if header.Version == 29 {
+			reader.Seek(-4, io.SeekCurrent)
+		}
+		newHeader.NumVSlots = 0
+	}
+
 	log.Printf("Version %d", header.Version)
 	log.Printf("HeaderSize %d", header.HeaderSize)
 	log.Printf("WorldSize %d", header.WorldSize)
 	log.Printf("NumEnts %d", header.NumEnts)
 	log.Printf("NumPVs %d", header.NumPVs)
 	log.Printf("LightMaps %d", header.LightMaps)
-	log.Printf("BlendMap %d", header.BlendMap)
-	log.Printf("NumVars %d", header.NumVars)
-	log.Printf("NumVSlots %d", header.NumVSlots)
+	log.Printf("BlendMap %d", newHeader.BlendMap)
+	log.Printf("NumVars %d", newHeader.NumVars)
+	log.Printf("NumVSlots %d", newHeader.NumVSlots)
 
 	var (
 		_type     byte
 		nameBytes int8
 	)
-	for i := 0; i < int(header.NumVars); i++ {
+
+	for i := 0; i < int(newHeader.NumVars); i++ {
 		err = binary.Read(reader, binary.LittleEndian, &_type)
 		err = binary.Read(reader, binary.LittleEndian, &nameBytes)
 
