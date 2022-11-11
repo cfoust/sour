@@ -77,7 +77,7 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Investigate and fix issues with real servers
   * [ ] Sour edits the map (???) on connect, which forces client to spectate on some servers
   * [ ] CTF still doesn't work and flags don't show up
-* [ ] Particles still don't work and are not being included in base build
+* [ ] Allow for backgrounding the tab by responding to pings
 * [ ] Clean loading page for slow connections (ensure page load time isn't horrible)
 * [ ] Demo player with seek/play/pause
   * [ ] Stretch goal: generate gifs in the browser
