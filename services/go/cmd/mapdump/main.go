@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/binary"
+	"io"
 	"log"
 	"os"
-	"io"
 )
 
 type Header struct {
@@ -20,9 +20,9 @@ type Header struct {
 }
 
 type NewHeader struct {
-	BlendMap   int32
-	NumVars    int32
-	NumVSlots  int32
+	BlendMap  int32
+	NumVars   int32
+	NumVSlots int32
 }
 
 // For versions <=28
@@ -44,10 +44,44 @@ type OldHeader struct {
 	MapTitle       [128]byte
 }
 
+type Vector struct {
+	X float32
+	Y float32
+	Z float32
+}
+
+type Entity struct {
+	Position Vector
+	Attr1    int16
+	Attr2    int16
+	Attr3    int16
+	Attr4    int16
+	Attr5    int16
+	Type     byte
+	Reserved byte
+}
+
+type GameMap struct {
+	Header    Header
+	NewHeader NewHeader
+	GameType  string
+}
+
 const (
 	ID_VAR  byte = 0
 	ID_FVAR      = 1
 	ID_SVAR      = 2
+)
+const (
+	ET_EMPTY        byte = 0
+	ET_LIGHT             = 1
+	ET_MAPMODEL          = 2
+	ET_PLAYERSTART       = 3
+	ET_ENVMAP            = 4
+	ET_PARTICLES         = 5
+	ET_SOUND             = 6
+	ET_SPOTLIGHT         = 7
+	ET_GAMESPECIFIC      = 8
 )
 
 const MAX_MAP_SIZE = 8388608
@@ -76,6 +110,8 @@ func main() {
 
 	defer file.Close()
 	defer gz.Close()
+
+	gameMap := GameMap{}
 
 	// Read the entire file into memory -- maps are small
 	buffer := make([]byte, MAX_MAP_SIZE)
@@ -120,6 +156,9 @@ func main() {
 		newHeader.NumVSlots = 0
 	}
 
+	gameMap.Header = header
+	gameMap.NewHeader = newHeader
+
 	log.Printf("Version %d", header.Version)
 	log.Printf("HeaderSize %d", header.HeaderSize)
 	log.Printf("WorldSize %d", header.WorldSize)
@@ -163,7 +202,7 @@ func main() {
 	}
 
 	gameType := "fps"
-	if (header.Version >= 16) {
+	if header.Version >= 16 {
 		var typeBytes uint8
 		binary.Read(reader, binary.LittleEndian, &typeBytes)
 		fileGameType := make([]byte, typeBytes+1)
@@ -171,5 +210,35 @@ func main() {
 		gameType = string(fileGameType)
 	}
 
-	log.Printf("type %s", gameType)
+	gameMap.GameType = gameType
+
+	// We just skip extras
+	var eif uint16 = 0
+	if header.Version >= 16 {
+		binary.Read(reader, binary.LittleEndian, &eif)
+		var extraSize uint16
+		binary.Read(reader, binary.LittleEndian, &extraSize)
+
+		// TODO do we need extras?
+		reader.Seek(int64(extraSize), io.SeekCurrent)
+	}
+
+	// Also skip the texture MRU
+	if header.Version < 14 {
+		reader.Seek(256, io.SeekCurrent)
+	} else {
+		var numMRUBytes uint16
+		binary.Read(reader, binary.LittleEndian, &numMRUBytes)
+		log.Printf("numMRUBytes %d", numMRUBytes)
+		reader.Seek(int64(numMRUBytes * 2), io.SeekCurrent)
+	}
+
+	// Load entities
+	for i := 0; i < int(header.NumEnts); i++ {
+		entity := Entity{}
+		binary.Read(reader, binary.LittleEndian, &entity)
+		log.Printf("entity type %d", entity.Type)
+		//log.Printf("entity pos x=%f,y=%f,z=%f", entity.Position.X, entity.Position.Y, entity.Position.Z)
+	}
+
 }
