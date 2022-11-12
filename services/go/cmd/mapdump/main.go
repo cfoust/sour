@@ -135,7 +135,7 @@ func main() {
 	newHeader := NewHeader{}
 	oldHeader := OldHeader{}
 	if header.Version <= 28 {
-		reader.Seek(224, io.SeekStart) // 7 * 32, like in worldio.cpp
+		reader.Seek(28, io.SeekStart) // 7 * 4, like in worldio.cpp
 		err = binary.Read(reader, binary.LittleEndian, &oldHeader)
 		if err != nil {
 			log.Fatal(err)
@@ -230,15 +230,24 @@ func main() {
 		var numMRUBytes uint16
 		binary.Read(reader, binary.LittleEndian, &numMRUBytes)
 		log.Printf("numMRUBytes %d", numMRUBytes)
-		reader.Seek(int64(numMRUBytes * 2), io.SeekCurrent)
+		reader.Seek(int64(numMRUBytes*2), io.SeekCurrent)
 	}
 
 	// Load entities
 	for i := 0; i < int(header.NumEnts); i++ {
 		entity := Entity{}
 		binary.Read(reader, binary.LittleEndian, &entity)
-		log.Printf("entity type %d", entity.Type)
+
+		//log.Printf("entity type %d", entity.Type)
 		//log.Printf("entity pos x=%f,y=%f,z=%f", entity.Position.X, entity.Position.Y, entity.Position.Z)
+
+		if header.Version <= 14 && entity.Type == ET_MAPMODEL {
+			entity.Position.Z += float32(entity.Attr3)
+			entity.Attr3 = 0
+			entity.Attr4 = 0
+		}
 	}
 
+	// vslots
+	// TODO what's a v slot?
 }
