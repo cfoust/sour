@@ -61,6 +61,21 @@ type Entity struct {
 	Reserved byte
 }
 
+type SurfaceInfo struct {
+	Lmid     [2]byte
+	Verts    byte
+	NumVerts byte
+}
+type Cube struct {
+	Children    *Cube
+	SurfaceInfo [6]SurfaceInfo
+	Edges       [12]byte
+	Texture     [6]uint16
+	Material    uint16
+	Merged      byte
+	Escaped     byte
+}
+
 type GameMap struct {
 	Header    Header
 	NewHeader NewHeader
@@ -85,6 +100,9 @@ const (
 )
 
 const MAX_MAP_SIZE = 8388608
+
+//func LoadChildren(reader *bytes.Reader) (error) {
+//}
 
 func main() {
 	args := os.Args[1:]
@@ -249,5 +267,9 @@ func main() {
 	}
 
 	// vslots
-	// TODO what's a v slot?
+	// TODO do we ever actually need v slots?
+	if newHeader.NumVSlots > 0 {
+		log.Fatal("Maps with vslots are not supported")
+		return
+	}
 }
