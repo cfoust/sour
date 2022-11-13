@@ -66,8 +66,11 @@ type SurfaceInfo struct {
 	Verts    byte
 	NumVerts byte
 }
+
+const CUBE_FACTOR = 8
+
 type Cube struct {
-	Children    *Cube
+	Children    *[]Cube
 	SurfaceInfo [6]SurfaceInfo
 	Edges       [12]byte
 	Texture     [6]uint16
@@ -83,26 +86,88 @@ type GameMap struct {
 }
 
 const (
-	ID_VAR  byte = 0
-	ID_FVAR      = 1
-	ID_SVAR      = 2
+	ID_VAR  byte = iota
+	ID_FVAR      = iota
+	ID_SVAR      = iota
 )
+
 const (
-	ET_EMPTY        byte = 0
-	ET_LIGHT             = 1
-	ET_MAPMODEL          = 2
-	ET_PLAYERSTART       = 3
-	ET_ENVMAP            = 4
-	ET_PARTICLES         = 5
-	ET_SOUND             = 6
-	ET_SPOTLIGHT         = 7
-	ET_GAMESPECIFIC      = 8
+	ET_EMPTY        byte = iota
+	ET_LIGHT             = iota
+	ET_MAPMODEL          = iota
+	ET_PLAYERSTART       = iota
+	ET_ENVMAP            = iota
+	ET_PARTICLES         = iota
+	ET_SOUND             = iota
+	ET_SPOTLIGHT         = iota
+	ET_GAMESPECIFIC      = iota
+)
+
+const (
+	OCTSAV_CHILDREN byte = iota
+	OCTSAV_EMPTY         = iota
+	OCTSAV_SOLID         = iota
+	OCTSAV_NORMAL        = iota
+	OCTSAV_LODCUB        = iota
 )
 
 const MAX_MAP_SIZE = 8388608
 
-//func LoadChildren(reader *bytes.Reader) (error) {
-//}
+func LoadCube(reader *bytes.Reader, cube *Cube, version int32) error {
+	//var hasChildren = false
+	var octSav byte
+	binary.Read(reader, binary.LittleEndian, &octSav)
+
+	switch octSav {
+	case OCTSAV_CHILDREN:
+		children, err := LoadChildren(reader, version)
+		if err != nil {
+			return err
+		}
+		cube.Children = &children
+	case OCTSAV_LODCUB:
+		//hasChildren = true
+		break
+	case OCTSAV_EMPTY:
+		// TODO emptyfaces
+		break
+	case OCTSAV_SOLID:
+		// TODO solidfaces
+		break
+	case OCTSAV_NORMAL:
+		// TODO handle edges
+		reader.Seek(12, io.SeekCurrent)
+		break
+	}
+
+	for i := 0; i < 6; i++ {
+		if version < 14 {
+			var texture byte
+			binary.Read(reader, binary.LittleEndian, &texture)
+			cube.Texture[i] = uint16(texture)
+		} else {
+			var texture uint16
+			binary.Read(reader, binary.LittleEndian, &texture)
+			cube.Texture[i] = texture
+		}
+		log.Printf("texture[%d]=%d", i, cube.Texture[i])
+	}
+
+	return nil
+}
+
+func LoadChildren(reader *bytes.Reader, version int32) ([]Cube, error) {
+	children := make([]Cube, CUBE_FACTOR)
+
+	for i := 0; i < CUBE_FACTOR; i++ {
+		err := LoadCube(reader, &children[i], version)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return children, nil
+}
 
 func main() {
 	args := os.Args[1:]
@@ -272,4 +337,6 @@ func main() {
 		log.Fatal("Maps with vslots are not supported")
 		return
 	}
+
+	_, err = LoadChildren(reader, header.Version)
 }
