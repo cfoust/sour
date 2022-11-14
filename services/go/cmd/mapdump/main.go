@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/binary"
+	"errors"
 	"io"
 	"log"
 	"os"
@@ -67,6 +68,33 @@ type SurfaceInfo struct {
 	NumVerts byte
 }
 
+type SurfaceCompat struct {
+	TexCoords [8]byte
+	Width     byte
+	Height    byte
+	X         uint16
+	Y         uint16
+	Lmid      byte
+	Layer     byte
+}
+
+type BVec struct {
+	X byte
+	Y byte
+	Z byte
+}
+
+type NormalsCompat struct {
+	Normals [4]BVec
+}
+
+type MergeCompat struct {
+	U1 uint16
+	U2 uint16
+	V1 uint16
+	V2 uint16
+}
+
 const CUBE_FACTOR = 8
 
 type Cube struct {
@@ -111,20 +139,24 @@ const (
 	OCTSAV_LODCUB        = iota
 )
 
-const MAX_MAP_SIZE = 8388608
-
-func LoadCube(reader *bytes.Reader, cube *Cube, version int32) error {
+func LoadCube(reader *bytes.Reader, cube *Cube, mapVersion int32) error {
 	//var hasChildren = false
-	var octSav byte
-	binary.Read(reader, binary.LittleEndian, &octSav)
+	var octsav byte
+	binary.Read(reader, binary.LittleEndian, &octsav)
 
-	switch octSav {
+	log.Printf("octsav=%d", octsav&0x7)
+
+	pos, _ := reader.Seek(0, io.SeekCurrent)
+	log.Printf("pos=%d", pos)
+
+	switch octsav & 0x7 {
 	case OCTSAV_CHILDREN:
-		children, err := LoadChildren(reader, version)
+		children, err := LoadChildren(reader, mapVersion)
 		if err != nil {
 			return err
 		}
 		cube.Children = &children
+		return nil
 	case OCTSAV_LODCUB:
 		//hasChildren = true
 		break
@@ -135,13 +167,17 @@ func LoadCube(reader *bytes.Reader, cube *Cube, version int32) error {
 		// TODO solidfaces
 		break
 	case OCTSAV_NORMAL:
-		// TODO handle edges
-		reader.Seek(12, io.SeekCurrent)
+		binary.Read(reader, binary.LittleEndian, &cube.Edges)
 		break
 	}
 
+	if (octsav & 0x7) > 4 {
+		log.Fatal("Map had invalid octsav")
+		return errors.New("Map had invalid octsav")
+	}
+
 	for i := 0; i < 6; i++ {
-		if version < 14 {
+		if mapVersion < 14 {
 			var texture byte
 			binary.Read(reader, binary.LittleEndian, &texture)
 			cube.Texture[i] = uint16(texture)
@@ -150,17 +186,67 @@ func LoadCube(reader *bytes.Reader, cube *Cube, version int32) error {
 			binary.Read(reader, binary.LittleEndian, &texture)
 			cube.Texture[i] = texture
 		}
-		log.Printf("texture[%d]=%d", i, cube.Texture[i])
+		log.Printf("Texture[%d]=%d", i, cube.Texture[i])
+	}
+
+	if mapVersion < 7 {
+		reader.Seek(3, io.SeekCurrent)
+	} else if mapVersion <= 31 {
+		var mask byte
+		binary.Read(reader, binary.LittleEndian, &mask)
+
+		if (mask & 0x80) > 0 {
+			// TODO convert materials?
+			reader.Seek(1, io.SeekCurrent)
+		}
+
+		surfaces := make([]SurfaceCompat, 12)
+		normals := make([]NormalsCompat, 6)
+		merges := make([]MergeCompat, 6)
+
+		var numSurfaces = 6
+		if (mask & 0x3F) > 0 {
+			for i := 0; i < numSurfaces; i++ {
+				if i >= 6 || mask&(1<<i) > 0 {
+					binary.Read(reader, binary.LittleEndian, &surfaces[i])
+					if i < 6 {
+						if (mask & 0x40) > 0 {
+							binary.Read(reader, binary.LittleEndian, &normals[i])
+						}
+						if (surfaces[i].Layer & 2) > 0 {
+							numSurfaces++
+						}
+					}
+				}
+			}
+		}
+
+		if mapVersion >= 20 && (octsav&0x80) > 0 {
+			var merged byte
+			binary.Read(reader, binary.LittleEndian, &merged)
+			cube.Merged = merged & 0x3F
+			if (merged & 0x80) > 0 {
+				var mask byte
+				binary.Read(reader, binary.LittleEndian, &mask)
+				if mask > 0 {
+					for i := 0; i < 6; i++ {
+						if (mask & (1 << i)) > 0 {
+							binary.Read(reader, binary.LittleEndian, &merges[i])
+						}
+					}
+				}
+			}
+		}
 	}
 
 	return nil
 }
 
-func LoadChildren(reader *bytes.Reader, version int32) ([]Cube, error) {
+func LoadChildren(reader *bytes.Reader, mapVersion int32) ([]Cube, error) {
 	children := make([]Cube, CUBE_FACTOR)
 
 	for i := 0; i < CUBE_FACTOR; i++ {
-		err := LoadCube(reader, &children[i], version)
+		err := LoadCube(reader, &children[i], mapVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -197,11 +283,10 @@ func main() {
 	gameMap := GameMap{}
 
 	// Read the entire file into memory -- maps are small
-	buffer := make([]byte, MAX_MAP_SIZE)
-	bytesRead, err := gz.Read(buffer)
+	buffer, err := io.ReadAll(gz)
 
-	if bytesRead == MAX_MAP_SIZE {
-		log.Fatal("Map file too big")
+	if err != nil {
+		log.Fatal(err)
 		return
 	}
 
@@ -229,7 +314,7 @@ func main() {
 		newHeader.NumVars = 0
 		newHeader.NumVSlots = 0
 	} else {
-		err = binary.Read(reader, binary.LittleEndian, &newHeader)
+		binary.Read(reader, binary.LittleEndian, &newHeader)
 
 		// v29 had one fewer field
 		if header.Version == 29 {
