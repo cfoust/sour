@@ -151,154 +151,6 @@ const (
 	VSLOT_NUM           = iota
 )
 
-func LoadCube(reader *bytes.Reader, cube *Cube, mapVersion int32) error {
-	//pos, _ := reader.Seek(0, io.SeekCurrent)
-	//log.Printf("pos=%d", pos)
-
-	//var hasChildren = false
-	var octsav byte
-	binary.Read(reader, binary.LittleEndian, &octsav)
-
-	//log.Printf("octsav=%d", octsav&0x7)
-
-	switch octsav & 0x7 {
-	case OCTSAV_CHILDREN:
-		children, err := LoadChildren(reader, mapVersion)
-		if err != nil {
-			return err
-		}
-		cube.Children = &children
-		return nil
-	case OCTSAV_LODCUB:
-		//hasChildren = true
-		break
-	case OCTSAV_EMPTY:
-		// TODO emptyfaces
-		break
-	case OCTSAV_SOLID:
-		// TODO solidfaces
-		break
-	case OCTSAV_NORMAL:
-		binary.Read(reader, binary.LittleEndian, &cube.Edges)
-		break
-	}
-
-	if (octsav & 0x7) > 4 {
-		log.Fatal("Map had invalid octsav")
-		return errors.New("Map had invalid octsav")
-	}
-
-	for i := 0; i < 6; i++ {
-		if mapVersion < 14 {
-			var texture byte
-			binary.Read(reader, binary.LittleEndian, &texture)
-			cube.Texture[i] = uint16(texture)
-		} else {
-			var texture uint16
-			binary.Read(reader, binary.LittleEndian, &texture)
-			cube.Texture[i] = texture
-		}
-		//log.Printf("Texture[%d]=%d", i, cube.Texture[i])
-	}
-
-	if mapVersion < 7 {
-		reader.Seek(3, io.SeekCurrent)
-	} else if mapVersion <= 31 {
-		var mask byte
-		binary.Read(reader, binary.LittleEndian, &mask)
-
-		if (mask & 0x80) > 0 {
-			// TODO convert materials?
-			reader.Seek(1, io.SeekCurrent)
-		}
-
-		surfaces := make([]SurfaceCompat, 12)
-		normals := make([]NormalsCompat, 6)
-		merges := make([]MergeCompat, 6)
-
-		var numSurfaces = 6
-		if (mask & 0x3F) > 0 {
-			for i := 0; i < numSurfaces; i++ {
-				if i >= 6 || mask&(1<<i) > 0 {
-					binary.Read(reader, binary.LittleEndian, &surfaces[i])
-					if i < 6 {
-						if (mask & 0x40) > 0 {
-							binary.Read(reader, binary.LittleEndian, &normals[i])
-						}
-						if (surfaces[i].Layer & 2) > 0 {
-							numSurfaces++
-						}
-					}
-				}
-			}
-		}
-
-		if mapVersion >= 20 && (octsav&0x80) > 0 {
-			var merged byte
-			binary.Read(reader, binary.LittleEndian, &merged)
-			cube.Merged = merged & 0x3F
-			if (merged & 0x80) > 0 {
-				var mask byte
-				binary.Read(reader, binary.LittleEndian, &mask)
-				if mask > 0 {
-					for i := 0; i < 6; i++ {
-						if (mask & (1 << i)) > 0 {
-							binary.Read(reader, binary.LittleEndian, &merges[i])
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-func LoadChildren(reader *bytes.Reader, mapVersion int32) ([]Cube, error) {
-	children := make([]Cube, CUBE_FACTOR)
-
-	for i := 0; i < CUBE_FACTOR; i++ {
-		err := LoadCube(reader, &children[i], mapVersion)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return children, nil
-}
-
-func LoadVSlot(reader *bytes.Reader, changed int32) error {
-	if (changed & (1 << VSLOT_SHPARAM)) > 0 {
-		var numParams uint16
-		binary.Read(reader, binary.LittleEndian, &numParams)
-	}
-
-	return nil
-}
-
-func LoadVSlots(reader *bytes.Reader, numVSlots int32) error {
-	leftToRead := numVSlots
-
-	for leftToRead > 0 {
-		var changed int32
-		binary.Read(reader, binary.LittleEndian, &changed)
-		if changed < 0 {
-			leftToRead += changed
-		} else {
-			var slot int32
-			binary.Read(reader, binary.LittleEndian, &slot)
-			LoadVSlot(reader, changed)
-			leftToRead--
-		}
-	}
-
-	return nil
-}
-
-func InsideWorld(size int32, vector Vector) bool {
-	return vector.X >= 0 && vector.X < float32(size) && vector.Y >= 0 && vector.Y < float32(size) && vector.Z >= 0 && vector.Z < float32(size)
-}
-
 type Unpacker struct {
 	Reader *bytes.Reader
 }
@@ -361,6 +213,148 @@ func (unpack *Unpacker) Tell() int64 {
 	pos, _ := unpack.Reader.Seek(0, io.SeekCurrent)
 	return pos
 }
+
+func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
+	//pos, _ := reader.Seek(0, io.SeekCurrent)
+	//log.Printf("pos=%d", pos)
+
+	//var hasChildren = false
+	octsav := unpack.Char()
+
+	//log.Printf("octsav=%d", octsav&0x7)
+
+	switch octsav & 0x7 {
+	case OCTSAV_CHILDREN:
+		children, err := LoadChildren(unpack, mapVersion)
+		if err != nil {
+			return err
+		}
+		cube.Children = &children
+		return nil
+	case OCTSAV_LODCUB:
+		//hasChildren = true
+		break
+	case OCTSAV_EMPTY:
+		// TODO emptyfaces
+		break
+	case OCTSAV_SOLID:
+		// TODO solidfaces
+		break
+	case OCTSAV_NORMAL:
+		unpack.Read(&cube.Edges)
+		break
+	}
+
+	if (octsav & 0x7) > 4 {
+		log.Fatal("Map had invalid octsav")
+		return errors.New("Map had invalid octsav")
+	}
+
+	for i := 0; i < 6; i++ {
+		if mapVersion < 14 {
+			texture := unpack.Char()
+			cube.Texture[i] = uint16(texture)
+		} else {
+			texture := unpack.Short()
+			cube.Texture[i] = texture
+		}
+		//log.Printf("Texture[%d]=%d", i, cube.Texture[i])
+	}
+
+	if mapVersion < 7 {
+		unpack.Skip(3)
+	} else if mapVersion <= 31 {
+		mask := unpack.Char()
+
+		if (mask & 0x80) > 0 {
+			unpack.Skip(1)
+		}
+
+		surfaces := make([]SurfaceCompat, 12)
+		normals := make([]NormalsCompat, 6)
+		merges := make([]MergeCompat, 6)
+
+		var numSurfaces = 6
+		if (mask & 0x3F) > 0 {
+			for i := 0; i < numSurfaces; i++ {
+				if i >= 6 || mask&(1<<i) > 0 {
+					unpack.Read(&surfaces[i])
+					if i < 6 {
+						if (mask & 0x40) > 0 {
+							unpack.Read(&normals[i])
+						}
+						if (surfaces[i].Layer & 2) > 0 {
+							numSurfaces++
+						}
+					}
+				}
+			}
+		}
+
+		if mapVersion >= 20 && (octsav&0x80) > 0 {
+			merged := unpack.Char()
+			cube.Merged = merged & 0x3F
+			if (merged & 0x80) > 0 {
+				mask := unpack.Char()
+				if mask > 0 {
+					for i := 0; i < 6; i++ {
+						if (mask & (1 << i)) > 0 {
+							unpack.Read(&merges[i])
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func LoadChildren(unpack *Unpacker, mapVersion int32) ([]Cube, error) {
+	children := make([]Cube, CUBE_FACTOR)
+
+	for i := 0; i < CUBE_FACTOR; i++ {
+		err := LoadCube(unpack, &children[i], mapVersion)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return children, nil
+}
+
+func LoadVSlot(reader *bytes.Reader, changed int32) error {
+	if (changed & (1 << VSLOT_SHPARAM)) > 0 {
+		var numParams uint16
+		binary.Read(reader, binary.LittleEndian, &numParams)
+	}
+
+	return nil
+}
+
+func LoadVSlots(reader *bytes.Reader, numVSlots int32) error {
+	leftToRead := numVSlots
+
+	for leftToRead > 0 {
+		var changed int32
+		binary.Read(reader, binary.LittleEndian, &changed)
+		if changed < 0 {
+			leftToRead += changed
+		} else {
+			var slot int32
+			binary.Read(reader, binary.LittleEndian, &slot)
+			LoadVSlot(reader, changed)
+			leftToRead--
+		}
+	}
+
+	return nil
+}
+
+func InsideWorld(size int32, vector Vector) bool {
+	return vector.X >= 0 && vector.X < float32(size) && vector.Y >= 0 && vector.Y < float32(size) && vector.Z >= 0 && vector.Z < float32(size)
+}
+
 
 func main() {
 	args := os.Args[1:]
@@ -480,12 +474,10 @@ func main() {
 
 	// Also skip the texture MRU
 	if header.Version < 14 {
-		reader.Seek(256, io.SeekCurrent)
+		unpack.Skip(256)
 	} else {
-		var numMRUBytes uint16
-		binary.Read(reader, binary.LittleEndian, &numMRUBytes)
-		log.Printf("numMRUBytes %d", numMRUBytes)
-		reader.Seek(int64(numMRUBytes*2), io.SeekCurrent)
+		numMRUBytes := unpack.Short()
+		unpack.Skip(int64(numMRUBytes*2))
 	}
 
 	// Load entities
@@ -513,5 +505,5 @@ func main() {
 		return
 	}
 
-	_, err = LoadChildren(reader, header.Version)
+	_, err = LoadChildren(unpack, header.Version)
 }
