@@ -140,14 +140,14 @@ const (
 )
 
 func LoadCube(reader *bytes.Reader, cube *Cube, mapVersion int32) error {
-	pos, _ := reader.Seek(0, io.SeekCurrent)
-	log.Printf("pos=%d", pos)
+	//pos, _ := reader.Seek(0, io.SeekCurrent)
+	//log.Printf("pos=%d", pos)
 
 	//var hasChildren = false
 	var octsav byte
 	binary.Read(reader, binary.LittleEndian, &octsav)
 
-	log.Printf("octsav=%d", octsav&0x7)
+	//log.Printf("octsav=%d", octsav&0x7)
 
 	switch octsav & 0x7 {
 	case OCTSAV_CHILDREN:
@@ -324,8 +324,6 @@ func main() {
 		if header.Version == 29 {
 			reader.Seek(-4, io.SeekCurrent)
 		}
-
-		newHeader.NumVSlots = 0
 	}
 
 	gameMap.Header = header
@@ -410,11 +408,10 @@ func main() {
 		entity := Entity{}
 		binary.Read(reader, binary.LittleEndian, &entity)
 
-		log.Printf("entity type %d", entity.Type)
-		log.Printf("entity pos x=%f,y=%f,z=%f", entity.Position.X, entity.Position.Y, entity.Position.Z)
-
 		if !InsideWorld(header.WorldSize, entity.Position) {
-			log.Fatal("Entity outside of world")
+			log.Printf("Entity outside of world")
+			log.Printf("entity type %d", entity.Type)
+			log.Printf("entity pos x=%f,y=%f,z=%f", entity.Position.X, entity.Position.Y, entity.Position.Z)
 		}
 
 		if header.Version <= 14 && entity.Type == ET_MAPMODEL {
