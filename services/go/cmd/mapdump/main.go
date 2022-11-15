@@ -139,6 +139,18 @@ const (
 	OCTSAV_LODCUB        = iota
 )
 
+const (
+	VSLOT_SHPARAM  byte = iota
+	VSLOT_SCALE         = iota
+	VSLOT_ROTATION      = iota
+	VSLOT_OFFSET        = iota
+	VSLOT_SCROLL        = iota
+	VSLOT_LAYER         = iota
+	VSLOT_ALPHA         = iota
+	VSLOT_COLOR         = iota
+	VSLOT_NUM           = iota
+)
+
 func LoadCube(reader *bytes.Reader, cube *Cube, mapVersion int32) error {
 	//pos, _ := reader.Seek(0, io.SeekCurrent)
 	//log.Printf("pos=%d", pos)
@@ -255,8 +267,99 @@ func LoadChildren(reader *bytes.Reader, mapVersion int32) ([]Cube, error) {
 	return children, nil
 }
 
+func LoadVSlot(reader *bytes.Reader, changed int32) error {
+	if (changed & (1 << VSLOT_SHPARAM)) > 0 {
+		var numParams uint16
+		binary.Read(reader, binary.LittleEndian, &numParams)
+	}
+
+	return nil
+}
+
+func LoadVSlots(reader *bytes.Reader, numVSlots int32) error {
+	leftToRead := numVSlots
+
+	for leftToRead > 0 {
+		var changed int32
+		binary.Read(reader, binary.LittleEndian, &changed)
+		if changed < 0 {
+			leftToRead += changed
+		} else {
+			var slot int32
+			binary.Read(reader, binary.LittleEndian, &slot)
+			LoadVSlot(reader, changed)
+			leftToRead--
+		}
+	}
+
+	return nil
+}
+
 func InsideWorld(size int32, vector Vector) bool {
 	return vector.X >= 0 && vector.X < float32(size) && vector.Y >= 0 && vector.Y < float32(size) && vector.Z >= 0 && vector.Z < float32(size)
+}
+
+type Unpacker struct {
+	Reader *bytes.Reader
+}
+
+func NewUnpacker(reader *bytes.Reader) *Unpacker {
+	unpacker := Unpacker{}
+	unpacker.Reader = reader
+	return &unpacker
+}
+
+func (unpack *Unpacker) Read(data any) error {
+	return binary.Read(unpack.Reader, binary.LittleEndian, data)
+}
+
+func (unpack *Unpacker) Float() float32 {
+	var value float32
+	unpack.Read(&value)
+	return value
+}
+
+func (unpack *Unpacker) Int() int32 {
+	var value int32
+	unpack.Read(&value)
+	return value
+}
+
+func (unpack *Unpacker) Char() byte {
+	var value byte
+	unpack.Read(&value)
+	return value
+}
+
+func (unpack *Unpacker) Short() uint16 {
+	var value uint16
+	unpack.Read(&value)
+	return value
+}
+
+func (unpack *Unpacker) String() string {
+	bytes := unpack.Short()
+	log.Printf("bytes=%d", bytes)
+	value := make([]byte, bytes+1)
+	unpack.Read(value)
+	return string(value)
+}
+
+func (unpack *Unpacker) StringByte() string {
+	var bytes byte
+	unpack.Read(&bytes)
+	value := make([]byte, bytes+1)
+	unpack.Read(value)
+	return string(value)
+}
+
+func (unpack *Unpacker) Skip(bytes int64) {
+	unpack.Reader.Seek(bytes, io.SeekCurrent)
+}
+
+func (unpack *Unpacker) Tell() int64 {
+	pos, _ := unpack.Reader.Seek(0, io.SeekCurrent)
+	return pos
 }
 
 func main() {
@@ -296,8 +399,10 @@ func main() {
 
 	reader := bytes.NewReader(buffer)
 
+	unpack := NewUnpacker(reader)
+
 	header := Header{}
-	err = binary.Read(reader, binary.LittleEndian, &header)
+	err = unpack.Read(&header)
 	if err != nil {
 		log.Fatal(err)
 		log.Fatal("How did I end up here?")
@@ -308,7 +413,7 @@ func main() {
 	oldHeader := OldHeader{}
 	if header.Version <= 28 {
 		reader.Seek(28, io.SeekStart) // 7 * 4, like in worldio.cpp
-		err = binary.Read(reader, binary.LittleEndian, &oldHeader)
+		err = unpack.Read(&oldHeader)
 		if err != nil {
 			log.Fatal(err)
 			return
@@ -318,7 +423,7 @@ func main() {
 		newHeader.NumVars = 0
 		newHeader.NumVSlots = 0
 	} else {
-		binary.Read(reader, binary.LittleEndian, &newHeader)
+		unpack.Read(&newHeader)
 
 		// v29 had one fewer field
 		if header.Version == 29 {
@@ -339,33 +444,20 @@ func main() {
 	log.Printf("NumVars %d", newHeader.NumVars)
 	log.Printf("NumVSlots %d", newHeader.NumVSlots)
 
-	var (
-		_type     byte
-		nameBytes int8
-	)
-
 	// These are apparently arbitrary Sauerbraten variables a map can set
 	for i := 0; i < int(newHeader.NumVars); i++ {
-		err = binary.Read(reader, binary.LittleEndian, &_type)
-		err = binary.Read(reader, binary.LittleEndian, &nameBytes)
-
-		name := make([]byte, nameBytes+1)
-		_, err = reader.Read(name)
+		_type := unpack.Char()
+		name := unpack.StringByte()
 
 		switch _type {
 		case ID_VAR:
-			var value int32
-			err = binary.Read(reader, binary.LittleEndian, &value)
+			value := unpack.Int()
 			log.Printf("%s=%d", name, value)
 		case ID_FVAR:
-			var value float32
-			err = binary.Read(reader, binary.LittleEndian, &value)
+			value := unpack.Float()
 			log.Printf("%s=%f", name, value)
 		case ID_SVAR:
-			var valueBytes uint16
-			err = binary.Read(reader, binary.LittleEndian, &valueBytes)
-			value := make([]byte, valueBytes+1)
-			err = binary.Read(reader, binary.LittleEndian, &value)
+			value := unpack.String()
 			reader.Seek(-1, io.SeekCurrent)
 			log.Printf("%s='%s'", name, value)
 		}
@@ -373,24 +465,17 @@ func main() {
 
 	gameType := "fps"
 	if header.Version >= 16 {
-		var typeBytes uint8
-		binary.Read(reader, binary.LittleEndian, &typeBytes)
-		fileGameType := make([]byte, typeBytes+1)
-		reader.Read(fileGameType)
-		gameType = string(fileGameType)
+		gameType = unpack.StringByte()
 	}
+	log.Printf("GameType %s", gameType)
 
 	gameMap.GameType = gameType
 
-	// We just skip extras
-	var eif uint16 = 0
+	//// We just skip extras
 	if header.Version >= 16 {
-		binary.Read(reader, binary.LittleEndian, &eif)
-		var extraSize uint16
-		binary.Read(reader, binary.LittleEndian, &extraSize)
-
-		// TODO do we need extras?
-		reader.Seek(int64(extraSize), io.SeekCurrent)
+		unpack.Skip(2) // eif
+		extraBytes := unpack.Short()
+		unpack.Skip(int64(extraBytes))
 	}
 
 	// Also skip the texture MRU
@@ -406,7 +491,7 @@ func main() {
 	// Load entities
 	for i := 0; i < int(header.NumEnts); i++ {
 		entity := Entity{}
-		binary.Read(reader, binary.LittleEndian, &entity)
+		unpack.Read(&entity)
 
 		if !InsideWorld(header.WorldSize, entity.Position) {
 			log.Printf("Entity outside of world")
