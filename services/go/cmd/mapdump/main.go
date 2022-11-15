@@ -215,13 +215,12 @@ func (unpack *Unpacker) Tell() int64 {
 }
 
 func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
-	//pos, _ := reader.Seek(0, io.SeekCurrent)
-	//log.Printf("pos=%d", pos)
+	log.Printf("pos=%d", unpack.Tell())
 
 	//var hasChildren = false
 	octsav := unpack.Char()
 
-	//log.Printf("octsav=%d", octsav&0x7)
+	log.Printf("octsav=%d", octsav&0x7)
 
 	switch octsav & 0x7 {
 	case OCTSAV_CHILDREN:
@@ -323,27 +322,65 @@ func LoadChildren(unpack *Unpacker, mapVersion int32) ([]Cube, error) {
 	return children, nil
 }
 
-func LoadVSlot(reader *bytes.Reader, changed int32) error {
+func LoadVSlot(unpack *Unpacker, changed int32) error {
 	if (changed & (1 << VSLOT_SHPARAM)) > 0 {
-		var numParams uint16
-		binary.Read(reader, binary.LittleEndian, &numParams)
+		numParams := unpack.Short()
+
+		for i := 0; i < int(numParams); i++ {
+			_ = unpack.String()
+			// TODO vslots
+			for k := 0; k < 4; k++ {
+				unpack.Float()
+			}
+		}
+	}
+
+	if (changed & (1 << VSLOT_SCALE)) > 0 {
+		unpack.Float()
+	}
+
+	if (changed & (1 << VSLOT_ROTATION)) > 0 {
+		unpack.Int()
+	}
+
+	if (changed & (1 << VSLOT_OFFSET)) > 0 {
+		unpack.Int()
+		unpack.Int()
+	}
+
+	if (changed & (1 << VSLOT_SCROLL)) > 0 {
+		unpack.Float()
+		unpack.Float()
+	}
+
+	if (changed & (1 << VSLOT_LAYER)) > 0 {
+		unpack.Int()
+	}
+
+	if (changed & (1 << VSLOT_ALPHA)) > 0 {
+		unpack.Float()
+		unpack.Float()
+	}
+
+	if (changed & (1 << VSLOT_COLOR)) > 0 {
+		for k := 0; k < 3; k++ {
+			unpack.Float()
+		}
 	}
 
 	return nil
 }
 
-func LoadVSlots(reader *bytes.Reader, numVSlots int32) error {
+func LoadVSlots(unpack *Unpacker, numVSlots int32) error {
 	leftToRead := numVSlots
 
 	for leftToRead > 0 {
-		var changed int32
-		binary.Read(reader, binary.LittleEndian, &changed)
+		changed := unpack.Int()
 		if changed < 0 {
 			leftToRead += changed
 		} else {
-			var slot int32
-			binary.Read(reader, binary.LittleEndian, &slot)
-			LoadVSlot(reader, changed)
+			unpack.Int()
+			LoadVSlot(unpack, changed)
 			leftToRead--
 		}
 	}
@@ -354,7 +391,6 @@ func LoadVSlots(reader *bytes.Reader, numVSlots int32) error {
 func InsideWorld(size int32, vector Vector) bool {
 	return vector.X >= 0 && vector.X < float32(size) && vector.Y >= 0 && vector.Y < float32(size) && vector.Z >= 0 && vector.Z < float32(size)
 }
-
 
 func main() {
 	args := os.Args[1:]
@@ -477,7 +513,7 @@ func main() {
 		unpack.Skip(256)
 	} else {
 		numMRUBytes := unpack.Short()
-		unpack.Skip(int64(numMRUBytes*2))
+		unpack.Skip(int64(numMRUBytes * 2))
 	}
 
 	// Load entities
@@ -501,8 +537,7 @@ func main() {
 	// vslots
 	// TODO do we ever actually need v slots?
 	if newHeader.NumVSlots > 0 {
-		log.Fatal("Maps with vslots are not supported")
-		return
+		LoadVSlots(unpack, newHeader.NumVSlots)
 	}
 
 	_, err = LoadChildren(unpack, header.Version)
