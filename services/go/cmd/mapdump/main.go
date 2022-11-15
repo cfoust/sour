@@ -140,14 +140,14 @@ const (
 )
 
 func LoadCube(reader *bytes.Reader, cube *Cube, mapVersion int32) error {
+	pos, _ := reader.Seek(0, io.SeekCurrent)
+	log.Printf("pos=%d", pos)
+
 	//var hasChildren = false
 	var octsav byte
 	binary.Read(reader, binary.LittleEndian, &octsav)
 
 	log.Printf("octsav=%d", octsav&0x7)
-
-	pos, _ := reader.Seek(0, io.SeekCurrent)
-	log.Printf("pos=%d", pos)
 
 	switch octsav & 0x7 {
 	case OCTSAV_CHILDREN:
@@ -186,7 +186,7 @@ func LoadCube(reader *bytes.Reader, cube *Cube, mapVersion int32) error {
 			binary.Read(reader, binary.LittleEndian, &texture)
 			cube.Texture[i] = texture
 		}
-		log.Printf("Texture[%d]=%d", i, cube.Texture[i])
+		//log.Printf("Texture[%d]=%d", i, cube.Texture[i])
 	}
 
 	if mapVersion < 7 {
@@ -253,6 +253,10 @@ func LoadChildren(reader *bytes.Reader, mapVersion int32) ([]Cube, error) {
 	}
 
 	return children, nil
+}
+
+func InsideWorld(size int32, vector Vector) bool {
+	return vector.X >= 0 && vector.X < float32(size) && vector.Y >= 0 && vector.Y < float32(size) && vector.Z >= 0 && vector.Z < float32(size)
 }
 
 func main() {
@@ -406,8 +410,12 @@ func main() {
 		entity := Entity{}
 		binary.Read(reader, binary.LittleEndian, &entity)
 
-		//log.Printf("entity type %d", entity.Type)
-		//log.Printf("entity pos x=%f,y=%f,z=%f", entity.Position.X, entity.Position.Y, entity.Position.Z)
+		log.Printf("entity type %d", entity.Type)
+		log.Printf("entity pos x=%f,y=%f,z=%f", entity.Position.X, entity.Position.Y, entity.Position.Z)
+
+		if !InsideWorld(header.WorldSize, entity.Position) {
+			log.Fatal("Entity outside of world")
+		}
 
 		if header.Version <= 14 && entity.Type == ET_MAPMODEL {
 			entity.Position.Z += float32(entity.Attr3)
