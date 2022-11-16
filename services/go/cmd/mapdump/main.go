@@ -68,6 +68,21 @@ type SurfaceInfo struct {
 	NumVerts byte
 }
 
+const (
+	LAYER_TOP    byte = (1 << 5)
+	LAYER_BOTTOM      = (1 << 6)
+	LAYER_DUP         = (1 << 7)
+	LAYER_BLEND       = LAYER_TOP | LAYER_BOTTOM
+	MAXFACEVERTS      = 15
+)
+
+func (surface *SurfaceInfo) TotalVerts() byte {
+	if (surface.NumVerts & LAYER_DUP) > 0 {
+		return (surface.NumVerts & MAXFACEVERTS) * 2
+	}
+	return surface.NumVerts & MAXFACEVERTS
+}
+
 type SurfaceCompat struct {
 	TexCoords [8]byte
 	Width     byte
@@ -191,7 +206,6 @@ func (unpack *Unpacker) Short() uint16 {
 
 func (unpack *Unpacker) String() string {
 	bytes := unpack.Short()
-	log.Printf("bytes=%d", bytes)
 	value := make([]byte, bytes+1)
 	unpack.Read(value)
 	return string(value)
@@ -215,12 +229,12 @@ func (unpack *Unpacker) Tell() int64 {
 }
 
 func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
-	log.Printf("pos=%d", unpack.Tell())
+	//log.Printf("pos=%d", unpack.Tell())
 
-	//var hasChildren = false
+	var hasChildren = false
 	octsav := unpack.Char()
 
-	log.Printf("octsav=%d", octsav&0x7)
+	//log.Printf("octsav=%d", octsav&0x7)
 
 	switch octsav & 0x7 {
 	case OCTSAV_CHILDREN:
@@ -231,7 +245,7 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 		cube.Children = &children
 		return nil
 	case OCTSAV_LODCUB:
-		//hasChildren = true
+		hasChildren = true
 		break
 	case OCTSAV_EMPTY:
 		// TODO emptyfaces
@@ -304,6 +318,114 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 				}
 			}
 		}
+	} else {
+		// TODO material
+		if (octsav & 0x40) > 0 {
+			if mapVersion <= 32 {
+				unpack.Char()
+			} else {
+				unpack.Short()
+			}
+		}
+
+		// TODO merged
+		if (octsav & 0x80) > 0 {
+			unpack.Char()
+		}
+
+		if (octsav & 0x20) > 0 {
+			surfMask := unpack.Char()
+			unpack.Char() // totalVerts
+
+			surfaces := make([]SurfaceInfo, 6)
+			var offset byte
+			offset = 0
+			for i := 0; i < 6; i++ {
+				if surfMask&(1<<i) == 0 {
+					continue
+				}
+
+				unpack.Read(&surfaces[i])
+				vertMask := surfaces[i].Verts
+				numVerts := surfaces[i].TotalVerts()
+
+				if numVerts == 0 {
+					surfaces[i].Verts = 0
+					continue
+				}
+
+				surfaces[i].Verts = offset
+				offset += numVerts
+
+				layerVerts := surfaces[i].NumVerts & MAXFACEVERTS
+				hasXYZ := (vertMask & 0x04) != 0
+				hasUV := (vertMask & 0x40) != 0
+				hasNorm := (vertMask & 0x80) != 0
+
+				if layerVerts == 4 {
+					if hasXYZ && (vertMask&0x01) > 0 {
+						unpack.Short()
+						unpack.Short()
+						unpack.Short()
+						unpack.Short()
+						hasXYZ = false
+					}
+
+					if hasUV && (vertMask&0x02) > 0 {
+						unpack.Short()
+						unpack.Short()
+						unpack.Short()
+						unpack.Short()
+
+						if (surfaces[i].NumVerts & LAYER_DUP) > 0 {
+							unpack.Short()
+							unpack.Short()
+							unpack.Short()
+							unpack.Short()
+						}
+
+						hasUV = false
+					}
+				}
+
+				if hasNorm && (vertMask&0x08) > 0 {
+					unpack.Short()
+					hasNorm = false
+				}
+
+				if hasXYZ || hasUV || hasNorm {
+					for k := 0; k < int(layerVerts); k++ {
+						if hasXYZ {
+							unpack.Short()
+							unpack.Short()
+						}
+
+						if hasUV {
+							unpack.Short()
+							unpack.Short()
+						}
+
+						if hasNorm {
+							unpack.Short()
+						}
+					}
+				}
+
+				if (surfaces[i].NumVerts & LAYER_DUP) > 0 {
+					for k := 0; k < int(layerVerts); k++ {
+						if hasUV {
+							unpack.Short()
+							unpack.Short()
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if hasChildren {
+		children, _ := LoadChildren(unpack, mapVersion)
+		cube.Children = &children
 	}
 
 	return nil
@@ -327,7 +449,7 @@ func LoadVSlot(unpack *Unpacker, changed int32) error {
 		numParams := unpack.Short()
 
 		for i := 0; i < int(numParams); i++ {
-			_ = unpack.String()
+			_ = unpack.StringByte()
 			// TODO vslots
 			for k := 0; k < 4; k++ {
 				unpack.Float()
@@ -454,6 +576,10 @@ func main() {
 		newHeader.NumVSlots = 0
 	} else {
 		unpack.Read(&newHeader)
+
+		if header.Version <= 29 {
+			newHeader.NumVSlots = 0
+		}
 
 		// v29 had one fewer field
 		if header.Version == 29 {
