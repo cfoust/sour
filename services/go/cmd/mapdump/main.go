@@ -627,9 +627,10 @@ func main() {
 
 	gameMap.GameType = gameType
 
-	//// We just skip extras
+	// We just skip extras
+	var eif uint16 = 0
 	if header.Version >= 16 {
-		unpack.Skip(2) // eif
+		eif = unpack.Short()
 		extraBytes := unpack.Short()
 		unpack.Skip(int64(extraBytes))
 	}
@@ -646,6 +647,12 @@ func main() {
 	for i := 0; i < int(header.NumEnts); i++ {
 		entity := Entity{}
 		unpack.Read(&entity)
+
+		if gameType != "fps" {
+			if eif > 0 {
+				unpack.Skip(int64(eif))
+			}
+		}
 
 		if !InsideWorld(header.WorldSize, entity.Position) {
 			log.Printf("Entity outside of world")
