@@ -292,13 +292,19 @@ func main() {
 		filepath.Dir(filename),
 		baseName[:len(baseName)-len(extension)],
 	))
-	err = ProcessFile(roots, processor, cfgName)
-	if err != nil {
-		log.Fatal(err)
+	if FileExists(cfgName) {
+		err = ProcessFile(roots, processor, cfgName)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
-	for k, v := range textureRefs {
-		log.Printf("[%d]=%d", k, v)
+	log.Printf("Refs: %d", len(textureRefs))
+	for _, texture := range processor.Textures {
+		if refs, ok := textureRefs[uint16(texture.Slot)]; ok {
+			log.Printf("%d: %s (%d)", texture.Slot, texture.Path, refs)
+		}
 	}
-	log.Printf("Slots: %d", processor.Slot)
+	//for k, v := range textureRefs {
+	//}
 }
