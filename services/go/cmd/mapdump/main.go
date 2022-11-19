@@ -12,9 +12,22 @@ import (
 	"strings"
 
 	"github.com/repeale/fp-go"
+	"github.com/repeale/fp-go/option"
 
 	"github.com/cfoust/sour/pkg/maps"
 )
+
+func Find[T any](handler func(x T) bool) func(list []T) opt.Option[T] {
+	return func(list []T) opt.Option[T] {
+		for _, item := range list {
+			if handler(item) {
+				return opt.Some[T](item)
+			}
+		}
+
+		return opt.None[T]()
+	}
+}
 
 func CountTextures(cube maps.Cube, target map[uint16]int) {
 	if cube.Children != nil {
@@ -71,15 +84,65 @@ func SearchFile(roots []string, path string) *string {
 	return nil
 }
 
+var (
+	// All of the valid material slots
+	MATERIALS = []string{
+		"air",
+		"water",
+		"water1",
+		"water2",
+		"water3",
+		"water4",
+		"glass",
+		"glass1",
+		"glass2",
+		"glass3",
+		"glass4",
+		"lava",
+		"lava1",
+		"lava2",
+		"lava3",
+		"lava4",
+		"clip",
+		"noclip",
+		"gameclip",
+		"death",
+		"alpha",
+	}
+
+	// The valid parameters to texture slots
+	PARAMS = []string{
+		"c",
+		"u",
+		"d",
+		"n",
+		"g",
+		"s",
+		"z",
+		"a",
+		"e",
+
+		// This only seems to appear after materials, so is this
+		// actually a param?
+		"1",
+	}
+)
+
 type Texture struct {
-	Slot int
-	Path string
+	Paths []string
+}
+
+func NewTexture() *Texture {
+	texture := Texture{}
+	texture.Paths = make([]string, 0)
+	return &texture
 }
 
 type Processor struct {
-	Slot int
-	// All textures referenced and their calculated slot
-	Textures []Texture
+	Current *Texture
+	// Cube faces reference slots inside of this
+	Slots     []Texture
+	Materials map[string]*Texture
 	// File references are guaranteed to be included and do not have a slot
 	Files []string
 }
@@ -87,26 +150,42 @@ type Processor struct {
 func NewProcessor() *Processor {
 	processor := Processor{}
 
-	processor.Slot = 0
-	processor.Textures = make([]Texture, 0)
+	processor.Slots = make([]Texture, 0)
+	processor.Materials = make(map[string]*Texture)
+
+	for _, material := range MATERIALS {
+		processor.Materials[material] = NewTexture()
+	}
+
 	processor.Files = make([]string, 0)
 
 	return &processor
 }
 
+func (processor *Processor) NewSlot() {
+	texture := NewTexture()
+	processor.Slots = append(processor.Slots, *texture)
+	processor.Current = &processor.Slots[len(processor.Slots)-1]
+}
+
+func (processor *Processor) SetMaterial(material string) {
+	texture := NewTexture()
+	processor.Materials[material] = texture
+	processor.Current = texture
+}
+
 func (processor *Processor) AddTexture(path string) {
-	texture := Texture{}
-
-	texture.Slot = processor.Slot
-	texture.Path = path
-	processor.Slot++
-
-	processor.Textures = append(processor.Textures, texture)
+	processor.Current.Paths = append(processor.Current.Paths, path)
 }
 
 func (processor *Processor) ResetTextures() {
-	processor.Slot = 0
-	processor.Textures = make([]Texture, 0)
+	processor.Slots = make([]Texture, 0)
+}
+
+func (processor *Processor) ResetMaterials() {
+	for _, material := range MATERIALS {
+		processor.Materials[material] = NewTexture()
+	}
 }
 
 func (processor *Processor) AddFile(path string) {
@@ -209,38 +288,64 @@ func ProcessFile(roots RootFlags, processor *Processor, file string) error {
 		case "texturereset":
 			processor.ResetTextures()
 
+		case "materialreset":
+			processor.ResetMaterials()
+
 		case "exec":
-			if len(args) > 1 {
-				execPath := args[1]
+			if len(args) != 2 {
+				break
+			}
+			execPath := args[1]
 
-				resolved := SearchFile(roots, execPath)
+			resolved := SearchFile(roots, execPath)
 
-				if resolved == nil {
-					log.Printf("Could not find %s", execPath)
-				} else {
-					err := ProcessFile(roots, processor, *resolved)
-					if err != nil {
-						return err
-					}
+			if resolved == nil {
+				log.Printf("Could not find %s", execPath)
+			} else {
+				err := ProcessFile(roots, processor, *resolved)
+				if err != nil {
+					return err
 				}
 			}
 
 		case "include":
-			if len(args) > 1 {
-				processor.AddFile(args[1])
+			if len(args) != 2 {
+				break
 			}
+
+			processor.AddFile(args[1])
 
 		case "texture":
-			if len(args) > 2 {
-				flag := args[1]
-
-				// Other shader inputs don't get slots
-				if flag == "0" {
-					processor.AddTexture(args[2])
-				} else {
-					processor.AddFile(args[2])
-				}
+			if len(args) < 3 {
+				break
 			}
+
+			flag := args[1]
+
+			material := Find[string](func(x string) bool {
+				return flag == x
+			})(MATERIALS)
+
+			param := Find[string](func(x string) bool {
+				return flag == x
+			})(PARAMS)
+
+			if flag == "0" {
+				// "0" always means a new texture slot
+				processor.NewSlot()
+			} else if opt.IsSome(material) {
+				processor.SetMaterial(material.Value)
+			} else if opt.IsNone(param) {
+				// At this point it is not 0, not a material,
+				// and not in the list of params, so that can
+				// only mean that it is wrong somehow
+				log.Printf("Invalid param: %s", line)
+				break
+			}
+
+			processor.AddTexture(args[2])
+		default:
+			log.Printf("Unhandled command: %s", args[0])
 		}
 	}
 
@@ -299,12 +404,20 @@ func main() {
 		}
 	}
 
+	log.Printf("Slots: %d", len(processor.Slots))
 	log.Printf("Refs: %d", len(textureRefs))
-	for _, texture := range processor.Textures {
-		if refs, ok := textureRefs[uint16(texture.Slot)]; ok {
-			log.Printf("%d: %s (%d)", texture.Slot, texture.Path, refs)
+	for i, texture := range processor.Slots {
+		if refs, ok := textureRefs[uint16(i)]; ok {
+			for _, path := range texture.Paths {
+				log.Printf("%d: %s (%d)", i, path, refs)
+			}
 		}
 	}
-	//for k, v := range textureRefs {
-	//}
+
+	for material, texture := range processor.Materials {
+		log.Printf("%s: %d", material, len(texture.Paths))
+		for _, path := range texture.Paths {
+			log.Printf("%s: %s", material, path)
+		}
+	}
 }
