@@ -604,14 +604,14 @@ func LoadMap(filename string) (*GameMap, error) {
 	mapHeader.NumVSlots = newFooter.NumVSlots
 
 	log.Printf("Version %d", header.Version)
-	log.Printf("HeaderSize %d", header.HeaderSize)
-	log.Printf("WorldSize %d", header.WorldSize)
-	log.Printf("NumEnts %d", header.NumEnts)
-	log.Printf("NumPVs %d", header.NumPVs)
-	log.Printf("LightMaps %d", header.LightMaps)
-	log.Printf("BlendMap %d", newFooter.BlendMap)
-	log.Printf("NumVars %d", newFooter.NumVars)
-	log.Printf("NumVSlots %d", newFooter.NumVSlots)
+	//log.Printf("HeaderSize %d", header.HeaderSize)
+	//log.Printf("WorldSize %d", header.WorldSize)
+	//log.Printf("NumEnts %d", header.NumEnts)
+	//log.Printf("NumPVs %d", header.NumPVs)
+	//log.Printf("LightMaps %d", header.LightMaps)
+	//log.Printf("BlendMap %d", newFooter.BlendMap)
+	//log.Printf("NumVars %d", newFooter.NumVars)
+	//log.Printf("NumVSlots %d", newFooter.NumVSlots)
 
 	gameMap.Vars = make(map[string]int32)
 	gameMap.FVars = make(map[string]float32)
@@ -640,7 +640,7 @@ func LoadMap(filename string) (*GameMap, error) {
 	if header.Version >= 16 {
 		gameType = unpack.StringByte()
 	}
-	log.Printf("GameType %s", gameType)
+	//log.Printf("GameType %s", gameType)
 
 	mapHeader.GameType = gameType
 
