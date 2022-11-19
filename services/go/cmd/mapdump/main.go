@@ -157,6 +157,7 @@ type Processor struct {
 	Current *Texture
 	// Cube faces reference slots inside of this
 	Slots     []Texture
+	Sounds    []string
 	Materials map[string]*Texture
 	// File references are guaranteed to be included and do not have a slot
 	Files []string
@@ -167,6 +168,7 @@ func NewProcessor(roots RootFlags) *Processor {
 
 	processor.Roots = roots
 	processor.Slots = make([]Texture, 0)
+	processor.Sounds = make([]string, 0)
 	processor.Materials = make(map[string]*Texture)
 
 	for _, material := range MATERIALS {
@@ -196,6 +198,14 @@ func (processor *Processor) AddTexture(path string) {
 
 func (processor *Processor) ResetTextures() {
 	processor.Slots = make([]Texture, 0)
+}
+
+func (processor *Processor) ResetSounds() {
+	processor.Sounds = make([]string, 0)
+}
+
+func (processor *Processor) AddSound(path string) {
+	processor.Sounds = append(processor.Sounds, path)
 }
 
 func (processor *Processor) ResetMaterials() {
@@ -255,8 +265,6 @@ func ParseLine(line string) []string {
 }
 
 func (processor *Processor) ProcessFile(file string) error {
-	log.Printf("Processing %s", file)
-
 	if !FileExists(file) {
 		return errors.New(fmt.Sprintf("File %s did not exist", file))
 	}
@@ -328,6 +336,30 @@ func (processor *Processor) ProcessFile(file string) error {
 			processor.Slots[len(processor.Slots)-1].Autograss = opt.Some[string](
 				NormalizeTexture(args[1]),
 			)
+
+		case "mapsoundreset":
+			processor.ResetSounds()
+
+		case "mapsound":
+			if len(args) < 2 {
+				break
+			}
+
+			name := args[1]
+
+			for _, _type := range []string{"", ".wav", ".ogg"} {
+				path := fmt.Sprintf(
+					"packages/sounds/%s%s",
+					name,
+					_type,
+				)
+
+				resolved := SearchFile(processor.Roots, path)
+				if opt.IsSome(resolved) {
+					processor.AddSound(path)
+					break
+				}
+			}
 
 		case "loadsky":
 			if len(args) < 2 {
@@ -530,5 +562,9 @@ func main() {
 		for _, path := range texture.Paths {
 			log.Printf("%s: %s", material, path)
 		}
+	}
+
+	for i, sound := range processor.Sounds {
+		log.Printf("%d: %s", i, sound)
 	}
 }
