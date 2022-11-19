@@ -73,15 +73,15 @@ func FileExists(path string) bool {
 }
 
 // Search for a file in the roots, one at a time
-func SearchFile(roots []string, path string) *string {
+func SearchFile(roots []string, path string) opt.Option[string] {
 	for i := 0; i < len(roots); i++ {
 		needle := filepath.Join(roots[i], path)
 		if FileExists(needle) {
-			return &needle
+			return opt.Some[string](needle)
 		}
 	}
 
-	return nil
+	return opt.None[string]()
 }
 
 var (
@@ -108,6 +108,19 @@ var (
 		"gameclip",
 		"death",
 		"alpha",
+
+		// This does not exist in the Sauer code but simplifies our
+		// logic a bit.
+		"sky",
+	}
+
+	CUBEMAPSIDES = []string{
+		"lf",
+		"rt",
+		"ft",
+		"bk",
+		"dn",
+		"up",
 	}
 
 	// The valid parameters to texture slots
@@ -139,6 +152,7 @@ func NewTexture() *Texture {
 }
 
 type Processor struct {
+	Roots   RootFlags
 	Current *Texture
 	// Cube faces reference slots inside of this
 	Slots     []Texture
@@ -147,9 +161,10 @@ type Processor struct {
 	Files []string
 }
 
-func NewProcessor() *Processor {
+func NewProcessor(roots RootFlags) *Processor {
 	processor := Processor{}
 
+	processor.Roots = roots
 	processor.Slots = make([]Texture, 0)
 	processor.Materials = make(map[string]*Texture)
 
@@ -184,6 +199,9 @@ func (processor *Processor) ResetTextures() {
 
 func (processor *Processor) ResetMaterials() {
 	for _, material := range MATERIALS {
+		if material == "sky" {
+			continue
+		}
 		processor.Materials[material] = NewTexture()
 	}
 }
@@ -194,7 +212,17 @@ func (processor *Processor) AddFile(path string) {
 
 var (
 	COMMAND_REGEX = regexp.MustCompile(`(("[^"]*")|([^\s]+))`)
+
+	// Textures can have some additional stuff to modify them but they
+	// should refer to the same file
+	// ex: <mix:1,1,1><mad:2/2/2>
+	TEXTURE_REGEX = regexp.MustCompile(`((<[^>]*>)*)([^<]+)`)
 )
+
+func NormalizeTexture(texture string) string {
+	matches := TEXTURE_REGEX.FindStringSubmatch(texture)
+	return matches[3]
+}
 
 func ParseLine(line string) []string {
 	empty := make([]string, 0)
@@ -225,7 +253,7 @@ func ParseLine(line string) []string {
 	)(matches)
 }
 
-func ProcessFile(roots RootFlags, processor *Processor, file string) error {
+func (processor *Processor) ProcessFile(file string) error {
 	log.Printf("Processing %s", file)
 
 	if !FileExists(file) {
@@ -274,7 +302,7 @@ func ProcessFile(roots RootFlags, processor *Processor, file string) error {
 			os.Exit(1)
 		}
 
-		return ProcessFile(roots, processor, shim)
+		return processor.ProcessFile(shim)
 	}
 
 	for _, line := range strings.Split(string(src), "\n") {
@@ -291,18 +319,72 @@ func ProcessFile(roots RootFlags, processor *Processor, file string) error {
 		case "materialreset":
 			processor.ResetMaterials()
 
+		case "loadsky":
+			if len(args) < 2 {
+				break
+			}
+
+			oldCurrent := processor.Current
+
+			processor.SetMaterial("sky")
+
+			prefix := filepath.Join("packages", NormalizeTexture(args[1]))
+			wildcard := strings.Index(prefix, "*")
+			for _, side := range CUBEMAPSIDES {
+				if wildcard != -1 {
+					path := fmt.Sprintf(
+						"%s%s%s",
+						prefix[:wildcard],
+						side,
+						prefix[wildcard+1:],
+					)
+
+					processor.AddTexture(path)
+					continue
+				}
+
+				// Otherwise normal
+				jpgPath := fmt.Sprintf(
+					"%s_%s.jpg",
+					prefix,
+					side,
+				)
+
+				resolvedJpg := SearchFile(processor.Roots, jpgPath)
+				if opt.IsSome(resolvedJpg) {
+					processor.AddTexture(jpgPath)
+					continue
+				}
+
+				pngPath := fmt.Sprintf(
+					"%s_%s.png",
+					prefix,
+					side,
+				)
+
+				resolvedPng := SearchFile(processor.Roots, pngPath)
+				if opt.IsSome(resolvedPng) {
+					processor.AddTexture(pngPath)
+					continue
+				}
+
+				log.Printf("No texture for skybox %s side %s (%s %s)", prefix, side, jpgPath, pngPath)
+			}
+
+			processor.Current = oldCurrent
+
 		case "exec":
 			if len(args) != 2 {
 				break
 			}
 			execPath := args[1]
 
-			resolved := SearchFile(roots, execPath)
+			resolved := SearchFile(processor.Roots, execPath)
 
-			if resolved == nil {
+			if opt.IsNone(resolved) {
 				log.Printf("Could not find %s", execPath)
 			} else {
-				err := ProcessFile(roots, processor, *resolved)
+				err := processor.ProcessFile(resolved.Value)
 				if err != nil {
 					return err
 				}
@@ -343,7 +425,22 @@ func ProcessFile(roots RootFlags, processor *Processor, file string) error {
 				break
 			}
 
-			processor.AddTexture(args[2])
+			processor.AddTexture(NormalizeTexture(args[2]))
+
+		case "alias":
+		case "blurskylight":
+		case "fog":
+		case "fogcolour":
+		case "setshader":
+		case "setshaderparam":
+		case "skytexture":
+		case "texcolor":
+		case "texlayer":
+		case "texscale":
+		case "texscroll":
+		case "waterfog":
+			break
+
 		default:
 			log.Printf("Unhandled command: %s", args[0])
 		}
@@ -382,12 +479,12 @@ func main() {
 	// Always load the default map settings
 	defaultPath := SearchFile(roots, "data/default_map_settings.cfg")
 
-	if defaultPath == nil {
+	if opt.IsNone(defaultPath) {
 		log.Fatal("Root with data/default_map_settings.cfg not provided")
 	}
 
-	processor := NewProcessor()
-	err = ProcessFile(roots, processor, *defaultPath)
+	processor := NewProcessor(roots)
+	err = processor.ProcessFile(defaultPath.Value)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -398,7 +495,7 @@ func main() {
 		baseName[:len(baseName)-len(extension)],
 	))
 	if FileExists(cfgName) {
-		err = ProcessFile(roots, processor, cfgName)
+		err = processor.ProcessFile(cfgName)
 		if err != nil {
 			log.Fatal(err)
 		}
