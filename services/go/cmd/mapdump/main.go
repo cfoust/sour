@@ -473,6 +473,7 @@ func (processor *Processor) ProcessFile(file string) error {
 		case "blurskylight":
 		case "fog":
 		case "fogcolour":
+		case "minimapclip":
 		case "setshader":
 		case "setshaderparam":
 		case "skytexture":
