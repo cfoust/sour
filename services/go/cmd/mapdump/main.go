@@ -272,18 +272,33 @@ func main() {
 		log.Fatal("Failed to parse map file")
 	}
 
-	GetChildTextures(_map.Cubes)
+	textureRefs := GetChildTextures(_map.Cubes)
 
 	// Always load the default map settings
-	default_path := SearchFile(roots, "data/default_map_settings.cfg")
+	defaultPath := SearchFile(roots, "data/default_map_settings.cfg")
 
-	if default_path == nil {
+	if defaultPath == nil {
 		log.Fatal("Root with data/default_map_settings.cfg not provided")
 	}
 
 	processor := NewProcessor()
-	err = ProcessFile(roots, processor, *default_path)
+	err = ProcessFile(roots, processor, *defaultPath)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	baseName := filepath.Base(filename)
+	cfgName := fmt.Sprintf("%s.cfg", filepath.Join(
+		filepath.Dir(filename),
+		baseName[:len(baseName)-len(extension)],
+	))
+	err = ProcessFile(roots, processor, cfgName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for k, v := range textureRefs {
+		log.Printf("[%d]=%d", k, v)
+	}
+	log.Printf("Slots: %d", processor.Slot)
 }
