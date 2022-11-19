@@ -142,7 +142,8 @@ var (
 )
 
 type Texture struct {
-	Paths []string
+	Paths     []string
+	Autograss opt.Option[string]
 }
 
 func NewTexture() *Texture {
@@ -318,6 +319,15 @@ func (processor *Processor) ProcessFile(file string) error {
 
 		case "materialreset":
 			processor.ResetMaterials()
+
+		case "autograss":
+			if len(args) < 2 {
+				break
+			}
+
+			processor.Slots[len(processor.Slots)-1].Autograss = opt.Some[string](
+				NormalizeTexture(args[1]),
+			)
 
 		case "loadsky":
 			if len(args) < 2 {
@@ -508,6 +518,10 @@ func main() {
 			for _, path := range texture.Paths {
 				log.Printf("%d: %s (%d)", i, path, refs)
 			}
+		}
+
+		if opt.IsSome(texture.Autograss) {
+			log.Printf("%d: grass %s", i, texture.Autograss.Value)
 		}
 	}
 
