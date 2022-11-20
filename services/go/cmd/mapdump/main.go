@@ -123,6 +123,15 @@ var (
 		"up",
 	}
 
+	MODELTYPES = []string{
+		"md2",
+		"md3",
+		"md5",
+		"obj",
+		"smd",
+		"iqm",
+	}
+
 	// The valid parameters to texture slots
 	PARAMS = []string{
 		"c",
@@ -146,6 +155,10 @@ type Texture struct {
 	Autograss opt.Option[string]
 }
 
+type Model struct {
+	Paths []string
+}
+
 func NewTexture() *Texture {
 	texture := Texture{}
 	texture.Paths = make([]string, 0)
@@ -156,7 +169,7 @@ type Processor struct {
 	Roots   RootFlags
 	Current *Texture
 	// Cube faces reference slots inside of this
-	Slots     []Texture
+	Textures  []Texture
 	Sounds    []string
 	Materials map[string]*Texture
 	// File references are guaranteed to be included and do not have a slot
@@ -167,7 +180,7 @@ func NewProcessor(roots RootFlags) *Processor {
 	processor := Processor{}
 
 	processor.Roots = roots
-	processor.Slots = make([]Texture, 0)
+	processor.Textures = make([]Texture, 0)
 	processor.Sounds = make([]string, 0)
 	processor.Materials = make(map[string]*Texture)
 
@@ -182,8 +195,8 @@ func NewProcessor(roots RootFlags) *Processor {
 
 func (processor *Processor) NewSlot() {
 	texture := NewTexture()
-	processor.Slots = append(processor.Slots, *texture)
-	processor.Current = &processor.Slots[len(processor.Slots)-1]
+	processor.Textures = append(processor.Textures, *texture)
+	processor.Current = &processor.Textures[len(processor.Textures)-1]
 }
 
 func (processor *Processor) SetMaterial(material string) {
@@ -197,7 +210,7 @@ func (processor *Processor) AddTexture(path string) {
 }
 
 func (processor *Processor) ResetTextures() {
-	processor.Slots = make([]Texture, 0)
+	processor.Textures = make([]Texture, 0)
 }
 
 func (processor *Processor) ResetSounds() {
@@ -264,6 +277,100 @@ func ParseLine(line string) []string {
 	)(matches)
 }
 
+func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], error) {
+	results := make([]string, 0)
+
+	_type := Find[string](func(x string) bool {
+		path := fmt.Sprintf(
+			"packages/models/%s/%s.cfg",
+			path,
+			x,
+		)
+
+		resolved := SearchFile(processor.Roots, path)
+
+		if opt.IsSome(resolved) {
+			return true
+		}
+
+		return false
+	})(MODELTYPES)
+
+	if opt.IsNone(_type) {
+		return opt.None[[]string](), errors.New(fmt.Sprintf("Failed to find config for model %s", path))
+	}
+
+	modelType := _type.Value
+
+	cfgPath := fmt.Sprintf(
+		"packages/models/%s/%s.cfg",
+		path,
+		modelType,
+	)
+
+	resolved := SearchFile(processor.Roots, cfgPath)
+
+	if opt.IsNone(resolved) {
+		return opt.None[[]string](), errors.New("Impossible error")
+	}
+
+	src, err := os.ReadFile(resolved.Value)
+	if err != nil {
+		return opt.None[[]string](), errors.New(fmt.Sprintf("Failed to read %s", resolved.Value))
+	}
+
+	// This is slightly different from the other Normalize because models
+	// specifically use relative paths
+	normalizePath := func(path string) string {
+		return filepath.Clean(filepath.Join(filepath.Dir(cfgPath), path))
+	}
+
+	addFile := func(file string) {
+		path := normalizePath(file)
+		resolved := SearchFile(processor.Roots, path)
+
+		if opt.IsNone(resolved) {
+			log.Printf("Failed to find model path %s", path)
+			return
+		}
+
+		results = append(results, resolved.Value)
+	}
+
+	for _, line := range strings.Split(string(src), "\n") {
+		args := ParseLine(line)
+
+		if len(args) == 0 {
+			continue
+		}
+
+		command := args[0]
+
+		if strings.HasPrefix(command, modelType) {
+			command = command[len(modelType):]
+		}
+
+		switch command {
+		case "load":
+			if len(args) < 2 {
+				break
+			}
+			addFile(args[1])
+
+		case "skin":
+			if len(args) < 3 {
+				break
+			}
+			log.Print(args)
+
+		default:
+			log.Printf("Unhandled modelcommand: %s", command)
+		}
+	}
+
+	return opt.Some[[]string](results), nil
+}
+
 func (processor *Processor) ProcessFile(file string) error {
 	if !FileExists(file) {
 		return errors.New(fmt.Sprintf("File %s did not exist", file))
@@ -328,12 +435,19 @@ func (processor *Processor) ProcessFile(file string) error {
 		case "materialreset":
 			processor.ResetMaterials()
 
+		case "mmodel":
+			if len(args) < 2 {
+				break
+			}
+
+			processor.ProcessModel(args[1])
+
 		case "autograss":
 			if len(args) < 2 {
 				break
 			}
 
-			processor.Slots[len(processor.Slots)-1].Autograss = opt.Some[string](
+			processor.Textures[len(processor.Textures)-1].Autograss = opt.Some[string](
 				NormalizeTexture(args[1]),
 			)
 
@@ -544,9 +658,9 @@ func main() {
 		}
 	}
 
-	log.Printf("Slots: %d", len(processor.Slots))
+	log.Printf("Textures: %d", len(processor.Textures))
 	log.Printf("Refs: %d", len(textureRefs))
-	for i, texture := range processor.Slots {
+	for i, texture := range processor.Textures {
 		if refs, ok := textureRefs[uint16(i)]; ok {
 			for _, path := range texture.Paths {
 				log.Printf("%d: %s (%d)", i, path, refs)
