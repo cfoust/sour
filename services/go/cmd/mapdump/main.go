@@ -241,6 +241,8 @@ var (
 	// should refer to the same file
 	// ex: <mix:1,1,1><mad:2/2/2>
 	TEXTURE_REGEX = regexp.MustCompile(`((<[^>]*>)*)([^<]+)`)
+
+	TEXTURE_COMMAND_REGEX = regexp.MustCompile(`<([^>]*)>`)
 )
 
 func NormalizeTexture(texture string) string {
@@ -275,6 +277,56 @@ func ParseLine(line string) []string {
 			return x[0]
 		},
 	)(matches)
+}
+
+func (processor *Processor) FindCubemap(cubemap string) []string {
+	prefix := filepath.Join("packages", cubemap)
+	wildcard := strings.Index(prefix, "*")
+
+	textures := make([]string, 0)
+
+	for _, side := range CUBEMAPSIDES {
+		if wildcard != -1 {
+			path := fmt.Sprintf(
+				"%s%s%s",
+				prefix[:wildcard],
+				side,
+				prefix[wildcard+1:],
+			)
+
+			textures = append(textures, path)
+			continue
+		}
+
+		// Otherwise normal
+		jpgPath := fmt.Sprintf(
+			"%s_%s.jpg",
+			prefix,
+			side,
+		)
+
+		resolvedJpg := SearchFile(processor.Roots, jpgPath)
+		if opt.IsSome(resolvedJpg) {
+			textures = append(textures, jpgPath)
+			continue
+		}
+
+		pngPath := fmt.Sprintf(
+			"%s_%s.png",
+			prefix,
+			side,
+		)
+
+		resolvedPng := SearchFile(processor.Roots, pngPath)
+		if opt.IsSome(resolvedPng) {
+			textures = append(textures, pngPath)
+			continue
+		}
+
+		log.Printf("No texture for skybox %s side %s (%s %s)", prefix, side, jpgPath, pngPath)
+	}
+
+	return textures
 }
 
 func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], error) {
@@ -325,16 +377,59 @@ func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], err
 		return filepath.Clean(filepath.Join(filepath.Dir(cfgPath), path))
 	}
 
-	addFile := func(file string) {
-		path := normalizePath(file)
-		resolved := SearchFile(processor.Roots, path)
+	addRootFile := func(file string) {
+		resolved := SearchFile(processor.Roots, file)
 
 		if opt.IsNone(resolved) {
-			log.Printf("Failed to find model path %s", path)
+			log.Printf("Failed to find root-relative model path %s", file)
 			return
 		}
 
 		results = append(results, resolved.Value)
+	}
+
+	// Some references are relative to the model config
+	addRelative := func(file string) {
+		path := normalizePath(file)
+		resolved := SearchFile(processor.Roots, path)
+
+		// Also check the parent dir (Cube does this, too)
+		if opt.IsNone(resolved) {
+			parent := filepath.Join(
+				filepath.Dir(path),
+				"..",
+				filepath.Base(path),
+			)
+			resolved = SearchFile(processor.Roots, parent)
+		}
+
+		if opt.IsNone(resolved) {
+			log.Printf("Failed to find cfg-relative model path %s", path)
+			return
+		}
+
+		results = append(results, resolved.Value)
+	}
+
+	expandTexture := func(texture string) []string {
+		normalized := NormalizeTexture(texture)
+
+		hasDDS := fp.Some(
+			func(x []string) bool {
+				return x[1] == "dds"
+			},
+		)(TEXTURE_COMMAND_REGEX.FindAllStringSubmatch(texture, -1))
+
+		if hasDDS {
+			extension := filepath.Ext(normalized)
+			ddsPath := fmt.Sprintf(
+				"%s.dds",
+				normalized[:len(normalized)-len(extension)],
+			)
+			return []string{normalized, ddsPath}
+		}
+
+		return []string{normalized}
 	}
 
 	for _, line := range strings.Split(string(src), "\n") {
@@ -355,13 +450,55 @@ func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], err
 			if len(args) < 2 {
 				break
 			}
-			addFile(args[1])
+
+			addRelative(args[1])
 
 		case "skin":
 			if len(args) < 3 {
 				break
 			}
-			log.Print(args)
+
+			for i := 2; i < 4; i++ {
+				if i == len(args) {
+					break
+				}
+
+				for _, texture := range expandTexture(args[i]) {
+					addRelative(texture)
+				}
+			}
+
+		case "mdlenvmap":
+			if len(args) != 4 {
+				break
+			}
+
+			for _, texture := range processor.FindCubemap(NormalizeTexture(args[3])) {
+				addRootFile(texture)
+				log.Printf("mdlenvmap %s %s", args[3], texture)
+			}
+
+		case "mdlalphablend":
+		case "mdlalphadepth":
+		case "mdlalphatest":
+		case "mdlambient":
+		case "mdlbb":
+		case "mdlcollide":
+		case "mdldepthoffset":
+		case "mdlellipsecollide":
+		case "mdlextendbb":
+		case "mdlfullbright":
+		case "mdlglare":
+		case "mdlglow":
+		case "mdlpitch":
+		case "mdlscale":
+		case "mdlshader":
+		case "mdlshadow":
+		case "mdlspec":
+		case "mdlspin":
+		case "mdltrans":
+		case "mdlyaw":
+			break
 
 		default:
 			log.Printf("Unhandled modelcommand: %s", command)
@@ -484,47 +621,8 @@ func (processor *Processor) ProcessFile(file string) error {
 
 			processor.SetMaterial("sky")
 
-			prefix := filepath.Join("packages", NormalizeTexture(args[1]))
-			wildcard := strings.Index(prefix, "*")
-			for _, side := range CUBEMAPSIDES {
-				if wildcard != -1 {
-					path := fmt.Sprintf(
-						"%s%s%s",
-						prefix[:wildcard],
-						side,
-						prefix[wildcard+1:],
-					)
-
-					processor.AddTexture(path)
-					continue
-				}
-
-				// Otherwise normal
-				jpgPath := fmt.Sprintf(
-					"%s_%s.jpg",
-					prefix,
-					side,
-				)
-
-				resolvedJpg := SearchFile(processor.Roots, jpgPath)
-				if opt.IsSome(resolvedJpg) {
-					processor.AddTexture(jpgPath)
-					continue
-				}
-
-				pngPath := fmt.Sprintf(
-					"%s_%s.png",
-					prefix,
-					side,
-				)
-
-				resolvedPng := SearchFile(processor.Roots, pngPath)
-				if opt.IsSome(resolvedPng) {
-					processor.AddTexture(pngPath)
-					continue
-				}
-
-				log.Printf("No texture for skybox %s side %s (%s %s)", prefix, side, jpgPath, pngPath)
+			for _, texture := range processor.FindCubemap(NormalizeTexture(args[1])) {
+				processor.AddTexture(texture)
 			}
 
 			processor.Current = oldCurrent
