@@ -72,18 +72,6 @@ func FileExists(path string) bool {
 	return false
 }
 
-// Search for a file in the roots, one at a time
-func SearchFile(roots []string, path string) opt.Option[string] {
-	for i := 0; i < len(roots); i++ {
-		needle := filepath.Join(roots[i], path)
-		if FileExists(needle) {
-			return opt.Some[string](needle)
-		}
-	}
-
-	return opt.None[string]()
-}
-
 var (
 	// All of the valid material slots
 	MATERIALS = []string{
@@ -193,6 +181,24 @@ func NewProcessor(roots RootFlags) *Processor {
 	processor.Files = make([]string, 0)
 
 	return &processor
+}
+
+// Search for a file in the roots, one at a time
+func (processor *Processor) SearchFile(path string) opt.Option[string] {
+	for i := 0; i < len(processor.Roots); i++ {
+		unprefixed := filepath.Join(processor.Roots[i], path)
+		prefixed := filepath.Join(processor.Roots[i], "packages", path)
+
+		if FileExists(unprefixed) {
+			return opt.Some[string](unprefixed)
+		}
+
+		if FileExists(prefixed) {
+			return opt.Some[string](prefixed)
+		}
+	}
+
+	return opt.None[string]()
 }
 
 func (processor *Processor) NewSlot() {
@@ -317,7 +323,7 @@ func (processor *Processor) FindCubemap(cubemap string) []string {
 			side,
 		)
 
-		resolvedJpg := SearchFile(processor.Roots, jpgPath)
+		resolvedJpg := processor.SearchFile(jpgPath)
 		if opt.IsSome(resolvedJpg) {
 			textures = append(textures, jpgPath)
 			continue
@@ -329,7 +335,7 @@ func (processor *Processor) FindCubemap(cubemap string) []string {
 			side,
 		)
 
-		resolvedPng := SearchFile(processor.Roots, pngPath)
+		resolvedPng := processor.SearchFile(pngPath)
 		if opt.IsSome(resolvedPng) {
 			textures = append(textures, pngPath)
 			continue
@@ -357,7 +363,7 @@ func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], err
 
 	resolveRelative := func(file string) opt.Option[string] {
 		path := normalizePath(file)
-		resolved := SearchFile(processor.Roots, path)
+		resolved := processor.SearchFile(path)
 
 		if opt.IsSome(resolved) {
 			return resolved
@@ -369,11 +375,11 @@ func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], err
 			"..",
 			filepath.Base(path),
 		)
-		return SearchFile(processor.Roots, parent)
+		return processor.SearchFile(parent)
 	}
 
 	addRootFile := func(file string) {
-		resolved := SearchFile(processor.Roots, file)
+		resolved := processor.SearchFile(file)
 
 		if opt.IsNone(resolved) {
 			log.Printf("Failed to find root-relative model path %s", file)
@@ -431,7 +437,7 @@ func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], err
 			x,
 		)
 
-		resolved := SearchFile(processor.Roots, cfg)
+		resolved := processor.SearchFile(cfg)
 
 		if opt.IsSome(resolved) {
 			return true
@@ -444,7 +450,7 @@ func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], err
 			x,
 		)
 
-		resolved = SearchFile(processor.Roots, tris)
+		resolved = processor.SearchFile(tris)
 
 		if opt.IsSome(resolved) {
 			return true
@@ -485,7 +491,7 @@ func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], err
 		modelType,
 	)
 
-	resolved := SearchFile(processor.Roots, cfgPath)
+	resolved := processor.SearchFile(cfgPath)
 
 	if opt.IsNone(resolved) {
 		if !hadDefault {
@@ -714,7 +720,7 @@ func (processor *Processor) ProcessFile(file string) error {
 					_type,
 				)
 
-				resolved := SearchFile(processor.Roots, path)
+				resolved := processor.SearchFile(path)
 				if opt.IsSome(resolved) {
 					processor.AddSound(path)
 					break
@@ -742,7 +748,7 @@ func (processor *Processor) ProcessFile(file string) error {
 			}
 			execPath := args[1]
 
-			resolved := SearchFile(processor.Roots, execPath)
+			resolved := processor.SearchFile(execPath)
 
 			if opt.IsNone(resolved) {
 				log.Printf("Could not find %s", execPath)
@@ -813,11 +819,29 @@ func (processor *Processor) ProcessFile(file string) error {
 	return nil
 }
 
+type Reference struct {
+	// The absolute path of the asset on the filesystem
+	// Example: /home/blah/sauerbraten/packages/base/blah.cfg
+	Absolute string
+
+	// The path of the asset relative to the game's "root"
+	// Example: packages/base/blah.cfg
+	Relative string
+}
+
 func main() {
 	var roots RootFlags
 
 	flag.Var(&roots, "root", "Specify an explicit asset root directory. Roots are searched in order of appearance.")
 	flag.Parse()
+
+	absoluteRoots := fp.Map[string, string](func(root string) string {
+		absolute, err := filepath.Abs(root)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return absolute
+	})(roots)
 
 	args := flag.Args()
 
@@ -832,10 +856,66 @@ func main() {
 		log.Fatal("Map must end in .ogz or .cgz")
 	}
 
-	references := make([]string, 0)
+	processor := NewProcessor(absoluteRoots)
 
-	addFile := func(file string) {
-		references = append(references, file)
+	references := make([]Reference, 0)
+
+	// File paths are strange in Sauer: certain types of assets omit the
+	// packages/, others are relative to the config file (models), and this
+	// program also accepts map files not inside of a Sauer directory
+	// structure. On top of that, we ultimately need to map assets into the
+	// game's filesystem correctly. This function normalizes all paths so
+	// we can do that more easily.
+	var addFile func(file string)
+	addFile = func(file string) {
+		reference := Reference{}
+
+		if filepath.IsAbs(file) {
+			reference.Absolute = file
+
+			for _, root := range processor.Roots {
+				relative, err := filepath.Rel(root, file)
+
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				if strings.Contains(relative, "..") {
+					continue
+				}
+
+				reference.Relative = relative
+				references = append(references, reference)
+				return
+			}
+
+			// TODO Maps and their cfg/jpg can conceptually be mapped into a root
+
+			log.Fatal(fmt.Sprintf("File absolute but not in root: %s", file))
+			return
+		}
+
+		// This might just be a file (like a config) that was specified with a relative path
+		absolute, err := filepath.Abs(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if FileExists(absolute) {
+			addFile(absolute)
+			return
+		}
+
+		// If it's relative, it must be inside of a root
+		resolved := processor.SearchFile(file)
+
+		if opt.IsNone(resolved) {
+			log.Fatal(fmt.Sprintf("Failed to find relative file in roots: %s", file))
+		}
+
+		// Sometimes a file was specified without packages/ so we need
+		// to normalize it
+		addFile(resolved.Value)
 	}
 
 	_map, err := maps.LoadMap(filename)
@@ -858,13 +938,12 @@ func main() {
 	}
 
 	// Always load the default map settings
-	defaultPath := SearchFile(roots, "data/default_map_settings.cfg")
+	defaultPath := processor.SearchFile("data/default_map_settings.cfg")
 
 	if opt.IsNone(defaultPath) {
 		log.Fatal("Root with data/default_map_settings.cfg not provided")
 	}
 
-	processor := NewProcessor(roots)
 	err = processor.ProcessFile(defaultPath.Value)
 	if err != nil {
 		log.Fatal(err)
@@ -916,6 +995,6 @@ func main() {
 	}
 
 	for _, path := range references {
-		log.Print(path)
+		fmt.Println(path)
 	}
 }
