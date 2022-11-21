@@ -292,6 +292,9 @@ var (
 
 func NormalizeTexture(texture string) string {
 	matches := TEXTURE_REGEX.FindStringSubmatch(texture)
+	if len(matches) == 0 {
+		return ""
+	}
 	return matches[3]
 }
 
@@ -814,7 +817,7 @@ func (processor *Processor) ProcessFile(file string) error {
 				return flag == x
 			})(PARAMS)
 
-			if flag == "0" {
+			if flag == "0" || flag == "c" {
 				// "0" always means a new texture slot
 				processor.NewSlot()
 			} else if opt.IsSome(material) {
@@ -846,6 +849,7 @@ func (processor *Processor) ProcessFile(file string) error {
 		case "cloudscale":
 		case "cloudscrollx":
 		case "cloudscrolly":
+		case "edgetolerance":
 		case "elevcontag":
 		case "fog":
 		case "fogcolour":
@@ -1106,7 +1110,7 @@ func main() {
 		}
 	}
 
-	//for _, path := range references {
-	//fmt.Println(path)
-	//}
+	for _, path := range references {
+		fmt.Printf("%s->%s\n", path.Absolute, path.Relative)
+	}
 }
