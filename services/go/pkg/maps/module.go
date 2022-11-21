@@ -551,7 +551,9 @@ func LoadMap(filename string) (*GameMap, error) {
 	// Read the entire file into memory -- maps are small
 	buffer, err := io.ReadAll(gz)
 
-	if err != nil {
+	if err == gzip.ErrChecksum {
+		log.Printf("Map file had invalid checksum")
+	} else if err != nil {
 		return nil, err
 	}
 
