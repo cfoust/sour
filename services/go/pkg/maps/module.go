@@ -665,7 +665,6 @@ func LoadMap(filename string) (*GameMap, error) {
 	// Load entities
 	for i := 0; i < int(header.NumEnts); i++ {
 		entity := Entity{}
-		entities[i] = entity
 
 		unpack.Read(&entity)
 
@@ -684,8 +683,15 @@ func LoadMap(filename string) (*GameMap, error) {
 		if header.Version <= 14 && entity.Type == ET_MAPMODEL {
 			entity.Position.Z += float32(entity.Attr3)
 			entity.Attr3 = 0
+
+			if entity.Attr4 > 0 {
+				log.Printf("warning: mapmodel ent (index %d) uses texture slot %d", i, entity.Attr4)
+			}
+
 			entity.Attr4 = 0
 		}
+
+		entities[i] = entity
 	}
 
 	gameMap.Entities = entities
