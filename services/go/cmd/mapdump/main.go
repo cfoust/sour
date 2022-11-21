@@ -598,6 +598,7 @@ func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], err
 				addRootFile(texture)
 			}
 
+		case "basemodelcfg": // TODO dynamic code in models?
 		case "ambient":
 		case "cullface":
 		case "dir":
@@ -735,6 +736,7 @@ func (processor *Processor) ProcessFile(file string) error {
 		case "mapsoundreset":
 			processor.ResetSounds()
 
+		case "registersound":
 		case "mapsound":
 			if len(args) < 2 {
 				break
@@ -756,6 +758,7 @@ func (processor *Processor) ProcessFile(file string) error {
 				}
 			}
 
+		case "cloudbox": // <- should this actually be here?
 		case "skybox":
 		case "loadsky":
 			if len(args) < 2 {
@@ -826,26 +829,73 @@ func (processor *Processor) ProcessFile(file string) error {
 
 			processor.AddTexture(NormalizeTexture(args[2]))
 
+		case "adaptivesample":
 		case "alias":
 		case "ambient":
+		case "blurlms":
 		case "blurskylight":
+		case "causticmillis":
+		case "causticscale":
+		case "cloudalpha":
+		case "cloudboxalpha":
+		case "cloudboxcolour":
+		case "cloudcolour":
+		case "cloudfade":
+		case "cloudheight":
+		case "cloudlayer":
+		case "cloudscale":
+		case "cloudscrollx":
+		case "cloudscrolly":
+		case "elevcontag":
 		case "fog":
 		case "fogcolour":
+		case "fogdomecap":
+		case "fogdomeclip":
+		case "fogdomeclouds":
+		case "fogdomecolour":
+		case "fogdomeheight":
+		case "fogdomemax":
+		case "fogdomemin":
+		case "grassalpha":
+		case "grasscolour":
+		case "lightlod":
+		case "lightprecision":
+		case "lmshadows":
+		case "mapmsg":
 		case "maptitle":
+		case "maxmerge":
 		case "minimapclip":
+		case "minimapcolour":
 		case "minimapheight":
+		case "panelset":
 		case "setshader":
 		case "setshaderparam":
 		case "shadowmapambient":
+		case "shadowmapangle":
+		case "skill":
+		case "skyboxcolour":
 		case "skylight":
 		case "skytexture":
+		case "skytexturelight":
+		case "spinclouds":
+		case "spinsky":
+		case "sunlight":
+		case "sunlightpitch":
+		case "sunlightscale":
+		case "sunlightyaw":
+		case "texalpha":
 		case "texcolor":
 		case "texlayer":
 		case "texoffset":
 		case "texrotate":
 		case "texscale":
 		case "texscroll":
+		case "water2colour":
+		case "water2fog":
+		case "watercolour":
+		case "waterfallcolour":
 		case "waterfog":
+		case "waterspec":
 		case "yawsky":
 			break
 
