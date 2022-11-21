@@ -832,13 +832,30 @@ func main() {
 		log.Fatal("Map must end in .ogz or .cgz")
 	}
 
+	references := make([]string, 0)
+
+	addFile := func(file string) {
+		references = append(references, file)
+	}
+
 	_map, err := maps.LoadMap(filename)
 
 	if err != nil {
 		log.Fatal("Failed to parse map file")
 	}
 
+	addFile(filename)
+
 	textureRefs := GetChildTextures(_map.Cubes)
+
+	modelRefs := make(map[int16]int)
+	for _, entity := range _map.Entities {
+		if entity.Type != maps.ET_MAPMODEL {
+			continue
+		}
+
+		modelRefs[entity.Attr2] += 1
+	}
 
 	// Always load the default map settings
 	defaultPath := SearchFile(roots, "data/default_map_settings.cfg")
@@ -858,42 +875,47 @@ func main() {
 		filepath.Dir(filename),
 		baseName[:len(baseName)-len(extension)],
 	))
+
 	if FileExists(cfgName) {
 		err = processor.ProcessFile(cfgName)
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		addFile(cfgName)
 	}
 
-	log.Printf("Textures: %d", len(processor.Textures))
-	log.Printf("Refs: %d", len(textureRefs))
 	for i, texture := range processor.Textures {
-		if refs, ok := textureRefs[uint16(i)]; ok {
+		if _, ok := textureRefs[uint16(i)]; ok {
 			for _, path := range texture.Paths {
-				log.Printf("%d: %s (%d)", i, path, refs)
+				addFile(path)
 			}
 		}
 
 		if opt.IsSome(texture.Autograss) {
-			log.Printf("%d: grass %s", i, texture.Autograss.Value)
+			addFile(texture.Autograss.Value)
 		}
 	}
 
-	for material, texture := range processor.Materials {
-		log.Printf("%s: %d", material, len(texture.Paths))
+	for _, texture := range processor.Materials {
 		for _, path := range texture.Paths {
-			log.Printf("%s: %s", material, path)
+			addFile(path)
 		}
 	}
 
-	for i, sound := range processor.Sounds {
-		log.Printf("%d: %s", i, sound)
+	for _, sound := range processor.Sounds {
+		addFile(sound)
 	}
 
 	for i, model := range processor.Models {
-		log.Printf("model %d", i)
-		for _, path := range model.Paths {
-			log.Printf(" %s", path)
+		if _, ok := modelRefs[int16(i)]; ok {
+			for _, path := range model.Paths {
+				addFile(path)
+			}
 		}
+	}
+
+	for _, path := range references {
+		log.Print(path)
 	}
 }
