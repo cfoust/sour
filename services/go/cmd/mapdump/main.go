@@ -316,10 +316,7 @@ func ParseLine(line string) []string {
 
 	return fp.Map[[]string, string](
 		func(x []string) string {
-			if strings.HasPrefix(x[0], "\"") && strings.HasSuffix(x[0], "\"") {
-				return x[0][1 : len(x[0])-1]
-			}
-			return x[0]
+			return strings.ReplaceAll(x[0], "\"", "")
 		},
 	)(matches)
 }
@@ -678,8 +675,6 @@ func (processor *Processor) ProcessFile(file string) error {
 		hash := fmt.Sprintf("%x", sha256.Sum256(src))
 		shim := filepath.Join("shims/", hash)
 
-		log.Printf("File %s contained dynamic code. Falling back to shim %s", file, shim)
-
 		if !FileExists(shim) {
 			log.Printf("Shim %s did not exist. Creating it and exiting.", shim)
 			os.WriteFile(shim, []byte(src), 0666)
@@ -706,15 +701,18 @@ func (processor *Processor) ProcessFile(file string) error {
 		case "mapmodelreset":
 			processor.ResetModels()
 
+		case "mapmodel":
 		case "mmodel":
 			if len(args) < 2 {
 				break
 			}
 
-			textures, err := processor.ProcessModel(args[1])
+			textures, err := processor.ProcessModel(args[len(args) - 1])
 
 			if err != nil {
-				return errors.New(fmt.Sprintf("Failed to process model %s", args[1]))
+				log.Printf("Failed to process model %s", args[1])
+				processor.AddModel(make([]string, 0))
+				continue
 			}
 
 			if opt.IsSome(textures) {
@@ -754,6 +752,7 @@ func (processor *Processor) ProcessFile(file string) error {
 				}
 			}
 
+		case "skybox":
 		case "loadsky":
 			if len(args) < 2 {
 				break
@@ -824,18 +823,26 @@ func (processor *Processor) ProcessFile(file string) error {
 			processor.AddTexture(NormalizeTexture(args[2]))
 
 		case "alias":
+		case "ambient":
 		case "blurskylight":
 		case "fog":
 		case "fogcolour":
+		case "maptitle":
 		case "minimapclip":
+		case "minimapheight":
 		case "setshader":
 		case "setshaderparam":
+		case "shadowmapambient":
+		case "skylight":
 		case "skytexture":
 		case "texcolor":
 		case "texlayer":
+		case "texoffset":
+		case "texrotate":
 		case "texscale":
 		case "texscroll":
 		case "waterfog":
+		case "yawsky":
 			break
 
 		default:
@@ -930,7 +937,8 @@ func main() {
 		resolved := processor.SearchFile(file)
 
 		if opt.IsNone(resolved) {
-			log.Fatal(fmt.Sprintf("Failed to find relative file in roots: %s", file))
+			log.Printf("Failed to find relative file in roots: %s", file)
+			return
 		}
 
 		// Sometimes a file was specified without packages/ so we need
@@ -1011,9 +1019,7 @@ func main() {
 
 	for _, extension := range []string{"png", "jpg"} {
 		shotName := ReplaceExtension(filename, extension)
-		if FileExists(shotName) {
-			addMapFile(shotName)
-		}
+		addMapFile(shotName)
 	}
 
 	for i, texture := range processor.Textures {
