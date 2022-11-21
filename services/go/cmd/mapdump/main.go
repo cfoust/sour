@@ -1056,7 +1056,7 @@ func main() {
 		}
 	}
 
-	for _, path := range references {
-		fmt.Println(path)
-	}
+	//for _, path := range references {
+	//fmt.Println(path)
+	//}
 }

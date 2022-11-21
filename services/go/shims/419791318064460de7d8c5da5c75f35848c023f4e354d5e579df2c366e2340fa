@@ -1,0 +1,382 @@
+// skrsp1 by James 'Skur' Rucks 2013
+// version: 1.3
+
+maptitle "^f7- ^f3Meltdown ^f7(skrsp1) by ^f2James ^f7'^f6Skur^f7' ^f2Rucks ^f7in Summer 2013 -"
+
+//settings
+
+skill 10
+killsendsp 0
+ambient 15 15 15
+lightlod 3
+skylight 45 45 45
+skytexturelight 0
+sunlight 180 170 135
+sunlightscale 1.0
+sunlightpitch 30
+sunlightyaw 160
+skybox "socksky/frozendusk"
+yawsky 350
+fog 3000
+fogcolour 130 135 120
+fogdomemin 0
+fogdomemax 1
+fogdomeheight -0.05
+fogdomecap 1
+fogdomeclip 0.3
+fogdomecolour 130 135 120
+
+//sound
+
+mapsound "soundtransit/waterfall.ogg" 100 1
+mapsound "ambience/fire_light.ogg" 255 1
+mapsound "ambience/lavarumble1.ogg" 255 1
+
+//mapmodels
+
+mapmodelreset
+
+mmodel "doors/door_03"
+mmodel "mitaman/door_06"
+mmodel "mitaman/door_07"
+mmodel "mitaman/door_09"
+mmodel "mitaman/door_10"
+mmodel "steve_e/doors/trapdoor"
+mmodel "steve_e/doors/trapdoor/trapdoor_150"
+mmodel "steve_e/doors/trapdoor/trapdoor_200"
+mmodel "switch1"
+mmodel "dcp/cask"
+mmodel "dcp/chest"
+mmodel "dcp/grate"
+mmodel "dcp/switch2a"
+mmodel "objects/torch_cold"
+mmodel "objects/chair01"
+mmodel "objects/bed01"
+mmodel "objects/woodchop"
+mmodel "tentus/key"
+mmodel "tentus/books/flat"
+mmodel "tentus/barrel"
+mmodel "tentus/sidebarrel"
+mmodel "mapmodels/nieb/waterfall/2"
+mmodel "mapmodels/sitters/gothic/skelet1"
+mmodel "mapmodels/sitters/gothic/skelet2"
+mmodel "mapmodels/sitters/gothic/skelet3"
+mmodel "mapmodels/quakish/grim_reaper/adam"
+mmodel "mapmodels/quakish/grim_reaper/grim"
+mmodel "mapmodels/quakish/grim_reaper/vehementi"
+mmodel "rpg/characters/mman"
+mmodel "rpg/characters/npcman"
+mmodel "mapmodels/quakish/tombstones/tombstone01"
+mmodel "mapmodels/quakish/tombstones/tombstone02"
+mmodel "mapmodels/quakish/tombstones/tombstone03"
+mmodel "mapmodels/quakish/tombstones/tombstone04"
+mmodel "mapmodels/quakish/tombstones/tombstone05"
+mmodel "carrot"
+
+//textures
+
+materialreset
+
+texture water1 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture water2 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture water3 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture water4 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture lava1 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+texture lava2 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+texture lava3 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+texture lava4 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+texturereset
+
+texture 0 "textures/sky.png"
+texture 0 "textures/default.png"
+
+//lava
+setshader glowworld
+//setshader pulseglowworld
+//setshaderparam "glowcolor" .3 .3 .3	// glow color
+//setshaderparam "pulseglowspeed" .5	// pulse frequency (Hz)
+//setshaderparam "pulseglowcolor" 0 0 0 // pulse glow color
+texture 0 "dg/floor_lava2.jpg" 0 0 0 3
+texture g "dg/floor_lava2.jpg"
+texscale 2
+texscroll 0 -0.05
+
+//spaceholder
+setshader stdworld
+texture 0 "misanthropx/white.jpg"
+
+//tomek
+setshader bumpspecmapparallaxworld
+
+texture 0 tomek/snow7_d.jpg
+texture n tomek/snow7_local.jpg
+texture s tomek/snow7_s.jpg
+texture z tomek/snow7_h.jpg
+texlayer 7
+
+texture 0 tomek/snow7_d.jpg
+texture n tomek/snow7_local.jpg
+texture s tomek/snow7_s.jpg
+texture z tomek/snow7_h.jpg
+texlayer 8
+
+//gor
+setshader bumpspecmapparallaxworld
+
+setshaderparam "specscale" 4 4 4
+setshaderparam "parallaxscale" 0.02 -0.01
+
+texture 0 gor/WT_GK_011_cc.jpg
+texture n gor/WT_GK_011_nm.jpg
+texture s gor/WT_GK_011_sc.jpg
+texture z gor/WT_GK_011_hm.jpg
+	
+texture 0 gor/WT_GK_017_cc.jpg
+texture n gor/WT_GK_017_nm.jpg
+texture s gor/WT_GK_017_sc.jpg
+texture z gor/WT_GK_017_hm.jpg
+
+texture 0 gor/ST_GK_007_cc.jpg
+texture n gor/ST_GK_007_nm.jpg
+texture s gor/ST_GK_007_sc.jpg
+texture z gor/ST_GK_007_hm.jpg
+	
+//dg
+setshader stdworld
+texture 0 "dg/muv204.jpg"
+
+setshader bumpspecmapparallaxworld		
+setshaderparam parallaxscale 0.025 -0.015
+setshaderparam specscale .4 .4 .4
+
+texture 0 dg/mad064.jpg
+texture n dg/mad064_n.jpg
+texture z dg/mad064_z.jpg
+texture s dg/mad064_s.jpg
+
+texture 0 dg/mad065.jpg
+texture n dg/mad065n.jpg
+texture z dg/mad065z.jpg
+texture s dg/mad065s.jpg
+
+//skur
+texture 0 skur/mad065_27.jpg
+texture n skur/mad065n_27.jpg
+texture z skur/mad065z_27.jpg
+texture s skur/mad065s_27.jpg
+
+texture 0 skur/mad065_45.jpg
+texture n skur/mad065n_45.jpg
+texture z skur/mad065z_45.jpg
+texture s skur/mad065s_45.jpg
+
+//evil_textures
+
+setshader bumpspecmapparallaxworld
+setshaderparam specscale .8 .8 .8
+setshaderparam parallaxscale 0.025 -0.015
+
+//e7bigwall
+texture 0 evil_textures/e7bigwall.jpg
+texture n evil_textures/e7bigwall_NRM.jpg
+texture s evil_textures/e7bigwall_SPEC.jpg
+texture z evil_textures/e7bigwall_DISP.jpg
+
+//e7bmtrim
+texture 0 evil_textures/e7bmtrim.jpg
+texture n evil_textures/e7bmtrim_NRM.jpg
+texture s textures/yves_allaire/e7/e7bmtrim1_s.jpg
+texture z evil_textures/e7bmtrim_DISP.jpg
+
+//e7brickfloor01
+texture 0 evil_textures/e7brickfloor01.jpg
+texture n evil_textures/e7brickfloor01_NRM.jpg
+texture s textures/yves_allaire/e7/e7brickfloor01_s.jpg
+texture z evil_textures/e7brickfloor01_DISP.jpg
+texcolor .8 .8 .8
+
+//e7bricks01
+texture 0 evil_textures/e7bricks01.jpg
+texture n evil_textures/e7bricks01_NRM.jpg
+texture s textures/yves_allaire/e7/e7bricks01_s.jpg
+texture z evil_textures/e7bricks01_DISP.jpg
+
+//e7dimfloor
+texture 0 evil_textures/e7dimfloor.jpg
+texture n evil_textures/e7dimfloor_NRM.jpg
+texture s textures/yves_allaire/e7/e7dimfloor_s.jpg
+texture z evil_textures/e7dimfloor_DISP.jpg
+texscale 2
+
+texture 0 evil_textures/e7dimfloor_ow.jpg
+texture n evil_textures/e7dimfloor_ow_NRM.jpg
+texture s textures/yves_allaire/e7/e7dimfloor_ow_s.jpg
+texture z evil_textures/e7dimfloor_ow_DISP.jpg
+texscale 2
+
+//e7sbrickfloor
+texture 0 evil_textures/e7sbrickfloor.jpg
+texture n evil_textures/e7sbrickfloor_NRM.jpg
+texture s textures/yves_allaire/e7/e7sbrickfloor_s.jpg
+texture z evil_textures/e7sbrickfloor_DISP.jpg
+
+texture 0 evil_textures/e7sbrickfloor_ow.jpg
+texture n evil_textures/e7sbrickfloor_ow_NRM.jpg
+texture s textures/yves_allaire/e7/e7sbrickfloor_ow_s.jpg
+texture z evil_textures/e7sbrickfloor_ow_DISP.jpg
+
+texture 0 evil_textures/e7sbrickfloorbig.jpg
+texture n evil_textures/e7sbrickfloorbig_NRM.jpg
+texture s textures/yves_allaire/e7/e7sbrickfloorbig_s.jpg
+texture z evil_textures/e7sbrickfloorbig_DISP.jpg
+
+//e7window
+texture 0 evil_textures/e7swindow.jpg
+texture n evil_textures/e7swindow_NRM.jpg
+texture s textures/yves_allaire/e7/e7swindow_s.jpg
+texture z evil_textures/e7swindow_DISP.jpg
+
+//e7walldesign01b
+texture 0 evil_textures/e7walldesign01b.jpg 
+texture n evil_textures/e7walldesign01b_NRM.jpg
+texture s textures/yves_allaire/e7/e7walldesign01b_s.jpg
+texture z evil_textures/e7walldesign01b_DISP.jpg
+
+setshaderparam parallaxscale 0.02 -0.01
+
+//e7walldesign
+texture 0 textures/yves_allaire/e7/e7walldesign01.jpg
+texture n textures/yves_allaire/e7/e7walldesign01_n.jpg
+texture s textures/yves_allaire/e7/e7walldesign01_s.jpg
+texture z textures/yves_allaire/e7/e7walldesign01_z.jpg
+
+texture 0 textures/yves_allaire/e7/e7walldesign02.jpg
+texture n textures/yves_allaire/e7/e7walldesign02_n.jpg
+texture s textures/yves_allaire/e7/e7walldesign02_s.jpg
+texture z textures/yves_allaire/e7/e7walldesign02_z.jpg
+
+setshader bumpspecmapparallaxworld
+setshaderparam specscale .8 .8 .8
+setshaderparam parallaxscale 0.025 -0.015
+
+//e7beam
+texture 0 evil_textures/e7beam01.jpg
+texture n textures/yves_allaire/e7/e7beam01_n.jpg
+texture s textures/yves_allaire/e7/e7beam01_s.jpg
+texture z textures/yves_allaire/e7/e7beam01_z.jpg
+
+texture 0 evil_textures/e7beam01b.jpg
+texture n textures/yves_allaire/e7/e7beam01b_n.jpg
+texture s textures/yves_allaire/e7/e7beam01b_s.jpg
+texture z textures/yves_allaire/e7/e7beam01b_z.jpg
+
+texture 0 evil_textures/e7beam02.jpg
+texture n textures/yves_allaire/e7/e7beam02_n.jpg
+texture s textures/yves_allaire/e7/e7beam02_s.jpg
+texture z textures/yves_allaire/e7/e7beam02_z.jpg
+
+texture 0 evil_textures/e7beam02_blue.jpg 
+texture n textures/yves_allaire/e7/e7beam02_blue_n.jpg 
+texture s textures/yves_allaire/e7/e7beam02_blue_s.jpg
+texture z textures/yves_allaire/e7/e7beam02_blue_z.jpg
+
+texture 0 evil_textures/e7beam02_red.jpg
+texture n textures/yves_allaire/e7/e7beam02_red_n.jpg
+texture s textures/yves_allaire/e7/e7beam02_red_s.jpg
+texture z textures/yves_allaire/e7/e7beam02_red_z.jpg
+
+//e7bmtrim2
+texture 0 evil_textures/e7bmtrim2.jpg
+texture n textures/yves_allaire/e7/e7bmtrim2_n.jpg
+texture s textures/yves_allaire/e7/e7bmtrim2_s.jpg
+texture z textures/yves_allaire/e7/e7bmtrim2_z.jpg
+
+//e7brnmetal
+texture 0 evil_textures/e7brnmetal.jpg
+texture n textures/yves_allaire/e7/e7brnmetal_n.jpg
+texture s textures/yves_allaire/e7/e7brnmetal_s.jpg
+texture z textures/yves_allaire/e7/e7brnmetal_z.jpg
+
+//e7plate01
+texture 0 evil_textures/e7plate01.jpg
+texture n textures/yves_allaire/e7/e7plate01_n.jpg 
+texture s textures/yves_allaire/e7/e7plate01_s.jpg
+texture z textures/yves_allaire/e7/e7plate01_z.jpg
+
+//e7stepborder
+texture 0 textures/yves_allaire/e7/e7stepborder1.jpg
+texture n textures/yves_allaire/e7/e7stepborder1_n.jpg
+texture s textures/yves_allaire/e7/e7stepborder1_s.jpg
+texture z textures/yves_allaire/e7/e7stepborder1_z.jpg
+
+//e7steptop
+//texture 0 textures/yves_allaire/e7/e7steptop1.jpg 
+//texture n textures/yves_allaire/e7/e7steptop1_n.jpg 
+//texture s textures/yves_allaire/e7/e7steptop1_s.jpg 
+//texture z textures/yves_allaire/e7/e7steptop1_z.jpg 
+
+texture 0 evil_textures/e7steptop2.jpg
+texture n textures/yves_allaire/e7/e7steptop2_n.jpg
+texture s textures/yves_allaire/e7/e7steptop2_s.jpg
+texture z textures/yves_allaire/e7/e7steptop2_z.jpg
+texrotate 2
+
+//e7trim01
+texture 0 textures/yves_allaire/e7/e7trim01.jpg
+texture n textures/yves_allaire/e7/e7trim01_n.jpg
+texture s textures/yves_allaire/e7/e7trim01_s.jpg
+texture z textures/yves_allaire/e7/e7trim01_z.jpg
+
+setshader bumpspecmapparallaxpulseglowworld
+setshaderparam specscale .8 .8 .8
+setshaderparam parallaxscale 0.025 -0.015
+setshaderparam pulseglowspeed 2
+setshaderparam glowcolor 1.5 .4 .4
+setshaderparam pulseglowcolor 1.8 .5 .5
+
+setshaderparam specscale .5 .5 .5
+setshaderparam pulseglowspeed .75
+setshaderparam glowcolor 1.3 .3 .3
+setshaderparam pulseglowcolor 2 .55 .55
+
+//e7bricksfloor_jump
+//e7sbrickfloor01jump
+texture 0 evil_textures/e7sbrickfloor_jump.jpg
+texture n evil_textures/e7sbrickfloor_jump_NRM.jpg
+texture s textures/yves_allaire/e7/e7sbrickfloor_jump_s.jpg
+texture z evil_textures/e7sbrickfloor_jump_DISP.jpg
+texture g textures/yves_allaire/e7/e7sbrickfloor_jump_red_glow.jpg
+
+registersound "blindabuser/lets_fight"
