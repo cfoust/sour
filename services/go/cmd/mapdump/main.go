@@ -201,6 +201,24 @@ func (processor *Processor) SearchFile(path string) opt.Option[string] {
 	return opt.None[string]()
 }
 
+func (processor *Processor) GetRootRelative(path string) opt.Option[string] {
+	for _, root := range processor.Roots {
+		relative, err := filepath.Rel(root, path)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if strings.Contains(relative, "..") {
+			continue
+		}
+
+		return opt.Some[string](relative)
+	}
+
+	return opt.None[string]()
+}
+
 func (processor *Processor) NewSlot() {
 	texture := NewTexture()
 	processor.Textures = append(processor.Textures, *texture)
@@ -873,25 +891,14 @@ func main() {
 		if filepath.IsAbs(file) {
 			reference.Absolute = file
 
-			for _, root := range processor.Roots {
-				relative, err := filepath.Rel(root, file)
+			relative := processor.GetRootRelative(file)
 
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				if strings.Contains(relative, "..") {
-					continue
-				}
-
-				reference.Relative = relative
-				references = append(references, reference)
-				return
+			if opt.IsNone(relative) {
+				log.Fatal(fmt.Sprintf("File absolute but not in root: %s", file))
 			}
 
-			// TODO Maps and their cfg/jpg can conceptually be mapped into a root
-
-			log.Fatal(fmt.Sprintf("File absolute but not in root: %s", file))
+			reference.Relative = relative.Value
+			references = append(references, reference)
 			return
 		}
 
@@ -918,13 +925,43 @@ func main() {
 		addFile(resolved.Value)
 	}
 
+	// Map files can be mapped into packages/base/
+	addMapFile := func (file string) {
+		target := file
+
+		if filepath.IsAbs(file) {
+			absolute, err := filepath.Abs(file)
+
+			if err != nil {
+				log.Fatal(err)
+			}
+			target = absolute
+		}
+
+		if !FileExists(target) {
+			return
+		}
+
+		relative := processor.GetRootRelative(target)
+
+		if opt.IsSome(relative) {
+			addFile(relative.Value)
+			return
+		}
+
+		reference := Reference{}
+		reference.Absolute = target
+		reference.Relative = fmt.Sprintf("packages/base/%s", filepath.Base(file))
+		references = append(references, reference)
+	}
+
 	_map, err := maps.LoadMap(filename)
 
 	if err != nil {
 		log.Fatal("Failed to parse map file")
 	}
 
-	addFile(filename)
+	addMapFile(filename)
 
 	textureRefs := GetChildTextures(_map.Cubes)
 
@@ -961,7 +998,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		addFile(cfgName)
+		addMapFile(cfgName)
 	}
 
 	for i, texture := range processor.Textures {
