@@ -675,8 +675,12 @@ func (processor *Processor) ProcessFile(file string) error {
 		hash := fmt.Sprintf("%x", sha256.Sum256(src))
 		shim := filepath.Join("shims/", hash)
 
+		if strings.HasPrefix(file, "shims/") {
+			log.Fatalf("Shim %s contained dynamic code; please fill it in", file)
+		}
+
 		if !FileExists(shim) {
-			log.Printf("Shim %s did not exist. Creating it and exiting.", shim)
+			log.Printf("Shim %s for %s did not exist. Creating it and exiting.", shim, file)
 			os.WriteFile(shim, []byte(src), 0666)
 			os.Exit(1)
 		}
@@ -707,7 +711,7 @@ func (processor *Processor) ProcessFile(file string) error {
 				break
 			}
 
-			textures, err := processor.ProcessModel(args[len(args) - 1])
+			textures, err := processor.ProcessModel(args[len(args)-1])
 
 			if err != nil {
 				log.Printf("Failed to process model %s", args[1])
