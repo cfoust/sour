@@ -1,0 +1,9 @@
+mapmodelreset
+
+mapmodel -1  -1 0 "doors/door_01"
+mapmodel -1  -1 0 "doors/door_02"
+mapmodel -1  -1 0 "doors/door_03"
+
+mapmodel 0 0 0 "switch1"
+mapmodel 0 0 0 "switch2"
+mapmodel 0 0 0 "carrot"

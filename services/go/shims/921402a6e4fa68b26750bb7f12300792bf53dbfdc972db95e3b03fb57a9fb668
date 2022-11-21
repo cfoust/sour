@@ -1,0 +1,443 @@
+//---crnsp1 cfg V:1.1
+maptitle "^f2- ^f3Missile Pass ^f7 by ^f6C^f2lemens ^f0'^f6crun^f0' ^f6Run^f2ge ^f2-"
+
+//--mapsettings
+
+yawsky 150
+fog 2000
+fogdomecolour 96 142 116
+fogdomeheight -0.4
+fogdomemax 1
+fogdomemin 0.5
+sunlightyaw 230
+sunlightpitch 26
+sunlight 120 110 80
+cloudlayer "skyboxes/clouds01.png"
+cloudscale 7
+cloudcolour 150 200 180
+cloudscrollx 0.0006
+cloudscrolly -0.0009
+cloudalpha 0.9
+cloudheight 0.2
+cloudfade 0.3
+skylight 65 80 50
+
+//--models
+
+mapmodelreset
+
+mmodel "doors/door_01"
+mmodel "doors/door_02"
+mmodel "doors/door_03"
+mmodel "doors/door_04"
+mmodel "mitaman/door_06"
+mmodel "mitaman/door_07"
+mmodel "mitaman/door_08"
+mmodel "mitaman/door_09"
+mmodel "mitaman/door_10"
+mmodel "switch1"
+mmodel "switch2"
+mmodel "dcp/switch2a"
+mmodel "mitaman/plat01/crnsp1_196"
+mmodel "mapmodels/nieb/waterfall/1"
+mmodel "mapmodels/nieb/waterfall/2"
+mmodel "mapmodels/nieb/waterfall/3"
+mmodel "mapmodels/nieb/waterfall/4"
+mmodel "steve_e/doors/trapdoor/trapdoor_200"
+mmodel "mitaman/floorgrate1/crnsp1"
+mmodel "mitaman/plat01"
+mmodel "mapmodels/crun/transparentbox"
+mmodel "psionic/barrel2"
+mmodel "xeno/box1"
+mmodel "carrot"
+mmodel "doors/door_04/crnsp1"
+mmodel "mitaman/door_10/crnsp1"
+mmodel "mitaman/plat01/crnsp1_296"
+
+//--mapsounds
+
+mapsound ambience/wind 255
+mapsound ambience/waterfall 150
+mapsound kaiser/fx/hum6 175
+mapsound kaiser/fx/hum1 175
+
+registersound "kaiser/fx/warning1" 150
+registersound "q009/weapswitch" 255
+
+//--textures
+
+texturereset
+
+setshader stdworld				// use default world shader unless specified otherwise
+texture 0 "textures/sky.png"	// dummy sky texture
+texture 0 "textures/default.png"// default geometry texture
+
+//-gor
+
+setshader bumpspecmapparallaxworld
+	setshaderparam "specscale" 4 4 4
+	setshaderparam "parallaxscale" 0.02 -0.01
+
+	texture 0 gor/WS_GK_001_cc.jpg
+	texture n gor/WS_GK_001_nm.jpg
+	texture s gor/WS_GK_001_sc.jpg
+	texture z gor/WS_GK_001_hm.jpg
+
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	
+setshader bumpspecmapparallaxworld
+	setshaderparam "specscale" 4 4 4
+	setshaderparam "parallaxscale" 0.02 -0.01
+
+	texture 0 gor/GR_GK_007_cc.jpg
+	texture n gor/GR_GK_007_nm.jpg
+	texture s gor/GR_GK_007_sc.jpg
+	texture z gor/GR_GK_007_hm.jpg
+	
+setshader stdworld
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+
+setshader bumpspecmapparallaxworld
+	setshaderparam "specscale" 4 4 4
+	setshaderparam "parallaxscale" 0.02 -0.01	
+
+	texture 0 gor/ST_GK_003_cc.jpg
+	texture n gor/ST_GK_003_nm.jpg
+	texture s gor/ST_GK_003_sc.jpg
+	texture z gor/ST_GK_003_hm.jpg
+
+setshader stdworld
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+
+setshader bumpspecmapparallaxworld
+	setshaderparam "specscale" 4 4 4
+	setshaderparam "parallaxscale" 0.02 -0.01
+
+	texture 0 gor/WO_GK_002_cc.jpg
+	texture n gor/WO_GK_002_nm.jpg
+	texture s gor/WO_GK_002_sc.jpg
+	texture z gor/WO_GK_002_hm.jpg
+
+setshader stdworld
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+
+setshader bumpspecmapparallaxworld
+	setshaderparam "specscale" 4 4 4
+	setshaderparam "parallaxscale" 0.02 -0.01
+
+	texture 0 gor/WT_GK_017_cc.jpg
+	texture n gor/WT_GK_017_nm.jpg
+	texture s gor/WT_GK_017_sc.jpg
+	texture z gor/WT_GK_017_hm.jpg
+
+setshader stdworld
+	texture 0 "textures/default.png"
+	
+setshader bumpspecmapparallaxworld
+	setshaderparam "specscale" 4 4 4
+	setshaderparam "parallaxscale" 0.02 -0.01
+
+	texture 0 gor/ME_GK_012_cc.jpg
+	texture n gor/ME_GK_012_nm.jpg
+	texture s gor/ME_GK_012_sc.jpg
+	texture z gor/ME_GK_012_hm.jpg
+
+setshader stdworld
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+
+//-tech1soc
+
+setshader stdworld
+
+	texture 0 tech1soc/spring3.jpg
+
+setshader glowworld
+
+	texture 0 tech1soc/sqrlig02wb.jpg
+	texture g tech1soc/sqrlig02wb_g.jpg
+	texture 0 tech1soc/sqrlig03bc.jpg
+	texture g tech1soc/sqrlig03bc_g.jpg
+
+setshader stdworld
+
+	texture 0 tech1soc/zdetlig01bb.jpg
+	texture 0 tech1soc/zdetlig02bb.jpg
+	texture 0 tech1soc/zdetlig04bb.jpg
+	texture 0 tech1soc/zdet_trim2a.jpg
+	texture 0 tech1soc/zdet_trim5b.jpg
+	texture 0 tech1soc/032-01c.jpg
+	texture 0 tech1soc/032-02b.jpg
+	texture 0 tech1soc/032-03d.jpg
+	texture 0 tech1soc/032-10a.jpg
+	texture 0 tech1soc/032-10b.jpg
+	texture 0 tech1soc/032-12d.jpg
+	texture 0 tech1soc/032-14b.jpg
+	texture 0 tech1soc/032-15a.jpg
+	texture 0 tech1soc/032-15b.jpg
+
+setshader glowworld
+
+	texture 0 tech1soc/032lig10bb.jpg
+	texture g tech1soc/032lig10bb_g.jpg
+	texture 0 tech1soc/032lig11bb.jpg
+	texture g <rotate:1>tech1soc/032lig11rb_g.jpg
+	texture 0 tech1soc/032lig11rb.jpg
+	texture g tech1soc/032lig11rb_g.jpg
+	texture 0 tech1soc/032lig12bb.jpg
+	texture g tech1soc/032lig12bb_g.jpg
+	texture 0 tech1soc/032lig12rb.jpg
+	texture g tech1soc/032lig12bb_g.jpg
+	texture 0 tech1soc/032lig12ya.jpg 
+	texture g tech1soc/032lig12bb_g.jpg
+	texture 0 tech1soc/032lig20yb.jpg
+	texture g tech1soc/032lig20yb_g.jpg
+	
+setshader stdworld
+
+	texture 0 tech1soc/064-11b.jpg
+	texture 0 tech1soc/064-12a.jpg
+	texture 0 tech1soc/064-13b.jpg
+	texture 0 tech1soc/064-15b.jpg
+	texture 0 tech1soc/064-20a.jpg
+	texture 0 tech1soc/064-20b.jpg
+	texture 0 tech1soc/064-22b.jpg
+	
+setshader glowworld
+
+	texture 0 tech1soc/064lig20bb.jpg
+	texture g tech1soc/064lig20bb_g.jpg
+	texture 0 tech1soc/064lig22bb.jpg
+	texture g tech1soc/064lig22wb_g.jpg
+	texture 0 tech1soc/064lig22rb.jpg
+	texture g tech1soc/064lig22rb_g.jpg
+	texture 0 tech1soc/064lig22wb.jpg
+	texture g tech1soc/064lig22wb_g.jpg
+
+setshader stdworld
+
+	texture 0 tech1soc/128-05b.jpg
+	texture 0 tech1soc/128-05c.jpg
+	texture 0 tech1soc/blank01a.jpg
+	texture 0 tech1soc/blank01c.jpg
+	texture 0 tech1soc/blank02a.jpg
+	texture 0 tech1soc/blank02b.jpg
+	texture 0 tech1soc/blank03a.jpg
+	texture 0 tech1soc/blank03d.jpg
+	texture 0 tech1soc/block01b.jpg
+	texture 0 tech1soc/block01c.jpg
+	texture 0 tech1soc/block10b.jpg
+	texture 0 tech1soc/block19b.jpg
+	texture 0 tech1soc/chain_mesh2.jpg
+	texture 0 tech1soc/grate1b.jpg
+	texture 0 tech1soc/grate_brown1.jpg
+	texture 0 tech1soc/grate_brown3.jpg
+	texture 0 tech1soc/grill_wall01b.jpg
+	texture 0 tech1soc/half_grill_wall01b.jpg
+	texture 0 tech1soc/half_grill_wall03b.jpg
+	texture 0 tech1soc/mat4b.jpg
+	texture 0 tech1soc/matbrown_lgt2.jpg
+	texture 0 tech1soc/met_wall01a.jpg
+	texture 0 tech1soc/met_wall01c.jpg
+	texture 0 tech1soc/mix_wall03a.jpg
+	texture 0 tech1soc/mix_wall03ab.jpg
+	texture 0 tech1soc/o128-02a.jpg
+
+setshader glowworld
+
+	texture 0 tech1soc/octlig01bc.jpg
+	texture g tech1soc/octlig01bc_g.jpg
+
+setshader stdworld
+
+	texture 0 tech1soc/panel20c.jpg
+	texture 0 tech1soc/panel40c.jpg
+	texture 0 tech1soc/s064-02a.jpg
+	texture 0 tech1soc/s064-02b.jpg
+	texture 0 tech1soc/s064-02c.jpg
+	texture 0 tech1soc/s064-03a.jpg
+	texture 0 tech1soc/s064-03b.jpg
+	texture 0 tech1soc/s064-03c.jpg
+	texture 0 tech1soc/s128-01c.jpg
+	texture 0 tech1soc/s128-02a.jpg
+	texture 0 tech1soc/s128-02b.jpg
+	texture 0 tech1soc/s128-03b.jpg
+	texture 0 tech1soc/s128-06b.jpg
+	texture 0 tech1soc/s128-07e.jpg
+	texture 0 tech1soc/s256-01c.jpg
+	texture 0 tech1soc/s256-01d.jpg
+	texture 0 tech1soc/s256-02a.jpg
+	texture 0 tech1soc/s256-02b.jpg
+	texture 0 tech1soc/spring1.jpg
+	texture 0 tech1soc/spring2.jpg
+
+//-lunaran
+
+setshader stdworld
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+
+setshader bumpspecmapparallaxworld
+
+	texture 0 lunaran/glue1_d.jpg
+	texture n lunaran/glue1_local.jpg
+	texture s lunaran/glue1_s.jpg
+	texture z lunaran/glue1_h.jpg
+	texture 0 lunaran/glue2_d.jpg
+	texture n lunaran/glue2_local.jpg
+	texture s lunaran/glue2_s.jpg
+	texture z lunaran/glue2_h.jpg
+	texture 0 lunaran/grate1_d.jpg
+	texture n lunaran/grate1_local.jpg
+	texture s lunaran/grate1_s.jpg
+	texture z lunaran/grate1_h.jpg
+
+setshader stdworld
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+
+setshader bumpspecmapparallaxworld
+
+	texture 0 lunaran/panel64_2a_d.jpg
+	texture n lunaran/panel64_2a_local.jpg
+	texture s lunaran/panel64_2a_s.jpg
+	texture z lunaran/panel64_2a_h.jpg
+	texture 0 lunaran/panel64_2b_d.jpg
+	texture n lunaran/panel64_2b_local.jpg
+	texture s lunaran/panel64_2b_s.jpg
+	texture z lunaran/panel64_2b_h.jpg
+	texture 0 lunaran/panel64_2_d.jpg
+	texture n lunaran/panel64_2_local.jpg
+	texture s lunaran/panel64_2_s.jpg
+	texture z lunaran/panel64_2_h.jpg
+
+setshader stdworld
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+
+setshader bumpspecmapparallaxworld
+
+	texture 0 lunaran/panel64_5_d.jpg
+	texture n lunaran/panel64_5_local.jpg
+	texture s lunaran/panel64_5_s.jpg
+	texture z lunaran/panel64_5_h.jpg
+	texture 0 lunaran/panel64_6b_d.jpg
+	texture n lunaran/panel64_6b_local.jpg
+	texture s lunaran/panel64_6b_s.jpg
+	texture z lunaran/panel64_6b_h.jpg
+	texture 0 lunaran/panel64_6_d.jpg
+	texture n lunaran/panel64_6_local.jpg
+	texture s lunaran/panel64_6_s.jpg
+	texture z lunaran/panel64_6_h.jpg
+
+setshader stdworld
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+	texture 0 "textures/default.png"
+
+setshader bumpspecmapparallaxworld
+
+	texture 0 lunaran/cord1_d.jpg
+	texture n lunaran/cord1_local.jpg
+	texture s lunaran/cord1_s.jpg
+	texture z lunaran/cord1_h.jpg
+
+setshader bumpspecmapparallaxglowworld
+
+	texture 0 lunaran/light_flouro1_d.jpg
+	texture n lunaran/light_flouro1_local.jpg
+	texture s lunaran/light_flouro1_s.jpg
+	texture g lunaran/light_flouro1_g.jpg
+	texture z lunaran/light_flouro1_h.jpg
+
+setshaderparam "glowcolor" 1 1 1
+
+	texture 0 lunaran/qcomp5_d.jpg
+	texture n lunaran/qcomp5_local.jpg
+	texture s lunaran/qcomp5_s.jpg
+	texture g lunaran/qcomp5_glow.jpg
+	texture z lunaran/qcomp5_h.jpg
+
+	texture 0 lunaran/qcomp5_d.jpg
+	texture n lunaran/qcomp5_local.jpg
+	texture s lunaran/qcomp5_s.jpg
+	texture g lunaran/qcomp5_glow2.jpg
+	texture z lunaran/qcomp5_h.jpg
+
+	texture 0 lunaran/light_fifty1_d.jpg
+	texture n lunaran/light_fifty1_local.jpg
+	texture s lunaran/light_fifty1_s.jpg
+	texture g lunaran/light_fifty1_g.jpg
+	texture z lunaran/light_fifty1_h.jpg

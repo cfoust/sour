@@ -1,0 +1,194 @@
+// Albatross by Ryan Brucks, Sauerbraten remake by Kv
+// Tree models by Ardelico
+
+cloudbox skyboxes/lordkv/saturn
+cloudboxalpha 0.7
+
+mapsound "ambience/creek.ogg"
+mapsound "ambience/water.ogg"
+mapsound "ambience/cavedrip.ogg"
+mapsound "ambience/fire_light.ogg"
+mapsound "ambience/forest1.ogg"
+
+materialreset
+
+texture water1 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture water2 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture water3 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture water4 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture lava1 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+texture lava2 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+texture lava3 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+texture lava4 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+// texture definitions for the map:
+
+texturereset    // starts the texture slot/index at 0
+
+setshader stdworld   // use default world shader unless specified otherwise
+
+texture 0 "textures/sky.png"     // dummy sky texture
+texture 0 "textures/default.png" // default geometry texture
+
+texture 0 "aard/aardograss_1.jpg"
+autograss "<agrad:0,0.2>textures/grass_aard.png"
+texture 0 "ik2k/ik_floor_brick128a.jpg" 
+texture 0 "ik2k/ik_floor_wood128b.jpg"  
+texture 0 "ik2k/ik_ground_cobbles128.jpg" 
+texture 0 "ik2k/ik_brick_3216d.jpg"
+texture 0 "ik2k/ik_brick_6464c.jpg"
+
+exec packages/textures/nieb/garden/package.cfg
+exec packages/textures/medieval_soc/package.cfg
+
+setshader stdworld
+texture 0 textures/terrain_soc/rock_brown2.jpg 0 0 0 1
+texture 0 textures/terrain_soc/rock_brown2vine.jpg 0 0 0 1
+texture 0 textures/terrain_soc/rock_brown3.jpg 0 0 0 .75
+texture 0 textures/terrain_soc/rock_grey2.jpg 0 0 0 .75
+texture 0 textures/terrain_soc/rock_grey2vine.jpg 0 0 0 .75
+texture 0 textures/terrain_soc/rock_grey3.jpg 0 0 0 .75
+texture 0 textures/terrain_soc/ter_dirt1.jpg 0 0 0 .75
+texture 0 textures/terrain_soc/ter_moss1.jpg 0 0 0 .75
+autograss "<agrad:0,0.2>textures/grass_ik.png"
+
+texture 0 textures/nieb/autumn/bark01.jpg 0 0 0 .5
+texture 0 textures/nieb/autumn/column.jpg 0 0 0 .5
+texture 0 textures/nieb/autumn/face0a.jpg 0 0 0 .25
+texture 0 textures/nieb/autumn/face0b.jpg 0 0 0 .25
+texture 0 textures/nieb/autumn/face0c.jpg 0 0 0 .25
+texture 0 textures/nieb/autumn/face1.jpg 0 0 0 .5
+texture 0 textures/nieb/autumn/face2.jpg 0 0 0 .5
+texture 0 textures/nieb/autumn/face3.jpg 0 0 0 .5
+texture 0 textures/nieb/autumn/face4.jpg 0 0 0 .5
+texture 0 textures/nieb/autumn/grass1.jpg 0 0 0 .5
+texture 0 textures/nieb/autumn/leaves.jpg 0 0 0 .5
+texture 0 textures/nieb/autumn/rock.jpg 0 0 0 .75
+texture 0 textures/nieb/autumn/stone1.jpg 0 0 0 .5
+texture 0 textures/nieb/autumn/stone_rough.jpg 0 0 0 .5
+texture 0 textures/nieb/autumn/stone_rubble.jpg 0 0 0 .5
+texture 0 textures/nieb/autumn/tile.jpg 0 0 0 .5
+texture 0 textures/nieb/autumn/trim1.jpg 0 0 0 .5
+
+setshader bumpspecmapworld
+setshaderparam "specscale" 2 2 2 
+
+texture 0 "mitaman/mm-wood-worn.jpg" 0 0 0 .5
+texture n "mitaman/mm-wood-worn_normal.jpg" 0 0 0 .5
+texture s "mitaman/mm-wood-worn_spec.jpg" 0 0 0 .5
+
+texture 0 "mitaman/mm-wood-worn.jpg" 1 0 0 .5
+texture n "mitaman/mm-wood-worn_normal.jpg" 1 0 0 .5
+texture s "mitaman/mm-wood-worn_spec.jpg" 1 0 0 .5 
+
+setshader stdworld
+
+texture 0 textures/terrain_soc/ter_moss1.jpg 0 0 0 .75
+autograss "<agrad:0,0.2>textures/grass_ik.png"
+texlayer 18
+texture 0 textures/terrain_soc/ter_moss1.jpg 0 0 0 .75
+autograss "<agrad:0,0.2>textures/grass_ik.png"
+texlayer 28
+texture 0 textures/terrain_soc/ter_moss1.jpg 0 0 0 .75
+autograss "<agrad:0,0.2>textures/grass_ik.png"
+texlayer 62
+texture 0 textures/terrain_soc/ter_moss1.jpg 0 0 0 .75
+autograss "<agrad:0,0.2>textures/grass_ik.png"
+texlayer 63
+texture 0 textures/terrain_soc/ter_moss1.jpg 0 0 0 .75
+autograss "<agrad:0,0.2>textures/grass_ik.png"
+texlayer 66
+texture 0 textures/terrain_soc/ter_moss1.jpg 0 0 0 .75
+autograss "<agrad:0,0.2>textures/grass_ik.png"
+texlayer 72
+texture 0 textures/terrain_soc/ter_moss1.jpg 0 0 0 .75
+autograss "<agrad:0,0.2>textures/grass_ik.png"
+texlayer 83
+
+texture 0 textures/nieb/autumn/tile.jpg 0 0 0 .5
+texlayer 66
+
+texture 0 textures/nieb/autumn/tile.jpg 0 0 0 .5
+texlayer 82
+
+setshader bumpspecmapparallaxworld
+
+setshaderparam "specscale" 4 4 4
+setshaderparam "parallaxscale" 0.02 -0.01
+
+texture 0 gor/WS_GK_001_cc.jpg
+texture n gor/WS_GK_001_nm.jpg
+texture s gor/WS_GK_001_sc.jpg
+texture z gor/WS_GK_001_hm.jpg
+texscroll 0.3 0.3
+texlayer 63
+
+texture 0 gor/WS_GK_001_cc.jpg
+texture n gor/WS_GK_001_nm.jpg
+texture s gor/WS_GK_001_sc.jpg
+texture z gor/WS_GK_001_hm.jpg
+texscroll 0.3 0.0
+texlayer 63
+
+texture 0 gor/WS_GK_001_cc.jpg
+texture n gor/WS_GK_001_nm.jpg
+texture s gor/WS_GK_001_sc.jpg
+texture z gor/WS_GK_001_hm.jpg
+texscroll 0.0 -0.3
+texlayer 63
+
+setshader stdworld
+
+texture 0 textures/terrain_soc/rock_grey2.jpg 0 0 0 .75
+texlayer 64
+
+mapmodelreset
+
+mmodel mapmodels/ard/vegetation/smalltree
+mmodel mapmodels/ard/vegetation/mediumtree1
+mmodel mapmodels/ard/vegetation/mediumtree2
+mmodel mapmodels/ard/vegetation/bigtree
+mmodel "angel"
+mmodel "crow"
+mmodel "mapmodels/nieb/tree_dead"
+mmodel "mapmodels/nieb/plant01"
+mmodel "mapmodels/nieb/plant02"
+mmodel "mapmodels/nieb/torso"
+mmodel "skull"
+mmodel "mapmodels/sitters/gothic/skelet1"
+mmodel "mapmodels/sitters/gothic/skelet2"
+mmodel "mapmodels/sitters/gothic/skelet3"
+mmodel "objects/torch_cold"
+mmodel "dcp/ivy"
+
