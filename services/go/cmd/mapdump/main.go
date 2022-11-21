@@ -948,8 +948,8 @@ func main() {
 
 	extension := filepath.Ext(filename)
 
-	if extension != ".ogz" && extension != ".cgz" {
-		log.Fatal("Map must end in .ogz or .cgz")
+	if extension != ".ogz" {
+		log.Fatal("Map must end in .ogz")
 	}
 
 	processor := NewProcessor(absoluteRoots)

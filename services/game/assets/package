@@ -27,7 +27,6 @@ package_files() {
   # This gets rid of any missing files and weird names
   sorted_files=$(find $@ 2>/dev/null | sort)
 
-
   # Hash the bundle contents
   # https://stackoverflow.com/a/64774578
   target=($( \
