@@ -72,6 +72,15 @@ func FileExists(path string) bool {
 	return false
 }
 
+func ReplaceExtension(file string, newExtension string) string {
+	baseName := filepath.Base(file)
+	extension := filepath.Ext(file)
+	return fmt.Sprintf("%s.%s", filepath.Join(
+		filepath.Dir(file),
+		baseName[:len(baseName)-len(extension)],
+	), newExtension)
+}
+
 var (
 	// All of the valid material slots
 	MATERIALS = []string{
@@ -867,7 +876,11 @@ func main() {
 		log.Fatal("You must provide only a single argument.")
 	}
 
-	filename := args[0]
+	filename, err := filepath.Abs(args[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	extension := filepath.Ext(filename)
 
 	if extension != ".ogz" && extension != ".cgz" {
@@ -926,7 +939,7 @@ func main() {
 	}
 
 	// Map files can be mapped into packages/base/
-	addMapFile := func (file string) {
+	addMapFile := func(file string) {
 		target := file
 
 		if filepath.IsAbs(file) {
@@ -986,12 +999,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	baseName := filepath.Base(filename)
-	cfgName := fmt.Sprintf("%s.cfg", filepath.Join(
-		filepath.Dir(filename),
-		baseName[:len(baseName)-len(extension)],
-	))
-
+	cfgName := ReplaceExtension(filename, "cfg")
 	if FileExists(cfgName) {
 		err = processor.ProcessFile(cfgName)
 		if err != nil {
@@ -999,6 +1007,13 @@ func main() {
 		}
 
 		addMapFile(cfgName)
+	}
+
+	for _, extension := range []string{"png", "jpg"} {
+		shotName := ReplaceExtension(filename, extension)
+		if FileExists(shotName) {
+			addMapFile(shotName)
+		}
 	}
 
 	for i, texture := range processor.Textures {
