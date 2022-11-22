@@ -1,8 +1,0 @@
-Original model by "Loïc Norgeot", found on Sketchfab.com:
-https://sketchfab.com/3d-models/lowpoly-mushrooms-c865fb845bac42c7939da06d4617b7b1
-
-Licensed under CC-BY 4.0:
-https://creativecommons.org/licenses/by/4.0/
-
-Model edited by "Gergely" to better match engine requirements
-Textures "skin.png" and "skin_n.png" edited by "RaZgRiZ" and "Gergely" to better match engine requirements and model adjustments..

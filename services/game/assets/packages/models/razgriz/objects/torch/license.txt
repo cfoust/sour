@@ -1,9 +1,0 @@
-Original model by "Plasmaernst", found on Sketchfab.com:
-https://sketchfab.com/3d-models/torch-28a91e273a8341be9918deaf0ef6baff
-
-Licensed under CC-BY 4.0:
-https://creativecommons.org/licenses/by/4.0/
-
-Model "torch.obj" edited as OBJ by "Snipergoth." to remove flame and animation.
-Texture "skin.png" edited by "RaZgRiZ" to apply noise, adjust brightness/contrast and color balance.
-Additional textures "skin_n.png" and "mask.png" created by "RaZgRiZ" to compliment original diffuse.

@@ -1,7 +1,0 @@
-horse
-
-Modeling and animation by John A. Siar geargolem@titanium3d.com
-
-skin(s).jpg and mask(s).jpg by makkE
-
-The md3, cfg and jpgs here are released under the Creative Commons License,  Attribution-NoDerivs-Noncommercial 1.0  http://creativecommons.org/licenses/by-nd-nc/1.0/

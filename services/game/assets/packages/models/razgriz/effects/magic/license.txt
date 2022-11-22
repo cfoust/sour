@@ -1,9 +1,0 @@
-Original model by "Noob Model :D", found on Sketchfab.com:
-https://sketchfab.com/3d-models/magic-ring-yellow-757ff3fbfb2045c68165c06494917faa
-
-Licensed under CC-BY 4.0:
-https://creativecommons.org/licenses/by/4.0/
-
-Model "yellow.blend" modified by "RaZgRiZ" to remove animation and floating symbols.
-Texture "yellow.png" edited by "RaZgRiZ" to clean up the lines, resulting in additional textures:
-"skin.png" and "mask.png"

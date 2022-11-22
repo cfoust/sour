@@ -1,3 +1,0 @@
-Original model by "nieb", modified for additional materials and use of additional textures with the help of "Snipergoth."
-Leaf texture modified from asset found on TextureFabrik.com, "flora07.jpg", attribution clause only (CC-BY).
-Stem texture and accompanying normal created through FilterForge by "RaZgRiZ", CC0.

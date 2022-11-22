@@ -1,8 +1,0 @@
-Original model by "Salman Ramezani", found on Sketchfab.com:
-https://sketchfab.com/3d-models/real-bush-62618c3260b142cfb7ef499d75a8d21a
-
-Licensed under CC-BY 4.0:
-https://creativecommons.org/licenses/by/4.0/
-
-Model "all Embed.fbx" converted to individual OBJs and edited by "RaZgRiZ" to re-center them.
-Textures "skin.png" and "skin_n" converted and resized by "Gergely".

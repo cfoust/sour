@@ -1,7 +1,0 @@
-Map: Dock
-Author: Created by Dylan Ackerly "Destroyer" with special thanks to "Nieb" for optmizations and some detail work.
-
-This is a small sized map that should be good for ffa and insta 2-4 players.
-
-Web: http://dacker.snieb.com
-Email: fender786@hotmail.com

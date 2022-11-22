@@ -1,1 +1,0 @@
-Made by pix, but all credit goes to Nieb, this is just another obj.cfg for mapmodels/nieb/tree_dead that disables collision for the tree!
