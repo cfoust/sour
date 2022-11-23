@@ -14,6 +14,7 @@ import sys
 # Example: ("/home/cfoust/Downloads/blah.ogz", "packages/base/blah.ogz")
 Mapping = tuple[str, str]
 
+
 def hash_string(string: str) -> str:
     return hashlib.sha256(string.encode('utf-8')).hexdigest()
 
@@ -108,7 +109,7 @@ def build_bundle(files: list[Mapping], dest: str, compress_images: bool = True):
     js_file = "/tmp/preload_%s.js" % dest_hash
     data_file = "/tmp/%s.data" % dest_hash
 
-    subprocess.run(
+    result = subprocess.run(
         [
             "python3",
             "%s/upstream/emscripten/tools/file_packager.py" % os.environ['EMSDK_DIR'],
@@ -119,20 +120,44 @@ def build_bundle(files: list[Mapping], dest: str, compress_images: bool = True):
                 lambda v: "%s@%s" % (v[0], v[1]),
                 cleaned
             )),
-            ">",
-            js_file
         ],
         check=True,
-        shell=True,
+        capture_output=True
     )
+
+    with open(js_file, 'wb') as f: f.write(result.stdout)
 
     combine_bundle(data_file, js_file, dest)
 
 
-if __name__ == "__main__":
-    build_bundle(
+def get_map_files(map_file: str, roots: list[str]) -> list[Mapping]:
+    """
+    Get all of the files referenced by a Sauerbraten map.
+    """
+    root_args = []
+
+    for root in roots:
+        root_args.append("-root")
+        root_args.append(root)
+
+    result = subprocess.run(
         [
-            ("/test/path/blah.txt", "packages/base/blah.txt")
+            "./mapdump",
+            *root_args,
+            map_file,
         ],
-        "out.sour"
+        check=True,
+        capture_output=True
     )
+
+    files: list[Mapping] = []
+    for line in result.stdout.decode('utf-8').split('\n'):
+        parts = line.split('->')
+
+        if len(parts) != 2: continue
+        files.append((parts[0], parts[1]))
+
+    return files
+
+
+if __name__ == "__main__": pass
