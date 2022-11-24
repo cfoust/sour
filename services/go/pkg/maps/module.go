@@ -135,6 +135,12 @@ type Cube struct {
 	Escaped     byte
 }
 
+type VSlot struct {
+	Index   int32
+	Changed int32
+	Layer   int32
+}
+
 type GameMap struct {
 	Header   Header
 	Entities []Entity
@@ -142,6 +148,7 @@ type GameMap struct {
 	FVars    map[string]float32
 	SVars    map[string]string
 	Cubes    []Cube
+	VSlots   []VSlot
 }
 
 const (
@@ -250,7 +257,7 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 	var hasChildren = false
 	octsav := unpack.Char()
 
-	//log.Printf("octsav=%d", octsav&0x7)
+	//fmt.Printf("pos %d octsav %d\n", unpack.Tell(), octsav&0x7)
 
 	switch octsav & 0x7 {
 	case OCTSAV_CHILDREN:
@@ -344,6 +351,8 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 			}
 		}
 
+		//fmt.Printf("a %d\n", unpack.Tell())
+
 		// TODO merged
 		if (octsav & 0x80) > 0 {
 			unpack.Char()
@@ -362,6 +371,7 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 				}
 
 				unpack.Read(&surfaces[i])
+				//fmt.Printf("%d %d %d %d\n", surfaces[i].Lmid[0], surfaces[i].Lmid[1], surfaces[i].Verts, surfaces[i].NumVerts)
 				vertMask := surfaces[i].Verts
 				numVerts := surfaces[i].TotalVerts()
 
@@ -378,6 +388,9 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 				hasUV := (vertMask & 0x40) != 0
 				hasNorm := (vertMask & 0x80) != 0
 
+				//fmt.Printf("%d %t %t %t\n", vertMask, hasXYZ, hasUV, hasNorm)
+				//fmt.Printf("b %d\n", unpack.Tell())
+
 				if layerVerts == 4 {
 					if hasXYZ && (vertMask&0x01) > 0 {
 						unpack.Short()
@@ -387,6 +400,7 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 						hasXYZ = false
 					}
 
+					//fmt.Printf("b-1 %d\n", unpack.Tell())
 					if hasUV && (vertMask&0x02) > 0 {
 						unpack.Short()
 						unpack.Short()
@@ -402,7 +416,10 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 
 						hasUV = false
 					}
+					//fmt.Printf("c-2 %d\n", unpack.Tell())
 				}
+
+				//fmt.Printf("c %d\n", unpack.Tell())
 
 				if hasNorm && (vertMask&0x08) > 0 {
 					unpack.Short()
@@ -460,7 +477,8 @@ func LoadChildren(unpack *Unpacker, mapVersion int32) ([]Cube, error) {
 	return children, nil
 }
 
-func LoadVSlot(unpack *Unpacker, changed int32) error {
+func LoadVSlot(unpack *Unpacker, slot *VSlot, changed int32) error {
+	slot.Changed = changed
 	if (changed & (1 << VSLOT_SHPARAM)) > 0 {
 		numParams := unpack.Short()
 
@@ -492,7 +510,7 @@ func LoadVSlot(unpack *Unpacker, changed int32) error {
 	}
 
 	if (changed & (1 << VSLOT_LAYER)) > 0 {
-		unpack.Int()
+		slot.Layer = unpack.Int()
 	}
 
 	if (changed & (1 << VSLOT_ALPHA)) > 0 {
@@ -509,21 +527,33 @@ func LoadVSlot(unpack *Unpacker, changed int32) error {
 	return nil
 }
 
-func LoadVSlots(unpack *Unpacker, numVSlots int32) error {
+func LoadVSlots(unpack *Unpacker, numVSlots int32) ([]VSlot, error) {
 	leftToRead := numVSlots
+	vslots := make([]VSlot, 0)
+
+	addSlot := func() *VSlot {
+		vslot := VSlot{}
+		vslot.Index = int32(len(vslots))
+		vslots = append(vslots, vslot)
+		return &vslot
+	}
 
 	for leftToRead > 0 {
 		changed := unpack.Int()
 		if changed < 0 {
+			for i := 0; i < int(-1*changed); i++ {
+				addSlot()
+			}
 			leftToRead += changed
 		} else {
 			unpack.Int()
-			LoadVSlot(unpack, changed)
+			slot := addSlot()
+			LoadVSlot(unpack, slot, changed)
 			leftToRead--
 		}
 	}
 
-	return nil
+	return vslots, nil
 }
 
 func InsideWorld(size int32, vector Vector) bool {
@@ -605,7 +635,7 @@ func LoadMap(filename string) (*GameMap, error) {
 	mapHeader.NumVars = newFooter.NumVars
 	mapHeader.NumVSlots = newFooter.NumVSlots
 
-	//log.Printf("Version %d", header.Version)
+	log.Printf("Version %d", header.Version)
 	gameMap.Vars = make(map[string]int32)
 	gameMap.FVars = make(map[string]float32)
 	gameMap.SVars = make(map[string]string)
@@ -692,9 +722,11 @@ func LoadMap(filename string) (*GameMap, error) {
 	gameMap.Entities = entities
 
 	// vslots
+	gameMap.VSlots = make([]VSlot, 0)
 	// TODO do we ever actually need v slots?
 	if newFooter.NumVSlots > 0 {
-		LoadVSlots(unpack, newFooter.NumVSlots)
+		slots, _ := LoadVSlots(unpack, newFooter.NumVSlots)
+		gameMap.VSlots = slots
 	}
 
 	cube, err := LoadChildren(unpack, header.Version)

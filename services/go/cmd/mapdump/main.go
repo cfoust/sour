@@ -1158,7 +1158,21 @@ func main() {
 		}
 	}
 
-	for _, path := range references {
-		fmt.Printf("%s->%s\n", path.Absolute, path.Relative)
+	//for i, texture := range processor.Textures {
+	//if _, ok := textureRefs[uint16(i)]; ok {
+	//for _, path := range texture.Paths {
+	//fmt.Printf("%d: %s\n", i, path)
+	//}
+	//}
+	//}
+
+	for i, texture := range processor.Textures {
+		for _, path := range texture.Paths {
+			fmt.Printf("%d: %s (%d)\n", i, path, textureRefs[uint16(i)])
+		}
 	}
+
+	//for _, path := range references {
+	//fmt.Printf("%s->%s\n", path.Absolute, path.Relative)
+	//}
 }
