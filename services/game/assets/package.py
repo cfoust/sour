@@ -132,7 +132,8 @@ def build_bundle(files: List[Mapping], outdir: str, compress_images: bool = True
         # We can only compress certain file types
         if (
             not extension in [".dds", ".jpg", ".png"] or
-            size < 128000
+            size < 128000 or
+            not compress_images
         ):
             cleaned.append((_in, out))
             continue
@@ -233,6 +234,7 @@ def build_map_bundle(map_file: str, roots: List[str], outdir: str) -> str:
     the map and return its hash.
     """
     files = get_map_files(map_file, roots)
+    print(files)
     return build_bundle(files, outdir)
 
 

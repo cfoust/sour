@@ -3,6 +3,7 @@ import type { DownloadState } from '../types'
 export enum ResponseType {
   State,
   Bundle,
+  Index,
 }
 
 // A file inside of an asset bundle.
@@ -67,7 +68,12 @@ export type AssetBundleResponse = {
   bundle: Bundle
 }
 
-export type AssetResponse = AssetStateResponse | AssetBundleResponse
+export type IndexResponse = {
+  op: ResponseType.Index
+  index: Record<string, string>
+}
+
+export type AssetResponse = AssetStateResponse | AssetBundleResponse | IndexResponse
 
 export enum RequestType {
   Environment,
