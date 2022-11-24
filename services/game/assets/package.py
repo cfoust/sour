@@ -9,10 +9,36 @@ import os
 import re
 import subprocess
 import sys
+from typing import NamedTuple, Optional
 
 # A mapping from a file on the filesystem to its target in Sour's filesystem.
 # Example: ("/home/cfoust/Downloads/blah.ogz", "packages/base/blah.ogz")
 Mapping = tuple[str, str]
+
+
+class Bundle(NamedTuple):
+    # This is the hash of the bundle contents.
+    hash: str
+
+
+class GameMap(NamedTuple):
+    """
+    Represents a single game map and the data needed to load it.
+    """
+    # The map name as it would appear in Sauerbraten e.g. complex.
+    name: str
+    # This refers to the hash of the bundle that contains this map's data.
+    bundle: str
+    # An optional image that can be used in the map browser.  Usually this is
+    # the mapshot (Sauer's term) that appears on the loading screen, but some
+    # Quadropolis maps provided screenshots by other means.
+    image: Optional[str]
+    # A description of the map that can be shown to the user.
+    description: str
+    # To avoid naming collisions, maps can specify aliases so that they can
+    # always be referenced. This is just used for specialized datasets like
+    # Quadropolis.
+    aliases: list[str]
 
 
 def hash_string(string: str) -> str:
@@ -49,13 +75,31 @@ def combine_bundle(data_file: str, js_file: str, dest: str):
         out.write(data)
 
 
-def build_bundle(files: list[Mapping], dest: str, compress_images: bool = True):
+def hash_files(files: list[str]) -> str:
+    tar = subprocess.Popen([
+        'tar',
+        'cf',
+        '-',
+        '--ignore-failed-read',
+        '--sort=name',
+        "--mtime='UTC 2019-01-01'"
+        "--group=0",
+        "--owner=0",
+        "--numeric-owner",
+        *files,
+    ], stdout=subprocess.PIPE)
+    output = subprocess.check_output(['sha256sum'], stdin=tar.stdout)
+    tar.wait()
+    return output.decode('utf-8')
+
+
+def build_bundle(files: list[Mapping], outdir: str, compress_images: bool = True) -> str:
     """
     Given a list of files and a destination, build a Sour-compatible bundle.
     Images are compressed by default, but you can disable this with `compress_images`.
     """
 
-    dest_hash = hash_string(dest)
+    bundle_hash = hash_files(list(map(lambda a: a[0], files)))
 
     # We may remap files after conversion
     cleaned: list[Mapping] = []
@@ -106,8 +150,8 @@ def build_bundle(files: list[Mapping], dest: str, compress_images: bool = True):
 
         cleaned.append((compressed, out))
 
-    js_file = "/tmp/preload_%s.js" % dest_hash
-    data_file = "/tmp/%s.data" % dest_hash
+    js_file = "/tmp/preload_%s.js" % bundle_hash
+    data_file = "/tmp/%s.data" % bundle_hash
 
     result = subprocess.run(
         [
@@ -127,7 +171,8 @@ def build_bundle(files: list[Mapping], dest: str, compress_images: bool = True):
 
     with open(js_file, 'wb') as f: f.write(result.stdout)
 
-    combine_bundle(data_file, js_file, dest)
+    combine_bundle(data_file, js_file, path.join(outdir, "%s.sour" % bundle_hash))
+    return bundle_hash
 
 
 def get_map_files(map_file: str, roots: list[str]) -> list[Mapping]:
@@ -158,6 +203,15 @@ def get_map_files(map_file: str, roots: list[str]) -> list[Mapping]:
         files.append((parts[0], parts[1]))
 
     return files
+
+
+def build_map_bundle(map_file: str, roots: list[str], outdir: str) -> str:
+    """
+    Given a map file, roots, and an output directory, create a Sour bundle for
+    the map and return its hash.
+    """
+    files = get_map_files(map_file, roots)
+    return build_bundle(files, outdir)
 
 
 if __name__ == "__main__": pass
