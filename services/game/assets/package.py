@@ -92,6 +92,25 @@ def hash_files(files: List[str]) -> str:
     return sha.decode('utf-8').split(' ')[0]
 
 
+def search_file(file: str, roots: List[str]) -> Optional[Mapping]:
+    for root in roots:
+        unprefixed = path.join(root, file)
+        prefixed = path.join(root, "packages", file)
+
+        if path.exists(unprefixed):
+            return (
+                unprefixed,
+                path.relpath(unprefixed, root)
+            )
+        if path.exists(prefixed):
+            return (
+                prefixed,
+                path.relpath(prefixed, root)
+            )
+
+    return None
+
+
 def build_bundle(files: List[Mapping], outdir: str, compress_images: bool = True) -> str:
     """
     Given a list of files and a destination, build a Sour-compatible bundle.
