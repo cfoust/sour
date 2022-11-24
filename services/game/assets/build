@@ -6,4 +6,4 @@ cd "$SCRIPT_DIR"
 
 set -e
 
-./package packages/base/complex.ogz packages/base/dust2.ogz
+python3 base.py complex dust2
