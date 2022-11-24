@@ -234,7 +234,6 @@ def build_map_bundle(map_file: str, roots: List[str], outdir: str) -> str:
     the map and return its hash.
     """
     files = get_map_files(map_file, roots)
-    print(files)
     return build_bundle(files, outdir)
 
 

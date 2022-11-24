@@ -222,7 +222,7 @@ func (unpack *Unpacker) Short() uint16 {
 
 func (unpack *Unpacker) String() string {
 	bytes := unpack.Short()
-	value := make([]byte, bytes+1)
+	value := make([]byte, bytes)
 	unpack.Read(value)
 	return string(value)
 }
@@ -613,19 +613,21 @@ func LoadMap(filename string) (*GameMap, error) {
 	// These are apparently arbitrary Sauerbraten variables a map can set
 	for i := 0; i < int(newFooter.NumVars); i++ {
 		_type := unpack.Char()
-		name := unpack.StringByte()
+		name := unpack.String()
 
 		switch _type {
 		case ID_VAR:
 			value := unpack.Int()
 			gameMap.Vars[name] = value
+			//log.Printf("%s=%d", name, value)
 		case ID_FVAR:
 			value := unpack.Float()
 			gameMap.FVars[name] = value
+			//log.Printf("%s=%f", name, value)
 		case ID_SVAR:
 			value := unpack.String()
-			reader.Seek(-1, io.SeekCurrent)
 			gameMap.SVars[name] = value
+			//log.Printf("%s=%s", name, value)
 		}
 	}
 
