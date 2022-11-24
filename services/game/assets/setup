@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -e
+
+sauer_archive="sauerbraten-6584.tar.gz"
+
+mkdir -p roots/base
+
+if ! [ -f "roots/base/$sauer_archive" ]; then
+  wget "https://static.sourga.me/archives/$sauer_archive"
+  mv "$sauer_archive" roots/base
+fi
+
+if ! [ -f "roots/base/data/default_map_settings.cfg" ]; then
+  tar xvf "roots/base/$sauer_archive" -C "roots/base" 
+fi
+
+if ! [ -f "mapdump" ]; then
+  cd ../../go
+  go build -o mapdump cmd/mapdump/main.go
+  mv mapdump ../game/assets
+fi

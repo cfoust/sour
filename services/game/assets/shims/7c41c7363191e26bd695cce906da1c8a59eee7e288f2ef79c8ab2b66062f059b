@@ -1,14 +1,10 @@
-// AN ARMY OF ONE by MitaMAN: PART II
+// AN ARMY OF ONE by MitaMAN: PART I
 // 10-23-06
 // mitaman1@optonline.net
 
-
-//music "fanatic/19.ogg"
+//music "fanatic/18.ogg"
 
 killsendsp 0
-
-alias level_trigger_50 [sp mpsp6c]
-
 
 
 // reset the mapmodels used for this map (replace this with your own mapmodel defs if you want):
@@ -423,8 +419,6 @@ texture 0 "rorschach/3r_colrust01b-32.jpg"
 texture 0 "rorschach/64_column.jpg" 1
 texture 0 "mitaman/mm-metaldoor2.jpg"
 texture 0 "mitaman/mm-window4.jpg"
-
-
 
 
 

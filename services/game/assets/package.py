@@ -9,12 +9,11 @@ import os
 import re
 import subprocess
 import sys
-from typing import NamedTuple, Optional
+from typing import NamedTuple, Optional, Tuple, List
 
 # A mapping from a file on the filesystem to its target in Sour's filesystem.
 # Example: ("/home/cfoust/Downloads/blah.ogz", "packages/base/blah.ogz")
-Mapping = tuple[str, str]
-
+Mapping = Tuple[str, str]
 
 class Bundle(NamedTuple):
     # This is the hash of the bundle contents.
@@ -38,7 +37,7 @@ class GameMap(NamedTuple):
     # To avoid naming collisions, maps can specify aliases so that they can
     # always be referenced. This is just used for specialized datasets like
     # Quadropolis.
-    aliases: list[str]
+    aliases: List[str]
 
 
 def hash_string(string: str) -> str:
@@ -75,25 +74,25 @@ def combine_bundle(data_file: str, js_file: str, dest: str):
         out.write(data)
 
 
-def hash_files(files: list[str]) -> str:
+def hash_files(files: List[str]) -> str:
     tar = subprocess.Popen([
         'tar',
         'cf',
         '-',
         '--ignore-failed-read',
         '--sort=name',
-        "--mtime='UTC 2019-01-01'"
+        "--mtime=UTC 2019-01-01",
         "--group=0",
         "--owner=0",
         "--numeric-owner",
         *files,
-    ], stdout=subprocess.PIPE)
-    output = subprocess.check_output(['sha256sum'], stdin=tar.stdout)
+    ], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    sha = subprocess.check_output(['sha256sum'], stdin=tar.stdout)
     tar.wait()
-    return output.decode('utf-8')
+    return sha.decode('utf-8').split(' ')[0]
 
 
-def build_bundle(files: list[Mapping], outdir: str, compress_images: bool = True) -> str:
+def build_bundle(files: List[Mapping], outdir: str, compress_images: bool = True) -> str:
     """
     Given a list of files and a destination, build a Sour-compatible bundle.
     Images are compressed by default, but you can disable this with `compress_images`.
@@ -102,7 +101,7 @@ def build_bundle(files: list[Mapping], outdir: str, compress_images: bool = True
     bundle_hash = hash_files(list(map(lambda a: a[0], files)))
 
     # We may remap files after conversion
-    cleaned: list[Mapping] = []
+    cleaned: List[Mapping] = []
 
     for _in, out in files:
         _, extension = path.splitext(_in)
@@ -142,7 +141,8 @@ def build_bundle(files: list[Mapping], outdir: str, compress_images: bool = True
                 [
                     "convert",
                     _from,
-                    "-resize 50%",
+                    "-resize",
+                    "50%",
                     _to
                 ],
                 check=True
@@ -156,7 +156,7 @@ def build_bundle(files: list[Mapping], outdir: str, compress_images: bool = True
     result = subprocess.run(
         [
             "python3",
-            "%s/upstream/emscripten/tools/file_packager.py" % os.environ['EMSDK_DIR'],
+            "%s/upstream/emscripten/tools/file_packager.py" % os.getenv('EMSDK', '/emsdk'),
             data_file,
             "--use-preload-plugins",
             "--preload",
@@ -175,7 +175,7 @@ def build_bundle(files: list[Mapping], outdir: str, compress_images: bool = True
     return bundle_hash
 
 
-def get_map_files(map_file: str, roots: list[str]) -> list[Mapping]:
+def get_map_files(map_file: str, roots: List[str]) -> List[Mapping]:
     """
     Get all of the files referenced by a Sauerbraten map.
     """
@@ -191,11 +191,14 @@ def get_map_files(map_file: str, roots: list[str]) -> list[Mapping]:
             *root_args,
             map_file,
         ],
-        check=True,
+        # check=True,
         capture_output=True
     )
 
-    files: list[Mapping] = []
+    if result.returncode != 0:
+        raise Exception(result.stderr)
+
+    files: List[Mapping] = []
     for line in result.stdout.decode('utf-8').split('\n'):
         parts = line.split('->')
 
@@ -205,7 +208,7 @@ def get_map_files(map_file: str, roots: list[str]) -> list[Mapping]:
     return files
 
 
-def build_map_bundle(map_file: str, roots: list[str], outdir: str) -> str:
+def build_map_bundle(map_file: str, roots: List[str], outdir: str) -> str:
     """
     Given a map file, roots, and an output directory, create a Sour bundle for
     the map and return its hash.
