@@ -6,4 +6,4 @@ cd "$SCRIPT_DIR"
 
 set -e
 
-python3 base.py complex dust2
+python3 base.py complex dust2 turbine

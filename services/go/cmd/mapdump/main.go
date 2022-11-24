@@ -324,6 +324,28 @@ func ParseLine(line string) []string {
 	)(matches)
 }
 
+func (processor *Processor) FindTexture(texture string) opt.Option[string] {
+	for _, extension := range []string{"png", "jpg"} {
+		resolved := processor.SearchFile(
+			filepath.Join("packages", texture, extension),
+		)
+
+		if opt.IsSome(resolved) {
+			return resolved
+		}
+	}
+
+	withoutExtension := processor.SearchFile(
+		filepath.Join("packages", texture),
+	)
+
+	if opt.IsSome(withoutExtension) {
+		return withoutExtension
+	}
+
+	return opt.None[string]()
+}
+
 func (processor *Processor) FindCubemap(cubemap string) []string {
 	prefix := filepath.Join("packages", cubemap)
 	wildcard := strings.Index(prefix, "*")
@@ -832,6 +854,18 @@ func (processor *Processor) ProcessFile(file string) error {
 
 			processor.AddTexture(NormalizeTexture(args[2]))
 
+		case "cloudlayer":
+			if len(args) != 2 {
+				break
+			}
+
+			texture := args[1]
+			resolved := processor.FindTexture(texture)
+
+			if opt.IsSome(resolved) {
+				processor.AddFile(resolved.Value)
+			}
+
 		case "adaptivesample":
 		case "alias":
 		case "ambient":
@@ -845,7 +879,6 @@ func (processor *Processor) ProcessFile(file string) error {
 		case "cloudcolour":
 		case "cloudfade":
 		case "cloudheight":
-		case "cloudlayer":
 		case "cloudscale":
 		case "cloudscrollx":
 		case "cloudscrolly":
@@ -1041,6 +1074,21 @@ func main() {
 	}
 
 	addMapFile(filename)
+
+	// Some variables contain textures
+	if skybox, ok := _map.SVars["skybox"]; ok {
+		for _, path := range processor.FindCubemap(skybox) {
+			addFile(path)
+		}
+	}
+
+	if cloudlayer, ok := _map.SVars["cloudlayer"]; ok {
+		resolved := processor.FindTexture(cloudlayer)
+
+		if opt.IsSome(resolved) {
+			addFile(resolved.Value)
+		}
+	}
 
 	textureRefs := GetChildTextures(_map.Cubes)
 
