@@ -1,38 +1,11 @@
-// AN ARMY OF ONE by MitaMAN: PART I
+// AN ARMY OF ONE by MitaMAN: PART II
 // 10-23-06
 // mitaman1@optonline.net
 
-//music "fanatic/18.ogg"
+
+//music "fanatic/19.ogg"
 
 killsendsp 0
-
-alias level_trigger_30 [
-    echo "ALL THE OTHER SOLDIERS ARE DEAD"
-    sleep 5000 [
-        echo "KILLED IN THE GREAT BATTLE OF BRATEN"
-        echo "WHEN THE INVADERS CAME AND DESTROYED"
-        sleep 3000 [
-            echo "PRIVATE STAN SAUER, YOU ALONE MUST SEEK REVENGE FOR THEIR DEATH"
-            sleep 3000 [
-                echo "PRIVATE STAN SAUER, YOU ARE AN ARMY OF ONE"
-                sleep 3000 [
-                    echo "GRAB SOME SUPPLIES AND GET TO IT"
-                    sleep 3000 [
-                      echo "KILL THE INVADERS!"
-                        sleep 3000 [
-                            echo "GET MOVING, SEEK REVENGE!!"
-                        ]
-                    ]
-                ]
-            ]
-        ]
-    ]
-]
-
-
-
-alias level_trigger_40 [sp mpsp6b]
-
 
 
 // reset the mapmodels used for this map (replace this with your own mapmodel defs if you want):
@@ -447,6 +420,8 @@ texture 0 "rorschach/3r_colrust01b-32.jpg"
 texture 0 "rorschach/64_column.jpg" 1
 texture 0 "mitaman/mm-metaldoor2.jpg"
 texture 0 "mitaman/mm-window4.jpg"
+
+
 
 
 
