@@ -21,6 +21,7 @@ import type { GameState } from './types'
 import { GameStateType } from './types'
 import type {
   AssetResponse,
+  IndexResponse,
   Bundle,
   BundleState,
   BundleDownloadingState,
@@ -251,6 +252,15 @@ function App() {
             requestStateRef.current
           )
         })()
+      } else if (message.op === AssetResponseType.Index) {
+        const { index } = message
+
+        console.log(index);
+        Module.FS_createPath("/", "packages", true, true)
+        Module.FS_createPath("/packages/", "base", true, true)
+        for (const [name, hash] of Object.entries(index)) {
+          Module.FS_createDataFile("packages/base/", `${name}.stub`, '', true, true, true)
+        }
       }
     }
 

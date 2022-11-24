@@ -6,6 +6,7 @@ import type {
   AssetRequest,
   AssetResponse,
   AssetStateResponse,
+  IndexResponse,
   AssetBundleResponse,
 } from './types'
 import { ResponseType, RequestType, BundleLoadStateType } from './types'
@@ -198,6 +199,16 @@ self.onmessage = (evt) => {
   if (request.op === RequestType.Environment) {
     const { ASSET_PREFIX: newPrefix } = request
     ASSET_PREFIX = newPrefix
+    ;(async () => {
+      bundleIndex = await fetchIndex()
+
+      const response: IndexResponse = {
+        op: ResponseType.Index,
+        index: bundleIndex,
+      }
+
+      self.postMessage(response, [])
+    })()
   } else if (request.op === RequestType.Load) {
     const { target, id } = request
     processLoad(target, id)
