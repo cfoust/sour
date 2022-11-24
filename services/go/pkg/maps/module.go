@@ -619,15 +619,15 @@ func LoadMap(filename string) (*GameMap, error) {
 		case ID_VAR:
 			value := unpack.Int()
 			gameMap.Vars[name] = value
-			//log.Printf("%s=%d", name, value)
+			log.Printf("%s=%d", name, value)
 		case ID_FVAR:
 			value := unpack.Float()
 			gameMap.FVars[name] = value
-			//log.Printf("%s=%f", name, value)
+			log.Printf("%s=%f", name, value)
 		case ID_SVAR:
 			value := unpack.String()
 			gameMap.SVars[name] = value
-			//log.Printf("%s=%s", name, value)
+			log.Printf("%s=%s", name, value)
 		}
 	}
 

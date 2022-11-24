@@ -327,7 +327,7 @@ func ParseLine(line string) []string {
 func (processor *Processor) FindTexture(texture string) opt.Option[string] {
 	for _, extension := range []string{"png", "jpg"} {
 		resolved := processor.SearchFile(
-			filepath.Join("packages", texture, extension),
+			filepath.Join("packages", fmt.Sprintf("%s.%s", texture, extension)),
 		)
 
 		if opt.IsSome(resolved) {
@@ -1161,4 +1161,12 @@ func main() {
 	for _, path := range references {
 		fmt.Printf("%s->%s\n", path.Absolute, path.Relative)
 	}
+
+	//for i, texture := range processor.Textures {
+		//if textureRefs[uint16(i)] > 0 {
+			//for _, path := range texture.Paths {
+				//log.Printf("%d: %s (%d)", i, path, textureRefs[uint16(i)])
+			//}
+		//}
+	//}
 }
