@@ -57,7 +57,7 @@ func GetChildTextures(cubes []maps.Cube, vslots []*VSlot) map[int32]int {
 	// * VSlot.Layer -> VSlot.Slot
 	slotRefs := make(map[int32]int)
 	for index, _ := range vSlotRefs {
-		if index > int32(len(vslots)) {
+		if index >= int32(len(vslots)) {
 			continue
 		}
 
@@ -1122,6 +1122,7 @@ func (processor *Processor) ProcessFile(file string) error {
 		case "skylight":
 		case "skytexture":
 		case "skytexturelight":
+		case "smoothangle":
 		case "spinclouds":
 		case "spinsky":
 		case "sunlight":
@@ -1135,6 +1136,7 @@ func (processor *Processor) ProcessFile(file string) error {
 		case "texrotate":
 		case "texscale":
 		case "texscroll":
+		case "texsmooth":
 		case "water2colour":
 		case "water2fog":
 		case "watercolour":
@@ -1285,13 +1287,13 @@ func main() {
 
 	// Some variables contain textures
 	if skybox, ok := _map.SVars["skybox"]; ok {
-		for _, path := range processor.FindCubemap(skybox) {
+		for _, path := range processor.FindCubemap(NormalizeTexture(skybox)) {
 			addFile(path)
 		}
 	}
 
 	if cloudlayer, ok := _map.SVars["cloudlayer"]; ok {
-		resolved := processor.FindTexture(cloudlayer)
+		resolved := processor.FindTexture(NormalizeTexture(cloudlayer))
 
 		if opt.IsSome(resolved) {
 			addFile(resolved.Value)

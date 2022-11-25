@@ -4,18 +4,7 @@
 
 //music "fanatic/22.ogg"
 
-
 killsendsp 0
-
-alias level_trigger_45 [
-    echo "Thanks For Playing AN ARMY OF ONE by MitaMAN"] sleep 10 [ 
-    echo "Thanks For Playing AN ARMY OF ONE by MitaMAN"
-]
-
-
-
-
-
 
 // reset the mapmodels used for this map (replace this with your own mapmodel defs if you want):
 // the number in comments is what you use with "newent mapmodel N"

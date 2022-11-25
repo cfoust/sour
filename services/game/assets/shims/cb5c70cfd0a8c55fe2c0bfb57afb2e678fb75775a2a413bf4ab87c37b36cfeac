@@ -4,13 +4,10 @@
 // by Mitaman (Mike Poeschl) mitaman1@optonline.net
 
 
-
 fogcolour 0xB0855A
 fog 1500
 
 killsendsp 0
-
-alias level_trigger_30 [sp mpsp10]
 
 mapmodelreset     // start counting from 0 again
 mapmodel 0  0  0 "tentus/chains/chain"    // 0
