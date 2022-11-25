@@ -315,7 +315,7 @@ func (processor *Processor) ReassignVSlot(owner *Slot, vslot *VSlot) *VSlot {
 func (processor *Processor) EmptyVSlot(owner *Slot) *VSlot {
 	var offset int32 = 0
 
-	for i := len(processor.Slots); i >= 0; i-- {
+	for i := len(processor.Slots) - 1; i >= 0; i-- {
 		variants := processor.Slots[i].Variants
 		if variants != nil {
 			offset = variants.Index + 1
@@ -902,9 +902,7 @@ func (processor *Processor) ProcessFile(file string) error {
 				break
 			}
 
-			processor.Textures[len(processor.Textures)-1].Autograss = opt.Some[string](
-				NormalizeTexture(args[1]),
-			)
+			processor.AddFile(NormalizeTexture(args[1]))
 
 		case "mapsoundreset":
 			processor.ResetSounds()
@@ -938,15 +936,9 @@ func (processor *Processor) ProcessFile(file string) error {
 				break
 			}
 
-			oldCurrent := processor.LastMaterial
-
-			processor.SetMaterial("sky")
-
 			for _, texture := range processor.FindCubemap(NormalizeTexture(args[1])) {
-				processor.AddTexture(texture)
+				processor.AddFile(texture)
 			}
-
-			processor.Current = oldCurrent
 
 		case "exec":
 			if len(args) != 2 {
@@ -1253,21 +1245,24 @@ func main() {
 		addMapFile(shotName)
 	}
 
-	for i, texture := range processor.Textures {
+	for i, vslot := range processor.VSlots {
 		if _, ok := textureRefs[uint16(i)]; ok {
-			for _, path := range texture.Paths {
-				addFile(path)
+			if vslot.Slot != nil {
+				for _, sts := range vslot.Slot.Sts {
+					log.Printf("%d: %s", i, sts.Name)
+					//addFile(path)
+				}
 			}
 		}
 
-		if opt.IsSome(texture.Autograss) {
-			addFile(texture.Autograss.Value)
-		}
+		//if opt.IsSome(texture.Autograss) {
+			//addFile(texture.Autograss.Value)
+		//}
 	}
 
-	for _, texture := range processor.Materials {
-		for _, path := range texture.Paths {
-			addFile(path)
+	for _, slot := range processor.Materials {
+		for _, path := range slot.Sts {
+			addFile(path.Name)
 		}
 	}
 
