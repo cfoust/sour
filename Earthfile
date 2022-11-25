@@ -46,8 +46,8 @@ assets:
 game:
     FROM +emscripten
     WORKDIR /cube2
-    COPY services/game/cube2 /cube2
-    RUN --mount=type=cache,target=/emsdk/upstream/emscripten/cache/ /cube2/build
+    COPY services/game /game
+    RUN --mount=type=cache,target=/emsdk/upstream/emscripten/cache/ /game/build
     SAVE ARTIFACT /cube2/dist/game AS LOCAL "earthly/game"
 
 client:

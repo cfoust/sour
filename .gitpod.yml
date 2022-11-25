@@ -35,7 +35,7 @@ tasks:
     init: ./services/game/build
     env:
       GAME_OUTPUT_DIR: /workspace/sour/build/game
-    command: ./watch /workspace/sour/services/cube2 cat
+    command: ./watch /workspace/sour/services/game cat
 
 ports:
   - port: 1234
