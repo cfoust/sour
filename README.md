@@ -65,7 +65,7 @@ Check out the roadmap below to see what you might be able to help with.
   * [X] Script for building archives of mainline sauerbraten assets
 * [ ] Better documentation
   * [ ] Create a README for each directory in `services/`
-  * [ ] Describe how asset generation works
+  * [X] Describe how asset generation works
 * [ ] Add `<noscript>` with a plea to enable JavaScript
 * [ ] Ensure Sour works in Firefox
 * [ ] Allow for providing the desired maps in an image as a build argument
