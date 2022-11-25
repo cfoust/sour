@@ -148,7 +148,7 @@ type GameMap struct {
 	FVars    map[string]float32
 	SVars    map[string]string
 	Cubes    []Cube
-	VSlots   []VSlot
+	VSlots   []*VSlot
 }
 
 const (
@@ -527,14 +527,14 @@ func LoadVSlot(unpack *Unpacker, slot *VSlot, changed int32) error {
 	return nil
 }
 
-func LoadVSlots(unpack *Unpacker, numVSlots int32) ([]VSlot, error) {
+func LoadVSlots(unpack *Unpacker, numVSlots int32) ([]*VSlot, error) {
 	leftToRead := numVSlots
-	vslots := make([]VSlot, 0)
+	vslots := make([]*VSlot, 0)
 
 	addSlot := func() *VSlot {
 		vslot := VSlot{}
 		vslot.Index = int32(len(vslots))
-		vslots = append(vslots, vslot)
+		vslots = append(vslots, &vslot)
 		return &vslot
 	}
 
@@ -721,7 +721,7 @@ func LoadMap(filename string) (*GameMap, error) {
 
 	gameMap.Entities = entities
 
-	gameMap.VSlots = make([]VSlot, 0)
+	gameMap.VSlots = make([]*VSlot, 0)
 	if newFooter.NumVSlots > 0 {
 		slots, _ := LoadVSlots(unpack, newFooter.NumVSlots)
 		gameMap.VSlots = slots
