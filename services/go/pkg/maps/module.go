@@ -721,9 +721,7 @@ func LoadMap(filename string) (*GameMap, error) {
 
 	gameMap.Entities = entities
 
-	// vslots
 	gameMap.VSlots = make([]VSlot, 0)
-	// TODO do we ever actually need v slots?
 	if newFooter.NumVSlots > 0 {
 		slots, _ := LoadVSlots(unpack, newFooter.NumVSlots)
 		gameMap.VSlots = slots
