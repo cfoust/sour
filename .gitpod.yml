@@ -28,14 +28,14 @@ tasks:
   - name: Assets
     env:
       ASSET_OUTPUT_DIR: /workspace/sour/build/assets
-    init: ./services/game/assets/build
-    command: ./watch /workspace/sour/services/game/assets cat
+    init: ./services/assets/build
+    command: ./watch /workspace/sour/services/assets cat
 
   - name: Sauerbraten
-    init: ./services/game/cube2/build
+    init: ./services/game/build
     env:
       GAME_OUTPUT_DIR: /workspace/sour/build/game
-    command: ./watch /workspace/sour/services/game/cube2 cat
+    command: ./watch /workspace/sour/services/cube2 cat
 
 ports:
   - port: 1234
