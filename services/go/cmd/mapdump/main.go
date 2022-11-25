@@ -30,29 +30,58 @@ func Find[T any](handler func(x T) bool) func(list []T) opt.Option[T] {
 	}
 }
 
-func CountTextures(cube maps.Cube, target map[uint16]int) {
+func CountTextures(cube maps.Cube, target map[int32]int) {
 	if cube.Children != nil {
 		CountChildTextures(*cube.Children, target)
 		return
 	}
 
 	for i := 0; i < 6; i++ {
-		texture := cube.Texture[i]
-		existing, _ := target[texture]
-		target[texture] = existing + 1
+		texture := int32(cube.Texture[i])
+		target[texture] = target[texture] + 1
 	}
 }
 
-func CountChildTextures(cubes []maps.Cube, target map[uint16]int) {
+func CountChildTextures(cubes []maps.Cube, target map[int32]int) {
 	for i := 0; i < 8; i++ {
 		CountTextures(cubes[i], target)
 	}
 }
 
-func GetChildTextures(cubes []maps.Cube) map[uint16]int {
-	result := make(map[uint16]int)
-	CountChildTextures(cubes, result)
-	return result
+func GetChildTextures(cubes []maps.Cube, vslots []*VSlot) map[int32]int {
+	vSlotRefs := make(map[int32]int)
+	CountChildTextures(cubes, vSlotRefs)
+
+	// Each VSlot can refer to two Slots:
+	// * VSlot.Slot
+	// * VSlot.Layer -> VSlot.Slot
+	slotRefs := make(map[int32]int)
+	for index, _ := range vSlotRefs {
+		if index > int32(len(vslots)) {
+			continue
+		}
+
+		vslot := vslots[index]
+		if vslot.Slot == nil {
+			continue
+		}
+
+		slotRefs[vslot.Slot.Index]++
+
+		layer := vslot.Layer
+		if layer == 0 {
+			continue
+		}
+
+		layerSlot := vslots[layer]
+		if layerSlot.Slot == nil {
+			continue
+		}
+
+		slotRefs[layerSlot.Slot.Index]++
+	}
+
+	return slotRefs
 }
 
 type RootFlags []string
@@ -214,7 +243,7 @@ func NewVSlot(owner *Slot, index int32) *VSlot {
 	vslot := VSlot{
 		Index: index,
 	}
-	if (owner != nil) {
+	if owner != nil {
 		vslot.AddVariant(owner)
 	}
 	return &vslot
@@ -235,16 +264,27 @@ type Processor struct {
 	Files []string
 }
 
-func NewProcessor(roots RootFlags, slots []*maps.VSlot) *Processor {
+func NewProcessor(roots RootFlags, slots maps.VSlotData) *Processor {
 	processor := Processor{}
 
 	processor.Roots = roots
-	processor.VSlots = fp.Map[*maps.VSlot, *VSlot](func(old *maps.VSlot) *VSlot {
+
+	vslots := fp.Map[*maps.VSlot, *VSlot](func(old *maps.VSlot) *VSlot {
 		vslot := NewVSlot(nil, old.Index)
 		vslot.Changed = old.Changed
 		vslot.Layer = old.Layer
 		return vslot
-	})(slots)
+	})(slots.Slots)
+
+	// Relink linked list
+	for i, vslot := range vslots {
+		prev := slots.Previous[i]
+		if prev >= 0 && prev < int32(len(vslots)) {
+			vslots[prev].Next = vslot
+		}
+	}
+
+	processor.VSlots = vslots
 
 	processor.Slots = make([]*Slot, 0)
 	processor.Models = make([]Model, 0)
@@ -322,29 +362,25 @@ func (processor *Processor) EmptyVSlot(owner *Slot) *VSlot {
 	for i := len(processor.Slots) - 1; i >= 0; i-- {
 		variants := processor.Slots[i].Variants
 		if variants != nil {
-			fmt.Printf("slot %d (%d)\n", i, len(processor.Slots))
 			offset = variants.Index + 1
 			break
 		}
 	}
 
 	for i := offset; i < int32(len(processor.VSlots)); i++ {
-		fmt.Printf("offset %d\n", i)
 		if processor.VSlots[i].Changed == 0 {
-			log.Printf("Reassigning %d", i)
 			return processor.ReassignVSlot(owner, processor.VSlots[i])
 		}
 	}
 
 	vslot := NewVSlot(owner, int32(len(processor.VSlots)))
-	log.Printf("New slot %d", vslot.Index)
 	processor.VSlots = append(processor.VSlots, vslot)
 	return processor.VSlots[len(processor.VSlots)-1]
 }
 
 func (processor *Processor) ListVSlots() {
 	for i, vslot := range processor.VSlots {
-		//log.Printf("vslot %d changed=%d", i, vslot.Changed)
+		fmt.Printf("vslot %d changed=%d layer=%d\n", i, vslot.Changed, vslot.Layer)
 		if vslot.Slot != nil {
 			for _, sts := range vslot.Slot.Sts {
 				fmt.Printf("%d: %s\n", i, sts.Name)
@@ -394,8 +430,6 @@ func (processor *Processor) Texture(textureType string, name string) {
 		vslot := processor.EmptyVSlot(slot)
 		var changed int32 = (1 << maps.VSLOT_NUM) - 1
 
-		fmt.Printf("%s -> %d\n", name, vslot.Index)
-
 		// propagatevslot
 		next := vslot.Next
 		for next != nil {
@@ -419,7 +453,6 @@ func (processor *Processor) SetMaterial(material string) {
 var dummySlot = Slot{}
 
 func (processor *Processor) ResetTextures(n int32) {
-	log.Printf("resetting textures")
 	limit := n
 	max := int32(len(processor.Slots))
 	if n < 0 {
@@ -1265,8 +1298,6 @@ func main() {
 		}
 	}
 
-	textureRefs := GetChildTextures(_map.Cubes)
-
 	modelRefs := make(map[int16]int)
 	for _, entity := range _map.Entities {
 		if entity.Type != maps.ET_MAPMODEL {
@@ -1275,8 +1306,6 @@ func main() {
 
 		modelRefs[entity.Attr2] += 1
 	}
-
-	processor.ListVSlots()
 
 	// Always load the default map settings
 	defaultPath := processor.SearchFile("data/default_map_settings.cfg")
@@ -1323,23 +1352,17 @@ func main() {
 		}
 	}
 
-	processor.ListVSlots()
+	textureRefs := GetChildTextures(_map.Cubes, processor.VSlots)
 
-	//for i, texture := range processor.Textures {
-	//if _, ok := textureRefs[uint16(i)]; ok {
-	//for _, path := range texture.Paths {
-	//fmt.Printf("%d: %s\n", i, path)
-	//}
-	//}
-	//}
-
-	for i, texture := range processor.Textures {
-		for _, path := range texture.Paths {
-			fmt.Printf("%d: %s (%d)\n", i, path, textureRefs[uint16(i)])
+	for i, slot := range processor.Slots {
+		if _, ok := textureRefs[int32(i)]; ok {
+			for _, path := range slot.Sts {
+				addFile(path.Name)
+			}
 		}
 	}
 
-	//for _, path := range references {
-	//fmt.Printf("%s->%s\n", path.Absolute, path.Relative)
-	//}
+	for _, path := range references {
+		fmt.Printf("%s->%s\n", path.Absolute, path.Relative)
+	}
 }

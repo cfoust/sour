@@ -141,6 +141,11 @@ type VSlot struct {
 	Layer   int32
 }
 
+type VSlotData struct {
+	Slots    []*VSlot
+	Previous []int32
+}
+
 type GameMap struct {
 	Header   Header
 	Entities []Entity
@@ -148,7 +153,7 @@ type GameMap struct {
 	FVars    map[string]float32
 	SVars    map[string]string
 	Cubes    []Cube
-	VSlots   []*VSlot
+	VSlots   VSlotData
 }
 
 const (
@@ -527,9 +532,11 @@ func LoadVSlot(unpack *Unpacker, slot *VSlot, changed int32) error {
 	return nil
 }
 
-func LoadVSlots(unpack *Unpacker, numVSlots int32) ([]*VSlot, error) {
+func LoadVSlots(unpack *Unpacker, numVSlots int32) (VSlotData, error) {
 	leftToRead := numVSlots
+
 	vslots := make([]*VSlot, 0)
+	prev := make([]int32, numVSlots)
 
 	addSlot := func() *VSlot {
 		vslot := VSlot{}
@@ -546,14 +553,17 @@ func LoadVSlots(unpack *Unpacker, numVSlots int32) ([]*VSlot, error) {
 			}
 			leftToRead += changed
 		} else {
-			unpack.Int()
+			prev[len(vslots)] = unpack.Int()
 			slot := addSlot()
 			LoadVSlot(unpack, slot, changed)
 			leftToRead--
 		}
 	}
 
-	return vslots, nil
+	return VSlotData{
+		Slots:    vslots,
+		Previous: prev,
+	}, nil
 }
 
 func InsideWorld(size int32, vector Vector) bool {
@@ -649,15 +659,15 @@ func LoadMap(filename string) (*GameMap, error) {
 		case ID_VAR:
 			value := unpack.Int()
 			gameMap.Vars[name] = value
-			log.Printf("%s=%d", name, value)
+			//log.Printf("%s=%d", name, value)
 		case ID_FVAR:
 			value := unpack.Float()
 			gameMap.FVars[name] = value
-			log.Printf("%s=%f", name, value)
+			//log.Printf("%s=%f", name, value)
 		case ID_SVAR:
 			value := unpack.String()
 			gameMap.SVars[name] = value
-			log.Printf("%s=%s", name, value)
+			//log.Printf("%s=%s", name, value)
 		}
 	}
 
@@ -721,11 +731,8 @@ func LoadMap(filename string) (*GameMap, error) {
 
 	gameMap.Entities = entities
 
-	gameMap.VSlots = make([]*VSlot, 0)
-	if newFooter.NumVSlots > 0 {
-		slots, _ := LoadVSlots(unpack, newFooter.NumVSlots)
-		gameMap.VSlots = slots
-	}
+	vSlotData, err := LoadVSlots(unpack, newFooter.NumVSlots)
+	gameMap.VSlots = vSlotData
 
 	cube, err := LoadChildren(unpack, header.Version)
 	if err != nil {
