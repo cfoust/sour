@@ -19,7 +19,6 @@ My goal was to ship an updated version of it in a single Docker image that I cou
 
 ## Project goals
 
-The Sauerbraten community is small and it will probably always remain that way. There are a few main goals for this project:
 * Make it easier to play Sauerbraten. Web technologies and bandwidth have gotten to the point where it is practical and desirable to play Sauerbraten in the browser.
 * Mimic the experience of playing the original game as closely as possible. While it is possible that Sour may someday support arbitrary game modes, assets, clients, and server code, the vanilla game experience should still be available.
 * Deployment of Sour on your own infrastructure with whatever configuration you like should be easy. Every aspect of Sour should be configurable.
@@ -41,9 +40,11 @@ If you wish to deploy Sour more seriously, I provide an example configuration fo
 ## Architecture
 
 Here is a high level description of the repository's directory structure:
-* `services/game`: A fork of [BananaBread](https://github.com/kripken/BananaBread), which was kripken's initial attempt at getting a version of Sauerbraten running using Emscripten. He forked Sauerbraten at the mainline [r4059](https://sourceforge.net/p/sauerbraten/code/4059), I upgraded to [r4349](https://sourceforge.net/p/sauerbraten/code/4349), then finally upgraded to the latest mainline at the time [r6519](https://sourceforge.net/p/sauerbraten/code/6519). My fork contains a handful of modifications and restrictions to make sure it can run well in the web.
-* `services/assets`: A checkout of Sauerbraten's `packages/` directory, which contains all of the game's default assets. This directory also includes Sour's asset bundling mechanism to generate prepackaged Emscripten file bundles for each game map.
-* `services/go/`: Contains a Go service that periodically fetches Sauerbraten server information from the master server, pings all of the available servers, and makes that information available to the web client.
+* `services/game`: All of the Cube 2 code and Emscripten compilation scripts. Originally this was a fork of [BananaBread](https://github.com/kripken/BananaBread), kripken's original attempt at compiling Sauerbraten for the web. Since then I have upgraded the game to the newest mainline version several times and moved to WebGL2.
+* `services/assets`: Scripts for building web-compatible game assets. This is an extremely complicated topic and easily the most difficult aspect of shipping Sauerbraten to the web. Check out this section's README for more information.
+* `services/go/`: All Go code used in Sour and its services.
+  - A Go program that calculates the minimum list of files necessary for the game to load a given map.
+  - A Go service that periodically fetches Sauerbraten server information from the master server, pings all of the available servers, and makes that information available to the web client.
 * `services/ingress/`: `nginx` configurations for development, production, and Gitpod.
 * `services/server/`: A fork of [QServCollect](https://github.com/deathstar/QServCollect), which is a dedicated Sauerbraten server.
 * `services/proxy/`: A fork of [wsproxy](https://github.com/FWGS/wsproxy) which I changed to only allow proxying from TCP `28785` to UDP `28786`. This was the quickest way I found to get client/server communication working, though presumably you could just do this in a Python script.
@@ -60,7 +61,7 @@ If you want to run things locally (some people are old fashioned that way) all y
 Check out the roadmap below to see what you might be able to help with.
 
 ### General
-* [ ] Remove base game assets from the repository
+* [X] Remove base game assets from the repository
   * [X] Script for building archives of mainline sauerbraten assets
 * [ ] Better documentation
   * [ ] Create a README for each directory in `services/`
@@ -88,7 +89,7 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Explore running Sour in a Web Worker rather than the rendering thread
 * [ ] Support all player models (right now it's just snout)
 * [ ] Modern, beautiful main menu
-* [ ] Create archive of _all_ uploads to Quadropolis
+* [X] Create archive of _all_ uploads to Quadropolis
   * [ ] Allow for loading of arbitrary archives from Quadropolis
 ### Map editing
 * [ ] Repair or port shaders that were disabled in the game upgrade
