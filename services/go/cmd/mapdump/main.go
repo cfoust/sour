@@ -162,29 +162,93 @@ func NewTexture() *Texture {
 	return &texture
 }
 
+type TexSlot struct {
+	Name string
+}
+
+type Slot struct {
+	Index    int32
+	Sts      []TexSlot
+	Variants *VSlot
+	Loaded   bool
+}
+
+func NewSlot() *Slot {
+	newSlot := Slot{}
+	newSlot.Sts = make([]TexSlot, 0)
+	newSlot.Loaded = false
+	return &newSlot
+}
+
+func (slot *Slot) AddSts(name string) *TexSlot {
+	sts := TexSlot{}
+	sts.Name = name
+	slot.Sts = append(slot.Sts, sts)
+	return &slot.Sts[len(slot.Sts)-1]
+}
+
+type VSlot struct {
+	Slot *Slot
+	Next *VSlot
+
+	Index   int32
+	Changed int32
+	Layer   int32
+	Linked  bool
+}
+
+func (vslot *VSlot) AddVariant(slot *Slot) {
+	if slot.Variants == nil {
+		slot.Variants = vslot
+	} else {
+		prev := slot.Variants
+		for prev != nil {
+			prev = prev.Next
+		}
+		prev.Next = vslot
+	}
+}
+
+func NewVSlot(owner *Slot, index int32) *VSlot {
+	vslot := VSlot{
+		Index: index,
+	}
+	return &vslot
+}
+
 type Processor struct {
-	Roots   RootFlags
-	Current *Texture
+	Roots        RootFlags
+	LastMaterial *Slot
+
+	VSlots []*VSlot
+	Slots  []*Slot
 	// Cube faces reference slots inside of this
 	Textures  []Texture
 	Models    []Model
 	Sounds    []string
-	Materials map[string]*Texture
+	Materials map[string]*Slot
 	// File references are guaranteed to be included and do not have a slot
 	Files []string
 }
 
-func NewProcessor(roots RootFlags) *Processor {
+func NewProcessor(roots RootFlags, slots []maps.VSlot) *Processor {
 	processor := Processor{}
 
 	processor.Roots = roots
-	processor.Textures = make([]Texture, 0)
+	processor.VSlots = fp.Map[maps.VSlot, *VSlot](func(old maps.VSlot) *VSlot {
+		vslot := NewVSlot(nil, old.Index)
+		vslot.Changed = old.Changed
+		vslot.Layer = old.Layer
+		return vslot
+	})(slots)
+
+	processor.Slots = make([]*Slot, 0)
 	processor.Models = make([]Model, 0)
 	processor.Sounds = make([]string, 0)
-	processor.Materials = make(map[string]*Texture)
+	processor.Materials = make(map[string]*Slot)
 
 	for _, material := range MATERIALS {
-		processor.Materials[material] = NewTexture()
+		processor.Materials[material] = NewSlot()
 	}
 
 	processor.Files = make([]string, 0)
@@ -228,20 +292,104 @@ func (processor *Processor) GetRootRelative(path string) opt.Option[string] {
 	return opt.None[string]()
 }
 
-func (processor *Processor) NewSlot() {
-	texture := NewTexture()
-	processor.Textures = append(processor.Textures, *texture)
-	processor.Current = &processor.Textures[len(processor.Textures)-1]
+func (processor *Processor) AddSlot() *Slot {
+	newSlot := NewSlot()
+	newSlot.Index = int32(len(processor.Slots))
+	processor.Slots = append(processor.Slots, newSlot)
+	return newSlot
+}
+
+func (processor *Processor) ReassignVSlot(owner *Slot, vslot *VSlot) *VSlot {
+	current := vslot
+	owner.Variants = current
+
+	for current != nil {
+		current.Slot = owner
+		current.Linked = false
+		current = current.Next
+	}
+
+	return vslot
+}
+
+func (processor *Processor) EmptyVSlot(owner *Slot) *VSlot {
+	var offset int32 = 0
+
+	for i := len(processor.Slots); i >= 0; i-- {
+		variants := processor.Slots[i].Variants
+		if variants != nil {
+			offset = variants.Index + 1
+			break
+		}
+	}
+
+	for i := offset; i < int32(len(processor.VSlots)); i++ {
+		if processor.VSlots[i].Changed == 0 {
+			return processor.ReassignVSlot(owner, processor.VSlots[i])
+		}
+	}
+
+	vslot := NewVSlot(owner, int32(len(processor.VSlots)))
+	processor.VSlots = append(processor.VSlots, vslot)
+	return processor.VSlots[len(processor.VSlots)-1]
+}
+
+func (processor *Processor) Texture(textureType string, name string) {
+	texture := Find[string](func(x string) bool {
+		return textureType == x
+	})(PARAMS)
+
+	material := Find[string](func(x string) bool {
+		return textureType == x
+	})(MATERIALS)
+
+	isDiffuse := opt.IsSome(texture) || textureType == "0"
+
+	var slot *Slot
+	if isDiffuse {
+		processor.LastMaterial = nil
+	} else if processor.LastMaterial != nil {
+		slot = processor.LastMaterial
+	}
+
+	if slot == nil {
+		if opt.IsSome(material) {
+			slot = processor.Materials[material.Value]
+		} else {
+			if isDiffuse {
+				processor.AddSlot()
+			}
+
+			slot = processor.Slots[len(processor.Slots)-1]
+		}
+	}
+
+	slot.Loaded = false
+
+	slot.AddSts(name)
+
+	if isDiffuse && opt.IsNone(material) {
+		vslot := processor.EmptyVSlot(slot)
+		var changed int32 = (1 << maps.VSLOT_NUM) - 1
+
+		// propagatevslot
+		next := vslot.Next
+		for next != nil {
+			diff := changed & ^next.Changed
+			if diff != 0 {
+				if (diff & (1 << maps.VSLOT_LAYER)) != 0 {
+					next.Layer = vslot.Layer
+				}
+			}
+			next = next.Next
+		}
+	}
 }
 
 func (processor *Processor) SetMaterial(material string) {
-	texture := NewTexture()
+	texture := NewSlot()
 	processor.Materials[material] = texture
-	processor.Current = texture
-}
-
-func (processor *Processor) AddTexture(path string) {
-	processor.Current.Paths = append(processor.Current.Paths, path)
+	processor.LastMaterial = texture
 }
 
 func (processor *Processor) ResetTextures() {
@@ -271,7 +419,7 @@ func (processor *Processor) ResetMaterials() {
 		if material == "sky" {
 			continue
 		}
-		processor.Materials[material] = NewTexture()
+		processor.Materials[material] = NewSlot()
 	}
 }
 
@@ -790,7 +938,7 @@ func (processor *Processor) ProcessFile(file string) error {
 				break
 			}
 
-			oldCurrent := processor.Current
+			oldCurrent := processor.LastMaterial
 
 			processor.SetMaterial("sky")
 
@@ -829,30 +977,7 @@ func (processor *Processor) ProcessFile(file string) error {
 				break
 			}
 
-			flag := args[1]
-
-			material := Find[string](func(x string) bool {
-				return flag == x
-			})(MATERIALS)
-
-			param := Find[string](func(x string) bool {
-				return flag == x
-			})(PARAMS)
-
-			if flag == "0" || flag == "c" {
-				// "0" always means a new texture slot
-				processor.NewSlot()
-			} else if opt.IsSome(material) {
-				processor.SetMaterial(material.Value)
-			} else if opt.IsNone(param) {
-				// At this point it is not 0, not a material,
-				// and not in the list of params, so that can
-				// only mean that it is wrong somehow
-				log.Printf("Invalid param: %s", line)
-				break
-			}
-
-			processor.AddTexture(NormalizeTexture(args[2]))
+			processor.Texture(args[1], NormalizeTexture(args[2]))
 
 		case "cloudlayer":
 			if len(args) != 2 {
@@ -985,7 +1110,13 @@ func main() {
 		log.Fatal("Map must end in .ogz")
 	}
 
-	processor := NewProcessor(absoluteRoots)
+	_map, err := maps.LoadMap(filename)
+
+	if err != nil {
+		log.Fatal("Failed to parse map file")
+	}
+
+	processor := NewProcessor(absoluteRoots, _map.VSlots)
 
 	references := make([]Reference, 0)
 
@@ -1065,12 +1196,6 @@ func main() {
 		reference.Absolute = target
 		reference.Relative = fmt.Sprintf("packages/base/%s", filepath.Base(file))
 		references = append(references, reference)
-	}
-
-	_map, err := maps.LoadMap(filename)
-
-	if err != nil {
-		log.Fatal("Failed to parse map file")
 	}
 
 	addMapFile(filename)
