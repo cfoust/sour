@@ -17,6 +17,9 @@ class BuildJob(NamedTuple):
     file_hash: str
     extension: Optional[str]
     roots: List[str]
+    # A map_path set to None implies that the file itself is a map; otherwise
+    # it is a path inside of the archive
+    map_path:  Optional[str]
 
 
 def get_jobs(file: File) -> List[BuildJob]:
@@ -33,6 +36,7 @@ def get_jobs(file: File) -> List[BuildJob]:
                 BuildJob(
                     file_hash=file.hash,
                     extension=None,
+                    map_path=None,
                     roots=[]
                 )
             )
@@ -46,7 +50,7 @@ def get_jobs(file: File) -> List[BuildJob]:
             map(lambda a: a.replace(replacement, replacement.lower()), contents)
         )
 
-    if not contents: return []
+    if not contents or not file.name: return []
 
     roots: List[str] = []
 
@@ -64,8 +68,19 @@ def get_jobs(file: File) -> List[BuildJob]:
             roots.append(root)
 
     roots = list(set(roots))
+    maps = list(filter(lambda a: a.endswith('.ogz'), contents))
 
-    ogz = list(filter(lambda a: a.endswith('.ogz'), contents))
+    _, extension = path.splitext(file.name)
+
+    for _map in maps:
+        jobs.append(
+            BuildJob(
+                file_hash=file.hash,
+                extension=extension,
+                roots=roots,
+                map_path=_map,
+            )
+        )
 
     return jobs
 
@@ -92,7 +107,7 @@ if __name__ == "__main__":
         files = node['files']
 
         for file in files:
-            jobs = get_jobs(
+            jobs += get_jobs(
                 File(
                     url=file['url'],
                     hash=file['hash'],
