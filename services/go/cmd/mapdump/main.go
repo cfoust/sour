@@ -214,6 +214,9 @@ func NewVSlot(owner *Slot, index int32) *VSlot {
 	vslot := VSlot{
 		Index: index,
 	}
+	if (owner != nil) {
+		vslot.AddVariant(owner)
+	}
 	return &vslot
 }
 
@@ -319,18 +322,22 @@ func (processor *Processor) EmptyVSlot(owner *Slot) *VSlot {
 	for i := len(processor.Slots) - 1; i >= 0; i-- {
 		variants := processor.Slots[i].Variants
 		if variants != nil {
+			fmt.Printf("slot %d (%d)\n", i, len(processor.Slots))
 			offset = variants.Index + 1
 			break
 		}
 	}
 
 	for i := offset; i < int32(len(processor.VSlots)); i++ {
+		fmt.Printf("offset %d\n", i)
 		if processor.VSlots[i].Changed == 0 {
+			log.Printf("Reassigning %d", i)
 			return processor.ReassignVSlot(owner, processor.VSlots[i])
 		}
 	}
 
 	vslot := NewVSlot(owner, int32(len(processor.VSlots)))
+	log.Printf("New slot %d", vslot.Index)
 	processor.VSlots = append(processor.VSlots, vslot)
 	return processor.VSlots[len(processor.VSlots)-1]
 }
@@ -340,10 +347,10 @@ func (processor *Processor) ListVSlots() {
 		//log.Printf("vslot %d changed=%d", i, vslot.Changed)
 		if vslot.Slot != nil {
 			for _, sts := range vslot.Slot.Sts {
-				log.Printf("%d: %s", i, sts.Name)
+				fmt.Printf("%d: %s\n", i, sts.Name)
 			}
 		} else {
-			log.Printf("%d: null", i)
+			fmt.Printf("%d: null\n", i)
 		}
 	}
 }
@@ -387,6 +394,8 @@ func (processor *Processor) Texture(textureType string, name string) {
 		vslot := processor.EmptyVSlot(slot)
 		var changed int32 = (1 << maps.VSLOT_NUM) - 1
 
+		fmt.Printf("%s -> %d\n", name, vslot.Index)
+
 		// propagatevslot
 		next := vslot.Next
 		for next != nil {
@@ -410,6 +419,7 @@ func (processor *Processor) SetMaterial(material string) {
 var dummySlot = Slot{}
 
 func (processor *Processor) ResetTextures(n int32) {
+	log.Printf("resetting textures")
 	limit := n
 	max := int32(len(processor.Slots))
 	if n < 0 {
