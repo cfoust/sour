@@ -16,7 +16,7 @@ if ! [ -f "roots/base/data/default_map_settings.cfg" ]; then
 fi
 
 if ! [ -f "mapdump" ]; then
-  cd ../../go
+  cd ../go
   go build -o mapdump cmd/mapdump/main.go
-  mv mapdump ../game/assets
+  mv mapdump ../assets
 fi

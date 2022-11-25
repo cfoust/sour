@@ -14,7 +14,7 @@ if __name__ == "__main__":
         maps = list(map(lambda a: "roots/base/packages/base/%s.ogz" % a, args[1:]))
 
     outdir = os.getenv("ASSET_OUTPUT_DIR", "output/")
-    prefix = os.getenv("PREFIX")
+    prefix = os.getenv("PREFIX", "")
     os.makedirs(outdir, exist_ok=True)
 
     roots = [
@@ -53,8 +53,7 @@ if __name__ == "__main__":
                 name=base,
                 bundle=map_bundle.bundle,
                 image=map_bundle.image,
-                description="""
-Base game map %s as it appeared in game version r6584.
+                description="""Base game map %s as it appeared in game version r6584.
 """ % base,
                 aliases=[]
             )
