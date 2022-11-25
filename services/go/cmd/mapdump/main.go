@@ -232,11 +232,11 @@ type Processor struct {
 	Files []string
 }
 
-func NewProcessor(roots RootFlags, slots []maps.VSlot) *Processor {
+func NewProcessor(roots RootFlags, slots []*maps.VSlot) *Processor {
 	processor := Processor{}
 
 	processor.Roots = roots
-	processor.VSlots = fp.Map[maps.VSlot, *VSlot](func(old maps.VSlot) *VSlot {
+	processor.VSlots = fp.Map[*maps.VSlot, *VSlot](func(old *maps.VSlot) *VSlot {
 		vslot := NewVSlot(nil, old.Index)
 		vslot.Changed = old.Changed
 		vslot.Layer = old.Layer
@@ -337,6 +337,7 @@ func (processor *Processor) EmptyVSlot(owner *Slot) *VSlot {
 
 func (processor *Processor) ListVSlots() {
 	for i, vslot := range processor.VSlots {
+		//log.Printf("vslot %d changed=%d", i, vslot.Changed)
 		if vslot.Slot != nil {
 			for _, sts := range vslot.Slot.Sts {
 				log.Printf("%d: %s", i, sts.Name)
@@ -378,8 +379,6 @@ func (processor *Processor) Texture(textureType string, name string) {
 		}
 	}
 
-	log.Printf("%s %s", textureType, name)
-
 	slot.Loaded = false
 
 	slot.AddSts(name)
@@ -412,23 +411,26 @@ var dummySlot = Slot{}
 
 func (processor *Processor) ResetTextures(n int32) {
 	limit := n
+	max := int32(len(processor.Slots))
 	if n < 0 {
 		n = 0
 	}
-	if n > int32(len(processor.Slots)) {
-		n = int32(len(processor.Slots))
+	if n > max {
+		n = max
 	}
 
-	for i := limit; i < int32(len(processor.Slots)); i++ {
+	for i := limit; i < max; i++ {
 		slot := processor.Slots[i]
 		for vs := slot.Variants; vs != nil; vs = vs.Next {
 			vs.Slot = &dummySlot
 		}
 	}
 
+	processor.Slots = processor.Slots[:limit]
+
 	for len(processor.VSlots) > 0 {
-		slot := processor.VSlots[len(processor.VSlots)-1]
-		if slot.Slot != &dummySlot || slot.Changed != 0 {
+		vslot := processor.VSlots[len(processor.VSlots)-1]
+		if vslot.Slot != &dummySlot || vslot.Changed != 0 {
 			break
 		}
 		processor.VSlots = processor.VSlots[:len(processor.VSlots)-1]
@@ -1310,6 +1312,8 @@ func main() {
 			}
 		}
 	}
+
+	processor.ListVSlots()
 
 	//for i, texture := range processor.Textures {
 	//if _, ok := textureRefs[uint16(i)]; ok {
