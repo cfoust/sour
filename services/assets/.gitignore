@@ -1,7 +1,7 @@
-mapfiles/maps.list
-**/*.stub
 working/**
 output/**
 roots/**
 __pycache__
 mapdump
+quadropolis
+*.tar.gz
