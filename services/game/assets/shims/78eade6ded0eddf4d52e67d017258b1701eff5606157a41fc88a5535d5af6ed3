@@ -10,8 +10,6 @@ fog 768
 
 killsendsp 0
 
-alias level_trigger_30 [sp mpsp9b]
-
 mapmodelreset     // start counting from 0 again
 mapmodel 0  0  0 "tentus/chains/chain"    // 0
 mapmodel 4  36 0 "dcp/palmtree"	      // 1
