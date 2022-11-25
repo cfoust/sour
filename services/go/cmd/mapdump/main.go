@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/repeale/fp-go"
@@ -334,6 +335,18 @@ func (processor *Processor) EmptyVSlot(owner *Slot) *VSlot {
 	return processor.VSlots[len(processor.VSlots)-1]
 }
 
+func (processor *Processor) ListVSlots() {
+	for i, vslot := range processor.VSlots {
+		if vslot.Slot != nil {
+			for _, sts := range vslot.Slot.Sts {
+				log.Printf("%d: %s", i, sts.Name)
+			}
+		} else {
+			log.Printf("%d: null", i)
+		}
+	}
+}
+
 func (processor *Processor) Texture(textureType string, name string) {
 	texture := Find[string](func(x string) bool {
 		return textureType == x
@@ -343,7 +356,7 @@ func (processor *Processor) Texture(textureType string, name string) {
 		return textureType == x
 	})(MATERIALS)
 
-	isDiffuse := opt.IsSome(texture) || textureType == "0"
+	isDiffuse := texture.Value == "c" || textureType == "0"
 
 	var slot *Slot
 	if isDiffuse {
@@ -355,6 +368,7 @@ func (processor *Processor) Texture(textureType string, name string) {
 	if slot == nil {
 		if opt.IsSome(material) {
 			slot = processor.Materials[material.Value]
+			processor.LastMaterial = slot
 		} else {
 			if isDiffuse {
 				processor.AddSlot()
@@ -363,6 +377,8 @@ func (processor *Processor) Texture(textureType string, name string) {
 			slot = processor.Slots[len(processor.Slots)-1]
 		}
 	}
+
+	log.Printf("%s %s", textureType, name)
 
 	slot.Loaded = false
 
@@ -392,8 +408,31 @@ func (processor *Processor) SetMaterial(material string) {
 	processor.LastMaterial = texture
 }
 
-func (processor *Processor) ResetTextures() {
-	processor.Textures = make([]Texture, 0)
+var dummySlot = Slot{}
+
+func (processor *Processor) ResetTextures(n int32) {
+	limit := n
+	if n < 0 {
+		n = 0
+	}
+	if n > int32(len(processor.Slots)) {
+		n = int32(len(processor.Slots))
+	}
+
+	for i := limit; i < int32(len(processor.Slots)); i++ {
+		slot := processor.Slots[i]
+		for vs := slot.Variants; vs != nil; vs = vs.Next {
+			vs.Slot = &dummySlot
+		}
+	}
+
+	for len(processor.VSlots) > 0 {
+		slot := processor.VSlots[len(processor.VSlots)-1]
+		if slot.Slot != &dummySlot || slot.Changed != 0 {
+			break
+		}
+		processor.VSlots = processor.VSlots[:len(processor.VSlots)-1]
+	}
 }
 
 func (processor *Processor) ResetSounds() {
@@ -871,7 +910,14 @@ func (processor *Processor) ProcessFile(file string) error {
 
 		switch args[0] {
 		case "texturereset":
-			processor.ResetTextures()
+			limit := 0
+
+			if len(args) == 2 {
+				parsed, _ := strconv.Atoi(args[1])
+				limit = parsed
+			}
+
+			processor.ResetTextures(int32(limit))
 
 		case "materialreset":
 			processor.ResetMaterials()
@@ -1218,6 +1264,8 @@ func main() {
 		modelRefs[entity.Attr2] += 1
 	}
 
+	processor.ListVSlots()
+
 	// Always load the default map settings
 	defaultPath := processor.SearchFile("data/default_map_settings.cfg")
 
@@ -1243,21 +1291,6 @@ func main() {
 	for _, extension := range []string{"png", "jpg"} {
 		shotName := ReplaceExtension(filename, extension)
 		addMapFile(shotName)
-	}
-
-	for i, vslot := range processor.VSlots {
-		if _, ok := textureRefs[uint16(i)]; ok {
-			if vslot.Slot != nil {
-				for _, sts := range vslot.Slot.Sts {
-					log.Printf("%d: %s", i, sts.Name)
-					//addFile(path)
-				}
-			}
-		}
-
-		//if opt.IsSome(texture.Autograss) {
-			//addFile(texture.Autograss.Value)
-		//}
 	}
 
 	for _, slot := range processor.Materials {
