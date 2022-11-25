@@ -39,7 +39,7 @@ assets:
     ARG hash
     FROM +emscripten
     WORKDIR /tmp
-    COPY services/game/assets assets
+    COPY services/assets assets
     RUN --mount=type=cache,target=/tmp/assets/working /tmp/assets/build
     SAVE ARTIFACT assets/output AS LOCAL "earthly/assets"
 
