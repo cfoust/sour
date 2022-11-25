@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from typing import NamedTuple, Optional, Tuple, List
@@ -15,9 +16,11 @@ from typing import NamedTuple, Optional, Tuple, List
 # Example: ("/home/cfoust/Downloads/blah.ogz", "packages/base/blah.ogz")
 Mapping = Tuple[str, str]
 
-class Bundle(NamedTuple):
+
+class Mod(NamedTuple):
+    name: str
     # This is the hash of the bundle contents.
-    hash: str
+    bundle: str
 
 
 class GameMap(NamedTuple):
@@ -228,13 +231,43 @@ def get_map_files(map_file: str, roots: List[str]) -> List[Mapping]:
     return files
 
 
-def build_map_bundle(map_file: str, roots: List[str], outdir: str) -> str:
+class BuiltMap(NamedTuple):
+    bundle: str
+    image: Optional[str]
+
+
+def build_map_bundle(map_file: str, roots: List[str], outdir: str) -> BuiltMap:
     """
     Given a map file, roots, and an output directory, create a Sour bundle for
     the map and return its hash.
     """
-    files = get_map_files(map_file, roots)
-    return build_bundle(files, outdir)
+    bundle = build_bundle(get_map_files(map_file, roots), outdir)
+    image = None
+
+    # Look for an image file adjacent to the map
+    base, _ = path.splitext(map_file)
+    for extension in ['.png', '.jpg']:
+        result = "%s%s" % (base, extension)
+
+        if not path.exists(result): continue
+        image = "%s%s" % (bundle, extension)
+        shutil.copy(result, path.join(outdir, image))
+
+    return BuiltMap(bundle=bundle, image=image)
+
+
+def dump_index(maps: List[GameMap], mods: List[Mod], outdir: str, prefix = ''):
+    index = 'index.json'
+    if prefix: index = '%s.index.json' % prefix
+
+    with open(path.join(outdir, index), 'w') as f:
+        f.write(json.dumps(
+            {
+                'maps': list(map(lambda _map: _map._asdict(), maps)),
+                'mods': list(map(lambda mod: mod._asdict(), mods)),
+            },
+            indent=4
+        ))
 
 
 if __name__ == "__main__": pass
