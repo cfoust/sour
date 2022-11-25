@@ -31,7 +31,7 @@ docker run --rm -it -p 1234:1234 ghcr.io/cfoust/sour
 
 You can then access Sour at `http://localhost:1234/`.
 
-**Note:** The public Docker image only ships with the `complex` and `xenon` maps for now. While Sour supports _all_ of Sauerbraten's maps, images that include all of them are very big. Your mileage may vary.
+**Note:** The public Docker image only ships with the `turbine` and `dust2` maps for now. While Sour supports _all_ of Sauerbraten's maps, images that include all of them are very big. Your mileage may vary.
 
 ## Deploying
 
@@ -41,10 +41,10 @@ If you wish to deploy Sour more seriously, I provide an example configuration fo
 
 Here is a high level description of the repository's directory structure:
 * `services/game`: All of the Cube 2 code and Emscripten compilation scripts. Originally this was a fork of [BananaBread](https://github.com/kripken/BananaBread), kripken's original attempt at compiling Sauerbraten for the web. Since then I have upgraded the game to the newest mainline version several times and moved to WebGL2.
-* `services/assets`: Scripts for building web-compatible game assets. This is an extremely complicated topic and easily the most difficult aspect of shipping Sauerbraten to the web. Check out this section's README for more information.
+* `services/assets`: Scripts for building web-compatible game assets. This is an extremely complicated topic and easily the most difficult aspect of shipping Sauerbraten to the web. Check out this [section's README](services/assets) for more information.
 * `services/go/`: All Go code used in Sour and its services.
-  - A Go program that calculates the minimum list of files necessary for the game to load a given map.
-  - A Go service that periodically fetches Sauerbraten server information from the master server, pings all of the available servers, and makes that information available to the web client.
+  * A Go program that calculates the minimum list of files necessary for the game to load a given map.
+  * A Go service that periodically fetches Sauerbraten server information from the master server, pings all of the available servers, and makes that information available to the web client.
 * `services/ingress/`: `nginx` configurations for development, production, and Gitpod.
 * `services/server/`: A fork of [QServCollect](https://github.com/deathstar/QServCollect), which is a dedicated Sauerbraten server.
 * `services/proxy/`: A fork of [wsproxy](https://github.com/FWGS/wsproxy) which I changed to only allow proxying from TCP `28785` to UDP `28786`. This was the quickest way I found to get client/server communication working, though presumably you could just do this in a Python script.
@@ -71,7 +71,7 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Full Terraform support for deploying Sour
 * [ ] Allow parts of Sour to be configured with a high-level configuration file
-* [ ] Utility for calculating all of the files maps use
+* [X] Utility for calculating all of the files maps use
   * Right now this uses `strace` and mainline sauerbraten, which is imperfect
 * [ ] Investigate differences in font colors between the real Sauer and Sour
 ### Gameplay
