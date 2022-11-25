@@ -141,6 +141,8 @@ def build_bundle(files: List[Mapping], outdir: str, compress_images: bool = True
             cleaned.append((_in, out))
             continue
 
+        os.makedirs("working/", exist_ok=True)
+
         # If multiple bundles rely on the same converted image, we don't want to
         # redo the calculation.
         compressed = path.join(
@@ -257,8 +259,7 @@ def build_map_bundle(map_file: str, roots: List[str], outdir: str) -> BuiltMap:
 
 
 def dump_index(maps: List[GameMap], mods: List[Mod], outdir: str, prefix = ''):
-    index = 'index.json'
-    if prefix: index = '%s.index.json' % prefix
+    index = '%s.index.json' % prefix
 
     with open(path.join(outdir, index), 'w') as f:
         f.write(json.dumps(

@@ -20,13 +20,15 @@ let bundleIndex: Maybe<Record<string, string>> = null
 let pullState: BundleState[] = []
 
 async function fetchIndex(): Promise<Record<string, string>> {
-  const response = await fetch(`${ASSET_PREFIX}index`)
-  const index = await response.text()
+  const response = await fetch(`${ASSET_PREFIX}index.json`)
+  const index = await response.json()
 
   const newIndex: Record<string, string> = {}
-  for (const line of index.split('\n')) {
-    const [name, hash] = line.split(' ')
-    newIndex[name] = hash
+  for (const map of index.maps) {
+    newIndex[map.name] = map.bundle
+  }
+  for (const mod of index.mods) {
+    newIndex[mod.name] = mod.bundle
   }
 
   return newIndex
