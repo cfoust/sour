@@ -22,6 +22,27 @@ export type Bundle = {
   buffer: ArrayBuffer
 }
 
+export type GameMap = {
+  name: string
+  bundle: string
+  image: Maybe<string>
+  description: string
+  aliases: string[]
+}
+
+export type GameMod = {
+  name: string
+  bundle: string
+}
+
+export type AssetSource = {
+  source: string
+  maps: GameMap[]
+  mods: GameMod[]
+}
+
+export type BundleIndex = AssetSource[]
+
 export enum BundleLoadStateType {
   Waiting,
   Downloading,
@@ -70,7 +91,7 @@ export type AssetBundleResponse = {
 
 export type IndexResponse = {
   op: ResponseType.Index
-  index: Record<string, string>
+  index: BundleIndex
 }
 
 export type AssetResponse = AssetStateResponse | AssetBundleResponse | IndexResponse

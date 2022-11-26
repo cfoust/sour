@@ -3,6 +3,10 @@ import type {
   Bundle,
   BundleState,
   BundleLoadState,
+  GameMod,
+  GameMap,
+  BundleIndex,
+  AssetSource,
   AssetRequest,
   AssetResponse,
   AssetStateResponse,
@@ -16,22 +20,23 @@ import { getBundle as getSavedBundle, saveBundle, haveBundle } from './storage'
 class PullError extends Error {}
 
 let ASSET_SOURCE: string = ''
-let bundleIndex: Maybe<Record<string, string>> = null
+let bundleIndex: Maybe<BundleIndex> = null
 let pullState: BundleState[] = []
 
-async function fetchIndex(): Promise<Record<string, string>> {
-  const response = await fetch(`${ASSET_SOURCE}index.json`)
-  const index = await response.json()
-
-  const newIndex: Record<string, string> = {}
+async function fetchIndex(source: string): Promise<AssetSource> {
+  const response = await fetch(source)
+  const index: AssetSource = await response.json()
+  index.source = source
   for (const map of index.maps) {
-    newIndex[map.name] = map.bundle
+    map.name = map.name.replace('.ogz', '')
   }
-  for (const mod of index.mods) {
-    newIndex[mod.name] = mod.bundle
-  }
+  return index
+}
 
-  return newIndex
+async function fetchIndices(): Promise<BundleIndex> {
+  const sources = ASSET_SOURCE.split(';')
+  const indices = await Promise.all(R.map((v) => fetchIndex(v), sources))
+  return indices
 }
 
 const sendState = (newState: BundleState[]) => {
@@ -84,21 +89,22 @@ function unpackBundle(data: ArrayBuffer): Bundle {
   }
 }
 
-function cleanPath(): string {
-  const lastSlash = ASSET_SOURCE.lastIndexOf('/')
+function cleanPath(source: string): string {
+  const lastSlash = source.lastIndexOf('/')
   if (lastSlash === -1) {
     return ''
   }
 
-  return ASSET_SOURCE.slice(0, lastSlash + 1)
+  return source.slice(0, lastSlash + 1)
 }
 
 async function fetchBundle(
-  hash: string,
+  source: string,
+  bundle: string,
   progress: (bundle: BundleLoadState) => void
 ): Promise<ArrayBuffer> {
   const request = new XMLHttpRequest()
-  const packageName = `${cleanPath()}${hash}.sour`
+  const packageName = `${cleanPath(source)}${bundle}.sour`
   request.open('GET', packageName, true)
   request.responseType = 'arraybuffer'
   request.onprogress = (event) => {
@@ -132,30 +138,60 @@ async function fetchBundle(
 }
 
 async function loadBundle(
-  hash: string,
+  source: string,
+  bundle: string,
   progress: (bundle: BundleLoadState) => void
 ): Promise<Bundle> {
-  if (await haveBundle(hash)) {
-    const buffer = await getSavedBundle(hash)
+  if (await haveBundle(bundle)) {
+    const buffer = await getSavedBundle(bundle)
     if (buffer == null) {
-      throw new PullError(`Bundle ${hash} did not exist`)
+      throw new PullError(`Bundle ${bundle} did not exist`)
     }
     return unpackBundle(buffer)
   }
 
-  const buffer = await fetchBundle(hash, progress)
-  await saveBundle(hash, buffer)
+  const buffer = await fetchBundle(source, bundle, progress)
+  await saveBundle(bundle, buffer)
   return unpackBundle(buffer)
+}
+
+type FoundBundle = {
+  source: string
+  bundle: string
+}
+
+function findBundle(target: string): Maybe<FoundBundle> {
+  if (bundleIndex == null) return null
+
+  for (const source of bundleIndex) {
+    for (const mod of source.mods) {
+      if (mod.name !== target) continue
+      return {
+        source: source.source,
+        bundle: mod.bundle,
+      }
+    }
+
+    for (const map of source.maps) {
+      if (map.name !== target && !map.aliases.includes(target)) continue
+      return {
+        source: source.source,
+        bundle: map.bundle,
+      }
+    }
+  }
+
+  return null
 }
 
 async function processLoad(target: string, id: string) {
   if (bundleIndex == null) {
-    bundleIndex = await fetchIndex()
+    bundleIndex = await fetchIndices()
   }
 
-  const hash = bundleIndex[target]
+  const found = findBundle(target)
 
-  if (hash == null) {
+  if (found == null) {
     throw new Error(`No hash for ${target} found in index`)
   }
 
@@ -171,7 +207,7 @@ async function processLoad(target: string, id: string) {
   })
 
   try {
-    const bundle = await loadBundle(hash, update)
+    const bundle = await loadBundle(found.source, found.bundle, update)
 
     update({
       type: BundleLoadStateType.Ok,
@@ -202,7 +238,7 @@ self.onmessage = (evt) => {
     const { ASSET_SOURCE: newPrefix } = request
     ASSET_SOURCE = newPrefix
     ;(async () => {
-      bundleIndex = await fetchIndex()
+      bundleIndex = await fetchIndices()
 
       const response: IndexResponse = {
         op: ResponseType.Index,
