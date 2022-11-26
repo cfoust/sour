@@ -1224,7 +1224,8 @@ func main() {
 			relative := processor.GetRootRelative(file)
 
 			if opt.IsNone(relative) {
-				log.Fatal(fmt.Sprintf("File absolute but not in root: %s", file))
+				log.Printf("File absolute but not in root: %s", file)
+				return
 			}
 
 			reference.Relative = relative.Value
