@@ -8,6 +8,7 @@ RUN sudo apt-get update && \
     inotify-tools \
     libenet-dev \
     nginx \
+    unrar \
     zlib1g-dev \
     && \
   sudo rm -rf /var/lib/apt/lists/*
