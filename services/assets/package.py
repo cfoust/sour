@@ -125,6 +125,10 @@ def build_bundle(files: List[Mapping], outdir: str, compress_images: bool = True
     # We may remap files after conversion
     cleaned: List[Mapping] = []
 
+    sour_target = path.join(outdir, "%s.sour" % bundle_hash)
+
+    if path.exists(sour_target): return bundle_hash
+
     for _in, out in files:
         _, extension = path.splitext(_in)
 
@@ -196,7 +200,7 @@ def build_bundle(files: List[Mapping], outdir: str, compress_images: bool = True
 
     with open(js_file, 'wb') as f: f.write(result.stdout)
 
-    combine_bundle(data_file, js_file, path.join(outdir, "%s.sour" % bundle_hash))
+    combine_bundle(data_file, js_file, sour_target)
     return bundle_hash
 
 
