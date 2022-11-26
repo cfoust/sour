@@ -218,11 +218,15 @@ if __name__ == "__main__":
 
                 map_roots = list(map(lambda v: path.join(tmpdir, v), job.roots)) + roots
 
-                map_bundle = package.build_map_bundle(
-                    path.join(tmpdir, map_path),
-                    map_roots,
-                    outdir
-                )
+                try:
+                    map_bundle = package.build_map_bundle(
+                        path.join(tmpdir, map_path),
+                        map_roots,
+                        outdir
+                    )
+                except Exception as e:
+                    if 'shims' in str(e):
+                        continue
 
                 map_image = map_bundle.image if map_bundle.image else image
 

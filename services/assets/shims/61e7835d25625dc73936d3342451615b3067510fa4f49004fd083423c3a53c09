@@ -1,0 +1,9 @@
+loadsky "staffy/staffy"
+
+level_trigger_1 = [
+	echo $COL resetting CFG
+	echo executing $COL AUTOEXEC
+	exec meatpak.cfg
+	exec autoexec.cfg
+	sleep 1500 [map metl2]
+]
