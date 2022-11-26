@@ -24,11 +24,12 @@ go:
     RUN apt-get update && apt-get install -qqy libenet-dev inotify-tools
     SAVE IMAGE sour:go
 
-relay:
+goexe:
     FROM +go
     COPY services/go .
     RUN ./build
     SAVE ARTIFACT relay AS LOCAL "earthly/relay"
+    SAVE ARTIFACT mapdump AS LOCAL "earthly/mapdump"
 
 emscripten:
     FROM emscripten/emsdk:3.1.8
@@ -40,6 +41,7 @@ assets:
     FROM +emscripten
     WORKDIR /tmp
     COPY services/assets assets
+    COPY +goexe/mapdump assets/mapdump
     RUN --mount=type=cache,target=/tmp/assets/working /tmp/assets/build
     SAVE ARTIFACT assets/output AS LOCAL "earthly/assets"
 
@@ -64,7 +66,7 @@ image-slim:
   # dynamic libraries.
   RUN apt-get update && apt-get install -y nginx libenet-dev
   COPY +server/qserv /bin/qserv
-  COPY +relay/relay /bin/relay
+  COPY +goexe/relay /bin/relay
   COPY +proxy/wsproxy /bin/wsproxy
   COPY +game/game /app/game/
   COPY +client/dist /app/

@@ -7,3 +7,4 @@ if [ -z "$GITPOD_WORKSPACE_ID" ]; then
   unset GOPATH
 fi
 go build -o relay svc/relay/main.go
+go build -o mapdump cmd/mapdump/main.go
