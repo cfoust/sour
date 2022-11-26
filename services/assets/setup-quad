@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -e
+
+sauer_archive="18-11-22-quadropolis.tar.gz"
+
+mkdir -p quadropolis
+
+if ! [ -f "quadropolis/nodes.json" ]; then
+  wget "https://static.sourga.me/archives/$sauer_archive"
+  tar xvf "$sauer_archive" -C "quadropolis" 
+fi
+

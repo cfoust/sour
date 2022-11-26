@@ -148,11 +148,16 @@ if __name__ == "__main__":
                     print("%d: %s" % (_id, job.file_name))
                     target = tmp("%s.ogz" % file_hash)
                     shutil.copy(db(file_hash), target)
-                    map_bundle = package.build_map_bundle(
-                        target,
-                        roots,
-                        outdir
-                    )
+                    try:
+                        map_bundle = package.build_map_bundle(
+                            target,
+                            roots,
+                            outdir
+                        )
+                    except Exception as e:
+                        if 'invalid header' in str(e):
+                            print('Map had invalid gzip header')
+                            continue
 
                     map_image = map_bundle.image if map_bundle.image else image
 
@@ -196,7 +201,6 @@ if __name__ == "__main__":
                         ],
                         stderr=subprocess.DEVNULL,
                         stdout=subprocess.DEVNULL,
-                        check=True
                     )
                 elif file_name.endswith('.rar'):
                     target = path.join("/tmp", "%s.rar" % file_hash)
@@ -226,6 +230,9 @@ if __name__ == "__main__":
                     )
                 except Exception as e:
                     if 'shims' in str(e):
+                        continue
+                    elif 'invalid header' in str(e):
+                        print('Map had invalid gzip header')
                         continue
 
                 map_image = map_bundle.image if map_bundle.image else image
