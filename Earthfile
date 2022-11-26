@@ -50,7 +50,7 @@ game:
     WORKDIR /cube2
     COPY services/game /game
     RUN --mount=type=cache,target=/emsdk/upstream/emscripten/cache/ /game/build
-    SAVE ARTIFACT /cube2/dist/game AS LOCAL "earthly/game"
+    SAVE ARTIFACT /game/dist/game AS LOCAL "earthly/game"
 
 client:
     FROM node:14.17.5
