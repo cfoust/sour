@@ -1,0 +1,55 @@
+MmeSP - A singleplayer map by Mmeaninglessnamee, for the Quadropolis SP mapping contest
+mapmsg "There is no mapmessage as of yet"
+
+killsendsp 0  //perhaps the most important thing in this .cfg!
+//also lots of thanks to Redon, because I had to look at Lost's scripts a lot to make my scripts work at all. Lost is a much better level than this.
+
+mapmodelreset     // start counting from 0 again
+
+mmodel "carrot"                           // 1
+mmodel "switch1"                          // 2
+mmodel "switch2"                          // 3
+
+mmodel "doors/door_01"                    // 4
+mmodel "doors/door_02"                    // 5
+mmodel "doors/door_03"                    // 6
+
+mmodel "dcp/grate"                          // 7
+mmodel "dcp/switch2a"                       // 8
+mmodel "dcp/ventflap"                       // 9
+mmodel "mitaman/door_06"                    // 10
+mmodel "mitaman/door_07"                    // 11
+mmodel "mitaman/door_08"                    // 12
+mmodel "mitaman/door_09"                    // 13
+mmodel "mitaman/door_10"                    // 14
+mmodel "mitaman/plat01"                     // 15
+mmodel "mitaman/wirefence"                  // 16
+mmodel "mitaman/woodboard"                  // 17
+mmodel "steve_e/doors/trapdoor"             // 18
+mmodel "steve_e/doors/trapdoor/trapdoor_150" // 19
+mmodel "steve_e/doors/trapdoor/trapdoor_200" // 20
+mmodel "doors/door_04"                      // 21
+
+mmodel "psionic/barrel2"                    // 22
+mmodel "psionic/crate4"                     // 23
+mmodel "dcp/barrel"                         // 24
+mmodel "tentus/barrel"			    // 25
+mmodel "tentus/sidebarrel"		    // 26
+
+mmodel "dcp/blade_x"		    // 27
+mmodel "dcp/blade_x/big"		    // 28
+mmodel "dcp/blade_x/fast"		    // 29
+mmodel "dcp/blade_x/mid"		    // 30
+mmodel "dcp/blade_y"		    // 31
+mmodel "dcp/blade_y/big"		    // 32
+mmodel "dcp/blade_y/fast"		    // 33
+mmodel "yves_allaire/e6/e6fanblade/horizontal"		    // 34
+mmodel "yves_allaire/e6/e6fanblade/horizontal"		    // 35
+mmodel "dcp/vent"		    // 36
+mmodel "dcp/plant1"                 // 37
+mmodel "dcp/pillar"                 // 38
+
+mmodel "mmean/blade_y/reallybig"		    // 33
+mmodel "mmean/blade_x/reallybig"		    // 33
+
+

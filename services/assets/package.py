@@ -76,6 +76,9 @@ def combine_bundle(data_file: str, js_file: str, dest: str):
         out.write(bytes(metadata, 'utf-8'))
         out.write(data)
 
+    os.remove(data_file)
+    os.remove(js_file)
+
 
 def hash_files(files: List[str]) -> str:
     tar = subprocess.Popen([

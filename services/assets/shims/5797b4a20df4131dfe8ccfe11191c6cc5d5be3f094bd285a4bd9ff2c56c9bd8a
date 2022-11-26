@@ -1,0 +1,12 @@
+texture 0 "lunaran\hexflr2_d.jpg" 0 0 0 1.5
+texture 0 "trak5\pipe1b.jpg" 0 0 0 1.5
+texscale 1
+texlayer 422
+
+texture 0 "trak5\pipe1b.jpg" 0 0 0 1.5
+texture 0 "tomek\snow7_d.jpg" 0 0 0 1.5
+texlayer -1
+
+
+mapsound kaiser\fx\hum6 1000 -1
+mapsound awesund/cg2 200 -1

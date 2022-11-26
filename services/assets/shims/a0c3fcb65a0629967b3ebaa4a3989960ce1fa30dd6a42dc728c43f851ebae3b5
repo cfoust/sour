@@ -1,0 +1,8 @@
+mmodel "pyccna/fss_pyccna/reverse"
+mmodel "pyccna/debris"
+mmodel "pyccna/debris/gun"
+mmodel "pyccna/snoutx10k/assault/gun"
+mmodel "pyccna/snoutx10k/gun_relax"
+mmodel "pyccna/fed_door"
+
+gamespeed 55

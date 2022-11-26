@@ -7,6 +7,7 @@ from typing import NamedTuple, Optional, Tuple, List, Any
 import json
 import tempfile
 import subprocess
+import hashlib
 
 import package
 
@@ -87,6 +88,33 @@ def get_jobs(file: File) -> List[BuildJob]:
     return jobs
 
 
+def build_map_bundle(
+    map_file: str,
+    roots: List[str],
+    outdir: str,
+) -> Optional[package.BuiltMap]:
+
+    try:
+        map_bundle = package.build_map_bundle(
+            map_file,
+            roots,
+            outdir
+        )
+    except Exception as e:
+        if 'shims' in str(e):
+            return None
+        elif 'invalid header' in str(e):
+            print('Map had invalid gzip header')
+            return None
+        elif 'invalid octsav' in str(e):
+            print('Map had invalid octsav')
+            return None
+        else:
+            raise e
+
+    return map_bundle
+
+
 if __name__ == "__main__":
     args = sys.argv
 
@@ -95,6 +123,11 @@ if __name__ == "__main__":
         node_targets = list(map(lambda a: int(a), args[1:]))
 
     outdir = os.getenv("ASSET_OUTPUT_DIR", "output/quad")
+    os.makedirs(outdir, exist_ok=True)
+
+    cachedir = path.join("/tmp", "quad-cache")
+    os.makedirs(cachedir, exist_ok=True)
+
     prefix = os.getenv("PREFIX")
     quaddir = 'quadropolis'
 
@@ -102,8 +135,6 @@ if __name__ == "__main__":
         "sour",
         "roots/base",
     ]
-
-    os.makedirs(outdir, exist_ok=True)
 
     mods: List[package.Mod] = []
     game_maps: List[package.GameMap] = []
@@ -150,36 +181,45 @@ if __name__ == "__main__":
             ):
                 file_hash = job.file_hash
                 map_path = job.map_path
+                map_hash = package.hash_string("%d-%s" % (_id, job.map_path))
+                cache_file = path.join(cachedir, "%s.json" % map_hash)
+
+                if path.exists(cache_file):
+                    game_map = package.GameMap(**json.loads(open(cache_file, 'r').read()))
+                    game_maps.append(game_map)
+                    continue
 
                 # The file itself is a map
                 if not map_path:
                     print("%d: %s" % (_id, job.file_name))
                     target = tmp("%s.ogz" % file_hash)
                     shutil.copy(db(file_hash), target)
-                    try:
-                        map_bundle = package.build_map_bundle(
-                            target,
-                            roots,
-                            outdir
-                        )
-                    except Exception as e:
-                        if 'invalid header' in str(e):
-                            print('Map had invalid gzip header')
-                            continue
+
+                    map_bundle = build_map_bundle(
+                        target,
+                        roots,
+                        outdir,
+                    )
+
+                    if not map_bundle: continue
 
                     map_image = map_bundle.image if map_bundle.image else image
 
-                    game_maps.append(
-                        base_map._replace(
-                            name=job.file_name,
-                            bundle=map_bundle.bundle,
-                            image=map_image,
-                        )
+                    game_map = base_map._replace(
+                        name=job.file_name,
+                        bundle=map_bundle.bundle,
+                        image=map_image,
                     )
+
+                    with open(cache_file, 'w') as f:
+                        f.write(json.dumps(game_map._asdict()))
+
+                    game_maps.append(game_map)
                     continue
 
                 print("%d: %s" % (_id, map_path))
                 tmpdir = tempfile.mkdtemp()
+
                 file_name = job.file_name
 
                 if file_name.endswith('.tar.gz'):
@@ -236,30 +276,26 @@ if __name__ == "__main__":
                     print('Archive %s did not contain %s' % (job.file_name, map_path))
                     continue
 
-                try:
-                    map_bundle = package.build_map_bundle(
-                        target_map,
-                        map_roots,
-                        outdir
-                    )
-                except Exception as e:
-                    if 'shims' in str(e):
-                        continue
-                    elif 'invalid header' in str(e):
-                        print('Map had invalid gzip header')
-                        continue
-                    else:
-                        raise e
+                map_bundle = build_map_bundle(
+                    target_map,
+                    map_roots,
+                    outdir,
+                )
+
+                if not map_bundle: continue
 
                 map_image = map_bundle.image if map_bundle.image else image
 
-                game_maps.append(
-                    base_map._replace(
-                        name=path.basename(map_path),
-                        bundle=map_bundle.bundle,
-                        image=map_image,
-                    )
+                game_map = base_map._replace(
+                    name=path.basename(map_path),
+                    bundle=map_bundle.bundle,
+                    image=map_image,
                 )
+
+                with open(cache_file, 'w') as f:
+                    f.write(json.dumps(game_map._asdict()))
+
+                game_maps.append(game_map)
                 shutil.rmtree(tmpdir, ignore_errors=True)
 
     package.dump_index(game_maps, mods, outdir, prefix)

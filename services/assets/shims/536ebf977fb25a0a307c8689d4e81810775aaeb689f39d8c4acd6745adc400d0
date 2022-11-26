@@ -1,0 +1,16 @@
+texturereset
+skybox staffy/staffy
+fog 10000
+texture 0 textures/sky.png
+texture 0 subverse\metal_siding_kinks.jpg
+exec packages/trak5/package.cfg
+exec packages/pyccna/recruit/recruittex.cfg
+exec packages/philipk/package.cfg
+texture 0 textures/waterfall.jpg
+texscroll 0 -1
+texture 0 textures/waterfall.jpg
+texscroll 0 1
+
+mapmodelreset
+mmodel "pyccna/fed_door"
+mmodel "pyccna/window"

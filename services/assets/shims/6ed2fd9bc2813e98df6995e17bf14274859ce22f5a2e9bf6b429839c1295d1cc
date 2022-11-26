@@ -1,0 +1,32 @@
+texture 0 "tomek\snow7_d.jpg" 0 0 0 1.5
+texture 0 "rorschach\256_gate_water02.jpg" 0 0 0 1.5
+texlayer 762
+
+
+mapsound ambience/wind 3000 -1
+mapsound kaiser\fx\hum4 1000 -1
+mapsound kaiser\fx\computer1 100 -1
+mapsound awesund\cg1 500 -1
+
+mapmodelreset
+mmodel "makke/moon"
+mmodel "makke/planet"
+mmodel "vegetation/tree02"
+mmodel "mapmodels/sitters/gothic/skelet1"
+mmodel "mapmodels/sitters/gothic/skelet2"
+mmodel "mapmodels/sitters/gothic/skelet3"
+mmodel "mapmodels/nieb/tree_dead"
+mmodel "dcp/groundlamp"
+
+base_1 = "the ^fs^f3Red Tank^fr"
+base_2 = "the ^fs^f1Blue Tank^fr"
+base_3 = "the ^fs^f1Blue B.T.R^fr"
+base_4 = "the ^fs^f1Blue Tundra^fr"
+base_5 = "the ^fs^f1Blue Trojan^fr"
+base_6 = "the ^fs^f3Red B.T.R^fr"
+base_7 = "the ^fs^f3Red Tundra^fr"
+base_8 = "the ^fs^f3Red Trojan^fr"
+base_9 = "the ^fs^f3Red Sandbag Emplacement^fr"
+base_10 = "the ^fs^f6Central Sandbag Emplacement^fr"
+base_11 = "the ^fs^f1Blue Sandbag Emplacement^fr"
+

@@ -1,0 +1,152 @@
+exec data/default_map_settings.cfg // So I dont get 50 same textures when im editing cfg and pressing EXEC all the time.
+// Lushwater by Lord Kv
+// CC-BY
+
+alias base_1 "The Battlements"
+//alias base_2 "The Armory"
+alias base_3 "Mudwater Dale"
+alias base_4 "Birchwood lookout"
+//alias base_5 "The dungeon"
+alias base_6 "The Arch"
+alias base_7 "The Courtyard"
+alias base_8 "The Angels"
+sunlightpitch 44
+sunlightyaw 40
+sunlight 255 245 170
+skylight 150 135 110
+//sunlight 220 140 50
+//skylight 100 90 80
+skybox skyboxes/remus/sky01
+skyboxcolour 255 255 255
+// skyboxglare 0
+cloudboxcolour 255 255 0
+//fogdomecolour $fogr $fogg $fogb
+//fogcolour $fogr $fogg $fogb
+fog 500
+fogdomemax 1
+
+mapsound "ambience/cycadas.ogg" 255 1
+mapsound "ambience/frogs.ogg" 255 1
+mapsound "ambience/cavedrip.ogg" 255 1
+mapsound "ambience/forest3.ogg" 32 1
+mapsound "ambience/waterfall.ogg" 64 1
+
+//watercolour 220 165 35
+watercolour 128 100 20
+waterfog 10
+water2fog 10
+
+materialreset
+
+texture water1 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture water2 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture water3 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture water4 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture lava1 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+texture lava2 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+texture lava3 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+texture lava4 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+causticmillis 200
+causticscale 50
+
+
+mapmodelreset
+exec data/default_map_models.cfg
+exec packages/models/mapmodels/khorne/package.cfg
+mmodel mapmodels/khorne/plants/fern4
+
+mmodel "mapmodels/nieb/waterfall/1"
+mmodel "mapmodels/nieb/waterfall/2"
+mmodel "mapmodels/nieb/waterfall/3"
+mmodel "mapmodels/nieb/waterfall/4"
+mmodel "mapmodels/nieb/waterfall/4"
+mmodel "mapmodels/lordkv/waterfall4small"
+//mmodel "mapmodels/lordkv/experiment3"
+
+texture 0 textures/terrain_soc/ter_moss1.jpg
+autograss grass\khornegrass.png
+grassscale 1.5
+grasscolour 255 255 0
+grassalpha 1
+grassanimmillis 2000
+
+
+
+texture 0 gor/WS_GK_001_cc.jpg
+texscroll 0.15 0
+texture 0 gor/WS_GK_001_cc.jpg
+texscroll -0.15 0
+texture 0 gor/WS_GK_001_cc.jpg
+texscroll 0 0.15
+texture 0 gor/WS_GK_001_cc.jpg
+texscroll 0 -0.15
+texture 0 gor/WS_GK_001_cc.jpg
+texscroll 0.15 0.15
+texture 0 gor/WS_GK_001_cc.jpg
+texscroll -0.15 0.15
+texture 0 gor/WS_GK_001_cc.jpg
+texscroll 0.15 -0.15
+texture 0 gor/WS_GK_001_cc.jpg
+texscroll -0.15 -0.15
+
+setshader bumpspecmapparallaxglowworld
+
+setshaderparam "specscale" 1.5 1.5 1.5
+setshaderparam "parallaxscale" 0.01 -0.005 
+setshaderparam "glowcolor" -.05 .5 1.5
+texture 0 "rorschach/5_blood01_hm.jpg"
+texture n "rorschach/5_blood01_nm.jpg"
+texture z "rorschach/5_blood01_hm.jpg"
+texture s "rorschach/5_blood01_sm.jpg"
+texture g "rorschach/5_blood01_hm.jpg"
+texcolor .5 .5 .5
+
+//clearpostfx
+
+//cgrade_shadows_r = 1;
+//cgrade_shadows_g = 1.1;
+//cgrade_shadows_b = 1.1;
+
+//cgrade_midtones_r = 1.4;
+//cgrade_midtones_g = 1.1;
+//cgrade_midtones_b = 1;
+
+//cgrade_highlights_r = 1.3;
+//cgrade_highlights_g = 1.1;
+//cgrade_highlights_b = 0.8;
+
+//addpostfx colorgrade_shadows 0 0 0 $cgrade_shadows_r $cgrade_shadows_g $cgrade_shadows_b 0;
+//addpostfx colorgrade_midtones 0 0 0 $cgrade_midtones_r $cgrade_midtones_g $cgrade_midtones_b 0;
+//addpostfx colorgrade_highlights 0 0 0 $cgrade_highlights_r $cgrade_highlights_g $cgrade_highlights_b 0;
