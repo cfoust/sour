@@ -1,0 +1,20 @@
+mapsound "ambience/wind.ogg" 100 2
+
+loadsky "socksky/nightball"
+
+
+texturereset
+setshader stdworld
+
+texture 0 "ik2k/ik_sky_day_back.jpg"
+
+texture 0 "textures/ddb/conc1.jpg"
+texture n "textures/ddb/conc1_n.jpg"
+texture s "textures/ddb/conc1_s.jpg"
+
+exec "packages/philipk/package.cfg"
+exec packages\blikjebier\concrete\package.cfg
+exec packages\blikjebier\metal\package.cfg
+exec packages/subverse/package.cfg
+
+

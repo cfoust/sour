@@ -1,0 +1,21 @@
+mmodel mapmodels/khorne/trees/aspen1
+mmodel mapmodels/khorne/trees/aspen2
+mmodel mapmodels/khorne/trees/pine1
+mmodel mapmodels/khorne/trees/pine2
+mmodel mapmodels/khorne/trees/pine3
+mmodel mapmodels/khorne/trees/pine4
+mmodel mapmodels/khorne/plants/fern1
+mmodel mapmodels/khorne/plants/flax
+mmodel mapmodels/khorne/plants/flaxblue
+mmodel mapmodels/khorne/plants/flaxyellow
+mmodel mapmodels/khorne/plants/foxglove
+mmodel mapmodels/khorne/plants/ladymantle
+mmodel mapmodels/khorne/plants/heatherpink
+mmodel mapmodels/khorne/plants/fern2
+mmodel mapmodels/khorne/plants/fern3
+mmodel mapmodels/khorne/plants/fern4
+mmodel mapmodels/khorne/plants/fern5
+mmodel mapmodels/khorne/plants/fern6
+texture 0 "aard/aardograss_1.jpg"
+autograss "grass/khornegrass.png"
+grassscale 1

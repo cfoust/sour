@@ -1,0 +1,23 @@
+// Works in all game modes. It reads 3 z-coordinates of camera (not actual player position) periodically
+// and calcs speed and acceleration.
+// If speed falls into danger zone ( fatalv <-> 1.25 fatalv ) checking for decceleration is enabled ; once decceleration occurs, player is killed. 
+
+// So any wild movement puts you in wounded state; there mild deccelarations kill. For even more realism secondary health
+// could be added. Once it is depleted, player is killed.
+
+// To prevent unnecessarr bugs use firstperson view and set thirdpersondistance 0. Note that fall speed ( as coded in source of game ) is 
+// not a function of fall height but but of the time spent falling.
+
+
+// Most of the "bugs" are explained away by noting use of camera position (not actual player position)
+// and falling time.
+
+
+
+// No more unrealistic falls; unforgiving jumppads. By tweaking fatalv player can become really fragile.
+// Real caution needed when playing with this.
+
+
+echo "TERMINAL VELOCITY by Ac"
+
+thirdpersondistance 0 // otherwise death when reviving if camera is up

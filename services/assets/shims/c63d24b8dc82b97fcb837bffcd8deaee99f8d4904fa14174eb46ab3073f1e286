@@ -1,0 +1,95 @@
+//Map by Lord Kv (also known as Mr.Kv)
+//Textures by Matt "Lunaran"  Breit
+maptitle Mine
+//mapmsg Ü"Urban Mine by Lord Kv"
+skylight 100 100 100
+ambient 0 30 33 35
+fog 600000
+fogcolour 0 0 0
+watercolour 128 128 128
+
+// |                                       |
+// | Thats the music command, remove "//"  |
+// V                                       V
+
+//music music/FrozenBabylon.ogg
+
+//loadsky staffy/staffy
+loadsky "blindabuser/blindasky2"
+//loadsky skyboxes/black
+
+alias base_1 "Blue forcefield"
+alias base_2 "Blue pit"
+alias base_3 "Blue road"
+alias base_4 "Blue tower"
+alias base_5 "Blue cave"
+alias base_6 "Red forcefield"
+alias base_7 "Red pit"
+alias base_8 "Red road"
+alias base_9 "Red tower"
+alias base_10 "Red cave"
+
+texturereset
+exec packages/rocket/textures.cfg
+texture 0 "golgotha/water2.jpg"
+texscroll 0.5 0
+texture 0 "golgotha/water2.jpg"
+texscroll -0.5 0
+texture 0 "golgotha/water2.jpg"
+texscroll 0 0.5
+texture 0 "golgotha/water2.jpg"
+texscroll 0 -0.5
+
+cloudlayer skyboxes/clouds02
+cloudscale .3
+cloudalpha .5
+cloudfade 1.0
+cloudscrollx .02
+cloudscrolly .02
+cloudheight .07
+cloudcolour 0x777777
+
+mapsound "blindabuser/rain.ogg" 200 1
+
+setshader pulseglowworld
+setshaderparam "glowcolor" .7 .7 .7	// glow color
+setshaderparam "pulseglowspeed" .5	// pulse frequency (Hz)
+setshaderparam "pulseglowcolor" F F F	// pulse glow color
+texture 0 "lunaran/mech1_glow.jpg" 0 0 0 0
+texture g "lunaran/mech1_glow.jpg"
+texscroll 0 0
+
+setshader pulseglowworld
+setshaderparam "glowcolor" .7 .7 .7	// glow color
+setshaderparam "pulseglowspeed" 1 // pulse frequency (Hz)
+setshaderparam "pulseglowcolor" F F F	// pulse glow color
+texture 0 "lunaran/mech1_glow.jpg" 0 0 0 0
+texture g "lunaran/mech1_glow.jpg"
+texscroll 0 0
+
+setshader pulseglowworld
+setshaderparam "glowcolor" .7 .7 .7	// glow color
+setshaderparam "pulseglowspeed" 2	// pulse frequency (Hz)
+setshaderparam "pulseglowcolor" F F F	// pulse glow color
+texture 0 "lunaran/mech1_glow.jpg" 0 0 0 0
+texture g "lunaran/mech1_glow.jpg"
+texscroll 0 0
+
+setshader bumpspecmapparallaxworld
+
+texture 0 "rocket/5_blood01_blue.jpg"
+texture n "rocket/5_blood01_blue_nm.jpg"
+texture z "rocket/5_blood01_blue_hm.jpg"
+texture s "rocket/5_blood01_blue_sm.jpg"
+
+texture 0 "rocket/5_blood01_red.jpg"
+texture n "rocket/5_blood01_blue_nm.jpg"
+texture z "rocket/5_blood01_blue_hm.jpg"
+texture s "rocket/5_blood01_blue_sm.jpg"
+
+setshader bumpspecmapparallaxworld
+
+texture 0 lunaran/hexflr1_d.jpg 0 32 96
+texture n lunaran/hexflr1_local.jpg 0 32 96
+texture s lunaran/hexflr1_s.jpg 0 32 96
+texture z lunaran/hexflr1_h.jpg 0 32 96
