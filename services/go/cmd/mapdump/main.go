@@ -242,7 +242,7 @@ func (vslot *VSlot) AddVariant(slot *Slot) {
 func NewVSlot(owner *Slot, index int32) *VSlot {
 	vslot := VSlot{
 		Index: index,
-		Slot: owner,
+		Slot:  owner,
 	}
 	if owner != nil {
 		vslot.AddVariant(owner)
@@ -1343,6 +1343,10 @@ func main() {
 		for _, path := range slot.Sts {
 			addFile(path.Name)
 		}
+	}
+
+	for _, file := range processor.Files {
+		addFile(file)
 	}
 
 	for _, sound := range processor.Sounds {
