@@ -1,0 +1,16 @@
+// Round Hell by SheeEttin
+
+fogcolour 12591120 // 0x8099B3
+fog 800
+//loadsky skyboxes/evilsky 2
+
+setshader stdworld
+texture 0 rorschach/5_trim02.jpg 0 32 32
+
+setshader glowworld
+texture 0 evil_textures/e7sbrickfloor_jump.jpg 0 0 128 .5
+texture g evil_textures/e7sbrickfloor_jump_glow.jpg 0 0 128 5
+texture 0 evil_textures/e7sbrickfloor_jump.jpg 0 128 0 .5
+texture g evil_textures/e7sbrickfloor_jump_glow.jpg 0 128 0 5
+
+mapsound sheeettin/whispers.ogg 255

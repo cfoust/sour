@@ -1,0 +1,135 @@
+mapmodelreset                                           // start counting from 0 again
+
+mmodel "dcp/tree2"			// 0
+mmodel "dcp/tree3"
+mmodel "dcp/palmtree"
+mmodel "dcp/thorns"
+mmodel "dcp/plant1"
+mmodel "dcp/grass"
+mmodel "dcp/ivy"
+mmodel "dcp/barrel"
+mmodel "dcp/streetlamp"			// 9
+mmodel "dcp/bench"
+mmodel "dcp/pillar"
+mmodel "dcp/waterbowl"
+mmodel "dcp/jumppad2"
+mmodel "dcp/leafs"
+mmodel "dcp/valve"
+mmodel "dcp/palette"
+mmodel "dcp/vent"
+mmodel "dcp/mushroom"
+mmodel "dcp/biotank"			// 19
+mmodel "dcp/groundlamp"
+mmodel "dcp/console"
+mmodel "switch1"
+mmodel "dcp/cask"
+mmodel "dcp/cart"
+mmodel "dcp/candle"
+mmodel "dcp/vase"
+mmodel "dcp/sack"
+mmodel "dcp/chandelier"
+mmodel "dcp/chest"			// 29
+mmodel "dcp/firebowl"
+mmodel "dcp/smplant"
+mmodel "dcp/insect"
+mmodel "dcp/reed"
+mmodel "tentus/food-drink/goblet"
+mmodel "tentus/food-drink/apple"
+mmodel "tentus/food-drink/pear"
+mmodel "tentus/food-drink/appleslice"
+mmodel "tentus/food-drink/meat"
+mmodel "tentus/food-drink/bowl"		// 39
+mmodel "tentus/food-drink/pieslice"
+mmodel "tentus/food-drink/mug"
+mmodel "tentus/food-drink/winebottle"
+mmodel "tentus/food-drink/pie"
+mmodel "tentus/books/flat"
+mmodel "tentus/books/multi"
+mmodel "tentus/chains/chain"
+mmodel "tentus/chains/curvechain"
+mmodel "tentus/barrel"
+mmodel "tentus/sidebarrel"		// 49
+mmodel "tentus/pot1"
+mmodel "tentus/rope"
+mmodel "tentus/ropelamp"
+mmodel "tentus/ladder"
+mmodel "tentus/fattree"
+mmodel "tentus/moneybag"
+mmodel "tentus/woodbench"
+mmodel "tentus/hammer"
+mmodel "tentus/anvil"
+mmodel "tentus/key"			// 59
+mmodel "tentus/greenshield"
+mmodel "objects/window01"
+mmodel "objects/sign01"
+mmodel "objects/lamp01"
+mmodel "objects/chair01"
+mmodel "objects/bed01"
+mmodel "vegetation/tree00"
+mmodel "vegetation/tree01"
+mmodel "vegetation/bush01"
+mmodel "vegetation/tree02"		// 69
+mmodel "vegetation/tree04"
+mmodel "vegetation/tree05"
+mmodel "vegetation/tree06"
+mmodel "vegetation/tree07"
+mmodel "vegetation/tree03"
+mmodel "objects/window02/window02_1"
+mmodel "objects/window02/window02_2"
+mmodel "objects/bench01"
+mmodel "objects/lantern01"
+mmodel "objects/lantern02"		// 79
+mmodel "objects/woodchop"
+mmodel "objects/table01"
+mmodel "objects/torch"
+mmodel "objects/torch_cold"
+mmodel "objects/fire"
+mmodel "objects/sail01"
+mmodel "objects/well_base"
+mmodel "objects/well_roof"
+mmodel "objects/lamp02"
+mmodel "objects/med_chand"		// 89
+mmodel "xeno/box1"
+mmodel "xeno/box2"
+mmodel "fish"
+mmodel "vegetation/tree08"
+mmodel "vegetation/tree09"
+mmodel "vegetation/tree10"
+mmodel "vegetation/tree11"
+mmodel "vegetation/tree12"
+mmodel "vegetation/weeds"
+					//99
+mapsound freesound/fireplace 255 32767
+mapsound freesound/waterfall 200 32767
+mapsound freesound/crickets 200 32767
+mapsound freesound/waterdrops 255 32767
+mapsound ../hirato/sounds/forest/freesound/undertreeinrain 175 32767
+
+texturereset    // starts the texture slot/index at 0
+
+setshader stdworld   // use default world shader unless specified otherwise
+
+texture 0 "hirato/skybox/green_lf.jpg"
+
+texture 0 "aard/aardograss_1.jpg"
+autograss "hirato/greengrass.png"
+
+setshader decalworld
+
+texture 0 "golgotha/water2.jpg"
+texscroll .3 .1
+texture 1 hirato/water2over.png
+
+setshader bumpparallaxworld
+
+texture 0 "hirato/woodwall.jpg"
+texture z "hirato/woodwall_z.jpg"
+texture n "hirato/woodwall_n.jpg"
+
+
+skybox hirato/skybox/green
+music hirato/music/forest/Transition.ogg
+
+waterfog 40
+fog 1000
+fogcolour 0x3d5f44

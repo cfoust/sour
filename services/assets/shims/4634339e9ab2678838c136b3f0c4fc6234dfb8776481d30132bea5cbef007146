@@ -1,0 +1,167 @@
+// --------------------------------------------------------------
+// Carcosa Dread Enclave (capture version) 
+//                                  created with joint efforts by
+//                                          apflstrudl & MeatROme
+// --------------------------------------------------------------
+// release 002 : 2008-02-06
+// --------------------------------------------------------------
+
+loadsky "aftas/sky/orbe"
+
+setshader glowworld
+	setpixelparam 0 0.8 0.8 0.8
+	texture 0 "cde/stripe.jpg"
+	texture g "cde/stripe_g.jpg"
+	texture 0 "cde/stripeslide.jpg"
+	texture g "cde/stripeslide_g.jpg"
+
+	texture 0 "cde/stripe.jpg" 1
+	texture g "cde/stripe_g.jpg" 1
+	texture 0 "cde/stripeslide.jpg" 1
+	texture g "cde/stripeslide_g.jpg" 1
+
+	texture 0 "cde/stripe.jpg" 4
+	texture g "cde/stripe_g.jpg" 4
+	texture 0 "cde/stripeslide.jpg" 4
+	texture g "cde/stripeslide_g.jpg" 4
+
+	texture 0 "cde/stripe.jpg" 5
+	texture g "cde/stripe_g.jpg" 5
+	texture 0 "cde/stripeslide.jpg" 5
+	texture g "cde/stripeslide_g.jpg" 5
+
+setshader decalworld
+	texture c "tech1soc/met_wall01a.jpg"
+	texture d "cde/decal0.png"
+
+setshader glowworld
+	setpixelparam 0 0.4 0.4 1.2
+	texture 0 "tech1soc/032lig12bb.jpg"
+	texture g "4b/032lig12bb_glow.jpg"
+
+setshader stdworld
+
+	texture 0 "lunaran/panel64_4_d.jpg" 1
+	texture 0 "lunaran/panel64_4_d.jpg" 4
+	texture 0 "lunaran/panel64_4_d.jpg" 5
+	texture 0 "lunaran/panel64_4_d.jpg" 2
+
+setshader glowworld
+	setpixelparam 0 1.0 1.0 0.6
+	texture 0 "ikbase/ik_gtrimh_lit1a.jpg"
+	texture g "cde/ik_gtrimh_lit1a_g.jpg"
+	texture 0 "ikbase/ik_gtrimh_lit1a.jpg" 1
+	texture g "cde/ik_gtrimh_lit1a_g.jpg" 1
+
+setshader glowworld
+	setpixelparam 0 1.0 1.0 1.0
+	texture 0 "tech1soc/sqrlig02wb.jpg"
+	texture g "cde/sqrlig02wb_g.jpg"
+
+setshader pulseglowworld
+    setvertexparam 0 1.8 1.0 1.0 
+    setvertexparam 1 .25 
+    setvertexparam 2 0.9 0.5 0.5 
+	texture 0 "ikbase/ik_gtrimh_lit1a.jpg"
+	texture g "cde/ik_gtrimh_lit1a_g.jpg"
+	texture 0 "ikbase/ik_gtrimh_lit1a.jpg" 1
+	texture g "cde/ik_gtrimh_lit1a_g.jpg" 1
+
+setshader pulseglowworld
+    setvertexparam 0 0.8 0.8 0.5
+    setvertexparam 1 125
+    setvertexparam 2 0.2 0.2 0.1
+	texture 0 "ikbase/ik_gtrimh_lit1a.jpg"
+	texture g "cde/ik_gtrimh_lit1a_g.jpg"
+	texture 0 "ikbase/ik_gtrimh_lit1a.jpg" 1
+	texture g "cde/ik_gtrimh_lit1a_g.jpg" 1
+
+setshader stdworld
+
+	texture 0 "ikbase/ik_itrimv_128b.jpg" 1
+	texture 0 "cde/portal001.jpg" 0 64 240 0.6
+	texture 0 "cde/portal002.jpg" 0 0 192 0.6
+	texture 0 "rorschach/5_light01b.jpg" 0 32 32
+
+setshader glowworld
+	setpixelparam 0 0.6 0.6 0.9
+	texture 0 "tech1soc/octlig01bc.jpg" 0 64
+	texture g "cde/sqrlig02wb_g.jpg" 0 64
+	
+setshader bumpspecmapparallaxglowworld
+
+	texture 0 "lunaran/light_flouro0_d.jpg" 1 128
+	texture n "lunaran/light_flouro0_local.jpg" 1 128
+	texture s "lunaran/light_flouro0_s.jpg" 1 128
+	texture g "lunaran/light_flouro0_g.jpg" 1 128
+	texture z "lunaran/light_flouro0_h.jpg" 1 128
+
+setshader bumpspecmapparallaxworld
+
+	texture 0 "gibbie/base15_d.jpg" 0 0 64
+	texture n "gibbie/base15_local.jpg" 0 0 64
+	texture s "gibbie/base15_s.jpg" 0 0 64
+	texture z "gibbie/base15_h.jpg" 0 0 64
+
+setshader pulseglowworld
+	setvertexparam 0 2.0 1.0 0.5 
+	setvertexparam 1 3 
+	setvertexparam 2 0 0 0 
+	texture 0 "aard/aardfdry256_1.jpg" 
+	texture g "cde/aardfdry256_l.jpg"  
+	texture 0 "aard/aardfdry256_1.jpg" 1 
+	texture g "cde/aardfdry256_l.jpg" 1 
+
+setshader pulseglowworld
+	setvertexparam 0 1.2 0.7 0.2 
+	setvertexparam 1 0.5 
+	setvertexparam 2 0.8 0.4 0.11 
+	texture 0 "aard/aardfdry256_1.jpg" 
+	texture g "cde/aardfdry256_l.jpg"  
+	texture 0 "aard/aardfdry256_1.jpg" 1 
+	texture g "cde/aardfdry256_l.jpg" 1 
+
+setshader pulseglowworld
+	setvertexparam 0 0.8 0.8 0 
+	setvertexparam 1 130 
+	setvertexparam 2 0.8 0.4 0 
+	texture 0 "aard/aardfdry256_1.jpg" 
+	texture g "cde/aardfdry256_l.jpg"  
+	texture 0 "aard/aardfdry256_1.jpg" 1 
+	texture g "cde/aardfdry256_l.jpg" 1 
+
+setshader lava
+	texture 0 "aard/aardfdry256_1.jpg"
+	texture 0 "aard/aardfdry256_1.jpg" 1
+
+setshader stdworld
+
+// --------------------------------------------------------------
+
+// --------------------------------------------------------------
+
+mapsound "ambience/wind.ogg" 152 -1 // 0
+mapsound "ambience/hum.ogg" 152 -1
+mapsound "kaiser/fx/hum1.wav" 152 -1
+mapsound "kaiser/fx/hum2.wav" 152 -1 // 3
+mapsound "kaiser/fx/hum3.wav" 152 -1
+mapsound "kaiser/fx/hum4.wav" 152 -1
+mapsound "kaiser/fx/hum5.wav" 152 -1 // 6
+mapsound "kaiser/fx/hum6.wav" 152 -1
+mapsound "kaiser/fx/hum7.wav" 152 -1
+mapsound "ambience/wind.ogg" 64 -1 // 9
+mapsound "kaiser/fx/hum6.wav" 96 -1
+mapsound "kaiser/fx/hum6.wav" 64 -1
+mapsound "kaiser/fx/hum4.wav" 64 -1 // 12
+mapsound "kaiser/fx/hum5.wav" 64 -1
+mapsound "kaiser/fx/hum2.wav" 64 -1
+
+// --------------------------------------------------------------
+
+// --------------------------------------------------------------
+
+// --------------------------------------------------------------
+
+// you might want to use these in your autoexec.cfg ... but currently only cde_c uses it .. *shrug*
+
+// --------------------------------------------------------------
