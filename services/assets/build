@@ -6,4 +6,5 @@ cd "$SCRIPT_DIR"
 
 set -e
 
-python3 base.py complex teahupoo fallen
+./setup
+python3 base.py complex dust2 turbine
