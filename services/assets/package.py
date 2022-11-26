@@ -228,6 +228,7 @@ def get_map_files(map_file: str, roots: List[str]) -> List[Mapping]:
         parts = line.split('->')
 
         if len(parts) != 2: continue
+        if path.isdir(parts[0]): continue
         files.append((parts[0], parts[1]))
 
     return files
