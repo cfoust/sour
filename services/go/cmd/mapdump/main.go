@@ -242,6 +242,7 @@ func (vslot *VSlot) AddVariant(slot *Slot) {
 func NewVSlot(owner *Slot, index int32) *VSlot {
 	vslot := VSlot{
 		Index: index,
+		Slot: owner,
 	}
 	if owner != nil {
 		vslot.AddVariant(owner)
@@ -429,6 +430,8 @@ func (processor *Processor) Texture(textureType string, name string) {
 	if isDiffuse && opt.IsNone(material) {
 		vslot := processor.EmptyVSlot(slot)
 		var changed int32 = (1 << maps.VSLOT_NUM) - 1
+
+		//log.Printf("%s -> %d", name, vslot.Index)
 
 		// propagatevslot
 		next := vslot.Next
