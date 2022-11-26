@@ -82,7 +82,7 @@ export enum RequestType {
 
 export type AssetEnvironmentRequest = {
   op: RequestType.Environment
-  ASSET_PREFIX: string
+  ASSET_SOURCE: string
 }
 
 export type AssetLoadRequest = {

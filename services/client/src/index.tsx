@@ -184,7 +184,7 @@ function App() {
 
     worker.postMessage({
       op: AssetRequestType.Environment,
-      ASSET_PREFIX: process.env.ASSET_PREFIX,
+      ASSET_SOURCE: process.env.ASSET_SOURCE,
     })
 
     worker.onmessage = (evt) => {

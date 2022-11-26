@@ -15,12 +15,12 @@ import { getBundle as getSavedBundle, saveBundle, haveBundle } from './storage'
 
 class PullError extends Error {}
 
-let ASSET_PREFIX: string = ''
+let ASSET_SOURCE: string = ''
 let bundleIndex: Maybe<Record<string, string>> = null
 let pullState: BundleState[] = []
 
 async function fetchIndex(): Promise<Record<string, string>> {
-  const response = await fetch(`${ASSET_PREFIX}index.json`)
+  const response = await fetch(`${ASSET_SOURCE}index.json`)
   const index = await response.json()
 
   const newIndex: Record<string, string> = {}
@@ -85,12 +85,12 @@ function unpackBundle(data: ArrayBuffer): Bundle {
 }
 
 function cleanPath(): string {
-  const lastSlash = ASSET_PREFIX.lastIndexOf('/')
+  const lastSlash = ASSET_SOURCE.lastIndexOf('/')
   if (lastSlash === -1) {
     return ''
   }
 
-  return ASSET_PREFIX.slice(0, lastSlash + 1)
+  return ASSET_SOURCE.slice(0, lastSlash + 1)
 }
 
 async function fetchBundle(
@@ -199,8 +199,8 @@ self.onmessage = (evt) => {
   const request: AssetRequest = data
 
   if (request.op === RequestType.Environment) {
-    const { ASSET_PREFIX: newPrefix } = request
-    ASSET_PREFIX = newPrefix
+    const { ASSET_SOURCE: newPrefix } = request
+    ASSET_SOURCE = newPrefix
     ;(async () => {
       bundleIndex = await fetchIndex()
 

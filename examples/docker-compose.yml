@@ -10,7 +10,7 @@ services:
       VIRTUAL_PORT: 1234
       LETSENCRYPT_HOST: sourga.me
       LETSENCRYPT_EMAIL: XXXXXXX
-      ASSET_PREFIX: https://d2pz4qr8rxo7le.cloudfront.net/2bfc017.
+      ASSET_SOURCE: https://d2pz4qr8rxo7le.cloudfront.net/2bfc017.index.json
       GAME_SERVER: wss://server.sourga.me
     stdin_open: True
     tty: True

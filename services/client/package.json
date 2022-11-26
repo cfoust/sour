@@ -7,8 +7,8 @@
   "license": "MIT",
   "scripts": {
     "serve": "./scripts/serve",
-    "serve:site": "ASSET_PREFIX='/assets/.' yarn run parcel watch --target default -p 1239",
-    "build": "ASSET_PREFIX='__ASSET_PREFIX__' yarn run parcel build --target default"
+    "serve:site": "ASSET_SOURCE='/assets/.index.json' yarn run parcel watch --target default -p 1239",
+    "build": "ASSET_SOURCE='__ASSET_SOURCE__' yarn run parcel build --target default"
   },
   "devDependencies": {
     "@types/node": "^18.7.4",

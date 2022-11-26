@@ -43,7 +43,7 @@ declare const FS: {
   unlink: (file: string) => void
 }
 
-declare const ASSET_PREFIX: string
+declare const ASSET_SOURCE: string
 declare const GAME_SERVER: string
 
 type BananaBreadType = {
