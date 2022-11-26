@@ -1,4 +1,4 @@
-import package
+import sys
 import shutil
 import glob
 from os import path
@@ -8,6 +8,7 @@ import json
 import tempfile
 import subprocess
 
+import package
 
 class File(NamedTuple):
     url: str
@@ -87,6 +88,12 @@ def get_jobs(file: File) -> List[BuildJob]:
 
 
 if __name__ == "__main__":
+    args = sys.argv
+
+    node_targets = []
+    if len(args) > 1:
+        node_targets = list(map(lambda a: int(a), args[1:]))
+
     outdir = os.getenv("ASSET_OUTPUT_DIR", "output/quad")
     prefix = os.getenv("PREFIX")
     quaddir = 'quadropolis'
@@ -110,6 +117,7 @@ if __name__ == "__main__":
     jobs: List[BuildJob] = []
     for node in nodes:
         _id = node['id']
+        if node_targets and not _id in node_targets: continue
         files = node['files']
 
         image = None
@@ -195,6 +203,7 @@ if __name__ == "__main__":
                     subprocess.run(
                         [
                             "unzip",
+                            "-n",
                             target,
                             "-d",
                             tmpdir
@@ -221,10 +230,15 @@ if __name__ == "__main__":
                     continue
 
                 map_roots = list(map(lambda v: path.join(tmpdir, v), job.roots)) + roots
+                target_map = path.join(tmpdir, map_path)
+
+                if not path.exists(target_map):
+                    print('Archive %s did not contain %s' % (job.file_name, map_path))
+                    continue
 
                 try:
                     map_bundle = package.build_map_bundle(
-                        path.join(tmpdir, map_path),
+                        target_map,
                         map_roots,
                         outdir
                     )
@@ -234,6 +248,8 @@ if __name__ == "__main__":
                     elif 'invalid header' in str(e):
                         print('Map had invalid gzip header')
                         continue
+                    else:
+                        raise e
 
                 map_image = map_bundle.image if map_bundle.image else image
 
