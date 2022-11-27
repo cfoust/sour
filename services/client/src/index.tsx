@@ -266,17 +266,6 @@ function App() {
       } else if (message.op === AssetResponseType.Index) {
         const { index } = message
         bundleIndexRef.current = index
-
-        const {
-          location: { search: params },
-        } = window
-
-        if (params.length == 0) return
-        const parsedParams = new URLSearchParams(params)
-        if (!parsedParams.has('cmd')) return
-        const cmd = parsedParams.get('cmd')
-        if (cmd == null) return
-        setTimeout(() => BananaBread.execute(cmd), 0)
       }
     }
 
@@ -444,6 +433,10 @@ function App() {
         loadMapData(map)
       }
 
+      if (text.startsWith('main loop blocker')) {
+        return
+      }
+
       console.log(text)
     }
   }, [])
@@ -489,6 +482,17 @@ function App() {
     Module.onGameReady = () => {
       if (cachedServers == null) return
       injectServers(cachedServers)
+
+      const {
+        location: { search: params },
+      } = window
+
+      if (params.length == 0) return
+      const parsedParams = new URLSearchParams(params)
+      if (!parsedParams.has('cmd')) return
+      const cmd = parsedParams.get('cmd')
+      if (cmd == null) return
+      setTimeout(() => BananaBread.execute(cmd), 0)
     }
 
     ws.onmessage = (evt) => {

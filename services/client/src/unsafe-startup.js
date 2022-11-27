@@ -57,6 +57,13 @@ export default function start() {
       console.error(text)
     },
     setStatus: function (text) {
+      if (
+        text.startsWith('Preparing...') ||
+        text.startsWith('All downloads') ||
+        text.startsWith('Please wait...') ||
+        text.length === 0
+      )
+        return
       console.log(text)
     },
     totalDependencies: 0,
