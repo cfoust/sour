@@ -378,14 +378,20 @@ function App() {
         return
       }
 
-      const match = mapFile.filename.match(/packages\/base\/(.+).ogz/)
-
-      if (match == null) {
-        console.error(`Map file was not in base ${mapFile.filename}`)
+      const { filename } = mapFile
+      const match = filename.match(/packages\/base\/(.+).ogz/)
+      if (match != null) {
+        loadMap(match[1])
         return
       }
 
-      loadMap(match[1])
+      const PACKAGES_PREFIX = '/packages/'
+      if (filename.startsWith(PACKAGES_PREFIX)) {
+        loadMap(filename.slice(PACKAGES_PREFIX.length))
+        return
+      }
+
+      console.error(`Map file was not in base ${mapFile.filename}`)
     }
 
     Module.print = (text) => {
@@ -492,6 +498,7 @@ function App() {
       if (!parsedParams.has('cmd')) return
       const cmd = parsedParams.get('cmd')
       if (cmd == null) return
+      console.log(cmd)
       setTimeout(() => BananaBread.execute(cmd), 0)
     }
 
