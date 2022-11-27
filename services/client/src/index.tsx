@@ -144,7 +144,7 @@ type BundleRequest = {
 function getValidMaps(sources: AssetSource[]): string[] {
   return R.pipe(
     R.chain((source: AssetSource) => source.maps),
-    R.map((map: GameMap) => map.name)
+    R.chain((map: GameMap) => [map.name, ...map.aliases])
   )(sources)
 }
 
