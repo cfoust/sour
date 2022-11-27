@@ -1,3 +1,5 @@
+declare module 'cbor-js'
+
 type PreloadFile = {
   filename: string
   start: number
@@ -30,11 +32,30 @@ type ModuleType = {
   setCanvasSize: ((width: number, height: number) => void) | null
   setStatus: (text: string) => void
   tweakDetail: () => void
+  isValidMap: (map: string) => number
 
   calledRun: boolean
   FS_createPath: (...path: Array<string, boolean>) => void
-  FS_createPreloadedFile: (parent: string, name: Maybe<string>, url: string | Uint8Array, canRead: boolean, canWrite: boolean, onload: () => void, onerror: () => void, dontCreateFile: boolean, canOwn: boolean, preFinish?: () => void) => void
-  FS_createDataFile: (parent: string, name: string, something: string, canRead: boolean, canWrite: boolean, canOwn: boolean) => void
+  FS_createPreloadedFile: (
+    parent: string,
+    name: Maybe<string>,
+    url: string | Uint8Array,
+    canRead: boolean,
+    canWrite: boolean,
+    onload: () => void,
+    onerror: () => void,
+    dontCreateFile: boolean,
+    canOwn: boolean,
+    preFinish?: () => void
+  ) => void
+  FS_createDataFile: (
+    parent: string,
+    name: string,
+    something: string,
+    canRead: boolean,
+    canWrite: boolean,
+    canOwn: boolean
+  ) => void
   addRunDependency: (dependency: string) => void
 }
 declare const Module: ModuleType

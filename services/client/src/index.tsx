@@ -141,6 +141,13 @@ type BundleRequest = {
   promiseSet: PromiseSet<void>
 }
 
+function getValidMaps(sources: AssetSource[]): string[] {
+  return R.pipe(
+    R.chain((source: AssetSource) => source.maps),
+    R.map((map: GameMap) => map.name)
+  )(sources)
+}
+
 function App() {
   const [state, setState] = React.useState<GameState>({
     type: GameStateType.PageLoading,
@@ -314,6 +321,14 @@ function App() {
       BananaBread.execute('spawnitems')
     }
 
+    // We want Sauerbraten to behave as though all of the available maps were
+    // already mapped into packages/base/*.ogz, so it needs to be able to check
+    // whether a map is valid before loading it
+    Module.isValidMap = (map: string): number => {
+      const maps = getValidMaps(bundleIndexRef.current ?? [])
+      return maps.includes(map) ? 1 : 0
+    }
+
     const loadMapData = async (map: string) => {
       if (loadingMap === map) return
       loadingMap = map
@@ -378,11 +393,7 @@ function App() {
       }
 
       if (text === 'load random map') {
-        const sources: AssetSource[] = bundleIndexRef.current ?? []
-        const maps: string[] = R.pipe(
-          R.chain((source: AssetSource) => source.maps),
-          R.map((map: GameMap) => map.name)
-        )(sources)
+        const maps = getValidMaps(bundleIndexRef.current ?? [])
         const map = maps[Math.floor(maps.length * Math.random())]
         setTimeout(() => BananaBread.execute(`map ${map}`), 0)
       }
