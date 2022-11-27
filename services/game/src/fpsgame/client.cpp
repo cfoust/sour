@@ -577,6 +577,10 @@ namespace game
     void changemap(const char *name, int mode) // request map change, server may ignore
     {
         static string s;
+        if (strcmp(name, "random") == 0) {
+            conoutf("load random map");
+            return;
+        }
         formatstring(s, "packages/base/%s.stub", name);
         if (strlen(name) > 0 && !fileexists(s, "r")) {
             conoutf(CON_ERROR, "Map %s does not exist or not built for Sour", name);

@@ -21,8 +21,11 @@ import type { GameState } from './types'
 import { GameStateType } from './types'
 import type {
   AssetResponse,
+  GameMap,
+  AssetSource,
   IndexResponse,
   Bundle,
+  BundleIndex,
   BundleState,
   BundleDownloadingState,
 } from './assets/types'
@@ -148,6 +151,7 @@ function App() {
 
   const assetWorkerRef = React.useRef<Worker>()
   const requestStateRef = React.useRef<BundleRequest[]>([])
+  const bundleIndexRef = React.useRef<BundleIndex>()
 
   const loadData = React.useCallback(async (target: string) => {
     const { current: assetWorker } = assetWorkerRef
@@ -254,8 +258,12 @@ function App() {
         })()
       } else if (message.op === AssetResponseType.Index) {
         const { index } = message
+
+        bundleIndexRef.current = index
+
         Module.FS_createPath('/', 'packages', true, true)
         Module.FS_createPath('/packages/', 'base', true, true)
+
         for (const source of index) {
           for (const map of source.maps) {
             try {
@@ -267,8 +275,8 @@ function App() {
                 true,
                 true
               )
-            } catch(e) {
-              console.log(e);
+            } catch (e) {
+              console.log(e)
             }
           }
         }
@@ -367,6 +375,16 @@ function App() {
           type: GameStateType.Ready,
         })
         Module.onGameReady()
+      }
+
+      if (text === 'load random map') {
+        const sources: AssetSource[] = bundleIndexRef.current ?? []
+        const maps: string[] = R.pipe(
+          R.chain((source: AssetSource) => source.maps),
+          R.map((map: GameMap) => map.name)
+        )(sources)
+        const map = maps[Math.floor(maps.length * Math.random())]
+        setTimeout(() => BananaBread.execute(`map ${map}`), 0)
       }
 
       if (text === 'connected to server') {
