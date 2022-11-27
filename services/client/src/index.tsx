@@ -266,6 +266,17 @@ function App() {
       } else if (message.op === AssetResponseType.Index) {
         const { index } = message
         bundleIndexRef.current = index
+
+        const {
+          location: { search: params },
+        } = window
+
+        if (params.length == 0) return
+        const parsedParams = new URLSearchParams(params)
+        if (!parsedParams.has('cmd')) return
+        const cmd = parsedParams.get('cmd')
+        if (cmd == null) return
+        setTimeout(() => BananaBread.execute(cmd), 0)
       }
     }
 
