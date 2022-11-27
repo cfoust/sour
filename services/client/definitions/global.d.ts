@@ -33,6 +33,7 @@ type ModuleType = {
   setStatus: (text: string) => void
   tweakDetail: () => void
   isValidMap: (map: string) => number
+  isMountedFile: (file: string) => number
 
   calledRun: boolean
   FS_createPath: (...path: Array<string, boolean>) => void

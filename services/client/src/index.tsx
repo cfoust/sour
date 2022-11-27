@@ -138,7 +138,7 @@ async function mountBundle(target: string, bundle: Bundle): Promise<void> {
 
 type BundleRequest = {
   id: string
-  promiseSet: PromiseSet<void>
+  promiseSet: PromiseSet<Bundle>
 }
 
 function getValidMaps(sources: AssetSource[]): string[] {
@@ -167,7 +167,7 @@ function App() {
     const { current: requests } = requestStateRef
 
     const id = target
-    const promiseSet = breakPromise<void>()
+    const promiseSet = breakPromise<Bundle>()
 
     requestStateRef.current = [
       ...requests,
@@ -256,7 +256,7 @@ function App() {
             promiseSet: { resolve },
           } = request
 
-          resolve()
+          resolve(bundle)
 
           requestStateRef.current = R.filter(
             ({ id: otherId }) => id !== otherId,
@@ -265,28 +265,7 @@ function App() {
         })()
       } else if (message.op === AssetResponseType.Index) {
         const { index } = message
-
         bundleIndexRef.current = index
-
-        Module.FS_createPath('/', 'packages', true, true)
-        Module.FS_createPath('/packages/', 'base', true, true)
-
-        for (const source of index) {
-          for (const map of source.maps) {
-            try {
-              Module.FS_createDataFile(
-                'packages/base/',
-                `${map.name}.stub`,
-                '',
-                true,
-                true,
-                true
-              )
-            } catch (e) {
-              console.log(e)
-            }
-          }
-        }
       }
     }
 
@@ -329,6 +308,16 @@ function App() {
       return maps.includes(map) ? 1 : 0
     }
 
+    Module.isMountedFile = (filename: string): number => {
+      const found = R.pipe(
+        R.chain((node: PreloadNode) => node.files),
+        R.find(
+          (file) => file.filename == filename || file.filename == `/${filename}`
+        )
+      )(nodes)
+      return found != null ? 1 : 0
+    }
+
     const loadMapData = async (map: string) => {
       if (loadingMap === map) return
       loadingMap = map
@@ -357,25 +346,46 @@ function App() {
         need
       )
 
-      const loadMap = () => {
+      const loadMap = (realMap: string) => {
         setTimeout(() => {
           loadingMap = null
           if (targetMap == null) {
-            BananaBread.loadWorld(map)
+            BananaBread.loadWorld(realMap)
           } else {
-            BananaBread.loadWorld(targetMap, map)
+            BananaBread.loadWorld(targetMap, realMap)
             targetMap = null
           }
         }, 1000)
       }
 
       if (dontHave.length === 0) {
-        loadMap()
+        loadMap(map)
         return
       }
 
-      await loadData(map)
-      loadMap()
+      const bundle = await loadData(map)
+      if (bundle == null) {
+        console.error(`Failed to load bundle for map ${bundle}`)
+        return
+      }
+
+      const mapFile = R.find(
+        (file) => file.filename.endsWith('.ogz'),
+        bundle.files
+      )
+      if (mapFile == null) {
+        console.error('Could not find map file in bundle')
+        return
+      }
+
+      const match = mapFile.filename.match(/packages\/base\/(.+).ogz/)
+
+      if (match == null) {
+        console.error(`Map file was not in base ${mapFile.filename}`)
+        return
+      }
+
+      loadMap(match[1])
     }
 
     Module.print = (text) => {

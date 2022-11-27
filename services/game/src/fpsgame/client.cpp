@@ -1,5 +1,9 @@
 #include "game.h"
+
+#if __EMSCRIPTEN__
 #include <emscripten.h>
+#endif
+
 
 namespace game
 {
