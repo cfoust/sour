@@ -116,10 +116,49 @@ ws_ctx_t *ws_socket(ws_ctx_t *ctx, int socket) {
     ctx->sockfd = socket;
 }
 
+int getSO_ERROR(int fd) {
+	int err = 1;
+	socklen_t len = sizeof err;
+	if (-1 == getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *)&err, &len))
+		handler_msg("getSO_ERROR\n");
+	if (err) {
+		errno = err;              // set errno to the socket SO_ERROR
+		handler_msg("getsockopt err %d\n", err);
+	}
+	return err;
+}
+
+int fd_is_valid(int fd)
+{
+	    return fcntl(fd, F_GETFD) != -1 || errno != EBADF;
+}
+
+void close_socket(int fd) {      // *not* the Windows closesocket()
+	if (fd < 0) return;
+	getSO_ERROR(fd); // first clear any errors, which can cause close to fail
+
+	int result = shutdown(fd, SHUT_RDWR);
+	if (result != 0) {
+		handler_msg("shutdown errno=%d\n", errno);
+		// SGI causes EINVAL
+		if (errno != ENOTCONN && errno != EINVAL) {
+			handler_msg("shutdown\n");
+		}
+	}
+	result = close(fd);
+	if (result != 0) {
+		handler_msg("close errno=%d\n", errno);
+	}
+
+	if (fd_is_valid(fd)) {
+		handler_msg("fd %d leaked\n", fd);
+	}
+}
+
 int ws_socket_free(ws_ctx_t *ctx) {
     if (ctx->sockfd) {
-        shutdown(ctx->sockfd, SHUT_RDWR);
-        close(ctx->sockfd);
+		handler_msg("closing %d (sock)\n", ctx->sockfd);
+		close_socket(ctx->sockfd);
         ctx->sockfd = 0;
     }
 }
@@ -743,6 +782,7 @@ void start_server() {
             }
             break;   // Child process exits
         } else {         // parent process
+			close(csock);
             settings.handler_id += 1;
         }
     }
@@ -752,6 +792,7 @@ void start_server() {
             free_ws_ctx(ws_ctx);
         } else {
             shutdown(csock, SHUT_RDWR);
+			handler_msg("closing %d\n", csock);
             close(csock);
         }
         handler_msg("handler exit\n");
