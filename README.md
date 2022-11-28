@@ -61,22 +61,16 @@ If you want to run things locally (some people are old fashioned that way) all y
 Check out the roadmap below to see what you might be able to help with.
 
 ### General
-* [X] Remove base game assets from the repository
-  * [X] Script for building archives of mainline sauerbraten assets
 * [ ] Better documentation
   * [ ] Create a README for each directory in `services/`
-  * [X] Describe how asset generation works
 * [ ] Add `<noscript>` with a plea to enable JavaScript
 * [ ] Ensure Sour works in Firefox
 * [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Full Terraform support for deploying Sour
 * [ ] Allow parts of Sour to be configured with a high-level configuration file
-* [X] Utility for calculating all of the files maps use
-  * Right now this uses `strace` and mainline sauerbraten, which is imperfect
 * [ ] Investigate differences in font colors between the real Sauer and Sour
 ### Gameplay
 * [ ] Investigate and fix issues with real servers
-  * [ ] Sour edits the map (???) on connect, which forces client to spectate on some servers
   * [ ] CTF still doesn't work and flags don't show up
 * [ ] Allow for backgrounding the tab by responding to pings
 * [ ] Clean loading page for slow connections (ensure page load time isn't horrible)
@@ -89,8 +83,6 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Explore running Sour in a Web Worker rather than the rendering thread
 * [ ] Support all player models (right now it's just snout)
 * [ ] Modern, beautiful main menu
-* [X] Create archive of _all_ uploads to Quadropolis
-  * [ ] Allow for loading of arbitrary archives from Quadropolis
 ### Map editing
 * [ ] Repair or port shaders that were disabled in the game upgrade
   * [ ] Fix the outline shader (pressing 7 in edit mode)
