@@ -367,6 +367,7 @@ extern void adddecal(int type, const vec &center, const vec &surface, float radi
 // worldio
 #if __EMSCRIPTEN__
 // Separate in Emscripten because of how async world loading works
+extern bool async_loading_map;
 extern bool really_load_world(const char *mname, const char *cname = NULL);
 #endif
 extern bool load_world(const char *mname, const char *cname = NULL);

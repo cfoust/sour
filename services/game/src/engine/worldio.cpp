@@ -1028,11 +1028,13 @@ const char *load_world_cname;
 bool load_world_failed;
 // XXX EMSCRIPTEN: we don't want the game to render while we load the world
 bool loading_map_file = false; 
+bool async_loading_map = false; 
 
 bool load_world(const char *mname, const char *cname) {
     conoutf("load data for world: %s", mname);
 	renderprogress(0, "fetching map data...");
 	loading_map_file = true;
+	async_loading_map = true;
     return false;
 }
 
@@ -1051,12 +1053,7 @@ bool really_load_world(const char *mname, const char *cname)        // still sup
     }, ogzname);
 
 	stream *f = NULL;
-	if (result == 0) {
-		f = opengzfile(ogzname, "rb");
-	} else {
-        // We gunzip the OGZ file in parallel during preloading, to speed this up
-		f = openrawfile(ogzname, "rb");
-	}
+    f = opengzfile(ogzname, "rb");
 
     load_world_f = f;
     if(!f) { conoutf(CON_ERROR, "could not read map %s", ogzname); return false; }
@@ -1389,6 +1386,7 @@ void load_world_6(void *)
 
     if(maptitle[0] && strcmp(maptitle, "Untitled Map by Unknown")) conoutf(CON_ECHO, "%s", maptitle);
 
+	async_loading_map = false;
     startmap(cname ? cname : mname);
 
 #if __EMSCRIPTEN__

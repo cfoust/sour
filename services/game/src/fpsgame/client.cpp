@@ -1041,7 +1041,7 @@ namespace game
     void sendmessages()
     {
         packetbuf p(MAXTRANS);
-        if(sendcrc)
+        if(sendcrc && !async_loading_map)
         {
             p.reliable();
             sendcrc = false;
