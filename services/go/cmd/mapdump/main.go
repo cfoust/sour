@@ -979,7 +979,8 @@ func (processor *Processor) ProcessFile(file string) error {
 				break
 			}
 
-			textures, err := processor.ProcessModel(args[len(args)-1])
+			modelFile := args[len(args)-1]
+			textures, err := processor.ProcessModel(modelFile)
 
 			if err != nil {
 				log.Printf("Failed to process model %s", args[1])
@@ -1046,6 +1047,7 @@ func (processor *Processor) ProcessFile(file string) error {
 				log.Printf("Could not find %s", execPath)
 			} else {
 				err := processor.ProcessFile(resolved.Value)
+				processor.AddFile(resolved.Value)
 				if err != nil {
 					return err
 				}
