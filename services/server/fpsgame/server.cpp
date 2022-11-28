@@ -26,13 +26,11 @@ void out(int type, const char *fmt, ...)
         case ECHO_ALL:
         {
             server::sendservmsg(msg);
-            irc.speak(msg);
             puts(msg);
             break;
         }
         case ECHO_IRC:
         {
-            irc.speak(msg);
             break;
         }
         case ECHO_CONSOLE:
@@ -48,7 +46,6 @@ void out(int type, const char *fmt, ...)
         case ECHO_NOCOLOR:
         {
             puts(msg);
-            irc.speak(msg);
             break;
         }
         default:
@@ -2226,6 +2223,8 @@ namespace server {
             }
         }
     }
+    ICOMMAND(changemap, "si", (char *target, int *mode), { changemap(target, *mode); });
+
     void rotatemap(bool next)
     {
         if(!maprotations.inrange(curmaprotation))
