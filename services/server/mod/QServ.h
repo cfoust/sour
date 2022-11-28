@@ -8,7 +8,7 @@
 #include "../GeoIP/libGeoIP/GeoIP.h"
 #include <time.h>
 #include <pthread.h>
-#include "../ircbot/ircbot.h"
+#include "../socket/socket.h"
 #include <iostream>
 #include <sstream>
 

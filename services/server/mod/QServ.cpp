@@ -307,17 +307,7 @@ namespace server {
                 sendf(ci->clientnum, 1, "ris", N_SERVMSG, "\f3Error: Command not found. Use \f2\"#help\" \f3for a list of commands.");
                 return false;
             }
-        } else {
-            
-            if(strlen(ftb) < 1024 && irc.isConnected()) {
-                irc.speak("%s(%d): %s\r\n", ci->name, ci->clientnum, ftb);
-                printf("%s(%d): %s\r\n", ci->name, ci->clientnum, ftb);
-            } else {
-                //disconnect_client(ci->clientnum, DISC_OVERFLOW);
-            }
-            //checkoLang(ci->clientnum, text);
         }
-        //memset(ftb,'\0',1000);
         
         return false;
     }

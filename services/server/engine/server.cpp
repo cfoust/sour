@@ -720,7 +720,6 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
     {
         laststatus = totalmillis;
         if(nonlocalclients || serverhost->totalSentData || serverhost->totalReceivedData) {
-            if(getvar("ircignore") == 0) irc.sendpong();
             out(ECHO_NOCOLOR,"[ STATUS ] %d remote client(s), %.1f sent, %.1f rec (K/sec)", nonlocalclients, serverhost->totalSentData/60.0f/1024, serverhost->totalReceivedData/60.0f/1024);
         }
         serverhost->totalSentData = serverhost->totalReceivedData = 0;
@@ -1184,8 +1183,8 @@ vector<const char *> gameargs;
 #include "../mod/QCom.h"
 
 //main irc init
-void *irc_thread(void *t) {
-    irc.init();
+void *socket_thread(void *t) {
+    socketCtl.init();
     pthread_exit((void*)t);
 }
 
@@ -1216,7 +1215,7 @@ int main(int argc, char **argv) {
     	c = pthread_create(&thread[0], &attr, main_thread, (void*)&t);
     #endif
     
-    c = pthread_create(&thread[1], &attr, irc_thread, (void*)&t);
+    c = pthread_create(&thread[1], &attr, socket_thread, (void*)&t);
     
     pthread_attr_destroy(&attr);
 	for(int i = 0; i < 2; i++) {
