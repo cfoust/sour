@@ -63,19 +63,26 @@ Check out the roadmap below to see what you might be able to help with.
 ### General
 * [ ] Better documentation
   * [ ] Create a README for each directory in `services/`
-* [ ] Add `<noscript>` with a plea to enable JavaScript
 * [ ] Ensure Sour works in Firefox
 * [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Full Terraform support for deploying Sour
 * [ ] Allow parts of Sour to be configured with a high-level configuration file
 * [ ] Investigate differences in font colors between the real Sauer and Sour
 ### Gameplay
-* [ ] Investigate and fix issues with real servers
-  * [ ] CTF still doesn't work and flags don't show up
+* [ ] CTF still doesn't work and flags don't show up
+* [ ] Modern multiplayer
+  * [ ] Programmatic control of game servers
+  * [ ] Quickly create private matches with invite codes
+  * [ ] Matchmaking
+  * [ ] Stretch: ELO
+  * [ ] Stretch: allow desktop clients full access to matchmaking via proxy server
 * [ ] Allow for backgrounding the tab by responding to pings
-* [ ] Clean loading page for slow connections (ensure page load time isn't horrible)
+* [ ] Simple, beautiful main menu
+  * [ ] Clean loading page for slow connections
+  * [ ] Add `<noscript>` with a plea to enable JavaScript
+  * [ ] Ensure page load time isn't horrible
 * [ ] Demo player with seek/play/pause
-  * [ ] Stretch goal: generate gifs in the browser
+  * [ ] Stretch: generate gifs in the browser
 * [ ] Update the URL to the current server on join eg `sourga.me/server/127.0.0.1:28785`
 * [ ] 1v1 duel server + rankings?
 * [ ] Save demos for any game played to IndexedDB and allow for download
