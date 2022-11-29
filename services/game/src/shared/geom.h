@@ -1747,7 +1747,7 @@ struct matrix4
 
     float getscale() const
     {
-        return sqrtf(a.x*a.y + b.x*b.x + c.x*c.x);
+        return sqrtf(a.x*a.x + b.x*b.x + c.x*c.x);
     }
 
     vec gettranslation() const

@@ -67,7 +67,6 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Full Terraform support for deploying Sour
 * [ ] Allow parts of Sour to be configured with a high-level configuration file
-* [ ] Investigate differences in font colors between the real Sauer and Sour
 ### Gameplay
 * [ ] CTF still doesn't work and flags don't show up
 * [ ] Modern multiplayer

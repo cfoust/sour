@@ -58,10 +58,10 @@ namespace gle
 		// Not supported in Emscripten
 		// glVertexAttrib4Nubv_(ATTRIB_COLOR, v.v);
 		colorf(
-			v.x*(2.0f/255.0f)-1.0f,
-			v.y*(2.0f/255.0f)-1.0f,
-			v.z*(2.0f/255.0f)-1.0f,
-			v.w*(2.0f/255.0f)-1.0f
+			v.x*(1.0f/255.0f),
+			v.y*(1.0f/255.0f),
+			v.z*(1.0f/255.0f),
+			v.w*(1.0f/255.0f)
 		);
 	}
 #else
