@@ -2,7 +2,11 @@ package marshal
 
 import (
 	"context"
+	"crypto/sha256"
+	"errors"
 	"fmt"
+	"log"
+	"math/rand"
 	"net"
 	"os"
 	"os/exec"
@@ -24,12 +28,14 @@ type GameServer struct {
 	// The UDP port of the server
 	Port   uint16
 	Status ServerStatus
+	Id     string
 
 	// The path of the socket
 	path    string
 	socket  *net.Conn
 	command *exec.Cmd
 	mutex   sync.Mutex
+	exit    chan bool
 }
 
 func (server *GameServer) GetStatus() ServerStatus {
@@ -48,6 +54,12 @@ func Connect(path string) (*net.Conn, error) {
 }
 
 func (server *GameServer) Shutdown() {
+	status := server.GetStatus()
+
+	if status == ServerOK {
+		server.command.Process.Kill()
+	}
+
 	if server.socket != nil {
 		(*server.socket).Close()
 	}
@@ -58,11 +70,11 @@ func (server *GameServer) Shutdown() {
 	}
 }
 
-func (server *GameServer) Wait(exitChannel chan bool) {
+func (server *GameServer) Wait() {
 	state, err := server.command.Process.Wait()
 
 	defer func() {
-		exitChannel <- true
+		server.exit <- true
 	}()
 
 	exitCode := state.ExitCode()
@@ -70,21 +82,25 @@ func (server *GameServer) Wait(exitChannel chan bool) {
 		server.mutex.Lock()
 		server.Status = ServerFailure
 		server.mutex.Unlock()
+		log.Printf("[%s] failed", server.Id)
+		if err != nil {
+			log.Print(err)
+		}
 		return
 	}
 
 	server.mutex.Lock()
 	server.Status = ServerExited
 	server.mutex.Unlock()
+
+	log.Printf("[%s] exited", server.Id)
 }
 
 func (server *GameServer) Monitor(ctx context.Context) {
 	tick := time.NewTicker(250 * time.Millisecond)
 	exitChannel := make(chan bool)
 
-	go server.Wait(exitChannel)
-
-	defer server.Shutdown()
+	go server.Wait()
 
 	for {
 		status := server.GetStatus()
@@ -94,6 +110,7 @@ func (server *GameServer) Monitor(ctx context.Context) {
 			conn, err := Connect(server.path)
 
 			if err == nil {
+				log.Printf("[%s] connected", server.Id)
 				server.mutex.Lock()
 				server.Status = ServerOK
 				status = ServerOK
@@ -146,54 +163,97 @@ func IsPortAvailable(port uint16) (bool, error) {
 }
 
 func (marshal *Marshaller) FindPort() (uint16, error) {
-	var nextPort uint16 = marshal.minPort
-
-	if len(marshal.Servers) > 0 {
-		nextPort = marshal.Servers[len(marshal.Servers)-1].Port + 1
-	}
-
-	for {
-		available, err := IsPortAvailable(nextPort)
+	// Qserv uses port and port + 1
+	for port := marshal.minPort; port < marshal.maxPort; port += 2 {
+		available, err := IsPortAvailable(port)
 		if available {
-			break
+			return port, nil
 		}
 
 		if err != nil {
-			return 0, err
+			continue
 		}
-
-		nextPort++
 	}
 
-	return nextPort, nil
+	return 0, errors.New("Failed to find port in range")
+}
+
+func (marshal *Marshaller) Shutdown() {
+	marshal.mutex.Lock()
+	defer marshal.mutex.Unlock()
+
+	for _, server := range marshal.Servers {
+		server.Shutdown()
+	}
+}
+
+type Identity struct {
+	Hash string
+	Path string
+}
+
+func FindIdentity(port uint16) Identity {
+	generate := func() Identity {
+		hash := fmt.Sprintf("%x", sha256.Sum256(
+			[]byte(fmt.Sprintf("%d-%d", port, rand.Intn(1000))),
+		))[:8]
+		return Identity{
+			Hash: hash,
+			Path: filepath.Join("/tmp", fmt.Sprintf("qserv_%s.sock", hash)),
+		}
+	}
+
+	for {
+		identity := generate()
+
+		if _, err := os.Stat(identity.Path); !os.IsNotExist(err) {
+			continue
+		}
+
+		return identity
+	}
 }
 
 func (marshal *Marshaller) NewServer(ctx context.Context) (*GameServer, error) {
 	server := GameServer{}
+
+	// We don't want other servers to start while this one is being started
+	// because of port contention
+	marshal.mutex.Lock()
+	defer marshal.mutex.Unlock()
 
 	port, err := marshal.FindPort()
 	if err != nil {
 		return nil, err
 	}
 
-	path := filepath.Join("/tmp", fmt.Sprintf("qserv_%d.sock", port))
+	server.Port = port
+
+	identity := FindIdentity(port)
+
+	server.Id = identity.Hash
 
 	cmd := exec.CommandContext(
 		ctx,
 		marshal.serverPath,
-		fmt.Sprintf("-S%s", path),
+		fmt.Sprintf("-S%s", identity.Path),
 		fmt.Sprintf("-j%d", port),
 	)
 
 	server.command = cmd
-	server.path = path
+	server.path = identity.Path
+	server.exit = make(chan bool)
 
 	err = cmd.Start()
 	if err != nil {
 		return nil, err
 	}
 
+	log.Printf("[%s] started on port %d", server.Id, server.Port)
+
 	go server.Monitor(ctx)
+
+	marshal.Servers = append(marshal.Servers, &server)
 
 	return &server, nil
 }
