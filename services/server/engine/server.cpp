@@ -1167,6 +1167,7 @@ bool serveroption(char *opt)
     switch(opt[1])
     {
         case 'u': setvar("serveruprate", atoi(opt+2)); return true;
+        case 'S': setsvar("socketpath", opt+2); return true;
         case 'c': setvar("maxclients", atoi(opt+2)); return true;
         case 'i': setsvar("serverip", opt+2); return true;
         case 'j': setvar("serverport", atoi(opt+2)); return true;

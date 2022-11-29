@@ -29,9 +29,6 @@ int socketControl::getSock()
 #include <unistd.h>
 #include <stdio.h>
 
-const int NUM_SECONDS = 10;
-
-int ircstring = 0;
 void socketControl::init()
 {
     int con;
@@ -52,7 +49,7 @@ void socketControl::init()
         return;
     }
 
-    printf("[ OK ] Initalizing socket control...\n");
+    printf("[ OK ] Initalizing socket control on %s...\n", socketpath);
 
     result = listen(sock, 5);
     if (result == -1) {
@@ -61,14 +58,20 @@ void socketControl::init()
     }
 
     ssize_t numBytes;
+    char * output;
     while(1) {
         int client = accept(sock, NULL, NULL);
 
         while ((numBytes = read(client, command, sizeof(command))) > 0) {
             printf("socket command: %s\n", command);
-            execute(command);
+            output = executestr(command);
+            if (output != NULL) {
+                write(client, output, strlen(output));
+            }
         }
 
         memset(command, '\0', 1000);
     }
+
+    close(sock);
 }
