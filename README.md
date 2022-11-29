@@ -88,10 +88,10 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Allow players to create private servers with simple join links eg `sourga.me/server/ABCD`
 * [ ] Explore running Sour in a Web Worker rather than the rendering thread
 * [ ] Support all player models (right now it's just snout)
-* [ ] Modern, beautiful main menu
 ### Map editing
 * [ ] Repair or port shaders that were disabled in the game upgrade
   * [ ] Fix the outline shader (pressing 7 in edit mode)
+  * [ ] Water reflection and refraction (this is really hard)
 * [ ] Support saving and loading `.ogz` maps from the user's device
 
 ## License
