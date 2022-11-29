@@ -494,6 +494,7 @@ void disconnectmaster()
     lastupdatemaster = 0;
 }
 
+SVAR(configpath, "./config/server-init.cfg");
 SVARF(mastername, server::defaultmaster(), disconnectmaster());
 VARF(masterport, 1, server::masterport(), 0xFFFF, disconnectmaster());
 
@@ -1148,7 +1149,7 @@ void initserver(bool listen, bool dedicated) //, const char *path
     }
      
     
-    execfile("./config/server-init.cfg", false);
+    execfile(configpath, false);
     
     if(listen) setuplistenserver(dedicated);
     
@@ -1168,6 +1169,7 @@ bool serveroption(char *opt)
     {
         case 'u': setvar("serveruprate", atoi(opt+2)); return true;
         case 'S': setsvar("socketpath", opt+2); return true;
+        case 'C': setsvar("configpath", opt+2); return true;
         case 'c': setvar("maxclients", atoi(opt+2)); return true;
         case 'i': setsvar("serverip", opt+2); return true;
         case 'j': setvar("serverport", atoi(opt+2)); return true;

@@ -165,6 +165,16 @@ func IsPortAvailable(port uint16) (bool, error) {
 func (marshal *Marshaller) FindPort() (uint16, error) {
 	// Qserv uses port and port + 1
 	for port := marshal.minPort; port < marshal.maxPort; port += 2 {
+		occupied := false
+		for _, server := range marshal.Servers {
+			if server.Port == port {
+				occupied = true
+			}
+		}
+		if occupied {
+			continue
+		}
+
 		available, err := IsPortAvailable(port)
 		if available {
 			return port, nil
@@ -237,6 +247,7 @@ func (marshal *Marshaller) NewServer(ctx context.Context) (*GameServer, error) {
 		ctx,
 		marshal.serverPath,
 		fmt.Sprintf("-S%s", identity.Path),
+		"-C../server/config/server-init.cfg",
 		fmt.Sprintf("-j%d", port),
 	)
 
