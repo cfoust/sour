@@ -1,6 +1,6 @@
 // server.cpp: little more than enhanced multicaster
 // runs dedicated or as client coroutine
-// includes threading for QServ and IRC, and geoip database initaliziation 
+// includes threading for QServ and IRC, and geoip database initaliziation
 
 #include "../mod/QServ.h"
 
@@ -202,12 +202,13 @@ void getstring(char *text, ucharbuf &p, int len)
     while(*t++);
 }
 
-enum { ST_EMPTY, ST_LOCAL, ST_TCPIP };
+enum { ST_EMPTY, ST_LOCAL, ST_TCPIP, ST_SOCKET };
 
 struct client                   // server side version of "dynent" type
 {
     int type;
     int num;
+    ushort id; // for socket comms
     ENetPeer *peer;
     string hostname;
     void *info;
@@ -242,10 +243,19 @@ client &addclient(int type)
     c->type = type;
     switch(type)
     {
-        case ST_TCPIP: nonlocalclients++; break;
+        case ST_SOCKET:
+        case ST_TCPIP:
+            nonlocalclients++; break;
         case ST_LOCAL: localclients++; break;
     }
     return *c;
+}
+
+client *findclient(uint id)
+{
+    client *c = NULL;
+    loopv(clients) if(clients[i]->id == id) c = clients[i];
+    return c;
 }
 
 void delclient(client *c)
@@ -270,7 +280,7 @@ void cleanupserver()
 {
     if(serverhost) enet_host_destroy(serverhost);
     serverhost = NULL;
-    
+
     if(pongsock != ENET_SOCKET_NULL) enet_socket_destroy(pongsock);
     if(lansock != ENET_SOCKET_NULL) enet_socket_destroy(lansock);
     pongsock = lansock = ENET_SOCKET_NULL;
@@ -319,7 +329,7 @@ ENetPacket *sendf(int cn, int chan, const char *format, ...)
         case 'x':
             exclude = va_arg(args, int);
             break;
-            
+
         case 'v':
         {
             int n = va_arg(args, int);
@@ -327,7 +337,7 @@ ENetPacket *sendf(int cn, int chan, const char *format, ...)
             loopi(n) putint(p, v[i]);
             break;
         }
-            
+
         case 'i':
         {
             int n = isdigit(*format) ? *format++-'0' : 1;
@@ -361,10 +371,10 @@ ENetPacket *sendfile(int cn, int chan, stream *file, const char *format, ...)
         return NULL;
     }
     else if(!clients.inrange(cn)) return NULL;
-    
+
     int len = (int)min(file->size(), stream::offset(INT_MAX));
     if(len <= 0 || len > 16<<20) return NULL;
-    
+
     packetbuf p(MAXTRANS+len, ENET_PACKET_FLAG_RELIABLE);
     va_list args;
     va_start(args, format);
@@ -380,10 +390,10 @@ ENetPacket *sendfile(int cn, int chan, stream *file, const char *format, ...)
         case 'l': putint(p, len); break;
     }
     va_end(args);
-    
+
     file->seek(0, SEEK_SET);
     file->read(p.subbuf(len).buf, len);
-    
+
     ENetPacket *packet = p.finalize();
     if(cn >= 0) sendpacket(cn, chan, packet, -1);
     return packet->referenceCount > 0 ? packet : NULL;
@@ -483,14 +493,14 @@ void disconnectmaster()
         enet_socket_destroy(mastersock);
         mastersock = ENET_SOCKET_NULL;
     }
-    
+
     masterout.setsize(0);
     masterin.setsize(0);
     masteroutpos = masterinpos = 0;
-    
+
     masteraddress.host = ENET_HOST_ANY;
     masteraddress.port = ENET_PORT_ANY;
-    
+
     lastupdatemaster = 0;
 }
 
@@ -501,7 +511,7 @@ VARF(masterport, 1, server::masterport(), 0xFFFF, disconnectmaster());
 ENetSocket connectmaster()
 {
     if(!mastername[0]) return ENET_SOCKET_NULL;
-    
+
     if(masteraddress.host == ENET_HOST_ANY)
     {
         logoutf("[ OK ] looking up %s...", mastername);
@@ -519,7 +529,7 @@ ENetSocket connectmaster()
         logoutf(sock==ENET_SOCKET_NULL ? "[ FATAL ] could not open socket" : "[ FATAL ] could not connect");
         return ENET_SOCKET_NULL;
     }
-    
+
     enet_socket_set_option(sock, ENET_SOCKOPT_NONBLOCK, 1);
     return sock;
 }
@@ -531,7 +541,7 @@ bool requestmaster(const char *req)
         mastersock = connectmaster();
         if(mastersock == ENET_SOCKET_NULL) return false;
     }
-    
+
     masterout.put(req, strlen(req));
     return true;
 }
@@ -545,28 +555,28 @@ bool requestmasterf(const char *fmt, ...)
 void processmasterinput()
 {
     if(masterinpos >= masterin.length()) return;
-    
+
     char *input = &masterin[masterinpos], *end = (char *)memchr(input, '\n', masterin.length() - masterinpos);
     while(end)
     {
         *end++ = '\0';
-        
+
         const char *args = input;
         while(args < end && !iscubespace(*args)) args++;
         int cmdlen = args - input;
         while(args < end && iscubespace(*args)) args++;
-        
+
         if(!strncmp(input, "failreg", cmdlen))
             conoutf(CON_ERROR, "master server registration failed: %s", args);
         else if(!strncmp(input, "succreg", cmdlen))
             conoutf("[ OK ] Registered to masterserver");
         else server::processmasterinput(input, cmdlen, args);
-        
+
         masterinpos = end - masterin.getbuf();
         input = end;
         end = (char *)memchr(input, '\n', masterin.length() - masterinpos);
     }
-    
+
     if(masterinpos >= masterin.length())
     {
         masterin.setsize(0);
@@ -577,7 +587,7 @@ void processmasterinput()
 void flushmasteroutput()
 {
     if(masterout.empty()) return;
-    
+
     ENetBuffer buf;
     buf.data = &masterout[masteroutpos];
     buf.dataLength = masterout.length() - masteroutpos;
@@ -598,7 +608,7 @@ void flushmasterinput()
 {
     if(masterin.length() >= masterin.capacity())
         masterin.reserve(4096);
-    
+
     ENetBuffer buf;
     buf.data = masterin.getbuf() + masterin.length();
     buf.dataLength = masterin.capacity() - masterin.length();
@@ -638,14 +648,14 @@ void checkserversockets()        // reply all server info requests
         ENET_SOCKETSET_ADD(sockset, lansock);
     }
     if(enet_socketset_select(maxsock, &sockset, NULL, 0) <= 0) return;
-    
+
     ENetBuffer buf;
     uchar pong[MAXTRANS];
     loopi(2)
     {
         ENetSocket sock = i ? lansock : pongsock;
         if(sock == ENET_SOCKET_NULL || !ENET_SOCKETSET_CHECK(sockset, sock)) continue;
-        
+
         buf.data = pong;
         buf.dataLength = sizeof(pong);
         int len = enet_socket_receive(sock, &pongaddr, &buf, 1);
@@ -654,7 +664,7 @@ void checkserversockets()        // reply all server info requests
         p.len += len;
         server::serverinforeply(req, p);
     }
-    
+
     if(mastersock != ENET_SOCKET_NULL && ENET_SOCKETSET_CHECK(sockset, mastersock)) flushmasterinput();
 }
 
@@ -694,9 +704,9 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
         server::sendpackets();
         return;
     }
-    
+
     // below is network only
-    
+
     if(dedicated)
     {
         int millis = (int)enet_time_get(), elapsed = millis - totalmillis;
@@ -710,13 +720,13 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
         updatetime();
     }
     server::serverupdate();
-    
+
     flushmasteroutput();
     checkserversockets();
-    
+
     if(!lastupdatemaster || totalmillis-lastupdatemaster>60*60*1000)       // send alive signal to masterserver every hour of uptime
         updatemasterserver();
-    
+
     if(totalmillis-laststatus>60*1000)   // display bandwidth stats, useful for server ops
     {
         laststatus = totalmillis;
@@ -725,6 +735,49 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
         }
         serverhost->totalSentData = serverhost->totalReceivedData = 0;
     }
+
+    // First process socket traffic
+    ENetPacket packet;
+    while (socketCtl.receive(&packet) != -1) {
+        packetbuf p(&packet);
+        uint type = getuint(p);
+        switch(type)
+        {
+            case SOCKET_EVENT_CONNECT:
+                {
+                    uint id = getuint(p);
+                    client &c = addclient(ST_SOCKET);
+                    c.id = id;
+                    copystring(c.hostname, "unknown");
+                    logoutf("\nJoin: (socket:%d)", c.id);
+                    out(ECHO_IRC, "Join: (socket:%d)", c.id);
+                    int reason = server::clientconnect(c.num, 0, c.hostname);
+                    if(reason) disconnect_client(c.num, reason);
+                    break;
+                }
+            case SOCKET_EVENT_RECEIVE:
+                {
+                    uint channel = getuint(p);
+                    client *c = findclient(getuint(p));
+                    if(!c) break;
+                    process(&packet, c->num, channel);
+                    break;
+                }
+            case SOCKET_EVENT_DISCONNECT:
+                {
+                    client *c = findclient(getuint(p));
+                    if(!c) break;
+                    logoutf("\nLeave: (socket:%d)", c->id);
+                    server::clientdisconnect(c->num);
+                    delclient(c);
+                    break;
+                }
+            default:
+                break;
+        }
+    }
+
+    // Then check enet traffic
     ENetEvent event;
     bool serviced = false;
     while(!serviced)
@@ -952,25 +1005,25 @@ static LRESULT CALLBACK handlemessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPAR
 static void setupwindow(const char *title, const char *path)
 {
     copystring(apptip, title);
-    
+
     appinstance = GetModuleHandle(path);
     if(!appinstance) fatal("failed getting application instance");
     appicon = LoadIcon(appinstance, MAKEINTRESOURCE(IDI_ICON1));
     (HICON)LoadImage(appinstance, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
     if(!appicon) fatal("failed loading icon");
-    
+
     appmenu = CreatePopupMenu();
     if(!appmenu) fatal("failed creating popup menu");
     AppendMenu(appmenu, MF_STRING, MENU_OPENCONSOLE, "Open Console");
     AppendMenu(appmenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(appmenu, MF_STRING, MENU_EXIT, "Exit");
     SetMenuDefaultItem(appmenu, 0, FALSE);
-    
+
     WNDCLASS wc;
     memset(&wc, 0, sizeof(wc));
     wc.hCursor = NULL;
     LoadCursor(NULL, IDC_ARROW);
-    
+
     wc.hIcon = appicon;
     wc.hIcon = LoadIcon(0, IDI_EXCLAMATION);
     wc.lpszMenuName = NULL;
@@ -982,12 +1035,12 @@ static void setupwindow(const char *title, const char *path)
     wc.cbClsExtra = 0;
     wndclass = RegisterClass(&wc);
     if(!wndclass) fatal("failed registering window class");
-    
+
     appwindow = CreateWindow(MAKEINTATOM(wndclass), title, 0, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, HWND_MESSAGE, NULL, appinstance, NULL);
     if(!appwindow) fatal("failed creating window");
-    
+
     atexit(cleanupwindow);
-    
+
     if(!setupsystemtray(WM_APP)) fatal("failed adding to system tray");
 }
 
@@ -1056,7 +1109,7 @@ pthread_t thread2;
 void *main_thread(void*t) {
     for(;;) {
         serverslice(true, 5);
-        
+
     }
     pthread_exit((void*)t);
 }
@@ -1074,7 +1127,7 @@ void *main_thread_s(void *t) {
         }
 #endif
         serverslice(true, 5);
-        
+
     }
     pthread_exit((void*)t);
 }
@@ -1135,7 +1188,7 @@ void initserver(bool listen, bool dedicated) //, const char *path
                setupwindow("QServ", path);
         #endif
     }
-    
+
     /**
      Load/Check GeoIP databases
      **/
@@ -1147,15 +1200,15 @@ void initserver(bool listen, bool dedicated) //, const char *path
     else if(!qs.initcitygeoip("./GeoIP/GeoLiteCity.dat")) {
     logoutf("[FATAL ERROR] Failed to load GeoLite database from GeoLiteCity.dat file");
     }
-     
-    
+
+
     execfile(configpath, false);
-    
+
     if(listen) setuplistenserver(dedicated);
-    
+
     server::serverinit();
 	logoutf("Protocol version: %d", PROTOCOL_VERSION);
-    
+
     if(listen)
     {
         updatemasterserver();
@@ -1185,12 +1238,6 @@ vector<const char *> gameargs;
 
 #include "../mod/QCom.h"
 
-//main irc init
-void *socket_thread(void *t) {
-    socketCtl.init();
-    pthread_exit((void*)t);
-}
-
 int main(int argc, char **argv) {
     srand (time(NULL));
     qs.initCommands(server::initCmds);
@@ -1200,33 +1247,34 @@ int main(int argc, char **argv) {
     enet_time_set(0);
     for(int i = 1; i<argc; i++) if(argv[i][0]!='-' || !serveroption(argv[i])) gameargs.add(argv[i]);
     game::parseoptions(gameargs);
-    
+
+    socketCtl.init();
+
     //main server init
     initserver(true, true);
-    
+
     pthread_t thread[2];
     int c; long t;
     pthread_attr_t attr;
     void *status;
-    
+
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-       
+
   	#ifdef _WIN32
     	c = pthread_create(&thread[0], &attr, main_thread_s, (void*)&t);
     #else
     	c = pthread_create(&thread[0], &attr, main_thread, (void*)&t);
     #endif
-    
-    c = pthread_create(&thread[1], &attr, socket_thread, (void*)&t);
-    
+
     pthread_attr_destroy(&attr);
-	for(int i = 0; i < 2; i++) {
+	for(int i = 0; i < 1; i++) {
 		c = pthread_join(thread[i], &status);
         qsleep(5);
     }
-    
+
     server::serverclose();
+    socketCtl.finish();
     //pthread_exit(NULL); //we don't close our thread
     //return EXIT_SUCCESS; //we don't exit
     return 0; //instead, we return with no problems

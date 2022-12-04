@@ -10,20 +10,31 @@
 //#include <vector>
 #include "game.h"
 
-class socketControl
+enum
+{
+    SOCKET_EVENT_CONNECT = 0,
+    SOCKET_EVENT_RECEIVE,
+    SOCKET_EVENT_DISCONNECT
+};
+
+class SocketChannel
 {
     public:
         void init(void);
         int getSock();
-		
+
 		bool isConnected();
+		void checkConnection();
+		void finish();
+
+        int receive(ENetPacket *packet);
+
     private:
-        int sock;
+        int sockFd, clientFd;
         bool connected;
+        unsigned char buffer[5242880]; // 5MB
 };
 
-extern socketControl socketCtl;
-
-extern bool isloggedin(bool echo = 1);
+extern SocketChannel socketCtl;
 
 #endif ///__SOCKET_INCLUDED

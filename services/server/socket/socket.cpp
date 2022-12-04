@@ -3,47 +3,55 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <unistd.h>
+#include <stdio.h>
 #include <sys/un.h>
 #include <netinet/in.h>
+#include <fcntl.h>
 #endif
 #include "socket.h"
 #include "../mod/QServ.h"
 
 SVAR(socketpath, "/tmp/qserv_sock");
 
-ICOMMAND(forceintermission, "", (), {
-    server::startintermission();
-});
+SocketChannel socketCtl;
 
-ICOMMAND(kick, "i", (int *i), {
-    disconnect_client(*i, DISC_KICK);
-});
-
-socketControl socketCtl;
-
-int socketControl::getSock()
+int SocketChannel::getSock()
 {
-    return sock;
+    return sockFd;
 }
 
-#include <unistd.h>
-#include <stdio.h>
+bool SocketChannel::isConnected() {
+	return connected;
+}
 
-void socketControl::init()
+void SocketChannel::checkConnection() {
+    if (connected) return;
+    int result = accept(sockFd, NULL, NULL);
+    if (result == -1) {
+        if (errno == EWOULDBLOCK) return;
+        printf("accept() failed with errno", errno);
+        return;
+    }
+
+    clientFd = result;
+    connected = true;
+}
+
+void SocketChannel::init()
 {
-    int con;
-    char command[1000];
-
     struct sockaddr_un sa;
     struct hostent *he;
 
-    sock = socket(AF_UNIX, SOCK_STREAM, 0);
+    sockFd = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    fcntl(sockFd, F_SETFL, O_NONBLOCK);
 
     memset(&sa, 0, sizeof(struct sockaddr_un));
     sa.sun_family = AF_UNIX;
     strncpy(sa.sun_path, socketpath, sizeof(sa.sun_path) - 1);
 
-    int result = bind(sock, (struct sockaddr *) &sa, sizeof(struct sockaddr_un));
+    int result = bind(sockFd, (struct sockaddr *) &sa, sizeof(struct sockaddr_un));
     if (result == -1) {
         printf("Failed to bind to socket %s\n", socketpath);
         return;
@@ -51,27 +59,26 @@ void socketControl::init()
 
     printf("[ OK ] Initalizing socket control on %s...\n", socketpath);
 
-    result = listen(sock, 5);
+    result = listen(sockFd, 5);
     if (result == -1) {
         printf("Failed to listen on socket %s\n", socketpath);
         return;
     }
+}
 
-    ssize_t numBytes;
-    char * output;
-    while(1) {
-        int client = accept(sock, NULL, NULL);
+int SocketChannel::receive(ENetPacket * packet)
+{
+    checkConnection();
+    if (!connected) return -1;
 
-        while ((numBytes = read(client, command, sizeof(command))) > 0) {
-            printf("socket command: %s\n", command);
-            output = executestr(command);
-            if (output != NULL) {
-                write(client, output, strlen(output));
-            }
-        }
+    size_t numBytes = read(clientFd, buffer, sizeof(buffer));
+    if (numBytes <= 0) return -1;
+    packet->data = buffer;
+    packet->dataLength = numBytes;
+    return 0;
+}
 
-        memset(command, '\0', 1000);
-    }
-
-    close(sock);
+void SocketChannel::finish()
+{
+    close(sockFd);
 }
