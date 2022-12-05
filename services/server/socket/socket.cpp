@@ -30,7 +30,7 @@ void SocketChannel::checkConnection() {
     int result = accept(sockFd, NULL, NULL);
     if (result == -1) {
         if (errno == EWOULDBLOCK) return;
-        printf("accept() failed with errno", errno);
+        printf("accept() failed with errno %d\n", errno);
         return;
     }
 
@@ -71,8 +71,15 @@ int SocketChannel::receive(ENetPacket * packet)
     checkConnection();
     if (!connected) return -1;
 
-    size_t numBytes = read(clientFd, buffer, sizeof(buffer));
-    if (numBytes <= 0) return -1;
+    ssize_t numBytes = read(clientFd, buffer, sizeof(buffer));
+    if (numBytes <= 0) {
+        if (errno == ECONNRESET ||
+            errno == ENOTCONN ||
+            errno == ETIMEDOUT) {
+            connected = false;
+        }
+        return -1;
+    }
     packet->data = buffer;
     packet->dataLength = numBytes;
     return 0;

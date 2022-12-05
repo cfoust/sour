@@ -1,12 +1,15 @@
 package marshal
 
 import (
+	"bufio"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
 	"log"
-	"math/rand"
+	"math/big"
 	"net"
 	"os"
 	"os/exec"
@@ -82,7 +85,7 @@ func (server *GameServer) Wait() {
 		server.mutex.Lock()
 		server.Status = ServerFailure
 		server.mutex.Unlock()
-		log.Printf("[%s] failed", server.Id)
+		log.Printf("[%s] exited with code %d", server.Id, exitCode)
 		if err != nil {
 			log.Print(err)
 		}
@@ -94,6 +97,24 @@ func (server *GameServer) Wait() {
 	server.mutex.Unlock()
 
 	log.Printf("[%s] exited", server.Id)
+}
+
+func (server *GameServer) Tail() {
+	tailPipe := func(pipe io.ReadCloser) {
+		scanner := bufio.NewReader(pipe)
+		for {
+			line, err := scanner.ReadString('\n')
+			if err == io.EOF {
+				return
+			}
+			log.Println(line)
+		}
+	}
+
+	stdout, _ := server.command.StdoutPipe()
+	stderr, _ := server.command.StderrPipe()
+	go tailPipe(stdout)
+	go tailPipe(stderr)
 }
 
 func (server *GameServer) Monitor(ctx context.Context) {
@@ -204,8 +225,9 @@ type Identity struct {
 
 func FindIdentity(port uint16) Identity {
 	generate := func() Identity {
+		number, _ := rand.Int(rand.Reader, big.NewInt(1000))
 		hash := fmt.Sprintf("%x", sha256.Sum256(
-			[]byte(fmt.Sprintf("%d-%d", port, rand.Intn(1000))),
+			[]byte(fmt.Sprintf("%d-%d", port, number)),
 		))[:8]
 		return Identity{
 			Hash: hash,
@@ -254,6 +276,8 @@ func (marshal *Marshaller) NewServer(ctx context.Context) (*GameServer, error) {
 	server.command = cmd
 	server.path = identity.Path
 	server.exit = make(chan bool)
+
+	go server.Tail()
 
 	err = cmd.Start()
 	if err != nil {
