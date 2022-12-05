@@ -74,6 +74,33 @@ func (server *GameServer) Shutdown() {
 }
 
 func (server *GameServer) Wait() {
+	tailPipe := func(pipe io.ReadCloser, done chan bool) {
+		scanner := bufio.NewScanner(pipe)
+		for scanner.Scan() {
+			log.Printf("[%s] %s", server.Id, scanner.Text())
+		}
+		done <- true
+	}
+
+	stdout, _ := server.command.StdoutPipe()
+	stderr, _ := server.command.StderrPipe()
+
+	err := server.command.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("[%s] started on port %d", server.Id, server.Port)
+
+	stdoutEOF := make(chan bool)
+	stderrEOF := make(chan bool)
+
+	go tailPipe(stdout, stdoutEOF)
+	go tailPipe(stderr, stderrEOF)
+
+	<-stdoutEOF
+	<-stderrEOF
+
 	state, err := server.command.Process.Wait()
 
 	defer func() {
@@ -99,24 +126,6 @@ func (server *GameServer) Wait() {
 	log.Printf("[%s] exited", server.Id)
 }
 
-func (server *GameServer) Tail() {
-	tailPipe := func(pipe io.ReadCloser) {
-		scanner := bufio.NewReader(pipe)
-		for {
-			line, err := scanner.ReadString('\n')
-			if err == io.EOF {
-				return
-			}
-			log.Println(line)
-		}
-	}
-
-	stdout, _ := server.command.StdoutPipe()
-	stderr, _ := server.command.StderrPipe()
-	go tailPipe(stdout)
-	go tailPipe(stderr)
-}
-
 func (server *GameServer) Monitor(ctx context.Context) {
 	tick := time.NewTicker(250 * time.Millisecond)
 	exitChannel := make(chan bool)
@@ -137,6 +146,7 @@ func (server *GameServer) Monitor(ctx context.Context) {
 				status = ServerOK
 				server.socket = conn
 				server.mutex.Unlock()
+				//(*server.socket).Write([]byte{ 1, 2, 3 })
 			}
 		}
 
@@ -276,15 +286,6 @@ func (marshal *Marshaller) NewServer(ctx context.Context) (*GameServer, error) {
 	server.command = cmd
 	server.path = identity.Path
 	server.exit = make(chan bool)
-
-	go server.Tail()
-
-	err = cmd.Start()
-	if err != nil {
-		return nil, err
-	}
-
-	log.Printf("[%s] started on port %d", server.Id, server.Port)
 
 	go server.Monitor(ctx)
 
