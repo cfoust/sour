@@ -146,7 +146,6 @@ func (server *GameServer) Monitor(ctx context.Context) {
 				status = ServerOK
 				server.socket = conn
 				server.mutex.Unlock()
-				//(*server.socket).Write([]byte{ 1, 2, 3 })
 			}
 		}
 

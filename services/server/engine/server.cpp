@@ -749,7 +749,7 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
                     client &c = addclient(ST_SOCKET);
                     c.id = id;
                     copystring(c.hostname, "unknown");
-                    logoutf("\nJoin: (socket:%d)", c.id);
+                    logoutf("Join: (socket:%d)", c.id);
                     out(ECHO_IRC, "Join: (socket:%d)", c.id);
                     int reason = server::clientconnect(c.num, 0, c.hostname);
                     if(reason) disconnect_client(c.num, reason);
@@ -767,7 +767,7 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
                 {
                     client *c = findclient(getuint(p));
                     if(!c) break;
-                    logoutf("\nLeave: (socket:%d)", c->id);
+                    logoutf("Leave: (socket:%d)", c->id);
                     server::clientdisconnect(c->num);
                     delclient(c);
                     break;
@@ -796,7 +796,7 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
                 c.peer->data = &c;
                 char hn[1024];
                 copystring(c.hostname, (enet_address_get_host_ip(&c.peer->address, hn, sizeof(hn))==0) ? hn : "unknown");
-                logoutf("\nJoin: (%s)", c.hostname);
+                logoutf("Join: (%s)", c.hostname);
                 out(ECHO_IRC, "Join: (%s)", c.hostname);
                 int reason = server::clientconnect(c.num, c.peer->address.host, c.hostname); //ipstring for QServ
                 if(reason) disconnect_client(c.num, reason);
@@ -813,7 +813,7 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
             {
                 client *c = (client *)event.peer->data;
                 if(!c) break;
-                logoutf("\nLeave: (%s)", c->hostname);
+                logoutf("Leave: (%s)", c->hostname);
                 server::clientdisconnect(c->num);
                 delclient(c);
                 break;

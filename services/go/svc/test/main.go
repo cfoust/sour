@@ -9,7 +9,6 @@ import (
 )
 
 func main() {
-
 	marshaller := marshal.NewMarshaller(
 		"../server/qserv",
 		50000,

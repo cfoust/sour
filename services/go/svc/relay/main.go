@@ -138,14 +138,12 @@ func (server *RelayServer) BuildBroadcast() ([]byte, error) {
 	return bytes, nil
 }
 
-// addSubscriber registers a subscriber.
 func (server *RelayServer) AddClient(s *Client) {
 	server.clientMutex.Lock()
 	server.clients[s] = struct{}{}
 	server.clientMutex.Unlock()
 }
 
-// deleteSubscriber deletes the given client.
 func (server *RelayServer) RemoveClient(client *Client) {
 	server.clientMutex.Lock()
 	delete(server.clients, client)
@@ -191,7 +189,6 @@ func main() {
 					server.logf("%v", err)
 					return
 				}
-
 
 				server.Broadcast(bytes)
 			}
