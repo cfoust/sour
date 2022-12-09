@@ -18,7 +18,6 @@ import (
 	"github.com/cfoust/sour/pkg/watcher"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"nhooyr.io/websocket"
 )
@@ -104,6 +103,16 @@ func (server *Cluster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		server.logf("%v", err)
 		return
+	}
+}
+
+func (server *Cluster) StartServers(ctx context.Context) {
+	for i := 0; i < 3; i++ {
+		_, err := server.manager.NewServer(ctx)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to create server")
+		}
+
 	}
 }
 
@@ -208,10 +217,11 @@ func (server *Cluster) Broadcast(msg []byte) {
 
 func (server *Cluster) BuildBroadcast() ([]byte, error) {
 	servers := server.serverWatcher.Get()
-	serverArray := make([]protocol.ServerInfo, len(servers))
+
+	masterServers := make([]protocol.ServerInfo, len(servers))
 	index := 0
 	for key, server := range servers {
-		serverArray[index] = protocol.ServerInfo{
+		masterServers[index] = protocol.ServerInfo{
 			Host:   key.Host,
 			Port:   key.Port,
 			Info:   server.Info,
@@ -220,10 +230,15 @@ func (server *Cluster) BuildBroadcast() ([]byte, error) {
 		index++
 	}
 
+	clusterServers := make([]string, 0)
+	for _, clusterServer := range server.manager.Servers {
+		clusterServers = append(clusterServers, clusterServer.Id)
+	}
+
 	infoMessage := protocol.InfoMessage{
 		Op:      protocol.InfoOp,
-		Master:  serverArray,
-		Cluster: make([]string, 0),
+		Master:  masterServers,
+		Cluster: clusterServers,
 	}
 
 	bytes, err := cbor.Marshal(infoMessage)
@@ -257,8 +272,6 @@ func WriteTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn,
 }
 
 func main() {
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-
 	l, _ := net.Listen("tcp", "0.0.0.0:29999")
 	log.Printf("listening on http://%v", l.Addr())
 
@@ -271,6 +284,7 @@ func main() {
 		Handler: cluster,
 	}
 
+	go cluster.StartServers(ctx)
 	go cluster.StartWatcher(ctx)
 
 	errc := make(chan error, 1)
