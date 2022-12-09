@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
-	"log"
+	"math"
+	"math/big"
 	"net"
 	"net/http"
 	"os"
@@ -16,10 +18,13 @@ import (
 	"github.com/cfoust/sour/pkg/watcher"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"nhooyr.io/websocket"
 )
 
-type Client struct {
+type WSClient struct {
+	id        uint16
 	send      chan []byte
 	closeSlow func()
 }
@@ -32,7 +37,7 @@ type Cluster struct {
 	// logf controls where logs are sent.
 	logf          func(f string, v ...interface{})
 	clientMutex   sync.Mutex
-	clients       map[*Client]struct{}
+	clients       map[*WSClient]struct{}
 	serverWatcher *watcher.Watcher
 	manager       *manager.Manager
 }
@@ -40,7 +45,7 @@ type Cluster struct {
 func NewCluster() *Cluster {
 	server := &Cluster{
 		logf:          log.Printf,
-		clients:       make(map[*Client]struct{}),
+		clients:       make(map[*WSClient]struct{}),
 		serverWatcher: watcher.NewWatcher(),
 		manager: manager.NewManager(
 			"../server/qserv",
@@ -50,6 +55,30 @@ func NewCluster() *Cluster {
 	}
 
 	return server
+}
+
+func (server *Cluster) NewClientID() (uint16, error) {
+	server.clientMutex.Lock()
+	defer server.clientMutex.Unlock()
+
+	for attempts := 0; attempts < math.MaxUint16; attempts++ {
+		number, _ := rand.Int(rand.Reader, big.NewInt(math.MaxUint16))
+		truncated := uint16(number.Uint64())
+
+		taken := false
+		for client, _ := range server.clients {
+			if client.id == truncated {
+				taken = true
+			}
+		}
+		if taken {
+			continue
+		}
+
+		return truncated, nil
+	}
+
+	return 0, errors.New("Failed to assign client ID")
 }
 
 func (server *Cluster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -102,12 +131,21 @@ func (server *Cluster) StartWatcher(ctx context.Context) {
 }
 
 func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
-	client := &Client{
+	client := &WSClient{
 		send: make(chan []byte, CLIENT_MESSAGE_LIMIT),
 		closeSlow: func() {
 			c.Close(websocket.StatusPolicyViolation, "connection too slow to keep up with messages")
 		},
 	}
+
+	id, err := server.NewClientID()
+	if err != nil {
+		return err
+	}
+
+	client.id = id
+
+	log.Info().Uint16("id", id).Msg("client joined")
 
 	server.AddClient(client)
 	defer server.RemoveClient(client)
@@ -196,13 +234,13 @@ func (server *Cluster) BuildBroadcast() ([]byte, error) {
 	return bytes, nil
 }
 
-func (server *Cluster) AddClient(s *Client) {
+func (server *Cluster) AddClient(s *WSClient) {
 	server.clientMutex.Lock()
 	server.clients[s] = struct{}{}
 	server.clientMutex.Unlock()
 }
 
-func (server *Cluster) RemoveClient(client *Client) {
+func (server *Cluster) RemoveClient(client *WSClient) {
 	server.clientMutex.Lock()
 	delete(server.clients, client)
 	server.clientMutex.Unlock()
@@ -219,6 +257,8 @@ func WriteTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn,
 }
 
 func main() {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+
 	l, _ := net.Listen("tcp", "0.0.0.0:29999")
 	log.Printf("listening on http://%v", l.Addr())
 
