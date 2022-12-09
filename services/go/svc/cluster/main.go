@@ -11,7 +11,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cfoust/sour/pkg/marshal"
 	"github.com/cfoust/sour/pkg/watcher"
+
 	"github.com/fxamacker/cbor/v2"
 	"nhooyr.io/websocket"
 )
@@ -21,30 +23,35 @@ type Client struct {
 	closeSlow func()
 }
 
-type RelayServer struct {
-	clientMessageLimit int
+var (
+	CLIENT_MESSAGE_LIMIT int = 16
+)
 
+type Cluster struct {
 	// logf controls where logs are sent.
-	logf func(f string, v ...interface{})
-
-	clientMutex sync.Mutex
-	clients     map[*Client]struct{}
-
+	logf          func(f string, v ...interface{})
+	clientMutex   sync.Mutex
+	clients       map[*Client]struct{}
 	serverWatcher *watcher.Watcher
+	manager       *marshal.Marshaller
 }
 
-func NewRelayServer(serverWatcher *watcher.Watcher) *RelayServer {
-	server := &RelayServer{
-		clientMessageLimit: 16,
-		logf:               log.Printf,
-		clients:            make(map[*Client]struct{}),
-		serverWatcher:      serverWatcher,
+func NewCluster() *Cluster {
+	server := &Cluster{
+		logf:          log.Printf,
+		clients:       make(map[*Client]struct{}),
+		serverWatcher: watcher.NewWatcher(),
+		manager: marshal.NewMarshaller(
+			"../server/qserv",
+			50000,
+			51000,
+		),
 	}
 
 	return server
 }
 
-func (server *RelayServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (server *Cluster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		OriginPatterns: []string{"*"},
 	})
@@ -70,11 +77,34 @@ func (server *RelayServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (server *RelayServer) Subscribe(ctx context.Context, c *websocket.Conn) error {
+func (server *Cluster) StartWatcher(ctx context.Context) {
+	go server.serverWatcher.Watch()
+
+	broadcastTicker := time.NewTicker(10 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-broadcastTicker.C:
+				bytes, err := server.BuildBroadcast()
+
+				if err != nil {
+					server.logf("%v", err)
+					return
+				}
+
+				server.Broadcast(bytes)
+			}
+		}
+	}()
+}
+
+func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 	ctx = c.CloseRead(ctx)
 
 	client := &Client{
-		send: make(chan []byte, server.clientMessageLimit),
+		send: make(chan []byte, CLIENT_MESSAGE_LIMIT),
 		closeSlow: func() {
 			c.Close(websocket.StatusPolicyViolation, "connection too slow to keep up with messages")
 		},
@@ -103,7 +133,7 @@ func (server *RelayServer) Subscribe(ctx context.Context, c *websocket.Conn) err
 	}
 }
 
-func (server *RelayServer) Broadcast(msg []byte) {
+func (server *Cluster) Broadcast(msg []byte) {
 	server.clientMutex.Lock()
 	defer server.clientMutex.Unlock()
 
@@ -116,7 +146,14 @@ func (server *RelayServer) Broadcast(msg []byte) {
 	}
 }
 
-func (server *RelayServer) BuildBroadcast() ([]byte, error) {
+func (server *Cluster) BuildBroadcast() ([]byte, error) {
+	type AggregatedServer struct {
+		Host   string
+		Port   int
+		Info   []byte
+		Length int
+	}
+
 	servers := server.serverWatcher.Get()
 	serverArray := make([]AggregatedServer, len(servers))
 	index := 0
@@ -138,16 +175,20 @@ func (server *RelayServer) BuildBroadcast() ([]byte, error) {
 	return bytes, nil
 }
 
-func (server *RelayServer) AddClient(s *Client) {
+func (server *Cluster) AddClient(s *Client) {
 	server.clientMutex.Lock()
 	server.clients[s] = struct{}{}
 	server.clientMutex.Unlock()
 }
 
-func (server *RelayServer) RemoveClient(client *Client) {
+func (server *Cluster) RemoveClient(client *Client) {
 	server.clientMutex.Lock()
 	delete(server.clients, client)
 	server.clientMutex.Unlock()
+}
+
+func (server *Cluster) Shutdown() {
+	server.manager.Shutdown()
 }
 
 func WriteTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn, msg []byte) error {
@@ -156,44 +197,20 @@ func WriteTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn,
 	return c.Write(ctx, websocket.MessageBinary, msg)
 }
 
-type AggregatedServer struct {
-	Host   string
-	Port   int
-	Info   []byte
-	Length int
-}
-
 func main() {
 	l, _ := net.Listen("tcp", "0.0.0.0:29999")
 	log.Printf("listening on http://%v", l.Addr())
 
-	serverWatcher := watcher.NewWatcher()
-	go serverWatcher.Watch()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	server := NewRelayServer(serverWatcher)
+	cluster := NewCluster()
+
 	httpServer := &http.Server{
-		Handler: server,
+		Handler: cluster,
 	}
 
-	broadcastTicker := time.NewTicker(10 * time.Second)
-	broadcastChannel := make(chan bool)
-	go func() {
-		for {
-			select {
-			case <-broadcastChannel:
-				return
-			case <-broadcastTicker.C:
-				bytes, err := server.BuildBroadcast()
-
-				if err != nil {
-					server.logf("%v", err)
-					return
-				}
-
-				server.Broadcast(bytes)
-			}
-		}
-	}()
+	go cluster.StartWatcher(ctx)
 
 	errc := make(chan error, 1)
 	go func() {
@@ -210,7 +227,6 @@ func main() {
 		log.Printf("terminating: %v", sig)
 	}
 
-	httpServer.Shutdown(context.Background())
-	broadcastTicker.Stop()
-	broadcastChannel <- true
+	httpServer.Shutdown(ctx)
+	cluster.Shutdown()
 }
