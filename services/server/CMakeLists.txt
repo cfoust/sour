@@ -17,7 +17,7 @@ set(qserv_srcs
 	shared/tools.cpp
 	shared/stream.cpp
 	shared/crypto.cpp
-	ircbot/ircbot.cpp
+	socket/socket.cpp
 	)
 
 set(qserv_LIBS
