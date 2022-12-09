@@ -11,7 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cfoust/sour/pkg/marshal"
+	"github.com/cfoust/sour/pkg/manager"
+	"github.com/cfoust/sour/pkg/protocol"
 	"github.com/cfoust/sour/pkg/watcher"
 
 	"github.com/fxamacker/cbor/v2"
@@ -23,7 +24,7 @@ type Client struct {
 	closeSlow func()
 }
 
-var (
+const (
 	CLIENT_MESSAGE_LIMIT int = 16
 )
 
@@ -33,7 +34,7 @@ type Cluster struct {
 	clientMutex   sync.Mutex
 	clients       map[*Client]struct{}
 	serverWatcher *watcher.Watcher
-	manager       *marshal.Marshaller
+	manager       *manager.Manager
 }
 
 func NewCluster() *Cluster {
@@ -41,7 +42,7 @@ func NewCluster() *Cluster {
 		logf:          log.Printf,
 		clients:       make(map[*Client]struct{}),
 		serverWatcher: watcher.NewWatcher(),
-		manager: marshal.NewMarshaller(
+		manager: manager.NewManager(
 			"../server/qserv",
 			50000,
 			51000,
@@ -101,8 +102,6 @@ func (server *Cluster) StartWatcher(ctx context.Context) {
 }
 
 func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
-	ctx = c.CloseRead(ctx)
-
 	client := &Client{
 		send: make(chan []byte, CLIENT_MESSAGE_LIMIT),
 		closeSlow: func() {
@@ -113,6 +112,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 	server.AddClient(client)
 	defer server.RemoveClient(client)
 
+	// Write the first broadcast on connect so they don't have to wait 5s
 	broadcast, err := server.BuildBroadcast()
 	if err != nil {
 		server.logf("%v", err)
@@ -120,8 +120,30 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 	}
 	err = WriteTimeout(ctx, time.Second*5, c, broadcast)
 
+	receive := make(chan []byte)
+
+	go func() {
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+
+			typ, message, _ := c.Read(ctx)
+			if typ != websocket.MessageBinary {
+				continue
+			}
+			receive <- message
+		}
+	}()
+
 	for {
 		select {
+		case msg := <-receive:
+			var connectMessage protocol.ConnectMessage
+			if err := cbor.Unmarshal(msg, &connectMessage); err == nil {
+				log.Print(connectMessage)
+			}
+
 		case msg := <-client.send:
 			err := WriteTimeout(ctx, time.Second*5, c, msg)
 			if err != nil {
@@ -147,18 +169,11 @@ func (server *Cluster) Broadcast(msg []byte) {
 }
 
 func (server *Cluster) BuildBroadcast() ([]byte, error) {
-	type AggregatedServer struct {
-		Host   string
-		Port   int
-		Info   []byte
-		Length int
-	}
-
 	servers := server.serverWatcher.Get()
-	serverArray := make([]AggregatedServer, len(servers))
+	serverArray := make([]protocol.ServerInfo, len(servers))
 	index := 0
 	for key, server := range servers {
-		serverArray[index] = AggregatedServer{
+		serverArray[index] = protocol.ServerInfo{
 			Host:   key.Host,
 			Port:   key.Port,
 			Info:   server.Info,
@@ -167,7 +182,13 @@ func (server *Cluster) BuildBroadcast() ([]byte, error) {
 		index++
 	}
 
-	bytes, err := cbor.Marshal(serverArray)
+	infoMessage := protocol.InfoMessage{
+		Op:      protocol.InfoOp,
+		Master:  serverArray,
+		Cluster: make([]string, 0),
+	}
+
+	bytes, err := cbor.Marshal(infoMessage)
 	if err != nil {
 		return nil, err
 	}

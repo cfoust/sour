@@ -460,7 +460,7 @@ function App() {
   React.useEffect(() => {
     const { protocol, host } = window.location
     const ws = new WebSocket(
-      `${protocol === 'https:' ? 'wss://' : 'ws:/'}${host}/service/relay/`
+      `${protocol === 'https:' ? 'wss://' : 'ws:/'}${host}/service/cluster/`
     )
     ws.binaryType = 'arraybuffer'
 
@@ -502,6 +502,21 @@ function App() {
       setTimeout(() => BananaBread.execute(cmd), 0)
     }
 
+    ws.onopen = () => {
+      ws.send(
+        CBOR.encode({
+          Op: 1,
+          Target: 'test test',
+        })
+      )
+      ws.send(
+        CBOR.encode({
+          Op: 1,
+          Target: 'test test',
+        })
+      )
+    }
+
     ws.onmessage = (evt) => {
       const servers = CBOR.decode(evt.data)
 
@@ -510,11 +525,11 @@ function App() {
         BananaBread.execute == null ||
         BananaBread.injectServer == null
       ) {
-        cachedServers = servers
+        cachedServers = servers.Master
         return
       }
 
-      injectServers(servers)
+      injectServers(servers.Master)
     }
   }, [])
 

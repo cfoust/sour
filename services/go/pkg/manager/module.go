@@ -1,4 +1,4 @@
-package marshal
+package manager
 
 import (
 	"bufio"
@@ -159,7 +159,7 @@ func (server *GameServer) Monitor(ctx context.Context) {
 	}
 }
 
-type Marshaller struct {
+type Manager struct {
 	minPort    uint16
 	maxPort    uint16
 	serverPath string
@@ -167,8 +167,8 @@ type Marshaller struct {
 	mutex      sync.Mutex
 }
 
-func NewMarshaller(serverPath string, minPort uint16, maxPort uint16) *Marshaller {
-	marshal := Marshaller{}
+func NewManager(serverPath string, minPort uint16, maxPort uint16) *Manager {
+	marshal := Manager{}
 	marshal.Servers = make([]*GameServer, 0)
 	marshal.serverPath = serverPath
 	marshal.minPort = minPort
@@ -192,7 +192,7 @@ func IsPortAvailable(port uint16) (bool, error) {
 	return true, nil
 }
 
-func (marshal *Marshaller) FindPort() (uint16, error) {
+func (marshal *Manager) FindPort() (uint16, error) {
 	// Qserv uses port and port + 1
 	for port := marshal.minPort; port < marshal.maxPort; port += 2 {
 		occupied := false
@@ -218,7 +218,7 @@ func (marshal *Marshaller) FindPort() (uint16, error) {
 	return 0, errors.New("Failed to find port in range")
 }
 
-func (marshal *Marshaller) Shutdown() {
+func (marshal *Manager) Shutdown() {
 	marshal.mutex.Lock()
 	defer marshal.mutex.Unlock()
 
@@ -255,7 +255,7 @@ func FindIdentity(port uint16) Identity {
 	}
 }
 
-func (marshal *Marshaller) NewServer(ctx context.Context) (*GameServer, error) {
+func (marshal *Manager) NewServer(ctx context.Context) (*GameServer, error) {
 	server := GameServer{}
 
 	// We don't want other servers to start while this one is being started
