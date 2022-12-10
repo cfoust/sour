@@ -313,6 +313,16 @@ void sendpacket(int n, int chan, ENetPacket *packet, int exclude)
             enet_peer_send(clients[n]->peer, chan, packet);
             break;
         }
+        case ST_SOCKET:
+        {
+            packetbuf p(MAXTRANS);
+            putuint(p, clients[n]->id);
+            putuint(p, chan);
+            p.put(packet->data, packet->dataLength);
+            ENetPacket *newPacket = p.finalize();
+            socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+            break;
+        }
     }
 }
 
@@ -420,6 +430,7 @@ const char *disconnectreason(int reason)
 VAR(serverdisconnectmsg, 0, 1, 1); //enable/disable msg
 void disconnect_client(int n, int reason) {
     qs.resetoLangWarn(n);
+    // TODO do we have to care about this in Sour?
     if(!clients.inrange(n) || clients[n]->type!=ST_TCPIP) return;
     enet_peer_disconnect(clients[n]->peer, reason);
     server::clientdisconnect(n);
@@ -758,7 +769,9 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
             case SOCKET_EVENT_RECEIVE:
                 {
                     uint channel = getuint(p);
-                    client *c = findclient(getuint(p));
+                    uint id = getuint(p);
+                    client *c = findclient(id);
+                    logoutf("packet from client %d (%d)", id, channel);
                     if(!c) break;
                     process(&packet, c->num, channel);
                     break;

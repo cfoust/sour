@@ -527,6 +527,8 @@ function App() {
       setTimeout(() => BananaBread.execute(cmd), 0)
     }
 
+    let serverEvents: any[] = []
+
     Module.cluster = {
       connect: (name: string, password: string) => {
         ws.send(
@@ -536,12 +538,13 @@ function App() {
           })
         )
       },
-      send: (dataPtr: number, dataLength: number) => {
+      send: (channel: number, dataPtr: number, dataLength: number) => {
         const packet = new Uint8Array(dataLength)
         packet.set(new Uint8Array(Module.HEAPU8.buffer, dataPtr, dataLength))
         ws.send(
           CBOR.encode({
             Op: MessageType.Packet,
+            Channel: channel,
             Data: packet,
             Length: dataLength,
           })
@@ -554,7 +557,36 @@ function App() {
         dataLengthPtr: number
       ) => {
         const view = new DataView(Module.HEAPU8.buffer)
-        view.setInt32(eventPtr, 0)
+
+        const event = serverEvents.shift()
+        if (event == null) {
+          return 0
+        }
+
+        console.log(event)
+
+        const [type_, message] = event
+        if (type_ === 1 || type_ === 2) {
+          return type_
+        }
+
+        const { Channel, Data, Length } = message
+
+        // 2: Channel
+        // 4: Length
+        // 4: Data
+        const frameLength = Length + 2 + 4
+        const pointer = Module._malloc(frameLength)
+
+        console.log(Channel, pointer, Length);
+        view.setUint16(pointer, Channel, true)
+        view.setUint32(pointer + 2, Length, true)
+
+        // Copy in from data
+        const dataHeap = new Uint8Array(Module.HEAPU8.buffer, pointer + 6, Length)
+        dataHeap.set(new Uint8Array(Data.buffer, Data.byteOffset, Length))
+
+        return pointer
       },
       disconnect: () => {
         ws.send(
@@ -584,6 +616,15 @@ function App() {
         }
 
         injectServers(Master)
+        return
+      }
+
+      if (serverMessage.Op === MessageType.ServerConnected) {
+        serverEvents.push([1])
+      }
+
+      if (serverMessage.Op === MessageType.Packet) {
+        serverEvents.push([3, serverMessage])
       }
     }
   }, [])

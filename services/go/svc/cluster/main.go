@@ -24,6 +24,7 @@ import (
 
 type WSClient struct {
 	id        uint16
+	server    *manager.GameServer
 	send      chan []byte
 	closeSlow func()
 }
@@ -39,6 +40,7 @@ type Cluster struct {
 	clients       map[*WSClient]struct{}
 	serverWatcher *watcher.Watcher
 	manager       *manager.Manager
+	serverMessage chan []byte
 }
 
 func NewCluster() *Cluster {
@@ -46,6 +48,7 @@ func NewCluster() *Cluster {
 		logf:          log.Printf,
 		clients:       make(map[*WSClient]struct{}),
 		serverWatcher: watcher.NewWatcher(),
+		serverMessage: make(chan []byte, 1),
 		manager: manager.NewManager(
 			"../server/qserv",
 			50000,
@@ -108,11 +111,12 @@ func (server *Cluster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (server *Cluster) StartServers(ctx context.Context) {
 	for i := 0; i < 3; i++ {
-		_, err := server.manager.NewServer(ctx)
+		gameServer, err := server.manager.NewServer(ctx)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to create server")
 		}
 
+		go gameServer.Start(ctx, server.serverMessage)
 	}
 }
 
@@ -137,6 +141,38 @@ func (server *Cluster) StartWatcher(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+func (server *Cluster) PollMessages(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-server.serverMessage:
+			log.Info().Int("len", len(msg)).Msg("got message from server")
+			p := protocol.Packet(msg)
+			id, _ := p.GetUint()
+			chan_, _ := p.GetUint()
+
+			for client, _ := range server.clients {
+				if client.id != uint16(id) {
+					continue
+				}
+
+				packet := protocol.PacketMessage{
+					Op:      protocol.PacketOp,
+					Channel: int(chan_),
+					Data:    p,
+					Length:  len(p),
+				}
+
+				bytes, _ := cbor.Marshal(packet)
+				client.send <- bytes
+
+				break
+			}
+		}
+	}
 }
 
 func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
@@ -187,8 +223,64 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 		select {
 		case msg := <-receive:
 			var connectMessage protocol.ConnectMessage
-			if err := cbor.Unmarshal(msg, &connectMessage); err == nil {
-				log.Print(connectMessage)
+			if err := cbor.Unmarshal(msg, &connectMessage); err == nil &&
+				connectMessage.Op == protocol.ConnectOp {
+				for _, gameServer := range server.manager.Servers {
+					if gameServer.Id != connectMessage.Target {
+						continue
+					}
+
+					// TODO check server OK
+
+					p := protocol.Packet{}
+					p.PutInt(0)
+					p.PutUint(uint32(client.id))
+					gameServer.Send <- p
+
+					packet := protocol.GenericMessage{
+						Op: protocol.ServerConnectedOp,
+					}
+
+					bytes, _ := cbor.Marshal(packet)
+					client.send <- bytes
+
+					client.server = gameServer
+
+					break
+				}
+			}
+
+			var packetMessage protocol.PacketMessage
+			if err := cbor.Unmarshal(msg, &packetMessage); err == nil &&
+				packetMessage.Op == protocol.PacketOp {
+				target := client.server
+				if target == nil {
+					break
+				}
+
+				p := protocol.Packet{}
+				p.PutInt(1)
+				p.PutUint(uint32(packetMessage.Channel))
+				p.PutUint(uint32(client.id))
+				p = append(p, packetMessage.Data...)
+
+				target.Send <- p
+				log.Info().Msg("got message from client")
+			}
+
+			var generic protocol.GenericMessage
+			err := cbor.Unmarshal(msg, &generic)
+			if err == nil && packetMessage.Op == protocol.DisconnectOp {
+				target := client.server
+				if target == nil {
+					break
+				}
+
+				p := protocol.Packet{}
+				p.PutInt(2)
+				p.PutUint(uint32(client.id))
+
+				target.Send <- p
 			}
 
 		case msg := <-client.send:
@@ -286,6 +378,7 @@ func main() {
 
 	go cluster.StartServers(ctx)
 	go cluster.StartWatcher(ctx)
+	go cluster.PollMessages(ctx)
 
 	errc := make(chan error, 1)
 	go func() {

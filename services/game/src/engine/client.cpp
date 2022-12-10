@@ -252,8 +252,8 @@ void sendclientpacket(ENetPacket *packet, int chan)
 #if __EMSCRIPTEN__
     else if (sourconnected) {
         EM_ASM({
-                Module.cluster.send($0, $1)
-        }, packet->data, packet->dataLength);
+                Module.cluster.send($0, $1, $2)
+        }, chan, packet->data, packet->dataLength);
     }
 #endif
     else localclienttoserver(chan, packet);
@@ -284,7 +284,7 @@ void gets2c()           // get updates from the server
 
 #if __EMSCRIPTEN__
     if(!clienthost && !sourconnected && !sourconnecting) return;
-    if(totalmillis/3000 > connmillis/3000)
+    if(totalmillis/3000 > connmillis/3000 && sourconnecting)
     {
 
         conoutf("attempting to connect...");
@@ -320,33 +320,34 @@ void gets2c()           // get updates from the server
 
 #if __EMSCRIPTEN__
     ENetPacket packet;
-    int sourEvent, sourChannel;
+    ushort sourEvent, sourChannel;
     while (true) {
-        EM_ASM({
-            Module.cluster.receive($0, $1, $2, $3)
+        enet_uint8 * frame = (enet_uint8*) EM_ASM_INT({
+            return Module.cluster.receive($0, $1, $2, $3)
         }, &sourEvent, &sourChannel, &packet.data, &packet.dataLength);
 
-        if (sourEvent == 0) return;
-
-        switch(sourEvent)
-        {
-            case ENET_EVENT_TYPE_CONNECT:
-                conoutf("connected to server");
-                game::gameconnect(true);
-                break;
-
-            case ENET_EVENT_TYPE_RECEIVE:
-                if(discmillis) conoutf("attempting to disconnect...");
-                else localservertoclient(sourChannel, &packet);
-                break;
-
-            case ENET_EVENT_TYPE_DISCONNECT:
-                abortjoin();
-                return;
-
-            default:
-                break;
+        if (frame == 0) {
+            break;
+        } else if ((int) frame == ENET_EVENT_TYPE_CONNECT) {
+            conoutf("connected to server");
+            sourconnected = true;
+            sourconnecting = false;
+            game::gameconnect(true);
+            break;
+        } else if ((int) frame == ENET_EVENT_TYPE_DISCONNECT) {
+            abortjoin();
+            break;
         }
+
+        sourChannel = *((ushort*) frame);
+        packet.dataLength = *((size_t*)(frame + 2));
+        packet.data = frame + 6;
+
+        conoutf("pointer=%d, channel=%d, data=%d, length=%d", frame, sourChannel, packet.data, packet.dataLength);
+        conoutf("data[0]=%d data[1]=%d", packet.data[0], packet.data[1]);
+
+        if(discmillis) conoutf("attempting to disconnect...");
+        else localservertoclient(sourChannel, &packet);
     }
 #endif
 

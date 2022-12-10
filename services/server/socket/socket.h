@@ -25,6 +25,7 @@ class SocketChannel
 
 		bool isConnected();
 		void checkConnection();
+		int send(char * data, int length);
 		void finish();
 
         int receive(ENetPacket *packet);

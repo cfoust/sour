@@ -38,6 +38,11 @@ void SocketChannel::checkConnection() {
     connected = true;
 }
 
+int SocketChannel::send(char * data, int length) {
+    if (!connected) return -1;
+    return write(clientFd, data, length);
+}
+
 void SocketChannel::init()
 {
     struct sockaddr_un sa;

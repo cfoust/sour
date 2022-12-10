@@ -62,7 +62,7 @@ type ModuleType = {
 
   cluster: {
     connect: (name: string, password: string) => void
-    send: (dataPtr: number, dataLength: number) => void
+    send: (channel: number, dataPtr: number, dataLength: number) => void
     receive: (
       eventPtr: number,
       channelPtr: number,

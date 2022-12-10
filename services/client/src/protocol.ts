@@ -1,5 +1,7 @@
 export enum MessageType {
   Info,
+  ServerConnected,
+  ServerDisconnected,
   Connect,
   Disconnect,
   Packet,
@@ -22,6 +24,15 @@ export type PacketMessage = {
   Op: MessageType.Packet
   Data: Uint8Array
   Length: number
+  Channel: number
+}
+
+export type ServerConnectedMessage = {
+  Op: MessageType.ServerConnected
+}
+
+export type ServerDisconnectedMessage = {
+  Op: MessageType.ServerDisconnected
 }
 
 export type ConnectMessage = {
@@ -34,5 +45,9 @@ export type DisconnectMessage = {
   Target: string
 }
 
-export type ServerMessage = InfoMessage | PacketMessage
+export type ServerMessage =
+  | InfoMessage
+  | PacketMessage
+  | ServerConnectedMessage
+  | ServerDisconnectedMessage
 export type ClientMessage = PacketMessage | ConnectMessage | DisconnectMessage

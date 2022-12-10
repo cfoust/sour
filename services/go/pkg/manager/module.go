@@ -32,6 +32,7 @@ type GameServer struct {
 	Port   uint16
 	Status ServerStatus
 	Id     string
+	Send   chan []byte
 
 	// The path of the socket
 	path    string
@@ -73,6 +74,40 @@ func (server *GameServer) Shutdown() {
 	}
 }
 
+func (server *GameServer) PollWrites(ctx context.Context) {
+	for {
+		select {
+		case msg := <-server.Send:
+			if server.socket != nil {
+				(*server.socket).Write(msg)
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
+	buffer := make([]byte, 5242880)
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+
+		numBytes, err := (*server.socket).Read(buffer)
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+
+		if numBytes == 0 {
+			continue
+		}
+
+		out <- buffer[:numBytes]
+	}
+}
+
 func (server *GameServer) Wait() {
 	tailPipe := func(pipe io.ReadCloser, done chan bool) {
 		scanner := bufio.NewScanner(pipe)
@@ -92,8 +127,8 @@ func (server *GameServer) Wait() {
 
 	log.Printf("[%s] started on port %d", server.Id, server.Port)
 
-	stdoutEOF := make(chan bool)
-	stderrEOF := make(chan bool)
+	stdoutEOF := make(chan bool, 1)
+	stderrEOF := make(chan bool, 1)
 
 	go tailPipe(stdout, stdoutEOF)
 	go tailPipe(stderr, stderrEOF)
@@ -126,9 +161,9 @@ func (server *GameServer) Wait() {
 	log.Printf("[%s] exited", server.Id)
 }
 
-func (server *GameServer) Monitor(ctx context.Context) {
+func (server *GameServer) Start(ctx context.Context, readChannel chan []byte) {
 	tick := time.NewTicker(250 * time.Millisecond)
-	exitChannel := make(chan bool)
+	exitChannel := make(chan bool, 1)
 
 	go server.Wait()
 
@@ -146,6 +181,9 @@ func (server *GameServer) Monitor(ctx context.Context) {
 				status = ServerOK
 				server.socket = conn
 				server.mutex.Unlock()
+
+				go server.PollWrites(ctx)
+				go server.PollReads(ctx, readChannel)
 			}
 		}
 
@@ -160,10 +198,12 @@ func (server *GameServer) Monitor(ctx context.Context) {
 }
 
 type Manager struct {
+	Servers []*GameServer
+	Receive chan []byte
+
 	minPort    uint16
 	maxPort    uint16
 	serverPath string
-	Servers    []*GameServer
 	mutex      sync.Mutex
 }
 
@@ -256,7 +296,9 @@ func FindIdentity(port uint16) Identity {
 }
 
 func (marshal *Manager) NewServer(ctx context.Context) (*GameServer, error) {
-	server := GameServer{}
+	server := GameServer{
+		Send: make(chan []byte, 1),
+	}
 
 	// We don't want other servers to start while this one is being started
 	// because of port contention
@@ -284,9 +326,7 @@ func (marshal *Manager) NewServer(ctx context.Context) (*GameServer, error) {
 
 	server.command = cmd
 	server.path = identity.Path
-	server.exit = make(chan bool)
-
-	go server.Monitor(ctx)
+	server.exit = make(chan bool, 1)
 
 	marshal.Servers = append(marshal.Servers, &server)
 
