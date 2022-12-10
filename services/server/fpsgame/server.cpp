@@ -3485,7 +3485,7 @@ best.add(clients[i]); \
                 sendf(ci->clientnum,1,"ris",N_SERVMSG,welcomenonamemsg);
             }
         }
-        qs.getLocation(ci);
+        //qs.getLocation(ci);
     }
 
     int vmessage(int cn, const char *fmt, va_list ap) {
