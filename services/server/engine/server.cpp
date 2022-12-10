@@ -306,6 +306,7 @@ void sendpacket(int n, int chan, ENetPacket *packet, int exclude)
         loopv(clients) if(i!=exclude && server::allowbroadcast(i)) sendpacket(i, chan, packet);
         return;
     }
+    conoutf("sending packet %zu", packet->dataLength);
     switch(clients[n]->type)
     {
         case ST_TCPIP:
@@ -320,6 +321,7 @@ void sendpacket(int n, int chan, ENetPacket *packet, int exclude)
             putuint(p, chan);
             p.put(packet->data, packet->dataLength);
             ENetPacket *newPacket = p.finalize();
+            printf("newpacket length = %zu\n", newPacket->dataLength);
             socketCtl.send((char*) newPacket->data, newPacket->dataLength);
             break;
         }
@@ -771,9 +773,13 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
                     uint channel = getuint(p);
                     uint id = getuint(p);
                     client *c = findclient(id);
-                    logoutf("packet from client %d (%d)", id, channel);
+
+                    packetbuf q(MAXTRANS);
+                    q.put(packet.data + p.len, packet.dataLength - p.len);
+                    ENetPacket *newPacket = q.finalize();
+                    logoutf("packet from client %d (%d) %x %d", id, channel, newPacket->data, newPacket->dataLength);
                     if(!c) break;
-                    process(&packet, c->num, channel);
+                    process(newPacket, c->num, channel);
                     break;
                 }
             case SOCKET_EVENT_DISCONNECT:

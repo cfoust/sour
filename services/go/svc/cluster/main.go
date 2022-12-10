@@ -149,10 +149,10 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case msg := <-server.serverMessage:
-			log.Info().Int("len", len(msg)).Msg("got message from server")
 			p := protocol.Packet(msg)
 			id, _ := p.GetUint()
 			chan_, _ := p.GetUint()
+			log.Info().Int("len", len(p)).Msg("packet to client")
 
 			for client, _ := range server.clients {
 				if client.id != uint16(id) {
@@ -265,7 +265,6 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 				p = append(p, packetMessage.Data...)
 
 				target.Send <- p
-				log.Info().Msg("got message from client")
 			}
 
 			var generic protocol.GenericMessage

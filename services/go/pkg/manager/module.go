@@ -96,7 +96,6 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 
 		numBytes, err := (*server.socket).Read(buffer)
 		if err != nil {
-			log.Print(err)
 			continue
 		}
 
