@@ -58,6 +58,19 @@ type ModuleType = {
     canOwn: boolean
   ) => void
   addRunDependency: (dependency: string) => void
+  socket: (addr: string, port: number) => any
+
+  cluster: {
+    connect: (name: string, password: string) => void
+    send: (dataPtr: number, dataLength: number) => void
+    receive: (
+      eventPtr: number,
+      channelPtr: number,
+      dataPtr: number,
+      dataLengthPtr: number
+    ) => void
+    disconnect: () => void
+  }
 }
 declare const Module: ModuleType
 declare type Maybe<T> = T | null | undefined

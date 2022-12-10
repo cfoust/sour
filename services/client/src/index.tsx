@@ -18,7 +18,9 @@ import {
 } from '@chakra-ui/react'
 
 import type { GameState } from './types'
+import type { ServerMessage } from './protocol'
 import { GameStateType } from './types'
+import { MessageType } from './protocol'
 import type {
   AssetResponse,
   GameMap,
@@ -159,6 +161,7 @@ function App() {
   const assetWorkerRef = React.useRef<Worker>()
   const requestStateRef = React.useRef<BundleRequest[]>([])
   const bundleIndexRef = React.useRef<BundleIndex>()
+  const clustersRef = React.useRef<string[]>()
 
   const loadData = React.useCallback(async (target: string) => {
     const { current: assetWorker } = assetWorkerRef
@@ -298,6 +301,28 @@ function App() {
 
     Module.postLoadWorld = function () {
       BananaBread.execute('spawnitems')
+    }
+
+    Module.socket = (addr, port) => {
+      const { protocol, host } = window.location
+      const prefix = `${
+        protocol === 'https:' ? 'wss://' : 'ws:/'
+      }${host}/service/proxy/`
+
+      const clusterServers: string[] = clustersRef.current ?? []
+
+      if (!clusterServers.includes(addr)) {
+        return new WebSocket(
+          addr === 'sour' ? prefix : `${prefix}u/${addr}:${port}`,
+          ['binary']
+        )
+      }
+
+      // Spoof the WebSocket
+      return {
+        send: console.log,
+        close: () => console.log('close'),
+      }
     }
 
     // We want Sauerbraten to behave as though all of the available maps were
@@ -502,34 +527,64 @@ function App() {
       setTimeout(() => BananaBread.execute(cmd), 0)
     }
 
-    ws.onopen = () => {
-      ws.send(
-        CBOR.encode({
-          Op: 1,
-          Target: 'test test',
-        })
-      )
-      ws.send(
-        CBOR.encode({
-          Op: 1,
-          Target: 'test test',
-        })
-      )
+    Module.cluster = {
+      connect: (name: string, password: string) => {
+        ws.send(
+          CBOR.encode({
+            Op: MessageType.Connect,
+            Target: name,
+          })
+        )
+      },
+      send: (dataPtr: number, dataLength: number) => {
+        const packet = new Uint8Array(dataLength)
+        packet.set(new Uint8Array(Module.HEAPU8.buffer, dataPtr, dataLength))
+        ws.send(
+          CBOR.encode({
+            Op: MessageType.Packet,
+            Data: packet,
+            Length: dataLength,
+          })
+        )
+      },
+      receive: (
+        eventPtr: number,
+        channelPtr: number,
+        dataPtr: number,
+        dataLengthPtr: number
+      ) => {
+        const view = new DataView(Module.HEAPU8.buffer)
+        view.setInt32(eventPtr, 0)
+      },
+      disconnect: () => {
+        ws.send(
+          CBOR.encode({
+            Op: MessageType.Disconnect,
+          })
+        )
+      },
     }
 
     ws.onmessage = (evt) => {
-      const servers = CBOR.decode(evt.data)
+      const serverMessage: ServerMessage = CBOR.decode(evt.data)
 
-      if (
-        BananaBread == null ||
-        BananaBread.execute == null ||
-        BananaBread.injectServer == null
-      ) {
-        cachedServers = servers.Master
-        return
+      if (serverMessage.Op === MessageType.Info) {
+        const { Cluster, Master } = serverMessage
+        clustersRef.current = Cluster
+
+        console.log(Cluster)
+
+        if (
+          BananaBread == null ||
+          BananaBread.execute == null ||
+          BananaBread.injectServer == null
+        ) {
+          cachedServers = Master
+          return
+        }
+
+        injectServers(Master)
       }
-
-      injectServers(servers.Master)
     }
   }, [])
 
