@@ -317,11 +317,12 @@ void sendpacket(int n, int chan, ENetPacket *packet, int exclude)
         case ST_SOCKET:
         {
             packetbuf p(MAXTRANS);
+            putuint(p, packet->dataLength);
             putuint(p, clients[n]->id);
             putuint(p, chan);
             p.put(packet->data, packet->dataLength);
             ENetPacket *newPacket = p.finalize();
-            printf("newpacket length = %zu\n", newPacket->dataLength);
+            printf("writing packet len=%zu\n", newPacket->dataLength);
             socketCtl.send((char*) newPacket->data, newPacket->dataLength);
             break;
         }

@@ -150,26 +150,43 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 			return
 		case msg := <-server.serverMessage:
 			p := protocol.Packet(msg)
-			id, _ := p.GetUint()
-			chan_, _ := p.GetUint()
-			log.Info().Int("len", len(p)).Msg("packet to client")
 
-			for client, _ := range server.clients {
-				if client.id != uint16(id) {
-					continue
+			for len(p) > 0 {
+				numBytes, ok := p.GetUint()
+				if !ok {
+					break
+				}
+				id, ok := p.GetUint()
+				if !ok {
+					break
+				}
+				chan_, ok := p.GetUint()
+				if !ok {
+					break
 				}
 
-				packet := protocol.PacketMessage{
-					Op:      protocol.PacketOp,
-					Channel: int(chan_),
-					Data:    p,
-					Length:  len(p),
+				data := p[:numBytes]
+				p = p[numBytes:]
+
+				log.Info().Int("len", len(data)).Msg("packet to client")
+
+				for client, _ := range server.clients {
+					if client.id != uint16(id) {
+						continue
+					}
+
+					packet := protocol.PacketMessage{
+						Op:      protocol.PacketOp,
+						Channel: int(chan_),
+						Data:    data,
+						Length:  len(data),
+					}
+
+					bytes, _ := cbor.Marshal(packet)
+					client.send <- bytes
+
+					break
 				}
-
-				bytes, _ := cbor.Marshal(packet)
-				client.send <- bytes
-
-				break
 			}
 		}
 	}
