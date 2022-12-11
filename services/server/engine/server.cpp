@@ -263,7 +263,9 @@ void delclient(client *c)
     if(!c) return;
     switch(c->type)
     {
-        case ST_TCPIP: nonlocalclients--; if(c->peer) c->peer->data = NULL; break;
+        case ST_SOCKET:
+        case ST_TCPIP:
+            nonlocalclients--; if(c->peer) c->peer->data = NULL; break;
         case ST_LOCAL: localclients--; break;
         case ST_EMPTY: return;
     }

@@ -107,6 +107,22 @@ void leave(bool async, bool cleanup)
     mainmenu = 1;
 }
 
+void tryleave(bool local)
+{
+    if(sourconnecting)
+    {
+        conoutf("aborting connection attempt");
+        abortjoin();
+    }
+    else if(sourconnected)
+    {
+        conoutf("attempting to leave...");
+        leave(!discmillis, true);
+    }
+    else conoutf(CON_WARN, "not connected");
+}
+ICOMMAND(leave, "b", (int *local), tryleave(*local != 0));
+
 // We don't need to use enet to join Sour servers.
 void connectsour(const char *servername, const char *serverpassword)
 {   
@@ -232,6 +248,12 @@ void disconnect(bool async, bool cleanup)
 
 void trydisconnect(bool local)
 {
+#if __EMSCRIPTEN__
+    if (sourconnected || sourconnecting) {
+        tryleave(local);
+        return;
+    }
+#endif
     if(connpeer)
     {
         conoutf("aborting connection attempt");
@@ -336,7 +358,7 @@ void gets2c()           // get updates from the server
         if (frame == 0) {
             break;
         } else if ((int) frame == ENET_EVENT_TYPE_CONNECT) {
-            conoutf("connected to server");
+            conoutf("connected to server (socket)");
             sourconnected = true;
             sourconnecting = false;
             game::gameconnect(true);
