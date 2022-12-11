@@ -14,7 +14,11 @@ bool sourconnected = false, sourconnecting = false;
 
 bool multiplayer(bool msg)
 {
+#if __EMSCRIPTEN__
+    bool val = curpeer || sourconnected || hasnonlocalclients(); 
+#else
     bool val = curpeer || hasnonlocalclients(); 
+#endif
     if(val && msg) conoutf(CON_ERROR, "operation not available in multiplayer");
     return val;
 }
