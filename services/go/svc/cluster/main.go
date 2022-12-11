@@ -18,6 +18,7 @@ import (
 	"github.com/cfoust/sour/pkg/watcher"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"nhooyr.io/websocket"
 )
@@ -151,8 +152,12 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 		case msg := <-server.serverMessage:
 			p := protocol.Packet(msg)
 
+			log.Info().Int("bytes", len(p)).Msg("processing server messages")
+
 			for len(p) > 0 {
+				log.Info().Int("bytes", len(p)).Msgf("data[0]=%d data[1]=%d", p[0], p[1])
 				numBytes, ok := p.GetUint()
+				log.Info().Uint32("numBytes", numBytes).Int("remaining", len(p)).Msg("packet to client")
 				if !ok {
 					break
 				}
@@ -166,10 +171,9 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 				}
 
 				data := p[:numBytes]
-				p = p[numBytes:]
+				p = p[len(data):]
 
-				log.Info().Int("len", len(data)).Msg("packet to client")
-
+				server.clientMutex.Lock()
 				for client, _ := range server.clients {
 					if client.id != uint16(id) {
 						continue
@@ -187,6 +191,7 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 
 					break
 				}
+				server.clientMutex.Unlock()
 			}
 		}
 	}
@@ -242,6 +247,11 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 			var connectMessage protocol.ConnectMessage
 			if err := cbor.Unmarshal(msg, &connectMessage); err == nil &&
 				connectMessage.Op == protocol.ConnectOp {
+
+				if client.server != nil && client.server.Id == connectMessage.Target {
+					break;
+				}
+
 				for _, gameServer := range server.manager.Servers {
 					if gameServer.Id != connectMessage.Target {
 						continue
@@ -249,10 +259,8 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 
 					// TODO check server OK
 
-					p := protocol.Packet{}
-					p.PutInt(0)
-					p.PutUint(uint32(client.id))
-					gameServer.Send <- p
+					log.Printf("Connecting to server")
+					gameServer.SendConnect(client.id)
 
 					packet := protocol.GenericMessage{
 						Op: protocol.ServerConnectedOp,
@@ -275,13 +283,12 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 					break
 				}
 
-				p := protocol.Packet{}
-				p.PutInt(1)
-				p.PutUint(uint32(packetMessage.Channel))
-				p.PutUint(uint32(client.id))
-				p = append(p, packetMessage.Data...)
-
-				target.Send <- p
+				log.Info().Int("numBytes", packetMessage.Length).Msg("packet from client")
+				target.SendData(
+					client.id,
+					uint32(packetMessage.Channel),
+					packetMessage.Data,
+				)
 			}
 
 			var generic protocol.GenericMessage
@@ -292,11 +299,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 					break
 				}
 
-				p := protocol.Packet{}
-				p.PutInt(2)
-				p.PutUint(uint32(client.id))
-
-				target.Send <- p
+				target.SendDisconnect(client.id)
 			}
 
 		case msg := <-client.send:
@@ -364,6 +367,10 @@ func (server *Cluster) AddClient(s *WSClient) {
 }
 
 func (server *Cluster) RemoveClient(client *WSClient) {
+	if client.server != nil {
+		client.server.SendDisconnect(client.id)
+	}
+
 	server.clientMutex.Lock()
 	delete(server.clients, client)
 	server.clientMutex.Unlock()
@@ -380,6 +387,8 @@ func WriteTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn,
 }
 
 func main() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
+
 	l, _ := net.Listen("tcp", "0.0.0.0:29999")
 	log.Printf("listening on http://%v", l.Addr())
 

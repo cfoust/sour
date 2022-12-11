@@ -8,6 +8,10 @@ ENetHost *clienthost = NULL;
 ENetPeer *curpeer = NULL, *connpeer = NULL;
 int connmillis = 0, connattempts = 0, discmillis = 0;
 
+#if __EMSCRIPTEN__
+bool sourconnected = false, sourconnecting = false;
+#endif
+
 bool multiplayer(bool msg)
 {
     bool val = curpeer || hasnonlocalclients(); 
@@ -38,7 +42,11 @@ void throttle()
 
 bool isconnected(bool attempt, bool local)
 {
+#if __EMSCRIPTEN__
+    return curpeer || sourconnected || (attempt && connpeer) || (local && haslocalclients());
+#else
     return curpeer || (attempt && connpeer) || (local && haslocalclients());
+#endif
 }
 
 ICOMMAND(isconnected, "bb", (int *attempt, int *local), intret(isconnected(*attempt > 0, *local != 0) ? 1 : 0));
@@ -76,7 +84,6 @@ SVARP(connectname, "");
 VARP(connectport, 0, 0, 0xFFFF);
 
 #if __EMSCRIPTEN__
-bool sourconnected = false, sourconnecting = false;
 void abortjoin()
 {
     if(!sourconnected) return;
@@ -342,9 +349,6 @@ void gets2c()           // get updates from the server
         sourChannel = *((ushort*) frame);
         packet.dataLength = *((size_t*)(frame + 2));
         packet.data = frame + 6;
-
-        conoutf("pointer=%d, channel=%d, data=%d, length=%d", frame, sourChannel, packet.data, packet.dataLength);
-        conoutf("data[0]=%d data[1]=%d", packet.data[0], packet.data[1]);
 
         if(discmillis) conoutf("attempting to disconnect...");
         else localservertoclient(sourChannel, &packet);

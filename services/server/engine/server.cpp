@@ -306,7 +306,6 @@ void sendpacket(int n, int chan, ENetPacket *packet, int exclude)
         loopv(clients) if(i!=exclude && server::allowbroadcast(i)) sendpacket(i, chan, packet);
         return;
     }
-    conoutf("sending packet %zu", packet->dataLength);
     switch(clients[n]->type)
     {
         case ST_TCPIP:
@@ -322,7 +321,8 @@ void sendpacket(int n, int chan, ENetPacket *packet, int exclude)
             putuint(p, chan);
             p.put(packet->data, packet->dataLength);
             ENetPacket *newPacket = p.finalize();
-            printf("writing packet len=%zu\n", newPacket->dataLength);
+            logoutf("packet to client %d len=%d orig=%d", clients[n]->id, newPacket->dataLength, packet->dataLength);
+            logoutf("data[0]=%d data[1]=%d", newPacket->data[0], newPacket->data[1]);
             socketCtl.send((char*) newPacket->data, newPacket->dataLength);
             break;
         }
@@ -751,49 +751,55 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
     }
 
     // First process socket traffic
-    ENetPacket packet;
-    while (socketCtl.receive(&packet) != -1) {
-        packetbuf p(&packet);
-        uint type = getuint(p);
-        switch(type)
-        {
-            case SOCKET_EVENT_CONNECT:
-                {
-                    uint id = getuint(p);
-                    client &c = addclient(ST_SOCKET);
-                    c.id = id;
-                    copystring(c.hostname, "unknown");
-                    logoutf("Join: (socket:%d)", c.id);
-                    out(ECHO_IRC, "Join: (socket:%d)", c.id);
-                    int reason = server::clientconnect(c.num, 0, c.hostname);
-                    if(reason) disconnect_client(c.num, reason);
-                    break;
-                }
-            case SOCKET_EVENT_RECEIVE:
-                {
-                    uint channel = getuint(p);
-                    uint id = getuint(p);
-                    client *c = findclient(id);
+    ENetPacket socketRead, message;
+    while (socketCtl.receive(&socketRead) != -1) {
+        packetbuf p(&socketRead);
 
-                    packetbuf q(MAXTRANS);
-                    q.put(packet.data + p.len, packet.dataLength - p.len);
-                    ENetPacket *newPacket = q.finalize();
-                    logoutf("packet from client %d (%d) %x %d", id, channel, newPacket->data, newPacket->dataLength);
-                    if(!c) break;
-                    process(newPacket, c->num, channel);
+        while (!p.overread() && p.len != p.maxlen) {
+            uint messageBytes = getuint(p);
+            ucharbuf q(p.buf + p.len, messageBytes);
+            for (int i = 0; i < messageBytes; i++) p.get();
+
+            uint type = getuint(q);
+            uint id = getuint(q);
+            logoutf("packet from client %d len=%d", id, messageBytes);
+            switch(type)
+            {
+                case SOCKET_EVENT_CONNECT:
+                    {
+                        client &c = addclient(ST_SOCKET);
+                        c.id = id;
+                        copystring(c.hostname, "unknown");
+                        logoutf("Join: (socket:%d)", c.id);
+                        out(ECHO_IRC, "Join: (socket:%d)", c.id);
+                        int reason = server::clientconnect(c.num, 0, c.hostname);
+                        if(reason) disconnect_client(c.num, reason);
+                        break;
+                    }
+                case SOCKET_EVENT_RECEIVE:
+                    {
+                        uint channel = getuint(q);
+                        client *c = findclient(id);
+
+                        packetbuf r(MAXTRANS);
+                        r.put(q.buf + q.len, messageBytes - q.len);
+                        ENetPacket *newPacket = r.finalize();
+                        if(!c) break;
+                        process(newPacket, c->num, channel);
+                        break;
+                    }
+                case SOCKET_EVENT_DISCONNECT:
+                    {
+                        client *c = findclient(id);
+                        if(!c) break;
+                        logoutf("Leave: (socket:%d)", c->id);
+                        server::clientdisconnect(c->num);
+                        delclient(c);
+                        break;
+                    }
+                default:
                     break;
-                }
-            case SOCKET_EVENT_DISCONNECT:
-                {
-                    client *c = findclient(getuint(p));
-                    if(!c) break;
-                    logoutf("Leave: (socket:%d)", c->id);
-                    server::clientdisconnect(c->num);
-                    delclient(c);
-                    break;
-                }
-            default:
-                break;
+            }
         }
     }
 

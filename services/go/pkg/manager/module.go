@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math/big"
 	"net"
 	"os"
@@ -16,6 +15,9 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/cfoust/sour/pkg/protocol"
+	"github.com/rs/zerolog/log"
 )
 
 type ServerStatus byte
@@ -27,12 +29,18 @@ const (
 	ServerExited
 )
 
+// From the enum in services/server/socket/socket.h
+const (
+	SOCKET_EVENT_CONNECT uint32 = iota
+	SOCKET_EVENT_RECEIVE
+	SOCKET_EVENT_DISCONNECT
+)
+
 type GameServer struct {
 	// The UDP port of the server
 	Port   uint16
 	Status ServerStatus
 	Id     string
-	Send   chan []byte
 
 	// The path of the socket
 	path    string
@@ -40,6 +48,38 @@ type GameServer struct {
 	command *exec.Cmd
 	mutex   sync.Mutex
 	exit    chan bool
+	send    chan []byte
+}
+
+func (server *GameServer) sendMessage(data []byte) {
+	p := protocol.Packet{}
+	p.PutUint(uint32(len(data)))
+	p = append(p, data...)
+	server.send <- p
+}
+
+func (server *GameServer) SendData(clientId uint16, channel uint32, data []byte) {
+	p := protocol.Packet{}
+	p.PutUint(SOCKET_EVENT_RECEIVE)
+	p.PutUint(uint32(clientId))
+	p.PutUint(uint32(channel))
+	p = append(p, data...)
+
+	server.sendMessage(p)
+}
+
+func (server *GameServer) SendConnect(clientId uint16) {
+	p := protocol.Packet{}
+	p.PutUint(SOCKET_EVENT_CONNECT)
+	p.PutUint(uint32(clientId))
+	server.sendMessage(p)
+}
+
+func (server *GameServer) SendDisconnect(clientId uint16) {
+	p := protocol.Packet{}
+	p.PutUint(SOCKET_EVENT_DISCONNECT)
+	p.PutUint(uint32(clientId))
+	server.sendMessage(p)
 }
 
 func (server *GameServer) GetStatus() ServerStatus {
@@ -77,7 +117,7 @@ func (server *GameServer) Shutdown() {
 func (server *GameServer) PollWrites(ctx context.Context) {
 	for {
 		select {
-		case msg := <-server.Send:
+		case msg := <-server.send:
 			if server.socket != nil {
 				(*server.socket).Write(msg)
 			}
@@ -99,11 +139,15 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 			continue
 		}
 
+		log.Info().Int("bytes", numBytes).Msgf("PollReads data[0]=%d data[1]=%d", buffer[0], buffer[1])
+
 		if numBytes == 0 {
 			continue
 		}
 
-		out <- buffer[:numBytes]
+		result := make([]byte, numBytes)
+		copy(result, buffer[:numBytes])
+		out <- result
 	}
 }
 
@@ -121,7 +165,8 @@ func (server *GameServer) Wait() {
 
 	err := server.command.Start()
 	if err != nil {
-		log.Fatal(err)
+		log.Error().Err(err)
+		return
 	}
 
 	log.Printf("[%s] started on port %d", server.Id, server.Port)
@@ -296,7 +341,7 @@ func FindIdentity(port uint16) Identity {
 
 func (marshal *Manager) NewServer(ctx context.Context) (*GameServer, error) {
 	server := GameServer{
-		Send: make(chan []byte, 1),
+		send: make(chan []byte, 1),
 	}
 
 	// We don't want other servers to start while this one is being started

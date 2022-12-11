@@ -514,6 +514,15 @@ function App() {
       if (cachedServers == null) return
       injectServers(cachedServers)
 
+      // TESTING
+      setTimeout(() => {
+        const clusters = clustersRef.current ?? []
+        if (clusters.length > 0) {
+          BananaBread.execute(`join ${clusters[0]}`)
+        }
+      }, 1000)
+      // TESTING
+
       const {
         location: { search: params },
       } = window
@@ -527,7 +536,7 @@ function App() {
       setTimeout(() => BananaBread.execute(cmd), 0)
     }
 
-    let serverEvents: any[] = []
+    let serverEvents: ServerMessage[] = []
 
     Module.cluster = {
       connect: (name: string, password: string) => {
@@ -558,16 +567,17 @@ function App() {
       ) => {
         const view = new DataView(Module.HEAPU8.buffer)
 
-        const event = serverEvents.shift()
-        if (event == null) {
+        const message = serverEvents.shift()
+        if (message == null || message.Op === MessageType.Info) {
           return 0
         }
 
-        console.log(event)
+        if (message.Op === MessageType.ServerConnected) {
+          return 1
+        }
 
-        const [type_, message] = event
-        if (type_ === 1 || type_ === 2) {
-          return type_
+        if (message.Op === MessageType.ServerDisconnected) {
+          return 2
         }
 
         const { Channel, Data, Length } = message
@@ -578,7 +588,6 @@ function App() {
         const frameLength = Length + 2 + 4
         const pointer = Module._malloc(frameLength)
 
-        console.log(Channel, pointer, Length);
         view.setUint16(pointer, Channel, true)
         view.setUint32(pointer + 2, Length, true)
 
@@ -604,8 +613,6 @@ function App() {
         const { Cluster, Master } = serverMessage
         clustersRef.current = Cluster
 
-        console.log(Cluster)
-
         if (
           BananaBread == null ||
           BananaBread.execute == null ||
@@ -619,13 +626,7 @@ function App() {
         return
       }
 
-      if (serverMessage.Op === MessageType.ServerConnected) {
-        serverEvents.push([1])
-      }
-
-      if (serverMessage.Op === MessageType.Packet) {
-        serverEvents.push([3, serverMessage])
-      }
+      serverEvents.push(serverMessage)
     }
   }, [])
 
