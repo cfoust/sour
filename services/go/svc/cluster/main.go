@@ -152,12 +152,8 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 		case msg := <-server.serverMessage:
 			p := protocol.Packet(msg)
 
-			log.Info().Int("bytes", len(p)).Msg("processing server messages")
-
 			for len(p) > 0 {
-				log.Info().Int("bytes", len(p)).Msgf("data[0]=%d data[1]=%d", p[0], p[1])
 				numBytes, ok := p.GetUint()
-				log.Info().Uint32("numBytes", numBytes).Int("remaining", len(p)).Msg("packet to client")
 				if !ok {
 					break
 				}
@@ -259,7 +255,6 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 
 					// TODO check server OK
 
-					log.Printf("Connecting to server")
 					gameServer.SendConnect(client.id)
 
 					packet := protocol.GenericMessage{
@@ -283,7 +278,6 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 					break
 				}
 
-				log.Info().Int("numBytes", packetMessage.Length).Msg("packet from client")
 				target.SendData(
 					client.id,
 					uint32(packetMessage.Channel),

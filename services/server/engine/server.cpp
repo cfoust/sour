@@ -305,7 +305,9 @@ void sendpacket(int n, int chan, ENetPacket *packet, int exclude)
     if(n<0)
     {
         server::recordpacket(chan, packet->data, packet->dataLength);
-        loopv(clients) if(i!=exclude && server::allowbroadcast(i)) sendpacket(i, chan, packet);
+        loopv(clients) {
+            if(i!=exclude && server::allowbroadcast(i)) sendpacket(i, chan, packet);
+        }
         return;
     }
     switch(clients[n]->type)
@@ -323,8 +325,6 @@ void sendpacket(int n, int chan, ENetPacket *packet, int exclude)
             putuint(p, chan);
             p.put(packet->data, packet->dataLength);
             ENetPacket *newPacket = p.finalize();
-            logoutf("packet to client %d len=%d orig=%d", clients[n]->id, newPacket->dataLength, packet->dataLength);
-            logoutf("data[0]=%d data[1]=%d", newPacket->data[0], newPacket->data[1]);
             socketCtl.send((char*) newPacket->data, newPacket->dataLength);
             break;
         }
@@ -435,9 +435,12 @@ const char *disconnectreason(int reason)
 VAR(serverdisconnectmsg, 0, 1, 1); //enable/disable msg
 void disconnect_client(int n, int reason) {
     qs.resetoLangWarn(n);
-    // TODO do we have to care about this in Sour?
-    if(!clients.inrange(n) || clients[n]->type!=ST_TCPIP) return;
-    enet_peer_disconnect(clients[n]->peer, reason);
+    if(!clients.inrange(n) ) return;
+
+    if (clients[n]->type==ST_TCPIP) {
+        enet_peer_disconnect(clients[n]->peer, reason);
+    }
+
     server::clientdisconnect(n);
     delclient(clients[n]);
     const char *msg = disconnectreason(reason);
@@ -764,7 +767,7 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
 
             uint type = getuint(q);
             uint id = getuint(q);
-            logoutf("packet from client %d len=%d", id, messageBytes);
+            //logoutf("packet from client %d len=%d", id, messageBytes);
             switch(type)
             {
                 case SOCKET_EVENT_CONNECT:
@@ -773,7 +776,6 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
                         c.id = id;
                         copystring(c.hostname, "unknown");
                         logoutf("Join: (socket:%d)", c.id);
-                        out(ECHO_IRC, "Join: (socket:%d)", c.id);
                         int reason = server::clientconnect(c.num, 0, c.hostname);
                         if(reason) disconnect_client(c.num, reason);
                         break;

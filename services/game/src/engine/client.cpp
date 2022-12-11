@@ -362,7 +362,7 @@ void gets2c()           // get updates from the server
         if (frame == 0) {
             break;
         } else if ((int) frame == ENET_EVENT_TYPE_CONNECT) {
-            conoutf("connected to server (socket)");
+            conoutf("connected to server");
             sourconnected = true;
             sourconnecting = false;
             game::gameconnect(true);
@@ -373,6 +373,7 @@ void gets2c()           // get updates from the server
         }
 
         sourChannel = *((ushort*) frame);
+        packet.flags = 0;
         packet.dataLength = *((size_t*)(frame + 2));
         packet.data = frame + 6;
 

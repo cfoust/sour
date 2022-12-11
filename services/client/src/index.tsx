@@ -309,20 +309,10 @@ function App() {
         protocol === 'https:' ? 'wss://' : 'ws:/'
       }${host}/service/proxy/`
 
-      const clusterServers: string[] = clustersRef.current ?? []
-
-      if (!clusterServers.includes(addr)) {
-        return new WebSocket(
-          addr === 'sour' ? prefix : `${prefix}u/${addr}:${port}`,
-          ['binary']
-        )
-      }
-
-      // Spoof the WebSocket
-      return {
-        send: console.log,
-        close: () => console.log('close'),
-      }
+      return new WebSocket(
+        addr === 'sour' ? prefix : `${prefix}u/${addr}:${port}`,
+        ['binary']
+      )
     }
 
     // We want Sauerbraten to behave as though all of the available maps were
@@ -592,7 +582,11 @@ function App() {
         view.setUint32(pointer + 2, Length, true)
 
         // Copy in from data
-        const dataHeap = new Uint8Array(Module.HEAPU8.buffer, pointer + 6, Length)
+        const dataHeap = new Uint8Array(
+          Module.HEAPU8.buffer,
+          pointer + 6,
+          Length
+        )
         dataHeap.set(new Uint8Array(Data.buffer, Data.byteOffset, Length))
 
         return pointer

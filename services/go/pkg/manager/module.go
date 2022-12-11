@@ -139,8 +139,6 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 			continue
 		}
 
-		log.Info().Int("bytes", numBytes).Msgf("PollReads data[0]=%d data[1]=%d", buffer[0], buffer[1])
-
 		if numBytes == 0 {
 			continue
 		}
