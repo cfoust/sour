@@ -99,7 +99,7 @@ func (server *GameServer) IsReference(reference string) bool {
 
 func (server *GameServer) Reference() string {
 	if server.Alias != "" {
-		return fmt.Sprintf("%s [%s]", server.Alias, server.Id)
+		return fmt.Sprintf("%s (%s)", server.Alias, server.Id)
 	}
 	return server.Id
 }
@@ -169,7 +169,7 @@ func (server *GameServer) Wait() {
 	tailPipe := func(pipe io.ReadCloser, done chan bool) {
 		scanner := bufio.NewScanner(pipe)
 		for scanner.Scan() {
-			log.Printf("[%s] %s", server.Id, scanner.Text())
+			log.Printf("[%s] %s", server.Reference(), scanner.Text())
 		}
 		done <- true
 	}
@@ -183,7 +183,7 @@ func (server *GameServer) Wait() {
 		return
 	}
 
-	log.Printf("[%s] started on port %d", server.Id, server.Port)
+	log.Printf("[%s] started on port %d", server.Reference(), server.Port)
 
 	stdoutEOF := make(chan bool, 1)
 	stderrEOF := make(chan bool, 1)
@@ -218,7 +218,7 @@ func (server *GameServer) Wait() {
 			Str("signal", unixStatus.Signal().String()).
 			Bool("signaled", unixStatus.Signaled()).
 			Int("trapCause", unixStatus.TrapCause()).
-			Msgf("[%s] exited with code %d", server.Id, exitCode)
+			Msgf("[%s] exited with code %d", server.Reference(), exitCode)
 
 		if err != nil {
 			log.Print(err)
@@ -230,7 +230,7 @@ func (server *GameServer) Wait() {
 	server.Status = ServerExited
 	server.mutex.Unlock()
 
-	log.Printf("[%s] exited", server.Id)
+	log.Printf("[%s] exited", server.Reference())
 }
 
 func (server *GameServer) Start(ctx context.Context, readChannel chan []byte) {
@@ -247,7 +247,7 @@ func (server *GameServer) Start(ctx context.Context, readChannel chan []byte) {
 			conn, err := Connect(server.path)
 
 			if err == nil {
-				log.Printf("[%s] connected", server.Id)
+				log.Printf("[%s] connected", server.Reference())
 				server.mutex.Lock()
 				server.Status = ServerOK
 				status = ServerOK
