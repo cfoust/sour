@@ -3145,6 +3145,7 @@ best.add(clients[i]); \
     void clientdisconnect(int n)
     {
         clientinfo *ci = getinfo(n);
+        if (!ci) return;
         loopv(clients) if(clients[i]->authkickvictim == ci->clientnum) clients[i]->cleanauth();
         if(ci->connected)
         {
@@ -3579,6 +3580,8 @@ curmsg = p.length(); \
 
         int curmsg;
         int ct = 0;
+
+        if (!ci) return;
 
         while((curmsg = p.length()) < p.maxlen) switch(type = checktype(getint(p), ci)) {
             case N_POS:
