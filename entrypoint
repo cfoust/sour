@@ -2,6 +2,7 @@
 
 # Update env vars in the source code
 ASSET_SOURCE=${ASSET_SOURCE:-/assets/.index.json}
+QSERV_PATH=/bin/qserv
 (cd /app/ && sed -i -e "s{__ASSET_SOURCE__{$ASSET_SOURCE{g" index.js)
 
 run_proxy() {

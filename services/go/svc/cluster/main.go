@@ -44,14 +44,14 @@ type Cluster struct {
 	serverMessage chan []byte
 }
 
-func NewCluster() *Cluster {
+func NewCluster(serverPath string) *Cluster {
 	server := &Cluster{
 		logf:          log.Printf,
 		clients:       make(map[*WSClient]struct{}),
 		serverWatcher: watcher.NewWatcher(),
 		serverMessage: make(chan []byte, 1),
 		manager: manager.NewManager(
-			"../server/qserv",
+			serverPath,
 			50000,
 			51000,
 		),
@@ -412,13 +412,18 @@ func WriteTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn,
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
 
+	serverPath := "../server/qserv"
+	if envPath, ok := os.LookupEnv("QSERV_PATH"); ok {
+		serverPath = envPath
+	}
+
 	l, _ := net.Listen("tcp", "0.0.0.0:29999")
 	log.Printf("listening on http://%v", l.Addr())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cluster := NewCluster()
+	cluster := NewCluster(serverPath)
 
 	httpServer := &http.Server{
 		Handler: cluster,
