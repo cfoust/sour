@@ -504,6 +504,15 @@ function App() {
       if (cachedServers == null) return
       injectServers(cachedServers)
 
+      // TESTING
+      setTimeout(() => {
+        const clusters = clustersRef.current ?? []
+        if (clusters.length > 0) {
+          BananaBread.execute(`join ${clusters[0]}`)
+        }
+      }, 2000)
+      // TESTING
+
       const {
         location: { search: params },
       } = window
@@ -598,7 +607,7 @@ function App() {
         const { Cluster, Master } = serverMessage
         clustersRef.current = Cluster
 
-        console.log(Cluster);
+        console.log(Cluster)
 
         if (
           BananaBread == null ||

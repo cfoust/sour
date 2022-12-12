@@ -452,6 +452,7 @@ void disconnect_client(int n, int reason) {
         server::sendservmsg(s);
     }
     logoutf("%s", s);
+    logoutf("finished disconnect_client");
 }
 
 void dcres(int n, const char *reason) {
@@ -767,11 +768,11 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
 
             uint type = getuint(q);
             uint id = getuint(q);
-            //logoutf("packet from client %d len=%d", id, messageBytes);
             switch(type)
             {
                 case SOCKET_EVENT_CONNECT:
                     {
+                        //logoutf("SOCKET_EVENT_CONNECT %d", id);
                         client &c = addclient(ST_SOCKET);
                         c.id = id;
                         copystring(c.hostname, "unknown");
@@ -782,23 +783,27 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
                     }
                 case SOCKET_EVENT_RECEIVE:
                     {
+                        //logoutf("SOCKET_EVENT_RECEIVE %d", id);
                         uint channel = getuint(q);
                         client *c = findclient(id);
+                        if(!c) break;
 
                         packetbuf r(MAXTRANS);
                         r.put(q.buf + q.len, messageBytes - q.len);
                         ENetPacket *newPacket = r.finalize();
-                        if(!c) break;
                         process(newPacket, c->num, channel);
                         break;
                     }
                 case SOCKET_EVENT_DISCONNECT:
                     {
+                        //logoutf("SOCKET_EVENT_DISCONNECT %d", id);
                         client *c = findclient(id);
                         if(!c) break;
                         logoutf("Leave: (socket:%d)", c->id);
                         server::clientdisconnect(c->num);
+                        conoutf("clientdisconnect");
                         delclient(c);
+                        conoutf("delclient");
                         break;
                     }
                 default:

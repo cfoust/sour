@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/cfoust/sour/pkg/protocol"
@@ -73,6 +74,7 @@ func (server *GameServer) SendConnect(clientId uint16) {
 	p.PutUint(SOCKET_EVENT_CONNECT)
 	p.PutUint(uint32(clientId))
 	server.sendMessage(p)
+	log.Info().Msgf("Connecting %d to %s", clientId, server.Id)
 }
 
 func (server *GameServer) SendDisconnect(clientId uint16) {
@@ -189,7 +191,21 @@ func (server *GameServer) Wait() {
 		server.mutex.Lock()
 		server.Status = ServerFailure
 		server.mutex.Unlock()
-		log.Printf("[%s] exited with code %d", server.Id, exitCode)
+
+		unixStatus := state.Sys().(syscall.WaitStatus)
+
+		log.Error().
+			Bool("continued", unixStatus.Continued()).
+			Bool("coreDump", unixStatus.CoreDump()).
+			Int("exitStatus", unixStatus.ExitStatus()).
+			Bool("exited", unixStatus.Exited()).
+			Bool("stopped", unixStatus.Stopped()).
+			Str("stopSignal", unixStatus.StopSignal().String()).
+			Str("signal", unixStatus.Signal().String()).
+			Bool("signaled", unixStatus.Signaled()).
+			Int("trapCause", unixStatus.TrapCause()).
+			Msgf("[%s] exited with code %d", server.Id, exitCode)
+
 		if err != nil {
 			log.Print(err)
 		}

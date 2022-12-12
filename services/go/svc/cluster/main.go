@@ -193,6 +193,43 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 	}
 }
 
+func (server *Cluster) MessWithClient(ctx context.Context, client *WSClient) {
+	chaosTicker := time.NewTicker(8 * time.Second)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-chaosTicker.C:
+			if client.server == nil {
+				continue
+			}
+
+			var nextServer *manager.GameServer = client.server
+			for _, gameServer := range server.manager.Servers {
+				if gameServer == nextServer || gameServer.Status != manager.ServerOK {
+					continue
+				}
+
+				nextServer = gameServer
+				break
+			}
+
+			if nextServer == client.server {
+				log.Info().Msg("No other server to swap to")
+				continue
+			}
+
+			log.Info().Msgf("Swapping from %s to %s", client.server.Id, nextServer.Id)
+
+			// We have 'em!
+			client.server.SendDisconnect(client.id)
+			nextServer.SendConnect(client.id)
+			client.server = nextServer
+		}
+	}
+}
+
 func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 	client := &WSClient{
 		send: make(chan []byte, CLIENT_MESSAGE_LIMIT),
@@ -237,6 +274,8 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 		}
 	}()
 
+	go server.MessWithClient(ctx, client)
+
 	for {
 		select {
 		case msg := <-receive:
@@ -245,7 +284,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 				connectMessage.Op == protocol.ConnectOp {
 
 				if client.server != nil && client.server.Id == connectMessage.Target {
-					break;
+					break
 				}
 
 				for _, gameServer := range server.manager.Servers {
@@ -255,6 +294,13 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 
 					// TODO check server OK
 
+					if client.server != nil {
+						log.Info().Msgf("Client on %s", client.server.Id)
+					}
+
+					client.server = gameServer
+
+					log.Info().Msgf("OP Connecting client %d to %s", client.id, gameServer.Id)
 					gameServer.SendConnect(client.id)
 
 					packet := protocol.GenericMessage{
@@ -263,8 +309,6 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 
 					bytes, _ := cbor.Marshal(packet)
 					client.send <- bytes
-
-					client.server = gameServer
 
 					break
 				}
@@ -294,6 +338,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 				}
 
 				client.server = nil
+				log.Info().Msgf("Client %d disconnected", client.id)
 				target.SendDisconnect(client.id)
 			}
 
