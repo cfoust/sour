@@ -801,9 +801,7 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
                         if(!c) break;
                         logoutf("Leave: (socket:%d)", c->id);
                         server::clientdisconnect(c->num);
-                        conoutf("clientdisconnect");
                         delclient(c);
-                        conoutf("delclient");
                         break;
                     }
                 default:
