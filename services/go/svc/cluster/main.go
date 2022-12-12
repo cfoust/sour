@@ -293,6 +293,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 					break
 				}
 
+				client.server = nil
 				target.SendDisconnect(client.id)
 			}
 

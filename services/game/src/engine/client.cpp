@@ -91,22 +91,22 @@ VARP(connectport, 0, 0, 0xFFFF);
 void abortjoin()
 {
     if(!sourconnecting) return;
-    EM_ASM(
-            Module.cluster.disconnect()
-    );
+    EM_ASM({
+        Module.cluster.disconnect();
+    });
     sourconnected = false;
     sourconnecting = false;
 }
 
 void leave(bool async, bool cleanup)
 {
-    if(!sourconnected) return
-    EM_ASM(
-        Module.cluster.disconnect()
-    );
+    if(!sourconnected) return;
+    EM_ASM({
+        Module.cluster.disconnect();
+    });
     sourconnected = false;
     discmillis = 0;
-    conoutf("disconnected");
+    conoutf("left");
     game::gamedisconnect(cleanup);
     mainmenu = 1;
 }
@@ -134,6 +134,10 @@ void connectsour(const char *servername, const char *serverpassword)
     if(curpeer)
     {
         disconnect(!discmillis);
+    }
+    if(sourconnected)
+    {
+        leave(!discmillis, false);
     }
 
     if(sourconnecting)
