@@ -1394,8 +1394,6 @@ void main3(void *arg)
 
     identflags |= IDF_PERSIST;
 
-    logoutf("init: mainloop");
-
     if(execfile("once.cfg", false)) remove(findfile("once.cfg", "rb"));
 
     if(load)
