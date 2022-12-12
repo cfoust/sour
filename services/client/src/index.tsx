@@ -504,15 +504,6 @@ function App() {
       if (cachedServers == null) return
       injectServers(cachedServers)
 
-      // TESTING
-      setTimeout(() => {
-        const clusters = clustersRef.current ?? []
-        if (clusters.length > 0) {
-          BananaBread.execute(`join ${clusters[0]}`)
-        }
-      }, 2000)
-      // TESTING
-
       const {
         location: { search: params },
       } = window
@@ -530,10 +521,11 @@ function App() {
 
     Module.cluster = {
       connect: (name: string, password: string) => {
+        const Target = name.length === 0 ? 'lobby' : name
         ws.send(
           CBOR.encode({
             Op: MessageType.Connect,
-            Target: name,
+            Target,
           })
         )
       },
@@ -606,8 +598,6 @@ function App() {
       if (serverMessage.Op === MessageType.Info) {
         const { Cluster, Master } = serverMessage
         clustersRef.current = Cluster
-
-        console.log(Cluster)
 
         if (
           BananaBread == null ||

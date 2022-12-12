@@ -42,6 +42,8 @@ type GameServer struct {
 	Port   uint16
 	Status ServerStatus
 	Id     string
+	// Another way for the client to refer to this server
+	Alias string
 
 	// The path of the socket
 	path    string
@@ -88,6 +90,18 @@ func (server *GameServer) GetStatus() ServerStatus {
 	server.mutex.Lock()
 	defer server.mutex.Unlock()
 	return server.Status
+}
+
+// Whether this string is a reference to this server (either an alias or an id).
+func (server *GameServer) IsReference(reference string) bool {
+	return server.Id == reference || server.Alias == reference
+}
+
+func (server *GameServer) Reference() string {
+	if server.Alias != "" {
+		return fmt.Sprintf("%s [%s]", server.Alias, server.Id)
+	}
+	return server.Id
 }
 
 func Connect(path string) (*net.Conn, error) {

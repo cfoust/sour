@@ -111,14 +111,14 @@ func (server *Cluster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *Cluster) StartServers(ctx context.Context) {
-	for i := 0; i < 3; i++ {
-		gameServer, err := server.manager.NewServer(ctx)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to create server")
-		}
-
-		go gameServer.Start(ctx, server.serverMessage)
+	gameServer, err := server.manager.NewServer(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create server")
 	}
+
+	gameServer.Alias = "lobby"
+
+	go gameServer.Start(ctx, server.serverMessage)
 }
 
 func (server *Cluster) StartWatcher(ctx context.Context) {
@@ -193,41 +193,23 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 	}
 }
 
-func (server *Cluster) MessWithClient(ctx context.Context, client *WSClient) {
-	chaosTicker := time.NewTicker(8 * time.Second)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-chaosTicker.C:
-			if client.server == nil {
-				continue
-			}
-
-			var nextServer *manager.GameServer = client.server
-			for _, gameServer := range server.manager.Servers {
-				if gameServer == nextServer || gameServer.Status != manager.ServerOK {
-					continue
-				}
-
-				nextServer = gameServer
-				break
-			}
-
-			if nextServer == client.server {
-				log.Info().Msg("No other server to swap to")
-				continue
-			}
-
-			log.Info().Msgf("Swapping from %s to %s", client.server.Id, nextServer.Id)
-
-			// We have 'em!
-			client.server.SendDisconnect(client.id)
-			nextServer.SendConnect(client.id)
-			client.server = nextServer
-		}
+func (server *Cluster) MoveClient(ctx context.Context, client *WSClient, targetServer *manager.GameServer) error {
+	if targetServer.Status != manager.ServerOK {
+		return errors.New("Server is not available")
 	}
+
+	if targetServer == client.server {
+		return nil
+	}
+
+	log.Info().Msgf("Swapping from %s to %s", client.server.Id, targetServer.Id)
+
+	// We have 'em!
+	client.server.SendDisconnect(client.id)
+	targetServer.SendConnect(client.id)
+	client.server = targetServer
+
+	return nil
 }
 
 func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
@@ -274,8 +256,6 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 		}
 	}()
 
-	go server.MessWithClient(ctx, client)
-
 	for {
 		select {
 		case msg := <-receive:
@@ -283,24 +263,27 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 			if err := cbor.Unmarshal(msg, &connectMessage); err == nil &&
 				connectMessage.Op == protocol.ConnectOp {
 
-				if client.server != nil && client.server.Id == connectMessage.Target {
+				target := connectMessage.Target
+
+				log.Info().Uint("clientId", uint(client.id)).
+					Str("target", target).
+					Msg("client attempting connect")
+
+				if client.server != nil && client.server.IsReference(target) {
 					break
 				}
 
 				for _, gameServer := range server.manager.Servers {
-					if gameServer.Id != connectMessage.Target {
+					if !gameServer.IsReference(target) || gameServer.Status != manager.ServerOK {
 						continue
-					}
-
-					// TODO check server OK
-
-					if client.server != nil {
-						log.Info().Msgf("Client on %s", client.server.Id)
 					}
 
 					client.server = gameServer
 
-					log.Info().Msgf("OP Connecting client %d to %s", client.id, gameServer.Id)
+					log.Info().Uint("clientId", uint(client.id)).
+						Str("reference", gameServer.Reference()).
+						Msg("client connecting to server")
+
 					gameServer.SendConnect(client.id)
 
 					packet := protocol.GenericMessage{
