@@ -146,6 +146,11 @@ void connectsour(const char *servername, const char *serverpassword)
         abortjoin();
     }
 
+    if(servername)
+    {
+        if(strcmp(servername, connectname)) setsvar("connectname", servername);
+    }
+
     connmillis = totalmillis;
     connattempts = 0;
     sourconnecting = true;
