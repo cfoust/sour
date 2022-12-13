@@ -35,8 +35,6 @@ const (
 )
 
 type Cluster struct {
-	// logf controls where logs are sent.
-	logf          func(f string, v ...interface{})
 	clientMutex   sync.Mutex
 	clients       map[*WSClient]struct{}
 	serverWatcher *watcher.Watcher
@@ -46,7 +44,6 @@ type Cluster struct {
 
 func NewCluster(serverPath string) *Cluster {
 	server := &Cluster{
-		logf:          log.Printf,
 		clients:       make(map[*WSClient]struct{}),
 		serverWatcher: watcher.NewWatcher(),
 		serverMessage: make(chan []byte, 1),
@@ -90,7 +87,7 @@ func (server *Cluster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		server.logf("%v", err)
+		log.Error().Err(err).Msg("error accepting client connection")
 		return
 	}
 
@@ -105,7 +102,7 @@ func (server *Cluster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		server.logf("%v", err)
+		log.Error().Err(err).Msg("failed to close client port")
 		return
 	}
 }
@@ -120,7 +117,7 @@ func (server *Cluster) StartServers(ctx context.Context) {
 
 	gameServer, err := server.manager.NewServer(ctx, configPath)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to create server")
+		log.Fatal().Err(err).Msg("failed to create server")
 	}
 
 	gameServer.Alias = "lobby"
@@ -141,7 +138,7 @@ func (server *Cluster) StartWatcher(ctx context.Context) {
 				bytes, err := server.BuildBroadcast()
 
 				if err != nil {
-					server.logf("%v", err)
+					log.Error().Err(err).Msg("could not build broadcast")
 					return
 				}
 
@@ -209,7 +206,7 @@ func (server *Cluster) MoveClient(ctx context.Context, client *WSClient, targetS
 		return nil
 	}
 
-	log.Info().Msgf("Swapping from %s to %s", client.server.Id, targetServer.Id)
+	log.Info().Msgf("swapping from %s to %s", client.server.Id, targetServer.Id)
 
 	// We have 'em!
 	client.server.SendDisconnect(client.id)
@@ -242,7 +239,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 	// Write the first broadcast on connect so they don't have to wait 5s
 	broadcast, err := server.BuildBroadcast()
 	if err != nil {
-		server.logf("%v", err)
+		log.Error().Err(err).Msg("could not build broadcast")
 		return err
 	}
 	err = WriteTimeout(ctx, time.Second*5, c, broadcast)
@@ -288,7 +285,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 					client.server = gameServer
 
 					log.Info().Uint("clientId", uint(client.id)).
-						Str("reference", gameServer.Reference()).
+						Str("server", gameServer.Reference()).
 						Msg("client connecting to server")
 
 					gameServer.SendConnect(client.id)
@@ -328,7 +325,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 				}
 
 				client.server = nil
-				log.Info().Msgf("Client %d disconnected", client.id)
+				log.Info().Msgf("client %d disconnected", client.id)
 				target.SendDisconnect(client.id)
 			}
 
@@ -424,7 +421,11 @@ func main() {
 		serverPath = envPath
 	}
 
-	l, _ := net.Listen("tcp", "0.0.0.0:29999")
+	l, err := net.Listen("tcp", "0.0.0.0:29999")
+	if err != nil {
+		log.Error().Err(err).Msg("failed to bind WebSocket port")
+		return
+	}
 	log.Printf("listening on http://%v", l.Addr())
 
 	ctx, cancel := context.WithCancel(context.Background())

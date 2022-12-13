@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/protocol"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -112,6 +113,10 @@ func Connect(path string) (*net.Conn, error) {
 	return &conn, nil
 }
 
+func (server *GameServer) Log() zerolog.Logger {
+	return log.With().Str("server", server.Reference()).Logger()
+}
+
 func (server *GameServer) Shutdown() {
 	status := server.GetStatus()
 
@@ -165,10 +170,12 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 }
 
 func (server *GameServer) Wait() {
+	logger := server.Log()
+
 	tailPipe := func(pipe io.ReadCloser, done chan bool) {
 		scanner := bufio.NewScanner(pipe)
 		for scanner.Scan() {
-			log.Printf("[%s] %s", server.Reference(), scanner.Text())
+			logger.Info().Msg(scanner.Text())
 		}
 		done <- true
 	}
@@ -182,7 +189,7 @@ func (server *GameServer) Wait() {
 		return
 	}
 
-	log.Printf("[%s] started on port %d", server.Reference(), server.Port)
+	logger.Info().Uint("port", uint(server.Port)).Msg("server started")
 
 	stdoutEOF := make(chan bool, 1)
 	stderrEOF := make(chan bool, 1)
@@ -208,6 +215,7 @@ func (server *GameServer) Wait() {
 		unixStatus := state.Sys().(syscall.WaitStatus)
 
 		log.Error().
+			Err(err).
 			Bool("continued", unixStatus.Continued()).
 			Bool("coreDump", unixStatus.CoreDump()).
 			Int("exitStatus", unixStatus.ExitStatus()).
@@ -218,10 +226,6 @@ func (server *GameServer) Wait() {
 			Bool("signaled", unixStatus.Signaled()).
 			Int("trapCause", unixStatus.TrapCause()).
 			Msgf("[%s] exited with code %d", server.Reference(), exitCode)
-
-		if err != nil {
-			log.Print(err)
-		}
 		return
 	}
 
@@ -229,10 +233,11 @@ func (server *GameServer) Wait() {
 	server.Status = ServerExited
 	server.mutex.Unlock()
 
-	log.Printf("[%s] exited", server.Reference())
+	logger.Info().Msg("exited")
 }
 
 func (server *GameServer) Start(ctx context.Context, readChannel chan []byte) {
+	logger := server.Log()
 	tick := time.NewTicker(250 * time.Millisecond)
 	exitChannel := make(chan bool, 1)
 
@@ -246,7 +251,7 @@ func (server *GameServer) Start(ctx context.Context, readChannel chan []byte) {
 			conn, err := Connect(server.path)
 
 			if err == nil {
-				log.Printf("[%s] connected", server.Reference())
+				logger.Info().Msg("connected")
 				server.mutex.Lock()
 				server.Status = ServerOK
 				status = ServerOK
