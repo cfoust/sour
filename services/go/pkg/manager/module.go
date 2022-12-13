@@ -99,7 +99,7 @@ func (server *GameServer) IsReference(reference string) bool {
 
 func (server *GameServer) Reference() string {
 	if server.Alias != "" {
-		return fmt.Sprintf("%s (%s)", server.Alias, server.Id)
+		return fmt.Sprintf("%s-%s", server.Alias, server.Id)
 	}
 	return server.Id
 }
@@ -185,7 +185,7 @@ func (server *GameServer) Wait() {
 
 	err := server.command.Start()
 	if err != nil {
-		log.Error().Err(err)
+		logger.Error().Err(err).Msg("failed to start server")
 		return
 	}
 
@@ -214,7 +214,7 @@ func (server *GameServer) Wait() {
 
 		unixStatus := state.Sys().(syscall.WaitStatus)
 
-		log.Error().
+		logger.Error().
 			Err(err).
 			Bool("continued", unixStatus.Continued()).
 			Bool("coreDump", unixStatus.CoreDump()).

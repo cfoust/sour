@@ -1222,19 +1222,6 @@ void initserver(bool listen, bool dedicated) //, const char *path
         #endif
     }
 
-    /**
-     Load/Check GeoIP databases
-     **/
-    if(qs.initgeoip("./GeoIP/GeoIP.dat")) {printf("[ OK ] GeoIP Initalized succesfully\n");}
-    else if(!qs.initgeoip("./GeoIP/GeoIP.dat")) {
-        logoutf("[FATAL ERROR] Failed to load GeoIP database from GeoIP.dat file");
-    }
-    if(qs.initcitygeoip("./GeoIP/GeoLiteCity.dat")) {printf("[ OK ] GeoLite City Initalized succesfully\n");}
-    else if(!qs.initcitygeoip("./GeoIP/GeoLiteCity.dat")) {
-    logoutf("[FATAL ERROR] Failed to load GeoLite database from GeoLiteCity.dat file");
-    }
-
-
     execfile(configpath, false);
 
     if(listen) setuplistenserver(dedicated);
