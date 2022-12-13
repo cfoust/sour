@@ -74,12 +74,12 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Modern multiplayer
   * [X] Use socket comms to connect to Sour-internal servers
   * [X] Arbitrary creation and hot swapping of users between servers
-  * [ ] Programmatic control of game servers
-  * [ ] Allow users to create private matches with invite codes
+  * [ ] Allow users to create private servers
     * [ ] Update the URL to the current server on join eg `sourga.me/server/127.0.0.1:28785`
+  * [ ] Creating servers from presets
   * [ ] Matchmaking (1v1)
   * [ ] Stretch: ELO
-  * [ ] Stretch: allow desktop clients full access to matchmaking via proxy server
+  * [ ] Stretch: allow desktop clients full access to Sour clusters
 * [ ] Allow for backgrounding the tab by responding to pings
 * [ ] Simple, beautiful main menu
   * [ ] Clean loading page for slow connections
