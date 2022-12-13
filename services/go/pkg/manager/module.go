@@ -367,7 +367,7 @@ func FindIdentity(port uint16) Identity {
 	}
 }
 
-func (marshal *Manager) NewServer(ctx context.Context) (*GameServer, error) {
+func (marshal *Manager) NewServer(ctx context.Context, configPath string) (*GameServer, error) {
 	server := GameServer{
 		send: make(chan []byte, 1),
 	}
@@ -392,7 +392,7 @@ func (marshal *Manager) NewServer(ctx context.Context) (*GameServer, error) {
 		ctx,
 		marshal.serverPath,
 		fmt.Sprintf("-S%s", identity.Path),
-		"-C../server/config/server-init.cfg",
+		fmt.Sprintf("-C%s", configPath),
 		fmt.Sprintf("-j%d", port),
 	)
 

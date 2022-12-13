@@ -111,7 +111,14 @@ func (server *Cluster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *Cluster) StartServers(ctx context.Context) {
-	gameServer, err := server.manager.NewServer(ctx)
+	// Default in development
+	configPath := "../server/config/server-init.cfg"
+
+	if envPath, ok := os.LookupEnv("QSERV_LOBBY_CONFIG"); ok {
+		configPath = envPath
+	}
+
+	gameServer, err := server.manager.NewServer(ctx, configPath)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create server")
 	}
