@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/manager"
 	"github.com/cfoust/sour/pkg/protocol"
 	"github.com/cfoust/sour/pkg/watcher"
@@ -154,7 +155,7 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case msg := <-server.serverMessage:
-			p := protocol.Packet(msg)
+			p := game.Packet(msg)
 
 			for len(p) > 0 {
 				numBytes, ok := p.GetUint()

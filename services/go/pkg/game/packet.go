@@ -1,30 +1,8 @@
-// BSD 2-Clause License
-//
-// Copyright (c) 2014-2019, Alexander Willing
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//  1. Redistributions of source code must retain the above copyright notice, this
-//     list of conditions and the following disclaimer.
-//
-//  2. Redistributions in binary form must reproduce the above copyright notice,
-//     this list of conditions and the following disclaimer in the documentation
-//     and/or other materials provided with the distribution.
-//
-//     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-//     AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-//     IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-//     DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-//     FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-//     DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-//     SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-//     CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-//     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-//     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+package game
 
-package protocol
+import (
+	"github.com/cfoust/sour/pkg/game/cubecode"
+)
 
 // Packet represents a Sauerbraten UDP packet.
 type Packet []byte
@@ -51,6 +29,18 @@ func (p *Packet) PutUint(v uint32) {
 	} else {
 		*p = append(*p, (byte(v)&0x7F)|0x80, (byte(v>>7)&0x7F)|0x80, (byte(v>>14)&0x7F)|0x80, byte(v>>21))
 	}
+}
+
+// PutInt writes a string to the packet buffer, encoding it with Sauer's conversion table at the same time.
+func (p *Packet) PutString(s string) {
+	for _, r := range s {
+		cpoint := cubecode.FromUnicode(r)
+		if cpoint == 0 {
+			continue
+		}
+		p.PutInt(cpoint)
+	}
+	(*p) = append(*p, 0x00)
 }
 
 func (p *Packet) GetByte() (byte, bool) {
@@ -130,3 +120,19 @@ func (p *Packet) GetUint() (v uint32, ok bool) {
 
 	return v, true
 }
+
+// GetString returns a string of the next bytes up to 0x00.
+func (p *Packet) GetString() (s string, ok bool) {
+	var cpoint int32
+	for {
+		cpoint, ok = p.GetInt()
+		if !ok {
+			return s, false
+		}
+		if cpoint == 0 {
+			return s, true
+		}
+		s += string(cubecode.ToUnicode(cpoint))
+	}
+}
+

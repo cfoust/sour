@@ -17,7 +17,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cfoust/sour/pkg/protocol"
+	"github.com/cfoust/sour/pkg/game"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -36,6 +36,7 @@ const (
 	SOCKET_EVENT_CONNECT uint32 = iota
 	SOCKET_EVENT_RECEIVE
 	SOCKET_EVENT_DISCONNECT
+	SOCKET_EVENT_COMMAND
 )
 
 type GameServer struct {
@@ -56,14 +57,14 @@ type GameServer struct {
 }
 
 func (server *GameServer) sendMessage(data []byte) {
-	p := protocol.Packet{}
+	p := game.Packet{}
 	p.PutUint(uint32(len(data)))
 	p = append(p, data...)
 	server.send <- p
 }
 
 func (server *GameServer) SendData(clientId uint16, channel uint32, data []byte) {
-	p := protocol.Packet{}
+	p := game.Packet{}
 	p.PutUint(SOCKET_EVENT_RECEIVE)
 	p.PutUint(uint32(clientId))
 	p.PutUint(uint32(channel))
@@ -73,16 +74,23 @@ func (server *GameServer) SendData(clientId uint16, channel uint32, data []byte)
 }
 
 func (server *GameServer) SendConnect(clientId uint16) {
-	p := protocol.Packet{}
+	p := game.Packet{}
 	p.PutUint(SOCKET_EVENT_CONNECT)
 	p.PutUint(uint32(clientId))
 	server.sendMessage(p)
 }
 
 func (server *GameServer) SendDisconnect(clientId uint16) {
-	p := protocol.Packet{}
+	p := game.Packet{}
 	p.PutUint(SOCKET_EVENT_DISCONNECT)
 	p.PutUint(uint32(clientId))
+	server.sendMessage(p)
+}
+
+func (server *GameServer) SendCommand(command string) {
+	p := game.Packet{}
+	p.PutUint(SOCKET_EVENT_COMMAND)
+	p.PutString(command)
 	server.sendMessage(p)
 }
 
