@@ -76,7 +76,6 @@ func (server *GameServer) SendConnect(clientId uint16) {
 	p.PutUint(SOCKET_EVENT_CONNECT)
 	p.PutUint(uint32(clientId))
 	server.sendMessage(p)
-	log.Info().Msgf("Connecting %d to %s", clientId, server.Id)
 }
 
 func (server *GameServer) SendDisconnect(clientId uint16) {

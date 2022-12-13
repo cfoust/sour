@@ -3162,8 +3162,7 @@ best.add(clients[i]); \
             }
             if(ci->local) checkpausegame();
 
-            out(ECHO_CONSOLE, "Name: %s\n", colorname(ci));
-            out(ECHO_IRC, "%s disconnected", colorname(ci));
+            out(ECHO_CONSOLE, "Name: %s", colorname(ci));
             qs.resetoLangWarn(ci->clientnum);
         }
         else connects.removeobj(ci);
