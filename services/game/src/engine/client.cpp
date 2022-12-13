@@ -111,6 +111,14 @@ void leave(bool async, bool cleanup)
     mainmenu = 1;
 }
 
+void createsourgame(const char *presetname)
+{
+    EM_ASM({
+            Module.cluster.createGame(UTF8ToString($0))
+    }, presetname);
+}
+ICOMMAND(creategame, "s", (char *presetname), createsourgame(presetname));
+
 void tryleave(bool local)
 {
     if(sourconnecting)
@@ -374,6 +382,9 @@ void gets2c()           // get updates from the server
                 break;
             } else if ((int) frame == ENET_EVENT_TYPE_CONNECT) {
                 conoutf("connected to server");
+                EM_ASM({
+                    Module.assets.onConnect();
+                });
                 sourconnected = true;
                 sourconnecting = false;
                 game::gameconnect(true);
@@ -403,6 +414,11 @@ void gets2c()           // get updates from the server
             curpeer = connpeer;
             connpeer = NULL;
             conoutf("connected to server");
+#if __EMSCRIPTEN__
+            EM_ASM({
+                Module.assets.onConnect();
+            });
+#endif
             throttle();
             if(rate) setrate(rate);
             game::gameconnect(true);

@@ -1031,7 +1031,9 @@ bool loading_map_file = false;
 bool async_loading_map = false; 
 
 bool load_world(const char *mname, const char *cname) {
-    conoutf("load data for world: %s", mname);
+    EM_ASM({
+        Module.assets.loadWorld(UTF8ToString($0))
+    }, mname);
 	renderprogress(0, "fetching map data...");
 	loading_map_file = true;
 	async_loading_map = true;
@@ -1049,7 +1051,7 @@ bool really_load_world(const char *mname, const char *cname)        // still sup
     setmapfilenames(mname, cname);
 
     int result = EM_ASM_INT({
-        return Module.isMountedFile(UTF8ToString($0))
+        return Module.assets.isMountedFile(UTF8ToString($0))
     }, ogzname);
 
 	stream *f = NULL;

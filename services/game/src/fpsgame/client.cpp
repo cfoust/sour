@@ -588,7 +588,7 @@ namespace game
         }
 
         int result = EM_ASM_INT({
-            return Module.isValidMap(UTF8ToString($0))
+            return Module.assets.isValidMap(UTF8ToString($0))
         }, name);
 
         if (result == 0) {
@@ -2052,9 +2052,13 @@ namespace game
 
 #if __EMSCRIPTEN__
 				if (oldname[0]) {
-					conoutf("received map %s %s", mname, oldname);
+					EM_ASM({
+						return Module.assets.receiveMap(UTF8ToString($0), UTF8ToString($1))
+					}, mname, oldname);
 				} else {
-					conoutf("received map %s", mname);
+					EM_ASM({
+						return Module.assets.receiveMap(UTF8ToString($0), "")
+					}, mname);
 				}
 #else
 				if(really_load_world(mname, oldname[0] ? oldname : NULL))

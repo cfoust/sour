@@ -32,8 +32,6 @@ type ModuleType = {
   setCanvasSize: ((width: number, height: number) => void) | null
   setStatus: (text: string) => void
   tweakDetail: () => void
-  isValidMap: (map: string) => number
-  isMountedFile: (file: string) => number
 
   calledRun: boolean
   FS_createPath: (...path: Array<string, boolean>) => void
@@ -60,7 +58,17 @@ type ModuleType = {
   addRunDependency: (dependency: string) => void
   socket: (addr: string, port: number) => any
 
+  assets: {
+    onConnected: () => void
+    isValidMap: (map: string) => number
+    isMountedFile: (file: string) => number
+    loadRandomMap: () => void
+    loadWorld: (map: string) => void
+    receivedMap: (map: string, oldMap: string) => void
+  },
+
   cluster: {
+    createGame: (name: string) => void
     connect: (name: string, password: string) => void
     send: (channel: number, dataPtr: number, dataLength: number) => void
     receive: (
