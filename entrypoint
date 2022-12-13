@@ -2,14 +2,15 @@
 
 # Update env vars in the source code
 ASSET_SOURCE=${ASSET_SOURCE:-/assets/.index.json}
+QSERV_PATH=/bin/qserv
 (cd /app/ && sed -i -e "s{__ASSET_SOURCE__{$ASSET_SOURCE{g" index.js)
 
 run_proxy() {
   wsproxy 28785
 }
 
-run_relay() {
-  relay
+run_cluster() {
+  cluster
 }
 
 run_server() {
@@ -23,7 +24,7 @@ run_site() {
 
 run_proxy &
 run_server &
-run_relay &
+run_cluster &
 run_site &
 
 tail -F /bin/entrypoint

@@ -23,9 +23,9 @@ services:
       - "./proxy:/proxy"
     network_mode: host
 
-  relay:
+  cluster:
     image: sour:go
-    command: "watch /go ./relay"
+    command: "watch /go ./cluster"
     volumes:
       - "../watch:/usr/bin/watch"
       - "./go:/go"

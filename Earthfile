@@ -28,7 +28,7 @@ goexe:
     FROM +go
     COPY services/go .
     RUN ./build
-    SAVE ARTIFACT relay AS LOCAL "earthly/relay"
+    SAVE ARTIFACT cluster AS LOCAL "earthly/cluster"
     SAVE ARTIFACT mapdump AS LOCAL "earthly/mapdump"
 
 emscripten:
@@ -66,7 +66,7 @@ image-slim:
   # dynamic libraries.
   RUN apt-get update && apt-get install -y nginx libenet-dev
   COPY +server/qserv /bin/qserv
-  COPY +goexe/relay /bin/relay
+  COPY +goexe/cluster /bin/cluster
   COPY +proxy/wsproxy /bin/wsproxy
   COPY +game/game /app/game/
   COPY +client/dist /app/

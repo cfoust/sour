@@ -8,9 +8,17 @@ ENetHost *clienthost = NULL;
 ENetPeer *curpeer = NULL, *connpeer = NULL;
 int connmillis = 0, connattempts = 0, discmillis = 0;
 
+#if __EMSCRIPTEN__
+bool sourconnected = false, sourconnecting = false;
+#endif
+
 bool multiplayer(bool msg)
 {
+#if __EMSCRIPTEN__
+    bool val = curpeer || sourconnected || hasnonlocalclients(); 
+#else
     bool val = curpeer || hasnonlocalclients(); 
+#endif
     if(val && msg) conoutf(CON_ERROR, "operation not available in multiplayer");
     return val;
 }
@@ -38,7 +46,11 @@ void throttle()
 
 bool isconnected(bool attempt, bool local)
 {
+#if __EMSCRIPTEN__
+    return curpeer || sourconnected || (attempt && connpeer) || (local && haslocalclients());
+#else
     return curpeer || (attempt && connpeer) || (local && haslocalclients());
+#endif
 }
 
 ICOMMAND(isconnected, "bb", (int *attempt, int *local), intret(isconnected(*attempt > 0, *local != 0) ? 1 : 0));
@@ -74,6 +86,76 @@ void abortconnect()
 
 SVARP(connectname, "");
 VARP(connectport, 0, 0, 0xFFFF);
+
+#if __EMSCRIPTEN__
+void abortjoin()
+{
+    if(!sourconnecting) return;
+    EM_ASM({
+        Module.cluster.disconnect();
+    });
+    sourconnected = false;
+    sourconnecting = false;
+}
+
+void leave(bool async, bool cleanup)
+{
+    if(!sourconnected) return;
+    EM_ASM({
+        Module.cluster.disconnect();
+    });
+    sourconnected = false;
+    discmillis = 0;
+    conoutf("left");
+    game::gamedisconnect(cleanup);
+    mainmenu = 1;
+}
+
+void tryleave(bool local)
+{
+    if(sourconnecting)
+    {
+        conoutf("aborting connection attempt");
+        abortjoin();
+    }
+    else if(sourconnected)
+    {
+        conoutf("attempting to leave...");
+        leave(!discmillis, true);
+    }
+    else conoutf(CON_WARN, "not connected");
+}
+ICOMMAND(leave, "b", (int *local), tryleave(*local != 0));
+
+// We don't need to use enet to join Sour servers.
+void connectsour(const char *servername, const char *serverpassword)
+{   
+    abortconnect();
+    if(curpeer)
+    {
+        disconnect(!discmillis);
+    }
+    if(sourconnected)
+    {
+        leave(!discmillis, false);
+    }
+
+    if(sourconnecting)
+    {
+        conoutf("aborting connection attempt");
+        abortjoin();
+    }
+
+    connmillis = totalmillis;
+    connattempts = 0;
+    sourconnecting = true;
+
+    EM_ASM({
+            Module.cluster.connect(UTF8ToString($0), UTF8ToString($1))
+    }, servername, serverpassword);
+}
+ICOMMAND(join, "ss", (char *name, char *pw), connectsour(name, pw));
+#endif
 
 void connectserv(const char *servername, int serverport, const char *serverpassword)
 {   
@@ -180,6 +262,12 @@ void disconnect(bool async, bool cleanup)
 
 void trydisconnect(bool local)
 {
+#if __EMSCRIPTEN__
+    if (sourconnected || sourconnecting) {
+        tryleave(local);
+        return;
+    }
+#endif
     if(connpeer)
     {
         conoutf("aborting connection attempt");
@@ -204,6 +292,13 @@ ICOMMAND(localdisconnect, "", (), { if(haslocalclients()) localdisconnect(); });
 void sendclientpacket(ENetPacket *packet, int chan)
 {
     if(curpeer) enet_peer_send(curpeer, chan, packet);
+#if __EMSCRIPTEN__
+    else if (sourconnected) {
+        EM_ASM({
+                Module.cluster.send($0, $1, $2)
+        }, chan, packet->data, packet->dataLength);
+    }
+#endif
     else localclienttoserver(chan, packet);
 }
 
@@ -229,6 +324,27 @@ void clientkeepalive() { if(clienthost) enet_host_service(clienthost, NULL, 0); 
 void gets2c()           // get updates from the server
 {
     ENetEvent event;
+
+#if __EMSCRIPTEN__
+    if(!clienthost && !sourconnected && !sourconnecting) return;
+    if(totalmillis/3000 > connmillis/3000 && sourconnecting)
+    {
+
+        conoutf("attempting to connect...");
+        connmillis = totalmillis;
+        ++connattempts; 
+        if(connattempts > 3)
+        {
+            conoutf(CON_ERROR, "\f3could not connect to server");
+            if (connpeer) {
+                abortconnect();
+            } else if (sourconnecting) {
+                abortjoin();
+            }
+            return;
+        }
+    }
+#else
     if(!clienthost) return;
     if(connpeer && totalmillis/3000 > connmillis/3000)
     {
@@ -243,6 +359,41 @@ void gets2c()           // get updates from the server
             return;
         }
     }
+#endif
+
+#if __EMSCRIPTEN__
+    if (sourconnected || sourconnecting) {
+        ENetPacket packet;
+        ushort sourEvent, sourChannel;
+        while (true) {
+            enet_uint8 * frame = (enet_uint8*) EM_ASM_INT({
+                return Module.cluster.receive($0, $1, $2, $3)
+            }, &sourEvent, &sourChannel, &packet.data, &packet.dataLength);
+
+            if (frame == 0) {
+                break;
+            } else if ((int) frame == ENET_EVENT_TYPE_CONNECT) {
+                conoutf("connected to server");
+                sourconnected = true;
+                sourconnecting = false;
+                game::gameconnect(true);
+                break;
+            } else if ((int) frame == ENET_EVENT_TYPE_DISCONNECT) {
+                abortjoin();
+                break;
+            }
+
+            sourChannel = *((ushort*) frame);
+            packet.flags = 0;
+            packet.dataLength = *((size_t*)(frame + 2));
+            packet.data = frame + 6;
+
+            if(discmillis) conoutf("attempting to disconnect...");
+            else localservertoclient(sourChannel, &packet);
+        }
+    }
+#endif
+
     while(clienthost && enet_host_service(clienthost, &event, 0)>0)
     switch(event.type)
     {

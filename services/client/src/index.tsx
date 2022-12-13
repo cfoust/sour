@@ -18,7 +18,9 @@ import {
 } from '@chakra-ui/react'
 
 import type { GameState } from './types'
+import type { ServerMessage } from './protocol'
 import { GameStateType } from './types'
+import { MessageType } from './protocol'
 import type {
   AssetResponse,
   GameMap,
@@ -159,6 +161,7 @@ function App() {
   const assetWorkerRef = React.useRef<Worker>()
   const requestStateRef = React.useRef<BundleRequest[]>([])
   const bundleIndexRef = React.useRef<BundleIndex>()
+  const clustersRef = React.useRef<string[]>()
 
   const loadData = React.useCallback(async (target: string) => {
     const { current: assetWorker } = assetWorkerRef
@@ -298,6 +301,18 @@ function App() {
 
     Module.postLoadWorld = function () {
       BananaBread.execute('spawnitems')
+    }
+
+    Module.socket = (addr, port) => {
+      const { protocol, host } = window.location
+      const prefix = `${
+        protocol === 'https:' ? 'wss://' : 'ws:/'
+      }${host}/service/proxy/`
+
+      return new WebSocket(
+        addr === 'sour' ? prefix : `${prefix}u/${addr}:${port}`,
+        ['binary']
+      )
     }
 
     // We want Sauerbraten to behave as though all of the available maps were
@@ -460,7 +475,7 @@ function App() {
   React.useEffect(() => {
     const { protocol, host } = window.location
     const ws = new WebSocket(
-      `${protocol === 'https:' ? 'wss://' : 'ws:/'}${host}/service/relay/`
+      `${protocol === 'https:' ? 'wss://' : 'ws:/'}${host}/service/cluster/`
     )
     ws.binaryType = 'arraybuffer'
 
@@ -502,19 +517,102 @@ function App() {
       setTimeout(() => BananaBread.execute(cmd), 0)
     }
 
-    ws.onmessage = (evt) => {
-      const servers = CBOR.decode(evt.data)
+    let serverEvents: ServerMessage[] = []
 
-      if (
-        BananaBread == null ||
-        BananaBread.execute == null ||
-        BananaBread.injectServer == null
-      ) {
-        cachedServers = servers
+    Module.cluster = {
+      connect: (name: string, password: string) => {
+        const Target = name.length === 0 ? 'lobby' : name
+        ws.send(
+          CBOR.encode({
+            Op: MessageType.Connect,
+            Target,
+          })
+        )
+      },
+      send: (channel: number, dataPtr: number, dataLength: number) => {
+        const packet = new Uint8Array(dataLength)
+        packet.set(new Uint8Array(Module.HEAPU8.buffer, dataPtr, dataLength))
+        ws.send(
+          CBOR.encode({
+            Op: MessageType.Packet,
+            Channel: channel,
+            Data: packet,
+            Length: dataLength,
+          })
+        )
+      },
+      receive: (
+        eventPtr: number,
+        channelPtr: number,
+        dataPtr: number,
+        dataLengthPtr: number
+      ) => {
+        const view = new DataView(Module.HEAPU8.buffer)
+
+        const message = serverEvents.shift()
+        if (message == null || message.Op === MessageType.Info) {
+          return 0
+        }
+
+        if (message.Op === MessageType.ServerConnected) {
+          return 1
+        }
+
+        if (message.Op === MessageType.ServerDisconnected) {
+          return 2
+        }
+
+        const { Channel, Data, Length } = message
+
+        // 2: Channel
+        // 4: Length
+        // 4: Data
+        const frameLength = Length + 2 + 4
+        const pointer = Module._malloc(frameLength)
+
+        view.setUint16(pointer, Channel, true)
+        view.setUint32(pointer + 2, Length, true)
+
+        // Copy in from data
+        const dataHeap = new Uint8Array(
+          Module.HEAPU8.buffer,
+          pointer + 6,
+          Length
+        )
+        dataHeap.set(new Uint8Array(Data.buffer, Data.byteOffset, Length))
+
+        return pointer
+      },
+      disconnect: () => {
+        ws.send(
+          CBOR.encode({
+            Op: MessageType.Disconnect,
+          })
+        )
+      },
+    }
+
+    ws.onmessage = (evt) => {
+      const serverMessage: ServerMessage = CBOR.decode(evt.data)
+
+      if (serverMessage.Op === MessageType.Info) {
+        const { Cluster, Master } = serverMessage
+        clustersRef.current = Cluster
+
+        if (
+          BananaBread == null ||
+          BananaBread.execute == null ||
+          BananaBread.injectServer == null
+        ) {
+          cachedServers = Master
+          return
+        }
+
+        injectServers(Master)
         return
       }
 
-      injectServers(servers)
+      serverEvents.push(serverMessage)
     }
   }, [])
 

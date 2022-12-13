@@ -150,14 +150,22 @@ namespace game
     void renderscoreboard(g3d_gui &g, bool firstpass)
     {
         const ENetAddress *address = connectedpeer();
-        if(showservinfo && address)
+        if(showservinfo)
         {
-            string hostname;
-            if(enet_address_get_host_ip(address, hostname, sizeof(hostname)) >= 0)
-            {
-                if(servinfo[0]) g.titlef("%.25s", 0xFFFF80, NULL, servinfo);
-                else g.titlef("%s:%d", 0xFFFF80, NULL, hostname, address->port);
+            if (address) {
+                string hostname;
+                if(enet_address_get_host_ip(address, hostname, sizeof(hostname)) >= 0)
+                {
+                    if(servinfo[0]) g.titlef("%.25s", 0xFFFF80, NULL, servinfo);
+                    else g.titlef("%s:%d", 0xFFFF80, NULL, hostname, address->port);
+                }
             }
+#if __EMSCRIPTEN__
+            else if(isconnected()) {
+                if(servinfo[0]) g.titlef("%.25s", 0xFFFF80, NULL, servinfo);
+            }
+#endif
+
         }
 
         g.pushlist();

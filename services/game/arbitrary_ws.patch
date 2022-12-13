@@ -1,0 +1,11 @@
+--- sauerbraten.js.orig	2022-12-09 22:23:59.583211327 +0000
++++ sauerbraten.js	2022-12-09 22:24:58.935157723 +0000
+@@ -3864,7 +3864,7 @@
+      } else {
+       WebSocketConstructor = WebSocket;
+      }
+-     ws = new WebSocketConstructor(url, opts);
++     ws = Module["socket"](addr, port)
+      ws.binaryType = "arraybuffer";
+     } catch (e) {
+      throw new FS.ErrnoError(23);
