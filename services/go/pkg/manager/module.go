@@ -17,6 +17,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/repeale/fp-go"
+
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -377,6 +379,17 @@ func FindIdentity(port uint16) Identity {
 
 		return identity
 	}
+}
+
+func (marshal *Manager) RemoveServer(server *GameServer) error {
+	server.Shutdown()
+
+	marshal.mutex.Lock()
+	defer marshal.mutex.Unlock()
+
+	marshal.Servers = fp.Filter(func(v *GameServer) bool { return v.Id != server.Id })(marshal.Servers)
+
+	return nil
 }
 
 func (marshal *Manager) NewServer(ctx context.Context, configPath string) (*GameServer, error) {

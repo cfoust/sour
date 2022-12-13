@@ -27,6 +27,7 @@ import (
 
 type WSClient struct {
 	id        uint16
+	host      string
 	server    *manager.GameServer
 	send      chan []byte
 	closeSlow func()
@@ -36,18 +37,33 @@ const (
 	CLIENT_MESSAGE_LIMIT int = 16
 )
 
+const (
+	CREATE_SERVER_COOLDOWN = time.Duration(10 * time.Second)
+)
+
 type Cluster struct {
-	serverCtx     context.Context
-	clientMutex   sync.Mutex
-	clients       map[*WSClient]struct{}
-	serverWatcher *watcher.Watcher
+	clientMutex sync.Mutex
+	clients     map[*WSClient]struct{}
+
+	createMutex sync.Mutex
+	// host -> time a client from that host last created a server. We
+	// REALLY don't want clients to be able to DDOS us
+	lastCreate map[string]time.Time
+	// host -> the server created by that host
+	// each host can only have one server at once
+	hostServers map[string]*manager.GameServer
+
 	manager       *manager.Manager
+	serverCtx     context.Context
 	serverMessage chan []byte
+	serverWatcher *watcher.Watcher
 }
 
 func NewCluster(ctx context.Context, serverPath string) *Cluster {
 	server := &Cluster{
 		serverCtx:     ctx,
+		hostServers:   make(map[string]*manager.GameServer),
+		lastCreate:    make(map[string]time.Time),
 		clients:       make(map[*WSClient]struct{}),
 		serverWatcher: watcher.NewWatcher(),
 		serverMessage: make(chan []byte, 1),
@@ -97,7 +113,15 @@ func (server *Cluster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer c.Close(websocket.StatusInternalError, "operational fault during relay")
 
-	err = server.Subscribe(r.Context(), c)
+	// We use nginx for ingress everywhere, so check this first
+	hostname := r.RemoteAddr
+
+	original, ok := r.Header["X-Forwarded-For"]
+	if ok {
+		hostname = original[0]
+	}
+
+	err = server.Subscribe(r.Context(), c, hostname)
 	if errors.Is(err, context.Canceled) {
 		return
 	}
@@ -237,6 +261,19 @@ func (server *Cluster) RunCommand(ctx context.Context, client *WSClient, command
 	case "creategame":
 		logger := log.With().Uint16("clientId", client.id).Logger()
 
+		server.createMutex.Lock()
+		defer server.createMutex.Unlock()
+
+		lastCreate, hasLastCreate := server.lastCreate[client.host]
+		if hasLastCreate && (time.Now().Sub(lastCreate)) < CREATE_SERVER_COOLDOWN {
+			return "", errors.New("too soon since last server create")
+		}
+
+		existingServer, hasExistingServer := server.hostServers[client.host]
+		if hasExistingServer {
+			server.manager.RemoveServer(existingServer)
+		}
+
 		logger.Info().Msg("starting server")
 
 		gameServer, err := server.StartPresetServer(server.serverCtx)
@@ -265,14 +302,18 @@ func (server *Cluster) RunCommand(ctx context.Context, client *WSClient, command
 			}
 		}
 
+		server.lastCreate[client.host] = time.Now()
+		server.hostServers[client.host] = gameServer
+
 		return gameServer.Id, nil
 	}
 
 	return "", nil
 }
 
-func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
+func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn, host string) error {
 	client := &WSClient{
+		host: host,
 		send: make(chan []byte, CLIENT_MESSAGE_LIMIT),
 		closeSlow: func() {
 			c.Close(websocket.StatusPolicyViolation, "connection too slow to keep up with messages")
@@ -286,7 +327,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 
 	client.id = id
 
-	logger := log.With().Uint16("clientId", id).Logger()
+	logger := log.With().Uint16("clientId", id).Str("host", host).Logger()
 
 	logger.Info().Msg("client joined")
 
