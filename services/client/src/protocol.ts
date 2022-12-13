@@ -2,8 +2,10 @@ export enum MessageType {
   Info,
   ServerConnected,
   ServerDisconnected,
+  ServerResponse,
   Connect,
   Disconnect,
+  Command,
   Packet,
 }
 
@@ -45,9 +47,33 @@ export type DisconnectMessage = {
   Target: string
 }
 
+export type CommandMessage = {
+  Op: MessageType.Command
+  Command: string
+  Id: number
+}
+
+export type ResponseMessage = {
+  Op: MessageType.ServerResponse
+  Response: string
+  Success: boolean
+  Id: number
+}
+
 export type ServerMessage =
   | InfoMessage
   | PacketMessage
   | ServerConnectedMessage
   | ServerDisconnectedMessage
-export type ClientMessage = PacketMessage | ConnectMessage | DisconnectMessage
+  | ResponseMessage
+
+export type SocketMessage =
+  | PacketMessage
+  | ServerConnectedMessage
+  | ServerDisconnectedMessage
+
+export type ClientMessage =
+  | PacketMessage
+  | ConnectMessage
+  | DisconnectMessage
+  | CommandMessage

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,6 +37,7 @@ const (
 )
 
 type Cluster struct {
+	serverCtx     context.Context
 	clientMutex   sync.Mutex
 	clients       map[*WSClient]struct{}
 	serverWatcher *watcher.Watcher
@@ -43,8 +45,9 @@ type Cluster struct {
 	serverMessage chan []byte
 }
 
-func NewCluster(serverPath string) *Cluster {
+func NewCluster(ctx context.Context, serverPath string) *Cluster {
 	server := &Cluster{
+		serverCtx:     ctx,
 		clients:       make(map[*WSClient]struct{}),
 		serverWatcher: watcher.NewWatcher(),
 		serverMessage: make(chan []byte, 1),
@@ -108,7 +111,7 @@ func (server *Cluster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (server *Cluster) StartServers(ctx context.Context) {
+func (server *Cluster) StartPresetServer(ctx context.Context) (*manager.GameServer, error) {
 	// Default in development
 	configPath := "../server/config/server-init.cfg"
 
@@ -117,6 +120,12 @@ func (server *Cluster) StartServers(ctx context.Context) {
 	}
 
 	gameServer, err := server.manager.NewServer(ctx, configPath)
+
+	return gameServer, err
+}
+
+func (server *Cluster) StartServers(ctx context.Context) {
+	gameServer, err := server.StartPresetServer(ctx)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create server")
 	}
@@ -217,6 +226,51 @@ func (server *Cluster) MoveClient(ctx context.Context, client *WSClient, targetS
 	return nil
 }
 
+func (server *Cluster) RunCommand(ctx context.Context, client *WSClient, command string) (string, error) {
+	args := strings.Split(command, " ")
+
+	if len(args) == 0 {
+		return "", errors.New("invalid command")
+	}
+
+	switch args[0] {
+	case "creategame":
+		logger := log.With().Uint16("clientId", client.id).Logger()
+
+		logger.Info().Msg("starting server")
+
+		gameServer, err := server.StartPresetServer(server.serverCtx)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("failed to create server")
+			return "", errors.New("failed to create server")
+		}
+
+		logger = logger.With().Str("server", gameServer.Reference()).Logger()
+
+		go gameServer.Start(server.serverCtx, server.serverMessage)
+
+		tick := time.NewTicker(250 * time.Millisecond)
+		for {
+			status := gameServer.GetStatus()
+			if status == manager.ServerOK {
+				logger.Info().Msg("server ok")
+				break
+			}
+
+			select {
+			case <-ctx.Done():
+				return "", errors.New("server start timed out")
+			case <-tick.C:
+				continue
+			}
+		}
+
+		return gameServer.Id, nil
+	}
+
+	return "", nil
+}
+
 func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 	client := &WSClient{
 		send: make(chan []byte, CLIENT_MESSAGE_LIMIT),
@@ -315,6 +369,57 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 					uint32(packetMessage.Channel),
 					packetMessage.Data,
 				)
+			}
+
+			var commandMessage protocol.CommandMessage
+			if err := cbor.Unmarshal(msg, &commandMessage); err == nil &&
+				commandMessage.Op == protocol.CommandOp {
+
+				type CommandResult struct {
+					err      error
+					response string
+				}
+
+				resultChannel := make(chan CommandResult)
+
+				ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+
+				go func() {
+					response, err := server.RunCommand(ctx, client, commandMessage.Command)
+					resultChannel <- CommandResult{
+						err:      err,
+						response: response,
+					}
+				}()
+
+				// Go run a command, but don't block
+				go func() {
+					select {
+					case result := <-resultChannel:
+						cancel()
+						response := result.response
+						err := result.err
+
+						packet := protocol.ResponseMessage{
+							Op: protocol.ServerResponseOp,
+							Id: commandMessage.Id,
+						}
+
+						if err == nil {
+							packet.Success = true
+							packet.Response = response
+						} else {
+							packet.Success = false
+							packet.Response = err.Error()
+						}
+
+						bytes, _ := cbor.Marshal(packet)
+						client.send <- bytes
+					case <-ctx.Done():
+						// The command timed out
+						return
+					}
+				}()
 			}
 
 			var generic protocol.GenericMessage
@@ -434,7 +539,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cluster := NewCluster(serverPath)
+	cluster := NewCluster(ctx, serverPath)
 
 	httpServer := &http.Server{
 		Handler: cluster,

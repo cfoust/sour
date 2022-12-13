@@ -18,7 +18,7 @@ import {
 } from '@chakra-ui/react'
 
 import type { GameState } from './types'
-import type { ServerMessage } from './protocol'
+import type { ServerMessage, SocketMessage } from './protocol'
 import { GameStateType } from './types'
 import { MessageType } from './protocol'
 import type {
@@ -504,6 +504,18 @@ function App() {
       if (cachedServers == null) return
       injectServers(cachedServers)
 
+      // TESTING
+      setTimeout(() => {
+        ws.send(
+          CBOR.encode({
+            Op: MessageType.Command,
+            Command: 'creategame',
+            Id: 1234,
+          })
+        )
+      }, 5000)
+      // TESTING
+
       const {
         location: { search: params },
       } = window
@@ -517,7 +529,7 @@ function App() {
       setTimeout(() => BananaBread.execute(cmd), 0)
     }
 
-    let serverEvents: ServerMessage[] = []
+    let serverEvents: SocketMessage[] = []
 
     Module.cluster = {
       connect: (name: string, password: string) => {
@@ -550,7 +562,7 @@ function App() {
         const view = new DataView(Module.HEAPU8.buffer)
 
         const message = serverEvents.shift()
-        if (message == null || message.Op === MessageType.Info) {
+        if (message == null) {
           return 0
         }
 
@@ -609,6 +621,11 @@ function App() {
         }
 
         injectServers(Master)
+        return
+      }
+
+      if (serverMessage.Op === MessageType.ServerResponse) {
+        console.log(serverMessage)
         return
       }
 
