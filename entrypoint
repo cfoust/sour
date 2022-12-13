@@ -9,12 +9,8 @@ run_proxy() {
 }
 
 run_cluster() {
-  QSERV_PATH=/bin/qserv QSERV_LOBBY_CONFIG=/qserv/config/server-init.cfg cluster
-}
-
-run_server() {
   cd /qserv
-  qserv
+  QSERV_PATH=/bin/qserv QSERV_LOBBY_CONFIG=/qserv/config/server-init.cfg cluster
 }
 
 run_site() {
@@ -22,7 +18,6 @@ run_site() {
 }
 
 run_proxy &
-run_server &
 run_cluster &
 run_site &
 
