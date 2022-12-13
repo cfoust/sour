@@ -44,10 +44,12 @@ Here is a high level description of the repository's directory structure:
 * `services/assets`: Scripts for building web-compatible game assets. This is an extremely complicated topic and easily the most difficult aspect of shipping Sauerbraten to the web. Check out this [section's README](services/assets) for more information.
 * `services/go/`: All Go code used in Sour and its services.
   * A Go program that calculates the minimum list of files necessary for the game to load a given map.
-  * A Go service that periodically fetches Sauerbraten server information from the master server, pings all of the available servers, and makes that information available to the web client.
+  * The Sour game server, which provides a number of services to web clients:
+      * Gives clients access to game servers managed by Sour, including ones only accessible to the web and otherwise.
+      * Periodically fetches Sauerbraten server information from the master server, pings all of the available servers, and broadcasts the results to web clients. This is so we can fill in the server browser.
 * `services/ingress/`: `nginx` configurations for development, production, and Gitpod.
-* `services/server/`: A fork of [QServCollect](https://github.com/deathstar/QServCollect), which is a dedicated Sauerbraten server.
-* `services/proxy/`: A fork of [wsproxy](https://github.com/FWGS/wsproxy) which I changed to only allow proxying from TCP `28785` to UDP `28786`. This was the quickest way I found to get client/server communication working, though presumably you could just do this in a Python script.
+* `services/server/`: A fork of [QServCollect](https://github.com/deathstar/QServCollect), which is a dedicated Sauerbraten server. I added support for accepting connections on a Unix domain socket.
+* `services/proxy/`: A fork of [wsproxy](https://github.com/FWGS/wsproxy). This allows web clients to connect to _all_ of the existing Sauerbraten servers and crossplay with desktop clients.
 * `services/client/`: A React web application that glues together the compiled Sauerbraten code and our asset fetching mechanism.
 
 ## Contributing
@@ -70,9 +72,12 @@ Check out the roadmap below to see what you might be able to help with.
 ### Gameplay
 * [ ] CTF still doesn't work and flags don't show up
 * [ ] Modern multiplayer
+  * [X] Use socket comms to connect to Sour-internal servers
+  * [X] Arbitrary creation and hot swapping of users between servers
   * [ ] Programmatic control of game servers
-  * [ ] Quickly create private matches with invite codes
-  * [ ] Matchmaking
+  * [ ] Allow users to create private matches with invite codes
+    * [ ] Update the URL to the current server on join eg `sourga.me/server/127.0.0.1:28785`
+  * [ ] Matchmaking (1v1)
   * [ ] Stretch: ELO
   * [ ] Stretch: allow desktop clients full access to matchmaking via proxy server
 * [ ] Allow for backgrounding the tab by responding to pings
@@ -82,10 +87,7 @@ Check out the roadmap below to see what you might be able to help with.
   * [ ] Ensure page load time isn't horrible
 * [ ] Demo player with seek/play/pause
   * [ ] Stretch: generate gifs in the browser
-* [ ] Update the URL to the current server on join eg `sourga.me/server/127.0.0.1:28785`
-* [ ] 1v1 duel server + rankings?
 * [ ] Save demos for any game played to IndexedDB and allow for download
-* [ ] Allow players to create private servers with simple join links eg `sourga.me/server/ABCD`
 * [ ] Explore running Sour in a Web Worker rather than the rendering thread
 * [ ] Support all player models (right now it's just snout)
 ### Map editing
