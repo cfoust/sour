@@ -24,4 +24,4 @@ cd "$SCRIPT_DIR/../"
 
 yarn serve:site &
 cd dist
-python -m http.server 1235
+python ../spa.py

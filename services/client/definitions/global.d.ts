@@ -58,7 +58,11 @@ type ModuleType = {
   addRunDependency: (dependency: string) => void
   socket: (addr: string, port: number) => any
 
+  onConnect: (hostname: string, port: number) => void
+  onDisconnect: () => void
+
   assets: {
+    // assets has its own hook
     onConnect: () => void
     isValidMap: (map: string) => number
     isMountedFile: (file: string) => number

@@ -63,10 +63,18 @@ const LoadingContainer = styled.div`
   z-index: 1;
 `
 
+const pushURLState = (url: string) => {
+  window.history.pushState({}, '', url)
+}
+
+const clearURLState = () => pushURLState('/')
+
 export type CommandRequest = {
   id: number
   promiseSet: PromiseSet<string>
 }
+
+const SERVER_URL_REGEX = /\/server\/([\w.]+)\/?(\d+)?/
 
 function App() {
   const [state, setState] = React.useState<GameState>({
@@ -204,12 +212,28 @@ function App() {
 
     let cachedServers: Maybe<any> = null
     Module.onGameReady = () => {
-      if (cachedServers == null) return
-      injectServers(cachedServers)
+      if (cachedServers != null) {
+        injectServers(cachedServers)
+      }
 
+      console.log('onGameReady');
       const {
-        location: { search: params },
+        location: { search: params, pathname },
       } = window
+
+      const serverDestination = SERVER_URL_REGEX.exec(pathname)
+      if (serverDestination != null) {
+        const [,hostname, port] = serverDestination
+        console.log(serverDestination);
+        if (port == null) {
+          BananaBread.execute(`join ${hostname}`)
+        } else {
+          BananaBread.execute(`connect ${hostname} ${port}`)
+        }
+      } else {
+        // It should not be anything else
+        pushURLState('/')
+      }
 
       if (params.length == 0) return
       const parsedParams = new URLSearchParams(params)
@@ -217,6 +241,28 @@ function App() {
       const cmd = parsedParams.get('cmd')
       if (cmd == null) return
       setTimeout(() => BananaBread.execute(cmd), 0)
+    }
+
+    let lastSour: Maybe<string> = null
+    Module.onConnect = (name: string, port: number) => {
+      // Sour server
+      if (port === 0) {
+        // what is even going on?
+        if (name.length != 0) {
+          pushURLState(`/server/${name}`)
+          return
+        }
+
+        if (lastSour == null) return
+        pushURLState(`/server/${lastSour}`)
+        return
+      }
+
+      pushURLState(`/server/${name}/${port}`)
+    }
+    Module.onDisconnect = () => {
+      lastSour = null
+      pushURLState(`/`)
     }
 
     let serverEvents: SocketMessage[] = []
@@ -236,6 +282,7 @@ function App() {
       },
       connect: (name: string, password: string) => {
         const Target = name.length === 0 ? 'lobby' : name
+        lastSour = Target
         ws.send(
           CBOR.encode({
             Op: MessageType.Connect,

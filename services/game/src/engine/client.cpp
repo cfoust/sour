@@ -107,6 +107,11 @@ void leave(bool async, bool cleanup)
     sourconnected = false;
     discmillis = 0;
     conoutf("left");
+#if __EMSCRIPTEN__
+    EM_ASM({
+        Module.onDisconnect();
+    });
+#endif
     game::gamedisconnect(cleanup);
     mainmenu = 1;
 }
@@ -158,6 +163,9 @@ void connectsour(const char *servername, const char *serverpassword)
     connattempts = 0;
     sourconnecting = true;
 
+    if(strcmp(servername, connectname)) setsvar("connectname", servername);
+    setvar("connectport", 0);
+
     EM_ASM({
             Module.cluster.connect(UTF8ToString($0), UTF8ToString($1))
     }, servername, serverpassword);
@@ -183,8 +191,8 @@ void connectserv(const char *servername, int serverport, const char *serverpassw
 #if !__EMSCRIPTEN__
         if(strcmp(servername, connectname)) setsvar("connectname", servername);
         if(serverport != connectport) setvar("connectport", serverport);
-        addserver(servername, serverport, serverpassword && serverpassword[0] ? serverpassword : NULL);
         conoutf("attempting to connect to %s:%d", servername, serverport);
+        addserver(servername, serverport, serverpassword && serverpassword[0] ? serverpassword : NULL);
         if(!resolverwait(servername, &address))
         {
             conoutf(CON_ERROR, "\f3could not resolve server %s", servername);
@@ -193,9 +201,14 @@ void connectserv(const char *servername, int serverport, const char *serverpassw
 #else
         int length = strlen(servername);
         if (length == 0) {
-            enet_address_set_host(&address, "sour");
+            // Just connect to the default
+            connectsour("", "");
+            return;
         } else {
+            if(strcmp(servername, connectname)) setsvar("connectname", servername);
+            if(serverport != connectport) setvar("connectport", serverport);
             enet_address_set_host(&address, servername);
+            conoutf("attempting to connect to %s:%d", servername, serverport);
         }
 #endif
 
@@ -256,6 +269,11 @@ void disconnect(bool async, bool cleanup)
         curpeer = NULL;
         discmillis = 0;
         conoutf("disconnected");
+#if __EMSCRIPTEN__
+        EM_ASM({
+            Module.onDisconnect();
+        });
+#endif
         game::gamedisconnect(cleanup);
         mainmenu = 1;
     }
@@ -382,9 +400,15 @@ void gets2c()           // get updates from the server
                 break;
             } else if ((int) frame == ENET_EVENT_TYPE_CONNECT) {
                 conoutf("connected to server");
+
+                EM_ASM({
+                    Module.onConnect(UTF8ToString($0), $1);
+                }, connectname, connectport);
+
                 EM_ASM({
                     Module.assets.onConnect();
                 });
+
                 sourconnected = true;
                 sourconnecting = false;
                 game::gameconnect(true);
@@ -415,6 +439,10 @@ void gets2c()           // get updates from the server
             connpeer = NULL;
             conoutf("connected to server");
 #if __EMSCRIPTEN__
+            EM_ASM({
+                Module.onConnect(UTF8ToString($0), $1);
+            }, connectname, connectport);
+
             EM_ASM({
                 Module.assets.onConnect();
             });
