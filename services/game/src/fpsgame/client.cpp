@@ -583,7 +583,9 @@ namespace game
     {
         static string s;
         if (strcmp(name, "random") == 0) {
-            conoutf("load random map");
+            EM_ASM({
+                Module.assets.loadRandomMap()
+            });
             return;
         }
 

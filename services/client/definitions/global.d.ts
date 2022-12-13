@@ -59,13 +59,13 @@ type ModuleType = {
   socket: (addr: string, port: number) => any
 
   assets: {
-    onConnected: () => void
+    onConnect: () => void
     isValidMap: (map: string) => number
     isMountedFile: (file: string) => number
     loadRandomMap: () => void
     loadWorld: (map: string) => void
     receivedMap: (map: string, oldMap: string) => void
-  },
+  }
 
   cluster: {
     createGame: (name: string) => void
@@ -91,6 +91,7 @@ declare const ASSET_SOURCE: string
 declare const GAME_SERVER: string
 
 type BananaBreadType = {
+  conoutf: (level: number, message: string) => void
   execute: (command: string) => void
   loadWorld: (map: string, cmap?: string) => void
   renderprogress: (progress: number, text: string) => void

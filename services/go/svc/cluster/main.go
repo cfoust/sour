@@ -251,6 +251,9 @@ func (server *Cluster) MoveClient(ctx context.Context, client *WSClient, targetS
 }
 
 func (server *Cluster) RunCommand(ctx context.Context, client *WSClient, command string) (string, error) {
+	logger := log.With().Uint16("clientId", client.id).Logger()
+	logger.Info().Msgf("running sour command '%s'", command)
+
 	args := strings.Split(command, " ")
 
 	if len(args) == 0 {
@@ -259,7 +262,6 @@ func (server *Cluster) RunCommand(ctx context.Context, client *WSClient, command
 
 	switch args[0] {
 	case "creategame":
-		logger := log.With().Uint16("clientId", client.id).Logger()
 
 		server.createMutex.Lock()
 		defer server.createMutex.Unlock()

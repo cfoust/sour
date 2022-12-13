@@ -18,12 +18,16 @@ import {
 } from '@chakra-ui/react'
 
 import type { GameState } from './types'
-import type { ServerMessage, SocketMessage } from './protocol'
+import type { ServerMessage, SocketMessage, CommandMessage } from './protocol'
 import { GameStateType } from './types'
 import { MessageType } from './protocol'
 import StatusOverlay from './Loading'
 import NAMES from './names'
 import useAssets from './assets/hook'
+
+import type { PromiseSet } from './utils'
+import { breakPromise } from './utils'
+import * as log from './logging'
 
 start()
 
@@ -58,6 +62,11 @@ const LoadingContainer = styled.div`
   position: absolute;
   z-index: 1;
 `
+
+export type CommandRequest = {
+  id: number
+  promiseSet: PromiseSet<string>
+}
 
 function App() {
   const [state, setState] = React.useState<GameState>({
@@ -133,11 +142,45 @@ function App() {
   }, [width, height])
 
   React.useEffect(() => {
+    // All commands in flight
+    let commands: CommandRequest[] = []
+
     const { protocol, host } = window.location
     const ws = new WebSocket(
       `${protocol === 'https:' ? 'wss://' : 'ws:/'}${host}/service/cluster/`
     )
     ws.binaryType = 'arraybuffer'
+
+    const runCommand = async (command: string) => {
+      const generate = (): number => Math.floor(Math.random() * 2048)
+
+      let id: number = generate()
+
+      // We don't want collisions and can't use a Symbol
+      while (R.find((v) => v.id === id, commands) != null) {
+        id = generate()
+      }
+
+      const promiseSet = breakPromise<string>()
+
+      commands = [
+        ...commands,
+        {
+          id,
+          promiseSet,
+        },
+      ]
+
+      const message: CommandMessage = {
+        Op: MessageType.Command,
+        Command: command,
+        Id: id,
+      }
+
+      ws.send(CBOR.encode(message))
+
+      return promiseSet.promise
+    }
 
     const injectServers = (servers: any) => {
       R.map((server) => {
@@ -164,18 +207,6 @@ function App() {
       if (cachedServers == null) return
       injectServers(cachedServers)
 
-      // TESTING
-      setTimeout(() => {
-        ws.send(
-          CBOR.encode({
-            Op: MessageType.Command,
-            Command: 'creategame',
-            Id: 1234,
-          })
-        )
-      }, 5000)
-      // TESTING
-
       const {
         location: { search: params },
       } = window
@@ -185,14 +216,24 @@ function App() {
       if (!parsedParams.has('cmd')) return
       const cmd = parsedParams.get('cmd')
       if (cmd == null) return
-      console.log(cmd)
       setTimeout(() => BananaBread.execute(cmd), 0)
     }
 
     let serverEvents: SocketMessage[] = []
 
     Module.cluster = {
-      createGame: (preset: string) => {},
+      createGame: (preset: string) => {
+        log.info('creating private game...')
+        ;(async () => {
+          try {
+            const result = await runCommand('creategame')
+            log.success('created game!')
+            BananaBread.execute(`join ${result}`)
+          } catch (e) {
+            log.error(`failed to create private game: ${e}`)
+          }
+        })()
+      },
       connect: (name: string, password: string) => {
         const Target = name.length === 0 ? 'lobby' : name
         ws.send(
@@ -285,7 +326,22 @@ function App() {
       }
 
       if (serverMessage.Op === MessageType.ServerResponse) {
-        console.log(serverMessage)
+        const { Id, Response, Success } = serverMessage
+        const request = R.find(({ id: otherId }) => Id === otherId, commands)
+        if (request == null) return
+
+        const {
+          promiseSet: { resolve, reject },
+        } = request
+
+        if (Success) {
+          resolve(Response)
+        } else {
+          reject(new Error(Response))
+        }
+
+        commands = R.filter(({ id: otherId }) => Id !== otherId, commands)
+
         return
       }
 

@@ -308,7 +308,7 @@ export default function useAssets(
     Module.assets = {
       isValidMap,
       isMountedFile,
-      onConnected: () => {
+      onConnect: () => {
         targetMap = null
       },
       loadRandomMap: () => {
