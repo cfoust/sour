@@ -95,10 +95,6 @@ function App() {
       Module.run()
     })()
 
-    Module.postLoadWorld = function () {
-      BananaBread.execute('spawnitems')
-    }
-
     Module.socket = (addr, port) => {
       const { protocol, host } = window.location
       const prefix = `${
@@ -116,13 +112,6 @@ function App() {
         setState({
           type: GameStateType.Running,
         })
-      }
-
-      if (text === 'init: mainloop') {
-        setState({
-          type: GameStateType.Ready,
-        })
-        Module.onGameReady()
       }
 
       // Randomly assign a new name if the user joins without one
@@ -210,21 +199,52 @@ function App() {
       BananaBread.execute('sortservers')
     }
 
+    // This is only used when we make a match and are waiting for players.
+    let waitingForPlayers: boolean = false
+    let lastSour: Maybe<string> = null
+    let warningTimer: Maybe<NodeJS.Timer> = null
+    const waitWarning = () => {
+      log.info(
+        `This is your private server. Invite other players using the link in your URL bar (we copied it to your clipboard) or having them type /join ${lastSour} at sourga.me.`
+      )
+    }
+
+    Module.postLoadWorld = function () {
+      BananaBread.execute('spawnitems')
+
+      if (waitingForPlayers && lastSour) {
+        navigator.clipboard.writeText(location.href)
+        waitWarning()
+        warningTimer = setInterval(waitWarning, 30000)
+      }
+    }
+
+    Module.onClientJoin = () => {
+      if (waitingForPlayers) {
+        waitingForPlayers = false
+      }
+      if (warningTimer != null) {
+        clearInterval(warningTimer)
+      }
+    }
+
     let cachedServers: Maybe<any> = null
     Module.onGameReady = () => {
+      setState({
+        type: GameStateType.Ready,
+      })
+
       if (cachedServers != null) {
         injectServers(cachedServers)
       }
 
-      console.log('onGameReady');
       const {
         location: { search: params, pathname },
       } = window
 
       const serverDestination = SERVER_URL_REGEX.exec(pathname)
       if (serverDestination != null) {
-        const [,hostname, port] = serverDestination
-        console.log(serverDestination);
+        const [, hostname, port] = serverDestination
         if (port == null) {
           BananaBread.execute(`join ${hostname}`)
         } else {
@@ -243,7 +263,6 @@ function App() {
       setTimeout(() => BananaBread.execute(cmd), 0)
     }
 
-    let lastSour: Maybe<string> = null
     Module.onConnect = (name: string, port: number) => {
       // Sour server
       if (port === 0) {
@@ -275,6 +294,7 @@ function App() {
             const result = await runCommand('creategame')
             log.success('created game!')
             BananaBread.execute(`join ${result}`)
+            waitingForPlayers = true
           } catch (e) {
             log.error(`failed to create private game: ${e}`)
           }

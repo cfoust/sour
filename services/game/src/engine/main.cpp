@@ -1422,6 +1422,14 @@ void main3(void *arg)
     inputgrab(grabinput = true);
     ignoremousemotion();
 
+#if __EMSCRIPTEN__
+    emscripten_run_script("Module['setPlayerModels']()");
+
+    EM_ASM({
+        Module.onGameReady();
+    });
+#endif
+
 #if !__EMSCRIPTEN__
     for(;;) main_loop_caller(); // otherwise in emscripten we already set the main loop
 #endif

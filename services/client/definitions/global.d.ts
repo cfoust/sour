@@ -60,6 +60,7 @@ type ModuleType = {
 
   onConnect: (hostname: string, port: number) => void
   onDisconnect: () => void
+  onClientJoin: (name: string) => void
 
   assets: {
     // assets has its own hook
