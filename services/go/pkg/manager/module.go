@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -41,13 +42,20 @@ const (
 	SOCKET_EVENT_COMMAND
 )
 
+const (
+	// How long we wait before pruning an unused server
+	SERVER_MAX_IDLE_TIME = time.Duration(10 * time.Minute)
+)
+
 type GameServer struct {
 	// The UDP port of the server
 	Port   uint16
 	Status ServerStatus
 	Id     string
 	// Another way for the client to refer to this server
-	Alias string
+	Alias      string
+	NumClients int
+	LastEvent  time.Time
 
 	// The path of the socket
 	path    string
@@ -204,7 +212,36 @@ func (server *GameServer) Wait() {
 	stdoutEOF := make(chan bool, 1)
 	stderrEOF := make(chan bool, 1)
 
-	go tailPipe(stdout, stdoutEOF)
+	go func(pipe io.ReadCloser, done chan bool) {
+		scanner := bufio.NewScanner(pipe)
+
+		for scanner.Scan() {
+			message := scanner.Text()
+
+			if strings.HasPrefix(message, "Join:") {
+				server.mutex.Lock()
+				server.NumClients++
+				server.LastEvent = time.Now()
+				server.mutex.Unlock()
+			}
+
+			if strings.HasPrefix(message, "Leave:") {
+				server.mutex.Lock()
+				server.NumClients--
+				server.LastEvent = time.Now()
+
+				if server.NumClients < 0 {
+					server.NumClients = 0
+				}
+
+				server.mutex.Unlock()
+			}
+
+			logger.Info().Msg(message)
+		}
+		done <- true
+	}(stdout, stdoutEOF)
+
 	go tailPipe(stderr, stderrEOF)
 
 	<-stdoutEOF
@@ -392,9 +429,43 @@ func (marshal *Manager) RemoveServer(server *GameServer) error {
 	return nil
 }
 
+func (marshal *Manager) PruneServers(ctx context.Context) {
+	interval := time.NewTicker(30 * time.Second)
+
+	for {
+		select {
+		case <-interval.C:
+			marshal.mutex.Lock()
+
+			toPrune := make([]*GameServer, 0)
+
+			for _, server := range marshal.Servers {
+				if (time.Now().Sub(server.LastEvent)) < SERVER_MAX_IDLE_TIME || server.Alias != "" {
+					continue
+				}
+				toPrune = append(toPrune, server)
+			}
+
+			marshal.mutex.Unlock()
+
+			for _, server := range toPrune {
+				logger := server.Log()
+				logger.Info().Msg("server was pruned")
+				marshal.RemoveServer(server)
+			}
+
+			continue
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func (marshal *Manager) NewServer(ctx context.Context, configPath string) (*GameServer, error) {
 	server := GameServer{
-		send: make(chan []byte, 1),
+		send:       make(chan []byte, 1),
+		NumClients: 0,
+		LastEvent:  time.Now(),
 	}
 
 	// We don't want other servers to start while this one is being started

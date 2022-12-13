@@ -441,6 +441,7 @@ void disconnect_client(int n, int reason) {
         enet_peer_disconnect(clients[n]->peer, reason);
     }
 
+    logoutf("Leave: disconnected");
     server::clientdisconnect(n);
     delclient(clients[n]);
     const char *msg = disconnectreason(reason);
@@ -452,7 +453,6 @@ void disconnect_client(int n, int reason) {
         server::sendservmsg(s);
     }
     logoutf("%s", s);
-    logoutf("finished disconnect_client");
 }
 
 void dcres(int n, const char *reason) {

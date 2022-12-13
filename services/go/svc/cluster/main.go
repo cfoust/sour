@@ -157,6 +157,7 @@ func (server *Cluster) StartServers(ctx context.Context) {
 	gameServer.Alias = "lobby"
 
 	go gameServer.Start(ctx, server.serverMessage)
+	go server.manager.PruneServers(ctx)
 }
 
 func (server *Cluster) StartWatcher(ctx context.Context) {
