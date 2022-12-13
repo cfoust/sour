@@ -232,7 +232,9 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 
 	client.id = id
 
-	log.Info().Uint16("id", id).Msg("client joined")
+	logger := log.With().Uint16("clientId", id).Logger()
+
+	logger.Info().Msg("client joined")
 
 	server.AddClient(client)
 	defer server.RemoveClient(client)
@@ -240,7 +242,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 	// Write the first broadcast on connect so they don't have to wait 5s
 	broadcast, err := server.BuildBroadcast()
 	if err != nil {
-		log.Error().Err(err).Msg("could not build broadcast")
+		logger.Error().Err(err).Msg("could not build broadcast")
 		return err
 	}
 	err = WriteTimeout(ctx, time.Second*5, c, broadcast)
@@ -270,8 +272,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 
 				target := connectMessage.Target
 
-				log.Info().Uint("clientId", uint(client.id)).
-					Str("target", target).
+				logger.Info().Str("target", target).
 					Msg("client attempting connect")
 
 				if client.server != nil && client.server.IsReference(target) {
@@ -285,8 +286,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 
 					client.server = gameServer
 
-					log.Info().Uint("clientId", uint(client.id)).
-						Str("server", gameServer.Reference()).
+					logger.Info().Str("server", gameServer.Reference()).
 						Msg("client connecting to server")
 
 					gameServer.SendConnect(client.id)
@@ -325,17 +325,19 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn) error {
 					break
 				}
 
+				logger.Info().Str("server", client.server.Reference()).Msg("client disconnected from server")
 				client.server = nil
-				log.Info().Msgf("client %d disconnected", client.id)
 				target.SendDisconnect(client.id)
 			}
 
 		case msg := <-client.send:
 			err := WriteTimeout(ctx, time.Second*5, c, msg)
 			if err != nil {
+				logger.Error().Msg("client missed write timeout; disconnecting")
 				return err
 			}
 		case <-ctx.Done():
+			logger.Info().Msg("client left")
 			return ctx.Err()
 		}
 	}
