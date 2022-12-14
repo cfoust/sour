@@ -280,6 +280,10 @@ function App() {
       pushURLState(`/server/${name}/${port}`)
     }
     Module.onDisconnect = () => {
+      waitingForPlayers = false
+      if (warningTimer != null) {
+        clearInterval(warningTimer)
+      }
       lastSour = null
       pushURLState(`/`)
     }
