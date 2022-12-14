@@ -15,7 +15,7 @@ job_id=""
 
 repl() {
   if ! [ -z "$job_id" ]; then
-    kill "$job_id"
+    kill -SIGINT "$job_id"
     wait "$job_id"
     sleep 1
     job_id=""

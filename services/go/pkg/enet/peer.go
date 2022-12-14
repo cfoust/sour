@@ -18,7 +18,7 @@ type PeerState uint
 type Peer struct {
 	Address *net.UDPAddr
 	State   PeerState
-	cPeer   *C.ENetPeer
+	CPeer   *C.ENetPeer
 }
 
 func (h *Host) peerFromCPeer(cPeer *C.ENetPeer) *Peer {
@@ -40,7 +40,7 @@ func (h *Host) peerFromCPeer(cPeer *C.ENetPeer) *Peer {
 			Port: int(cPeer.address.port),
 		},
 		State: PeerState(cPeer.state),
-		cPeer: cPeer,
+		CPeer: cPeer,
 	}
 
 	h.peers[cPeer] = p
@@ -49,8 +49,8 @@ func (h *Host) peerFromCPeer(cPeer *C.ENetPeer) *Peer {
 }
 
 func (h *Host) Disconnect(p *Peer, reason ID) {
-	C.enet_peer_disconnect(p.cPeer, C.enet_uint32(reason))
-	delete(h.peers, p.cPeer)
+	C.enet_peer_disconnect(p.CPeer, C.enet_uint32(reason))
+	delete(h.peers, p.CPeer)
 }
 
 func (p *Peer) Send(channel uint8, payload []byte) {
@@ -66,5 +66,5 @@ func (p *Peer) Send(channel uint8, payload []byte) {
 	log.Println("sending", payload, "to", p.Address.String())
 
 	packet := C.enet_packet_create(unsafe.Pointer(&payload[0]), C.size_t(len(payload)), C.enet_uint32(flags))
-	C.enet_peer_send(p.cPeer, C.enet_uint8(channel), packet)
+	C.enet_peer_send(p.CPeer, C.enet_uint8(channel), packet)
 }

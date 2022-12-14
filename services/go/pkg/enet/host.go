@@ -22,7 +22,7 @@ ENetHost* initServer(const char *addr, int port) {
 	// Bind the server to the provided port
 	address.port = port;
 
-	ENetHost* host = enet_host_create(&address, 128, 2, 0, 0);
+	ENetHost* host = enet_host_create(&address, 128, 3, 0, 0);
 	if (host == NULL) {
 		fprintf(stderr, "An error occurred while trying to create an ENet server host.\n");
 		exit(EXIT_FAILURE);
@@ -40,6 +40,10 @@ ENetEvent serviceHost(ENetHost* host) {
 	} while (e <= 0 || (event.type == ENET_EVENT_TYPE_RECEIVE && event.packet->dataLength == 0));
 
 	return event;
+}
+
+void cleanupHost(ENetHost* host) {
+	enet_host_destroy(host);
 }
 */
 import "C"
@@ -74,4 +78,8 @@ func (h *Host) Service() <-chan Event {
 		}
 	}()
 	return events
+}
+
+func (h *Host) Shutdown() {
+	C.cleanupHost(h.cHost)
 }

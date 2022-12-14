@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cfoust/sour/pkg/enet"
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/manager"
 	"github.com/cfoust/sour/pkg/protocol"
@@ -25,11 +26,19 @@ import (
 	"nhooyr.io/websocket"
 )
 
-type WSClient struct {
-	id        uint16
-	host      string
+type GamePacket struct {
+	Channel uint8
+	Data    []byte
+}
+
+type Client struct {
+	id   uint16
+	host string
+
+	peer      *enet.Peer
 	server    *manager.GameServer
 	send      chan []byte
+	sendPacket chan GamePacket
 	closeSlow func()
 }
 
@@ -43,7 +52,7 @@ const (
 
 type Cluster struct {
 	clientMutex sync.Mutex
-	clients     map[*WSClient]struct{}
+	clients     map[*Client]struct{}
 
 	createMutex sync.Mutex
 	// host -> time a client from that host last created a server. We
@@ -64,7 +73,7 @@ func NewCluster(ctx context.Context, serverPath string) *Cluster {
 		serverCtx:     ctx,
 		hostServers:   make(map[string]*manager.GameServer),
 		lastCreate:    make(map[string]time.Time),
-		clients:       make(map[*WSClient]struct{}),
+		clients:       make(map[*Client]struct{}),
 		serverWatcher: watcher.NewWatcher(),
 		serverMessage: make(chan []byte, 1),
 		manager: manager.NewManager(
@@ -78,9 +87,6 @@ func NewCluster(ctx context.Context, serverPath string) *Cluster {
 }
 
 func (server *Cluster) NewClientID() (uint16, error) {
-	server.clientMutex.Lock()
-	defer server.clientMutex.Unlock()
-
 	for attempts := 0; attempts < math.MaxUint16; attempts++ {
 		number, _ := rand.Int(rand.Reader, big.NewInt(math.MaxUint16))
 		truncated := uint16(number.Uint64())
@@ -214,15 +220,12 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 						continue
 					}
 
-					packet := protocol.PacketMessage{
-						Op:      protocol.PacketOp,
-						Channel: int(chan_),
-						Data:    data,
-						Length:  len(data),
+					packet := GamePacket{
+						Channel: uint8(chan_),
+						Data: data,
 					}
 
-					bytes, _ := cbor.Marshal(packet)
-					client.send <- bytes
+					client.sendPacket <- packet
 
 					break
 				}
@@ -232,7 +235,7 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 	}
 }
 
-func (server *Cluster) MoveClient(ctx context.Context, client *WSClient, targetServer *manager.GameServer) error {
+func (server *Cluster) MoveClient(ctx context.Context, client *Client, targetServer *manager.GameServer) error {
 	if targetServer.Status != manager.ServerOK {
 		return errors.New("Server is not available")
 	}
@@ -251,7 +254,7 @@ func (server *Cluster) MoveClient(ctx context.Context, client *WSClient, targetS
 	return nil
 }
 
-func (server *Cluster) RunCommand(ctx context.Context, client *WSClient, command string) (string, error) {
+func (server *Cluster) RunCommand(ctx context.Context, client *Client, command string) (string, error) {
 	logger := log.With().Uint16("clientId", client.id).Logger()
 	logger.Info().Msgf("running sour command '%s'", command)
 
@@ -314,25 +317,63 @@ func (server *Cluster) RunCommand(ctx context.Context, client *WSClient, command
 	return "", nil
 }
 
-func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn, host string) error {
-	client := &WSClient{
-		host: host,
-		send: make(chan []byte, CLIENT_MESSAGE_LIMIT),
-		closeSlow: func() {
-			c.Close(websocket.StatusPolicyViolation, "connection too slow to keep up with messages")
-		},
-	}
+func (server *Cluster) EmptyClient() (*Client, error) {
+	server.clientMutex.Lock()
+	defer server.clientMutex.Unlock()
 
 	id, err := server.NewClientID()
+
+	if err != nil {
+		return nil, err
+	}
+
+	client := &Client{
+		id: id,
+	}
+
+	return client, nil
+}
+
+func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn, host string) error {
+	client, err := server.EmptyClient()
+
 	if err != nil {
 		return err
 	}
 
-	client.id = id
+	client.host = host
+	client.send = make(chan []byte, CLIENT_MESSAGE_LIMIT)
+	client.closeSlow = func() {
+		c.Close(websocket.StatusPolicyViolation, "connection too slow to keep up with messages")
+	}
 
-	logger := log.With().Uint16("clientId", id).Str("host", host).Logger()
+	logger := log.With().Uint16("clientId", client.id).Str("host", host).Logger()
 
 	logger.Info().Msg("client joined")
+
+	gamePacketChannel := make(chan GamePacket, CLIENT_MESSAGE_LIMIT)
+	client.sendPacket = gamePacketChannel
+
+	go func() {
+		for {
+			select {
+			case packet := <-gamePacketChannel:
+				wsPacket := protocol.PacketMessage{
+					Op:      protocol.PacketOp,
+					Channel: int(packet.Channel),
+					Data:    packet.Data,
+					Length:  len(packet.Data),
+				}
+
+				bytes, _ := cbor.Marshal(wsPacket)
+				client.send <- bytes
+				continue
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 
 	server.AddClient(client)
 	defer server.RemoveClient(client)
@@ -497,6 +538,10 @@ func (server *Cluster) Broadcast(msg []byte) {
 	defer server.clientMutex.Unlock()
 
 	for client := range server.clients {
+		if client.peer != nil {
+			continue
+		}
+
 		select {
 		case client.send <- msg:
 		default:
@@ -539,13 +584,13 @@ func (server *Cluster) BuildBroadcast() ([]byte, error) {
 	return bytes, nil
 }
 
-func (server *Cluster) AddClient(s *WSClient) {
+func (server *Cluster) AddClient(s *Client) {
 	server.clientMutex.Lock()
 	server.clients[s] = struct{}{}
 	server.clientMutex.Unlock()
 }
 
-func (server *Cluster) RemoveClient(client *WSClient) {
+func (server *Cluster) RemoveClient(client *Client) {
 	if client.server != nil {
 		client.server.SendDisconnect(client.id)
 	}
@@ -565,6 +610,119 @@ func WriteTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn,
 	return c.Write(ctx, websocket.MessageBinary, msg)
 }
 
+func (server *Cluster) EnetSend(ctx context.Context) <-chan []byte {
+	sendChannel := make(chan []byte, CLIENT_MESSAGE_LIMIT)
+
+	go func() {
+		for {
+			select {
+			case msg := <-sendChannel:
+				log.Print(msg)
+				continue
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return sendChannel
+}
+
+func (server *Cluster) PollEnet(ctx context.Context, host *enet.Host) {
+	events := host.Service()
+
+	for {
+		select {
+		case event := <-events:
+			switch event.Type {
+			case enet.EventTypeConnect:
+				client, err := server.EmptyClient()
+				if err != nil {
+					log.Error().Err(err).Msg("failed to accept enet client")
+				}
+
+				client.peer = event.Peer
+
+				logger := log.With().Uint16("clientId", client.id).Logger()
+				logger.Info().Msg("client joined (desktop)")
+
+				gamePacketChannel := make(chan GamePacket, CLIENT_MESSAGE_LIMIT)
+				client.sendPacket = gamePacketChannel
+
+				go func() {
+					for {
+						select {
+						case packet := <-gamePacketChannel:
+							client.peer.Send(packet.Channel, packet.Data)
+							continue
+						case <-ctx.Done():
+							return
+						}
+					}
+				}()
+
+				client.server = server.manager.Servers[0]
+				client.server.SendConnect(client.id)
+
+				server.AddClient(client)
+				break
+			case enet.EventTypeReceive:
+				peer := event.Peer
+
+				var target *Client = nil
+				server.clientMutex.Lock()
+				for client, _ := range server.clients {
+					if client.peer == nil || peer.CPeer != client.peer.CPeer {
+						continue
+					}
+
+					target = client
+					break
+				}
+				server.clientMutex.Unlock()
+				if target == nil || target.server == nil {
+					break
+				}
+
+				target.server.SendData(
+					target.id,
+					uint32(event.ChannelID),
+					event.Packet.Data,
+				)
+
+				break
+			case enet.EventTypeDisconnect:
+				peer := event.Peer
+
+				var target *Client = nil
+				server.clientMutex.Lock()
+				for client, _ := range server.clients {
+					if client.peer == nil || peer.CPeer != client.peer.CPeer {
+						continue
+					}
+
+					target = client
+					break
+				}
+				server.clientMutex.Unlock()
+				if target == nil {
+					break
+				}
+
+				if target.server != nil {
+					target.server.SendDisconnect(target.id)
+				}
+
+				server.RemoveClient(target)
+				break
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+
+}
+
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
 
@@ -578,7 +736,15 @@ func main() {
 		log.Error().Err(err).Msg("failed to bind WebSocket port")
 		return
 	}
+
 	log.Printf("listening on http://%v", l.Addr())
+
+	enetHost, err := enet.NewHost("0.0.0.0", 28785)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to bind ENet ingress")
+	}
+
+	log.Printf("listening on udp:%d", 28785)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -588,6 +754,8 @@ func main() {
 	httpServer := &http.Server{
 		Handler: cluster,
 	}
+
+	go cluster.PollEnet(ctx, enetHost)
 
 	go cluster.StartServers(ctx)
 	go cluster.StartWatcher(ctx)
@@ -600,6 +768,7 @@ func main() {
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt)
+	signal.Notify(sigs, os.Kill)
 
 	select {
 	case err := <-errc:
@@ -610,4 +779,5 @@ func main() {
 
 	httpServer.Shutdown(ctx)
 	cluster.Shutdown()
+	enetHost.Shutdown()
 }
