@@ -74,8 +74,8 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Modern multiplayer
   * [X] Use socket comms to connect to Sour-internal servers
   * [X] Arbitrary creation and hot swapping of users between servers
-  * [ ] Allow users to create private servers
-    * [ ] Update the URL to the current server on join eg `sourga.me/server/127.0.0.1:28785`
+  * [X] Allow users to create private servers
+    * [X] Update the URL to the current server on join eg `sourga.me/server/127.0.0.1:28785`
   * [ ] Creating servers from presets
   * [ ] Matchmaking (1v1)
   * [ ] Stretch: ELO
