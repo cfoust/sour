@@ -2,12 +2,7 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
-	"math"
-	"math/big"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -15,15 +10,12 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/protocol"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/servers"
-	"github.com/cfoust/sour/svc/cluster/watcher"
+	"github.com/cfoust/sour/svc/cluster/ingress"
 
-	"github.com/fxamacker/cbor/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"nhooyr.io/websocket"
 )
 
 type Client struct {
@@ -31,7 +23,6 @@ type Client struct {
 	host string
 
 	server     *servers.GameServer
-	send       chan []byte
 	sendPacket chan clients.GamePacket
 	closeSlow  func()
 }
@@ -56,7 +47,6 @@ type Cluster struct {
 	serverCtx     context.Context
 	serverMessage chan []byte
 
-	serverWatcher *watcher.Watcher
 	clientManager *clients.ClientManager
 }
 
@@ -66,7 +56,6 @@ func NewCluster(ctx context.Context, serverPath string) *Cluster {
 		hostServers:   make(map[string]*servers.GameServer),
 		lastCreate:    make(map[string]time.Time),
 		clients:       make(map[*Client]struct{}),
-		serverWatcher: watcher.NewWatcher(),
 		clientManager: clients.NewClientManager(),
 		serverMessage: make(chan []byte, 1),
 		manager: servers.NewServerManager(
@@ -79,60 +68,6 @@ func NewCluster(ctx context.Context, serverPath string) *Cluster {
 	return server
 }
 
-func (server *Cluster) NewClientID() (uint16, error) {
-	for attempts := 0; attempts < math.MaxUint16; attempts++ {
-		number, _ := rand.Int(rand.Reader, big.NewInt(math.MaxUint16))
-		truncated := uint16(number.Uint64())
-
-		taken := false
-		for client, _ := range server.clients {
-			if client.id == truncated {
-				taken = true
-			}
-		}
-		if taken {
-			continue
-		}
-
-		return truncated, nil
-	}
-
-	return 0, errors.New("Failed to assign client ID")
-}
-
-func (server *Cluster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		OriginPatterns: []string{"*"},
-	})
-
-	if err != nil {
-		log.Error().Err(err).Msg("error accepting client connection")
-		return
-	}
-
-	defer c.Close(websocket.StatusInternalError, "operational fault during relay")
-
-	// We use nginx for ingress everywhere, so check this first
-	hostname := r.RemoteAddr
-
-	original, ok := r.Header["X-Forwarded-For"]
-	if ok {
-		hostname = original[0]
-	}
-
-	err = server.Subscribe(r.Context(), c, hostname)
-	if errors.Is(err, context.Canceled) {
-		return
-	}
-	if websocket.CloseStatus(err) == websocket.StatusNormalClosure ||
-		websocket.CloseStatus(err) == websocket.StatusGoingAway {
-		return
-	}
-	if err != nil {
-		log.Error().Err(err).Msg("failed to close client port")
-		return
-	}
-}
 
 func (server *Cluster) StartPresetServer(ctx context.Context) (*servers.GameServer, error) {
 	// Default in development
@@ -157,29 +92,6 @@ func (server *Cluster) StartServers(ctx context.Context) {
 
 	go gameServer.Start(ctx, server.serverMessage)
 	go server.manager.PruneServers(ctx)
-}
-
-func (server *Cluster) StartWatcher(ctx context.Context) {
-	go server.serverWatcher.Watch()
-
-	broadcastTicker := time.NewTicker(10 * time.Second)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-broadcastTicker.C:
-				bytes, err := server.BuildBroadcast()
-
-				if err != nil {
-					log.Error().Err(err).Msg("could not build broadcast")
-					return
-				}
-
-				server.Broadcast(bytes)
-			}
-		}
-	}()
 }
 
 func (server *Cluster) PollMessages(ctx context.Context) {
@@ -310,271 +222,7 @@ func (server *Cluster) RunCommand(ctx context.Context, client *Client, command s
 	return "", nil
 }
 
-func (server *Cluster) EmptyClient() (*Client, error) {
-	server.clientMutex.Lock()
-	defer server.clientMutex.Unlock()
 
-	id, err := server.NewClientID()
-
-	if err != nil {
-		return nil, err
-	}
-
-	client := &Client{
-		id: id,
-	}
-
-	return client, nil
-}
-
-func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn, host string) error {
-	client, err := server.EmptyClient()
-
-	if err != nil {
-		return err
-	}
-
-	client.host = host
-	client.send = make(chan []byte, clients.CLIENT_MESSAGE_LIMIT)
-	client.closeSlow = func() {
-		c.Close(websocket.StatusPolicyViolation, "connection too slow to keep up with messages")
-	}
-
-	logger := log.With().Uint16("clientId", client.id).Str("host", host).Logger()
-
-	logger.Info().Msg("client joined")
-
-	gamePacketChannel := make(chan clients.GamePacket, clients.CLIENT_MESSAGE_LIMIT)
-	client.sendPacket = gamePacketChannel
-
-	go func() {
-		for {
-			select {
-			case packet := <-gamePacketChannel:
-				wsPacket := protocol.PacketMessage{
-					Op:      protocol.PacketOp,
-					Channel: int(packet.Channel),
-					Data:    packet.Data,
-					Length:  len(packet.Data),
-				}
-
-				bytes, _ := cbor.Marshal(wsPacket)
-				client.send <- bytes
-				continue
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	server.AddClient(client)
-	defer server.RemoveClient(client)
-
-	// Write the first broadcast on connect so they don't have to wait 5s
-	broadcast, err := server.BuildBroadcast()
-	if err != nil {
-		logger.Error().Err(err).Msg("could not build broadcast")
-		return err
-	}
-	err = WriteTimeout(ctx, time.Second*5, c, broadcast)
-
-	receive := make(chan []byte)
-
-	go func() {
-		for {
-			if ctx.Err() != nil {
-				return
-			}
-
-			typ, message, _ := c.Read(ctx)
-			if typ != websocket.MessageBinary {
-				continue
-			}
-			receive <- message
-		}
-	}()
-
-	for {
-		select {
-		case msg := <-receive:
-			var connectMessage protocol.ConnectMessage
-			if err := cbor.Unmarshal(msg, &connectMessage); err == nil &&
-				connectMessage.Op == protocol.ConnectOp {
-
-				target := connectMessage.Target
-
-				logger.Info().Str("target", target).
-					Msg("client attempting connect")
-
-				if client.server != nil && client.server.IsReference(target) {
-					break
-				}
-
-				for _, gameServer := range server.manager.Servers {
-					if !gameServer.IsReference(target) || gameServer.Status != servers.ServerOK {
-						continue
-					}
-
-					client.server = gameServer
-
-					logger.Info().Str("server", gameServer.Reference()).
-						Msg("client connecting to server")
-
-					gameServer.SendConnect(client.id)
-
-					packet := protocol.GenericMessage{
-						Op: protocol.ServerConnectedOp,
-					}
-
-					bytes, _ := cbor.Marshal(packet)
-					client.send <- bytes
-
-					break
-				}
-			}
-
-			var packetMessage protocol.PacketMessage
-			if err := cbor.Unmarshal(msg, &packetMessage); err == nil &&
-				packetMessage.Op == protocol.PacketOp {
-				target := client.server
-				if target == nil {
-					break
-				}
-
-				target.SendData(
-					client.id,
-					uint32(packetMessage.Channel),
-					packetMessage.Data,
-				)
-			}
-
-			var commandMessage protocol.CommandMessage
-			if err := cbor.Unmarshal(msg, &commandMessage); err == nil &&
-				commandMessage.Op == protocol.CommandOp {
-
-				type CommandResult struct {
-					err      error
-					response string
-				}
-
-				resultChannel := make(chan CommandResult)
-
-				ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-
-				go func() {
-					response, err := server.RunCommand(ctx, client, commandMessage.Command)
-					resultChannel <- CommandResult{
-						err:      err,
-						response: response,
-					}
-				}()
-
-				// Go run a command, but don't block
-				go func() {
-					select {
-					case result := <-resultChannel:
-						cancel()
-						response := result.response
-						err := result.err
-
-						packet := protocol.ResponseMessage{
-							Op: protocol.ServerResponseOp,
-							Id: commandMessage.Id,
-						}
-
-						if err == nil {
-							packet.Success = true
-							packet.Response = response
-						} else {
-							packet.Success = false
-							packet.Response = err.Error()
-						}
-
-						bytes, _ := cbor.Marshal(packet)
-						client.send <- bytes
-					case <-ctx.Done():
-						// The command timed out
-						return
-					}
-				}()
-			}
-
-			var generic protocol.GenericMessage
-			err := cbor.Unmarshal(msg, &generic)
-			if err == nil && packetMessage.Op == protocol.DisconnectOp {
-				target := client.server
-				if target == nil {
-					break
-				}
-
-				logger.Info().Str("server", client.server.Reference()).Msg("client disconnected from server")
-				client.server = nil
-				target.SendDisconnect(client.id)
-			}
-
-		case msg := <-client.send:
-			err := WriteTimeout(ctx, time.Second*5, c, msg)
-			if err != nil {
-				logger.Error().Msg("client missed write timeout; disconnecting")
-				return err
-			}
-		case <-ctx.Done():
-			logger.Info().Msg("client left")
-			return ctx.Err()
-		}
-	}
-}
-
-func (server *Cluster) Broadcast(msg []byte) {
-	server.clientMutex.Lock()
-	defer server.clientMutex.Unlock()
-
-	for client := range server.clients {
-		if client.peer != nil {
-			continue
-		}
-
-		select {
-		case client.send <- msg:
-		default:
-			go client.closeSlow()
-		}
-	}
-}
-
-func (server *Cluster) BuildBroadcast() ([]byte, error) {
-	servers := server.serverWatcher.Get()
-
-	masterServers := make([]protocol.ServerInfo, len(servers))
-	index := 0
-	for key, server := range servers {
-		masterServers[index] = protocol.ServerInfo{
-			Host:   key.Host,
-			Port:   key.Port,
-			Info:   server.Info,
-			Length: server.Length,
-		}
-		index++
-	}
-
-	clusterServers := make([]string, 0)
-	for _, clusterServer := range server.manager.Servers {
-		clusterServers = append(clusterServers, clusterServer.Id)
-	}
-
-	infoMessage := protocol.InfoMessage{
-		Op:      protocol.InfoOp,
-		Master:  masterServers,
-		Cluster: clusterServers,
-	}
-
-	bytes, err := cbor.Marshal(infoMessage)
-	if err != nil {
-		return nil, err
-	}
-
-	return bytes, nil
-}
 
 func (server *Cluster) AddClient(s *Client) {
 	server.clientMutex.Lock()
@@ -596,125 +244,6 @@ func (server *Cluster) Shutdown() {
 	server.manager.Shutdown()
 }
 
-func WriteTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn, msg []byte) error {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	return c.Write(ctx, websocket.MessageBinary, msg)
-}
-
-func (server *Cluster) EnetSend(ctx context.Context) <-chan []byte {
-	sendChannel := make(chan []byte, clients.CLIENT_MESSAGE_LIMIT)
-
-	go func() {
-		for {
-			select {
-			case msg := <-sendChannel:
-				log.Print(msg)
-				continue
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	return sendChannel
-}
-
-func (server *Cluster) PollEnet(ctx context.Context, host *enet.Host) {
-	events := host.Service()
-
-	for {
-		select {
-		case event := <-events:
-			switch event.Type {
-			case enet.EventTypeConnect:
-				client, err := server.EmptyClient()
-				if err != nil {
-					log.Error().Err(err).Msg("failed to accept enet client")
-				}
-
-				client.peer = event.Peer
-
-				logger := log.With().Uint16("clientId", client.id).Logger()
-				logger.Info().Msg("client joined (desktop)")
-
-				gamePacketChannel := make(chan clients.GamePacket, clients.CLIENT_MESSAGE_LIMIT)
-				client.sendPacket = gamePacketChannel
-
-				go func() {
-					for {
-						select {
-						case packet := <-gamePacketChannel:
-							client.peer.Send(packet.Channel, packet.Data)
-							continue
-						case <-ctx.Done():
-							return
-						}
-					}
-				}()
-
-				client.server = server.manager.Servers[0]
-				client.server.SendConnect(client.id)
-
-				server.AddClient(client)
-				break
-			case enet.EventTypeReceive:
-				peer := event.Peer
-
-				var target *Client = nil
-				server.clientMutex.Lock()
-				for client, _ := range server.clients {
-					if client.peer == nil || peer.CPeer != client.peer.CPeer {
-						continue
-					}
-
-					target = client
-					break
-				}
-				server.clientMutex.Unlock()
-				if target == nil || target.server == nil {
-					break
-				}
-
-				target.server.SendData(
-					target.id,
-					uint32(event.ChannelID),
-					event.Packet.Data,
-				)
-
-				break
-			case enet.EventTypeDisconnect:
-				peer := event.Peer
-
-				var target *Client = nil
-				server.clientMutex.Lock()
-				for client, _ := range server.clients {
-					if client.peer == nil || peer.CPeer != client.peer.CPeer {
-						continue
-					}
-
-					target = client
-					break
-				}
-				server.clientMutex.Unlock()
-				if target == nil {
-					break
-				}
-
-				if target.server != nil {
-					target.server.SendDisconnect(target.id)
-				}
-
-				server.RemoveClient(target)
-				break
-			}
-		case <-ctx.Done():
-			return
-		}
-	}
-
-}
-
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
 
@@ -723,39 +252,26 @@ func main() {
 		serverPath = envPath
 	}
 
-	l, err := net.Listen("tcp", "0.0.0.0:29999")
-	if err != nil {
-		log.Error().Err(err).Msg("failed to bind WebSocket port")
-		return
-	}
+	clientManager := clients.NewClientManager()
 
-	log.Printf("listening on http://%v", l.Addr())
+	wsIngress := ingress.NewWSIngress(clientManager)
 
-	enetHost, err := enet.NewHost("0.0.0.0", 28785)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to bind ENet ingress")
-	}
-
-	log.Printf("listening on udp:%d", 28785)
+	enetIngress := ingress.NewENetIngress(clientManager)
+	enetIngress.Serve(28785)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	cluster := NewCluster(ctx, serverPath)
 
-	httpServer := &http.Server{
-		Handler: cluster,
-	}
-
-	go cluster.PollEnet(ctx, enetHost)
+	go enetIngress.Poll(ctx)
 
 	go cluster.StartServers(ctx)
-	go cluster.StartWatcher(ctx)
 	go cluster.PollMessages(ctx)
 
 	errc := make(chan error, 1)
 	go func() {
-		errc <- httpServer.Serve(l)
+		errc <- wsIngress.Serve(ctx, 29999)
 	}()
 
 	sigs := make(chan os.Signal, 1)
@@ -769,7 +285,7 @@ func main() {
 		log.Printf("terminating: %v", sig)
 	}
 
-	httpServer.Shutdown(ctx)
+	wsIngress.Shutdown(ctx)
+	enetIngress.Shutdown()
 	cluster.Shutdown()
-	enetHost.Shutdown()
 }

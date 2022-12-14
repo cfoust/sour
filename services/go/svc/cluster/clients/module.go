@@ -1,6 +1,10 @@
 package clients
 
 import (
+	"crypto/rand"
+	"errors"
+	"math"
+	"math/big"
 	"sync"
 )
 
@@ -13,9 +17,14 @@ type GamePacket struct {
 	Data    []byte
 }
 
+type CommandResult struct {
+	Err      error
+	Response string
+}
+
 type ClusterCommand struct {
 	Command  string
-	Response chan string
+	Response chan CommandResult
 }
 
 type ClientType uint8
@@ -39,6 +48,8 @@ type Client interface {
 	// Clients can issue commands out-of-band
 	// Commands sent in ordinary game packets are interpreted anyway
 	ReceiveCommands() <-chan ClusterCommand
+	// When the client disconnects on its own
+	ReceiveDisconnect() <-chan bool
 	// Forcibly disconnect this client
 	Disconnect()
 }
@@ -54,10 +65,39 @@ func NewClientManager() *ClientManager {
 	}
 }
 
-func (c *ClientManager) AddClient(client Client) {
+func (c *ClientManager) newClientID() (uint16, error) {
+	for attempts := 0; attempts < math.MaxUint16; attempts++ {
+		number, _ := rand.Int(rand.Reader, big.NewInt(math.MaxUint16))
+		truncated := uint16(number.Uint64())
+
+		taken := false
+		for client, _ := range c.Clients {
+			if client.Id() == truncated {
+				taken = true
+			}
+		}
+		if taken {
+			continue
+		}
+
+		return truncated, nil
+	}
+
+	return 0, errors.New("Failed to assign client ID")
+}
+
+func (c *ClientManager) AddClient(client Client) error {
+	id, err := c.newClientID()
+	if err != nil {
+		return err
+	}
+
+	client.SetId(id)
+
 	c.mutex.Lock()
 	c.Clients[client] = struct{}{}
 	c.mutex.Unlock()
+	return nil
 }
 
 func (c *ClientManager) RemoveClient(client Client) {
