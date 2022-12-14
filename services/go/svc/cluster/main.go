@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cfoust/sour/pkg/enet"
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/manager"
 	"github.com/cfoust/sour/pkg/protocol"
-	"github.com/cfoust/sour/pkg/watcher"
+	"github.com/cfoust/sour/svc/cluster/clients"
+	"github.com/cfoust/sour/svc/cluster/servers"
+	"github.com/cfoust/sour/svc/cluster/watcher"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/rs/zerolog"
@@ -26,25 +26,15 @@ import (
 	"nhooyr.io/websocket"
 )
 
-type GamePacket struct {
-	Channel uint8
-	Data    []byte
-}
-
 type Client struct {
 	id   uint16
 	host string
 
-	peer      *enet.Peer
-	server    *manager.GameServer
-	send      chan []byte
-	sendPacket chan GamePacket
-	closeSlow func()
+	server     *servers.GameServer
+	send       chan []byte
+	sendPacket chan clients.GamePacket
+	closeSlow  func()
 }
-
-const (
-	CLIENT_MESSAGE_LIMIT int = 16
-)
 
 const (
 	CREATE_SERVER_COOLDOWN = time.Duration(10 * time.Second)
@@ -60,23 +50,26 @@ type Cluster struct {
 	lastCreate map[string]time.Time
 	// host -> the server created by that host
 	// each host can only have one server at once
-	hostServers map[string]*manager.GameServer
+	hostServers map[string]*servers.GameServer
 
-	manager       *manager.Manager
+	manager       *servers.ServerManager
 	serverCtx     context.Context
 	serverMessage chan []byte
+
 	serverWatcher *watcher.Watcher
+	clientManager *clients.ClientManager
 }
 
 func NewCluster(ctx context.Context, serverPath string) *Cluster {
 	server := &Cluster{
 		serverCtx:     ctx,
-		hostServers:   make(map[string]*manager.GameServer),
+		hostServers:   make(map[string]*servers.GameServer),
 		lastCreate:    make(map[string]time.Time),
 		clients:       make(map[*Client]struct{}),
 		serverWatcher: watcher.NewWatcher(),
+		clientManager: clients.NewClientManager(),
 		serverMessage: make(chan []byte, 1),
-		manager: manager.NewManager(
+		manager: servers.NewServerManager(
 			serverPath,
 			50000,
 			51000,
@@ -141,7 +134,7 @@ func (server *Cluster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (server *Cluster) StartPresetServer(ctx context.Context) (*manager.GameServer, error) {
+func (server *Cluster) StartPresetServer(ctx context.Context) (*servers.GameServer, error) {
 	// Default in development
 	configPath := "../server/config/server-init.cfg"
 
@@ -220,9 +213,9 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 						continue
 					}
 
-					packet := GamePacket{
+					packet := clients.GamePacket{
 						Channel: uint8(chan_),
-						Data: data,
+						Data:    data,
 					}
 
 					client.sendPacket <- packet
@@ -235,8 +228,8 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 	}
 }
 
-func (server *Cluster) MoveClient(ctx context.Context, client *Client, targetServer *manager.GameServer) error {
-	if targetServer.Status != manager.ServerOK {
+func (server *Cluster) MoveClient(ctx context.Context, client *Client, targetServer *servers.GameServer) error {
+	if targetServer.Status != servers.ServerOK {
 		return errors.New("Server is not available")
 	}
 
@@ -295,7 +288,7 @@ func (server *Cluster) RunCommand(ctx context.Context, client *Client, command s
 		tick := time.NewTicker(250 * time.Millisecond)
 		for {
 			status := gameServer.GetStatus()
-			if status == manager.ServerOK {
+			if status == servers.ServerOK {
 				logger.Info().Msg("server ok")
 				break
 			}
@@ -342,7 +335,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn, host st
 	}
 
 	client.host = host
-	client.send = make(chan []byte, CLIENT_MESSAGE_LIMIT)
+	client.send = make(chan []byte, clients.CLIENT_MESSAGE_LIMIT)
 	client.closeSlow = func() {
 		c.Close(websocket.StatusPolicyViolation, "connection too slow to keep up with messages")
 	}
@@ -351,7 +344,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn, host st
 
 	logger.Info().Msg("client joined")
 
-	gamePacketChannel := make(chan GamePacket, CLIENT_MESSAGE_LIMIT)
+	gamePacketChannel := make(chan clients.GamePacket, clients.CLIENT_MESSAGE_LIMIT)
 	client.sendPacket = gamePacketChannel
 
 	go func() {
@@ -373,7 +366,6 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn, host st
 			}
 		}
 	}()
-
 
 	server.AddClient(client)
 	defer server.RemoveClient(client)
@@ -419,7 +411,7 @@ func (server *Cluster) Subscribe(ctx context.Context, c *websocket.Conn, host st
 				}
 
 				for _, gameServer := range server.manager.Servers {
-					if !gameServer.IsReference(target) || gameServer.Status != manager.ServerOK {
+					if !gameServer.IsReference(target) || gameServer.Status != servers.ServerOK {
 						continue
 					}
 
@@ -611,7 +603,7 @@ func WriteTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn,
 }
 
 func (server *Cluster) EnetSend(ctx context.Context) <-chan []byte {
-	sendChannel := make(chan []byte, CLIENT_MESSAGE_LIMIT)
+	sendChannel := make(chan []byte, clients.CLIENT_MESSAGE_LIMIT)
 
 	go func() {
 		for {
@@ -646,7 +638,7 @@ func (server *Cluster) PollEnet(ctx context.Context, host *enet.Host) {
 				logger := log.With().Uint16("clientId", client.id).Logger()
 				logger.Info().Msg("client joined (desktop)")
 
-				gamePacketChannel := make(chan GamePacket, CLIENT_MESSAGE_LIMIT)
+				gamePacketChannel := make(chan clients.GamePacket, clients.CLIENT_MESSAGE_LIMIT)
 				client.sendPacket = gamePacketChannel
 
 				go func() {

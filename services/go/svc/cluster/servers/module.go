@@ -1,4 +1,4 @@
-package manager
+package servers
 
 import (
 	"bufio"
@@ -320,7 +320,7 @@ func (server *GameServer) Start(ctx context.Context, readChannel chan []byte) {
 	}
 }
 
-type Manager struct {
+type ServerManager struct {
 	Servers []*GameServer
 	Receive chan []byte
 
@@ -330,13 +330,13 @@ type Manager struct {
 	mutex      sync.Mutex
 }
 
-func NewManager(serverPath string, minPort uint16, maxPort uint16) *Manager {
-	marshal := Manager{}
-	marshal.Servers = make([]*GameServer, 0)
-	marshal.serverPath = serverPath
-	marshal.minPort = minPort
-	marshal.maxPort = maxPort
-	return &marshal
+func NewServerManager(serverPath string, minPort uint16, maxPort uint16) *ServerManager {
+	manager := ServerManager{}
+	manager.Servers = make([]*GameServer, 0)
+	manager.serverPath = serverPath
+	manager.minPort = minPort
+	manager.maxPort = maxPort
+	return &manager
 }
 
 func IsPortAvailable(port uint16) (bool, error) {
@@ -355,11 +355,11 @@ func IsPortAvailable(port uint16) (bool, error) {
 	return true, nil
 }
 
-func (marshal *Manager) FindPort() (uint16, error) {
+func (manager *ServerManager) FindPort() (uint16, error) {
 	// Qserv uses port and port + 1
-	for port := marshal.minPort; port < marshal.maxPort; port += 2 {
+	for port := manager.minPort; port < manager.maxPort; port += 2 {
 		occupied := false
-		for _, server := range marshal.Servers {
+		for _, server := range manager.Servers {
 			if server.Port == port {
 				occupied = true
 			}
@@ -381,11 +381,11 @@ func (marshal *Manager) FindPort() (uint16, error) {
 	return 0, errors.New("Failed to find port in range")
 }
 
-func (marshal *Manager) Shutdown() {
-	marshal.mutex.Lock()
-	defer marshal.mutex.Unlock()
+func (manager *ServerManager) Shutdown() {
+	manager.mutex.Lock()
+	defer manager.mutex.Unlock()
 
-	for _, server := range marshal.Servers {
+	for _, server := range manager.Servers {
 		server.Shutdown()
 	}
 }
@@ -418,40 +418,40 @@ func FindIdentity(port uint16) Identity {
 	}
 }
 
-func (marshal *Manager) RemoveServer(server *GameServer) error {
+func (manager *ServerManager) RemoveServer(server *GameServer) error {
 	server.Shutdown()
 
-	marshal.mutex.Lock()
-	defer marshal.mutex.Unlock()
+	manager.mutex.Lock()
+	defer manager.mutex.Unlock()
 
-	marshal.Servers = fp.Filter(func(v *GameServer) bool { return v.Id != server.Id })(marshal.Servers)
+	manager.Servers = fp.Filter(func(v *GameServer) bool { return v.Id != server.Id })(manager.Servers)
 
 	return nil
 }
 
-func (marshal *Manager) PruneServers(ctx context.Context) {
+func (manager *ServerManager) PruneServers(ctx context.Context) {
 	interval := time.NewTicker(30 * time.Second)
 
 	for {
 		select {
 		case <-interval.C:
-			marshal.mutex.Lock()
+			manager.mutex.Lock()
 
 			toPrune := make([]*GameServer, 0)
 
-			for _, server := range marshal.Servers {
+			for _, server := range manager.Servers {
 				if (time.Now().Sub(server.LastEvent)) < SERVER_MAX_IDLE_TIME || server.Alias != "" {
 					continue
 				}
 				toPrune = append(toPrune, server)
 			}
 
-			marshal.mutex.Unlock()
+			manager.mutex.Unlock()
 
 			for _, server := range toPrune {
 				logger := server.Log()
 				logger.Info().Msg("server was pruned")
-				marshal.RemoveServer(server)
+				manager.RemoveServer(server)
 			}
 
 			continue
@@ -461,7 +461,7 @@ func (marshal *Manager) PruneServers(ctx context.Context) {
 	}
 }
 
-func (marshal *Manager) NewServer(ctx context.Context, configPath string) (*GameServer, error) {
+func (manager *ServerManager) NewServer(ctx context.Context, configPath string) (*GameServer, error) {
 	server := GameServer{
 		send:       make(chan []byte, 1),
 		NumClients: 0,
@@ -470,10 +470,10 @@ func (marshal *Manager) NewServer(ctx context.Context, configPath string) (*Game
 
 	// We don't want other servers to start while this one is being started
 	// because of port contention
-	marshal.mutex.Lock()
-	defer marshal.mutex.Unlock()
+	manager.mutex.Lock()
+	defer manager.mutex.Unlock()
 
-	port, err := marshal.FindPort()
+	port, err := manager.FindPort()
 	if err != nil {
 		return nil, err
 	}
@@ -486,7 +486,7 @@ func (marshal *Manager) NewServer(ctx context.Context, configPath string) (*Game
 
 	cmd := exec.CommandContext(
 		ctx,
-		marshal.serverPath,
+		manager.serverPath,
 		fmt.Sprintf("-S%s", identity.Path),
 		fmt.Sprintf("-C%s", configPath),
 		fmt.Sprintf("-j%d", port),
@@ -496,7 +496,7 @@ func (marshal *Manager) NewServer(ctx context.Context, configPath string) (*Game
 	server.path = identity.Path
 	server.exit = make(chan bool, 1)
 
-	marshal.Servers = append(marshal.Servers, &server)
+	manager.Servers = append(manager.Servers, &server)
 
 	return &server, nil
 }
