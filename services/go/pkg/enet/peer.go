@@ -8,7 +8,6 @@ package enet
 import "C"
 
 import (
-	"log"
 	"net"
 	"unsafe"
 )
