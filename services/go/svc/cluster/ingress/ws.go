@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cfoust/sour/pkg/protocol"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/watcher"
 
@@ -17,6 +16,72 @@ import (
 	"github.com/rs/zerolog/log"
 	"nhooyr.io/websocket"
 )
+
+const (
+	// Server -> client
+	InfoOp int = iota
+	ServerConnectedOp
+	ServerDisconnectedOp
+	ServerResponseOp
+	// Client -> server
+	ConnectOp
+	DisconnectOp
+	CommandOp
+	// server -> client OR client -> server
+	PacketOp
+)
+
+type ServerInfo struct {
+	Host   string
+	Port   int
+	Info   []byte
+	Length int
+}
+
+// Contains information on servers this cluster contains and real ones from the
+// master.
+type InfoMessage struct {
+	Op int // InfoOp
+	// All of the servers from the master (real Sauerbraten servers.)
+	Master []ServerInfo
+	// All of the servers this cluster hosts.
+	Cluster []string
+}
+
+// Contains a packet from the server a client is connected to.
+type PacketMessage struct {
+	Op      int // ServerPacketOp or ClientPacketOp
+	Channel int
+	Data    []byte
+	Length  int
+}
+
+// Connect the client to a server
+type ConnectMessage struct {
+	Op int // ConnectOp
+	// One of the servers hosted by the cluster
+	Target string
+}
+
+// Issuing a cluster command on behalf of the user.
+type CommandMessage struct {
+	Op      int // CommandOp
+	Command string
+	// Uniquely identifies the command so we can send a response
+	Id int
+}
+
+type ResponseMessage struct {
+	Op       int // ServerResponseOp
+	Success  bool
+	Response string
+	// Uniquely identifies the command so we can send a response
+	Id int
+}
+
+type GenericMessage struct {
+	Op int
+}
 
 type WSClient struct {
 	id         uint16
@@ -48,8 +113,8 @@ func (c *WSClient) Host() string {
 }
 
 func (c *WSClient) Connect() {
-	packet := protocol.GenericMessage{
-		Op: protocol.ServerConnectedOp,
+	packet := GenericMessage{
+		Op: ServerConnectedOp,
 	}
 
 	bytes, _ := cbor.Marshal(packet)
@@ -144,8 +209,8 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 		for {
 			select {
 			case packet := <-client.toClient:
-				wsPacket := protocol.PacketMessage{
-					Op:      protocol.PacketOp,
+				wsPacket := PacketMessage{
+					Op:      PacketOp,
 					Channel: int(packet.Channel),
 					Data:    packet.Data,
 					Length:  len(packet.Data),
@@ -189,9 +254,9 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 	for {
 		select {
 		case msg := <-receive:
-			var connectMessage protocol.ConnectMessage
+			var connectMessage ConnectMessage
 			if err := cbor.Unmarshal(msg, &connectMessage); err == nil &&
-				connectMessage.Op == protocol.ConnectOp {
+				connectMessage.Op == ConnectOp {
 				target := connectMessage.Target
 
 				logger.Info().Str("target", target).
@@ -204,9 +269,9 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 				}
 			}
 
-			var packetMessage protocol.PacketMessage
+			var packetMessage PacketMessage
 			if err := cbor.Unmarshal(msg, &packetMessage); err == nil &&
-				packetMessage.Op == protocol.PacketOp {
+				packetMessage.Op == PacketOp {
 
 				client.toServer <- clients.GamePacket{
 					Channel: uint8(packetMessage.Channel),
@@ -214,9 +279,9 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 				}
 			}
 
-			var commandMessage protocol.CommandMessage
+			var commandMessage CommandMessage
 			if err := cbor.Unmarshal(msg, &commandMessage); err == nil &&
-				commandMessage.Op == protocol.CommandOp {
+				commandMessage.Op == CommandOp {
 
 				resultChannel := make(chan clients.CommandResult)
 				client.commands <- clients.ClusterCommand{
@@ -234,8 +299,8 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 						response := result.Response
 						err := result.Err
 
-						packet := protocol.ResponseMessage{
-							Op: protocol.ServerResponseOp,
+						packet := ResponseMessage{
+							Op: ServerResponseOp,
 							Id: commandMessage.Id,
 						}
 
@@ -256,9 +321,9 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 				}()
 			}
 
-			var generic protocol.GenericMessage
+			var generic GenericMessage
 			err := cbor.Unmarshal(msg, &generic)
-			if err == nil && packetMessage.Op == protocol.DisconnectOp {
+			if err == nil && packetMessage.Op == DisconnectOp {
 				client.disconnect <- true
 			}
 		case msg := <-client.send:
@@ -324,10 +389,10 @@ func (server *WSIngress) Broadcast(msg []byte) {
 func (server *WSIngress) BuildBroadcast() ([]byte, error) {
 	servers := server.serverWatcher.Get()
 
-	masterServers := make([]protocol.ServerInfo, len(servers))
+	masterServers := make([]ServerInfo, len(servers))
 	index := 0
 	for key, server := range servers {
-		masterServers[index] = protocol.ServerInfo{
+		masterServers[index] = ServerInfo{
 			Host:   key.Host,
 			Port:   key.Port,
 			Info:   server.Info,
@@ -336,8 +401,8 @@ func (server *WSIngress) BuildBroadcast() ([]byte, error) {
 		index++
 	}
 
-	infoMessage := protocol.InfoMessage{
-		Op:     protocol.InfoOp,
+	infoMessage := InfoMessage{
+		Op:     InfoOp,
 		Master: masterServers,
 	}
 

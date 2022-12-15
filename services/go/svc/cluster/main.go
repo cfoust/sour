@@ -422,6 +422,8 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 					}
 
 					client.Disconnect(int(reason), reasonText)
+					// TODO ideally we would move clients back to the lobby if they
+					// were not kicked for violent reasons
 				}
 
 				numBytes, ok := p.GetUint()
