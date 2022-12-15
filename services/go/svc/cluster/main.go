@@ -104,6 +104,7 @@ func (server *Cluster) SendServerMessage(client clients.Client, message string) 
 }
 
 func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client clients.Client, gameServer *servers.GameServer) {
+	// TODO this is broken; the context is from the timeout for the command so it never runs again
 	tick := time.NewTicker(30 * time.Second)
 
 	message := fmt.Sprintf("This is your private server. Have other players join by saying '#join %s' in any Sour server.", gameServer.Id)
@@ -113,7 +114,9 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client clients.
 		clients := gameServer.NumClients
 		gameServer.Mutex.Unlock()
 
-		if clients <= 1 {
+		log.Info().Msgf("warning: %d", clients)
+
+		if clients < 2 {
 			server.SendServerMessage(client, message)
 		} else {
 			return
@@ -389,6 +392,40 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 			p := game.Packet(msg)
 
 			for len(p) > 0 {
+				type_, ok := p.GetUint()
+				if !ok {
+					break
+				}
+
+				if type_ == servers.SOCKET_EVENT_DISCONNECT {
+					log.Info().Msg("got disconnect")
+
+					id, ok := p.GetUint()
+					if !ok {
+						break
+					}
+
+					reason, ok := p.GetInt()
+					if !ok {
+						break
+					}
+
+					reasonText, ok := p.GetString()
+					if !ok {
+						break
+					}
+
+					log.Info().Msgf("client kicked %d %s", reason, reasonText)
+
+					client := server.clients.FindClient(uint16(id))
+
+					if client == nil {
+						continue
+					}
+
+					client.Disconnect()
+				}
+
 				numBytes, ok := p.GetUint()
 				if !ok {
 					break
@@ -405,22 +442,18 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 				data := p[:numBytes]
 				p = p[len(data):]
 
-				server.clients.Mutex.Lock()
-				for client, _ := range server.clients.Clients {
-					if client.Id() != uint16(id) {
-						continue
-					}
+				client := server.clients.FindClient(uint16(id))
 
-					packet := clients.GamePacket{
-						Channel: uint8(chan_),
-						Data:    data,
-					}
-
-					client.Send(packet)
-
-					break
+				if client == nil {
+					continue
 				}
-				server.clients.Mutex.Unlock()
+
+				packet := clients.GamePacket{
+					Channel: uint8(chan_),
+					Data:    data,
+				}
+
+				client.Send(packet)
 			}
 		}
 	}

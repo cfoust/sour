@@ -320,6 +320,7 @@ void sendpacket(int n, int chan, ENetPacket *packet, int exclude)
         case ST_SOCKET:
         {
             packetbuf p(MAXTRANS);
+            putuint(p, SOCKET_EVENT_RECEIVE);
             putuint(p, packet->dataLength);
             putuint(p, clients[n]->id);
             putuint(p, chan);
@@ -432,6 +433,19 @@ const char *disconnectreason(int reason)
     }
 }
 
+void disconnect_socket(int n, int reason) {
+    if(!clients.inrange(n) ) return;
+
+    packetbuf p(MAXTRANS);
+    putuint(p, SOCKET_EVENT_DISCONNECT);
+    putuint(p, clients[n]->id);
+    putint(p, reason);
+    const char *msg = disconnectreason(reason);
+    sendstring(msg, p);
+    ENetPacket *newPacket = p.finalize();
+    socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+}
+
 VAR(serverdisconnectmsg, 0, 1, 1); //enable/disable msg
 void disconnect_client(int n, int reason) {
     qs.resetoLangWarn(n);
@@ -441,10 +455,15 @@ void disconnect_client(int n, int reason) {
         enet_peer_disconnect(clients[n]->peer, reason);
     }
 
+    const char *msg = disconnectreason(reason);
+
+    if (clients[n]->type==ST_SOCKET) {
+        disconnect_socket(n, reason);
+    }
+
     logoutf("Leave: disconnected");
     server::clientdisconnect(n);
     delclient(clients[n]);
-    const char *msg = disconnectreason(reason);
     string s;
     if(getvar("ircignore") == 0) serverdisconnectmsg = false; // can cause excess flood
     if(getvar("serverdisconnectmsg")) {
@@ -458,7 +477,13 @@ void disconnect_client(int n, int reason) {
 void dcres(int n, const char *reason) {
     qs.resetoLangWarn(n);
     if(!clients.inrange(n) || clients[n]->type!=ST_TCPIP) return;
-    enet_peer_disconnect(clients[n]->peer, DISC_KICK);
+
+    if (clients[n]->type==ST_TCPIP) {
+        enet_peer_disconnect(clients[n]->peer, DISC_KICK);
+    } else if (clients[n]->type==ST_SOCKET) {
+        disconnect_socket(n, DISC_KICK);
+    }
+
     server::clientdisconnect(n);
     delclient(clients[n]);
     string s;
@@ -747,7 +772,7 @@ void serverslice(bool dedicated, bool enet, uint timeout)   // main server updat
     if(!lastupdatemaster || totalmillis-lastupdatemaster>60*60*1000)       // send alive signal to masterserver every hour of uptime
         updatemasterserver();
 
-    if(totalmillis-laststatus>60*1000)   // display bandwidth stats, useful for server ops
+    if(totalmillis-laststatus>60*1000 && serverhost)   // display bandwidth stats, useful for server ops
     {
         laststatus = totalmillis;
         if(nonlocalclients || serverhost->totalSentData || serverhost->totalReceivedData) {

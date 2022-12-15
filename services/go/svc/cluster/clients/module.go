@@ -135,3 +135,17 @@ func (c *ClientManager) RemoveClient(client Client) {
 func (c *ClientManager) ReceiveClients() <-chan ClientBundle {
 	return c.newClients
 }
+
+func (c *ClientManager) FindClient(id uint16) Client {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+	for client, _ := range c.Clients {
+		if client.Id() != uint16(id) {
+			continue
+		}
+
+		return client
+	}
+
+	return nil
+}
