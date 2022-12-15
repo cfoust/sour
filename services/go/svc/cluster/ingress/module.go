@@ -463,7 +463,6 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 				client.disconnect <- true
 			}
 		case msg := <-client.send:
-			log.Printf("sending msg to client")
 			err := WriteTimeout(ctx, time.Second*5, c, msg)
 			if err != nil {
 				logger.Error().Msg("client missed write timeout; disconnecting")

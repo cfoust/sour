@@ -11,8 +11,8 @@ import (
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/clients"
-	"github.com/cfoust/sour/svc/cluster/servers"
 	"github.com/cfoust/sour/svc/cluster/ingress"
+	"github.com/cfoust/sour/svc/cluster/servers"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -32,8 +32,7 @@ const (
 )
 
 type Cluster struct {
-	clientMutex sync.Mutex
-	clients     map[*Client]struct{}
+	clients *clients.ClientManager
 
 	createMutex sync.Mutex
 	// host -> time a client from that host last created a server. We
@@ -46,8 +45,6 @@ type Cluster struct {
 	manager       *servers.ServerManager
 	serverCtx     context.Context
 	serverMessage chan []byte
-
-	clientManager *clients.ClientManager
 }
 
 func NewCluster(ctx context.Context, serverPath string) *Cluster {
@@ -55,8 +52,7 @@ func NewCluster(ctx context.Context, serverPath string) *Cluster {
 		serverCtx:     ctx,
 		hostServers:   make(map[string]*servers.GameServer),
 		lastCreate:    make(map[string]time.Time),
-		clients:       make(map[*Client]struct{}),
-		clientManager: clients.NewClientManager(),
+		clients:       clients.NewClientManager(),
 		serverMessage: make(chan []byte, 1),
 		manager: servers.NewServerManager(
 			serverPath,
@@ -67,7 +63,6 @@ func NewCluster(ctx context.Context, serverPath string) *Cluster {
 
 	return server
 }
-
 
 func (server *Cluster) StartPresetServer(ctx context.Context) (*servers.GameServer, error) {
 	// Default in development
@@ -92,6 +87,44 @@ func (server *Cluster) StartServers(ctx context.Context) {
 
 	go gameServer.Start(ctx, server.serverMessage)
 	go server.manager.PruneServers(ctx)
+}
+
+func (server *Cluster) PollClient(ctx context.Context, client clients.Client, state *clients.ClientState) {
+	toServer := client.ReceivePackets()
+	commands := client.ReceiveCommands()
+	disconnect := client.ReceiveDisconnect()
+
+	log.Info().Uint16("client", client.Id()).Msg("polling client")
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-toServer:
+			state.Mutex.Lock()
+			if state.Server != nil {
+				state.Server.SendData(client.Id(), uint32(msg.Channel), msg.Data)
+			}
+			state.Mutex.Unlock()
+		case command := <-commands:
+			log.Print(command)
+		case <-disconnect:
+		}
+	}
+}
+
+// When a new client is created, go
+func (server *Cluster) PollClients(ctx context.Context) {
+	newClients := server.clients.ReceiveClients()
+
+	for {
+		select {
+		case client := <-newClients:
+			go server.PollClient(ctx, client.Client, client.State)
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func (server *Cluster) PollMessages(ctx context.Context) {
@@ -119,9 +152,9 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 				data := p[:numBytes]
 				p = p[len(data):]
 
-				server.clientMutex.Lock()
-				for client, _ := range server.clients {
-					if client.id != uint16(id) {
+				server.clients.Mutex.Lock()
+				for client, _ := range server.clients.Clients {
+					if client.Id() != uint16(id) {
 						continue
 					}
 
@@ -130,11 +163,11 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 						Data:    data,
 					}
 
-					client.sendPacket <- packet
+					client.Send(packet)
 
 					break
 				}
-				server.clientMutex.Unlock()
+				server.clients.Mutex.Unlock()
 			}
 		}
 	}
@@ -171,7 +204,6 @@ func (server *Cluster) RunCommand(ctx context.Context, client *Client, command s
 
 	switch args[0] {
 	case "creategame":
-
 		server.createMutex.Lock()
 		defer server.createMutex.Unlock()
 
@@ -222,24 +254,6 @@ func (server *Cluster) RunCommand(ctx context.Context, client *Client, command s
 	return "", nil
 }
 
-
-
-func (server *Cluster) AddClient(s *Client) {
-	server.clientMutex.Lock()
-	server.clients[s] = struct{}{}
-	server.clientMutex.Unlock()
-}
-
-func (server *Cluster) RemoveClient(client *Client) {
-	if client.server != nil {
-		client.server.SendDisconnect(client.id)
-	}
-
-	server.clientMutex.Lock()
-	delete(server.clients, client)
-	server.clientMutex.Unlock()
-}
-
 func (server *Cluster) Shutdown() {
 	server.manager.Shutdown()
 }
@@ -252,22 +266,21 @@ func main() {
 		serverPath = envPath
 	}
 
-	clientManager := clients.NewClientManager()
-
-	wsIngress := ingress.NewWSIngress(clientManager)
-
-	enetIngress := ingress.NewENetIngress(clientManager)
-	enetIngress.Serve(28785)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	cluster := NewCluster(ctx, serverPath)
 
+	wsIngress := ingress.NewWSIngress(cluster.clients)
+
+	enetIngress := ingress.NewENetIngress(cluster.clients)
+	enetIngress.Serve(28785)
+
 	go enetIngress.Poll(ctx)
 
 	go cluster.StartServers(ctx)
 	go cluster.PollMessages(ctx)
+	go cluster.PollClients(ctx)
 
 	errc := make(chan error, 1)
 	go func() {

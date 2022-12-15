@@ -6,6 +6,9 @@ import (
 	"math"
 	"math/big"
 	"sync"
+	"log"
+
+	"github.com/cfoust/sour/svc/cluster/servers"
 )
 
 const (
@@ -54,14 +57,26 @@ type Client interface {
 	Disconnect()
 }
 
+type ClientState struct {
+	Server *servers.GameServer
+	Mutex  sync.Mutex
+}
+
+type ClientBundle struct {
+	Client Client
+	State  *ClientState
+}
+
 type ClientManager struct {
-	Clients map[Client]struct{}
-	mutex   sync.Mutex
+	Clients    map[Client]*ClientState
+	Mutex      sync.Mutex
+	newClients chan ClientBundle
 }
 
 func NewClientManager() *ClientManager {
 	return &ClientManager{
-		Clients: make(map[Client]struct{}),
+		Clients:    make(map[Client]*ClientState),
+		newClients: make(chan ClientBundle, 16),
 	}
 }
 
@@ -94,14 +109,27 @@ func (c *ClientManager) AddClient(client Client) error {
 
 	client.SetId(id)
 
-	c.mutex.Lock()
-	c.Clients[client] = struct{}{}
-	c.mutex.Unlock()
+	state := &ClientState{}
+
+	c.Mutex.Lock()
+	c.Clients[client] = state
+	c.Mutex.Unlock()
+
+	log.Printf("pushing to newClients")
+	c.newClients <- ClientBundle{
+		Client: client,
+		State:  state,
+	}
+
 	return nil
 }
 
 func (c *ClientManager) RemoveClient(client Client) {
-	c.mutex.Lock()
+	c.Mutex.Lock()
 	delete(c.Clients, client)
-	c.mutex.Unlock()
+	c.Mutex.Unlock()
+}
+
+func (c *ClientManager) ReceiveClients() <-chan ClientBundle {
+	return c.newClients
 }
