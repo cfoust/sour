@@ -63,8 +63,6 @@ func (p *Peer) Send(channel uint8, payload []byte) {
 		flags = flags & PacketFlagReliable
 	}
 
-	log.Println("sending", payload, "to", p.Address.String())
-
 	packet := C.enet_packet_create(unsafe.Pointer(&payload[0]), C.size_t(len(payload)), C.enet_uint32(flags))
 	C.enet_peer_send(p.CPeer, C.enet_uint8(channel), packet)
 }

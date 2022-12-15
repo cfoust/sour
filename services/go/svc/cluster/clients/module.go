@@ -42,8 +42,11 @@ type Client interface {
 	// This does not have to be unique.
 	Reference() string
 	Id() uint16
+	Host() string
 	SetId(newId uint16)
 	Type() ClientType
+	// Tell the client that we've connected
+	Connect()
 	// Messages going to the client
 	Send(packet GamePacket)
 	// Messages going to the server

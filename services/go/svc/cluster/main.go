@@ -89,6 +89,98 @@ func (server *Cluster) StartServers(ctx context.Context) {
 	go server.manager.PruneServers(ctx)
 }
 
+func (server *Cluster) RunCommand(ctx context.Context, command string, client clients.Client, state *clients.ClientState) (string, error) {
+	logger := log.With().Uint16("clientId", client.Id()).Logger()
+
+	args := strings.Split(command, " ")
+
+	if len(args) == 0 {
+		return "", errors.New("invalid command")
+	}
+
+	switch args[0] {
+	case "creategame":
+		server.createMutex.Lock()
+		defer server.createMutex.Unlock()
+
+		lastCreate, hasLastCreate := server.lastCreate[client.Host()]
+		if hasLastCreate && (time.Now().Sub(lastCreate)) < CREATE_SERVER_COOLDOWN {
+			return "", errors.New("too soon since last server create")
+		}
+
+		existingServer, hasExistingServer := server.hostServers[client.Host()]
+		if hasExistingServer {
+			server.manager.RemoveServer(existingServer)
+		}
+
+		logger.Info().Msg("starting server")
+
+		gameServer, err := server.StartPresetServer(server.serverCtx)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("failed to create server")
+			return "", errors.New("failed to create server")
+		}
+
+		logger = logger.With().Str("server", gameServer.Reference()).Logger()
+
+		go gameServer.Start(server.serverCtx, server.serverMessage)
+
+		tick := time.NewTicker(250 * time.Millisecond)
+		for {
+			status := gameServer.GetStatus()
+			if status == servers.ServerOK {
+				logger.Info().Msg("server ok")
+				break
+			}
+
+			select {
+			case <-ctx.Done():
+				return "", errors.New("server start timed out")
+			case <-tick.C:
+				continue
+			}
+		}
+
+		server.lastCreate[client.Host()] = time.Now()
+		server.hostServers[client.Host()] = gameServer
+
+		return gameServer.Id, nil
+
+	case "join":
+		if len(args) != 2 {
+			return "", errors.New("join takes a single argument")
+		}
+
+		target := args[1]
+
+		state.Mutex.Lock()
+		defer state.Mutex.Unlock()
+
+		if state.Server != nil && state.Server.IsReference(target) {
+			break
+		}
+
+		for _, gameServer := range server.manager.Servers {
+			if !gameServer.IsReference(target) || gameServer.Status != servers.ServerOK {
+				continue
+			}
+
+			state.Server = gameServer
+
+			logger.Info().Str("server", gameServer.Reference()).
+				Msg("client connecting to server")
+
+			gameServer.SendConnect(client.Id())
+
+			client.Connect()
+
+			break
+		}
+	}
+
+	return "", nil
+}
+
 func (server *Cluster) PollClient(ctx context.Context, client clients.Client, state *clients.ClientState) {
 	toServer := client.ReceivePackets()
 	commands := client.ReceiveCommands()
@@ -106,8 +198,37 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 				state.Server.SendData(client.Id(), uint32(msg.Channel), msg.Data)
 			}
 			state.Mutex.Unlock()
-		case command := <-commands:
-			log.Print(command)
+		case request := <-commands:
+			command := request.Command
+			outChannel := request.Response
+
+			intermediateChannel := make(chan clients.CommandResult)
+			ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+
+			go func() {
+				response, err := server.RunCommand(ctx, command, client, state)
+				intermediateChannel <- clients.CommandResult{
+					Err:      err,
+					Response: response,
+				}
+			}()
+
+			// Go run a command, but don't block
+			go func() {
+				select {
+				case result := <-intermediateChannel:
+					cancel()
+					if outChannel != nil {
+						outChannel <- result
+					}
+				case <-ctx.Done():
+					outChannel <- clients.CommandResult{
+						Err:      errors.New("command timed out"),
+						Response: "",
+					}
+					return
+				}
+			}()
 		case <-disconnect:
 		}
 	}
@@ -192,68 +313,6 @@ func (server *Cluster) MoveClient(ctx context.Context, client *Client, targetSer
 	return nil
 }
 
-func (server *Cluster) RunCommand(ctx context.Context, client *Client, command string) (string, error) {
-	logger := log.With().Uint16("clientId", client.id).Logger()
-	logger.Info().Msgf("running sour command '%s'", command)
-
-	args := strings.Split(command, " ")
-
-	if len(args) == 0 {
-		return "", errors.New("invalid command")
-	}
-
-	switch args[0] {
-	case "creategame":
-		server.createMutex.Lock()
-		defer server.createMutex.Unlock()
-
-		lastCreate, hasLastCreate := server.lastCreate[client.host]
-		if hasLastCreate && (time.Now().Sub(lastCreate)) < CREATE_SERVER_COOLDOWN {
-			return "", errors.New("too soon since last server create")
-		}
-
-		existingServer, hasExistingServer := server.hostServers[client.host]
-		if hasExistingServer {
-			server.manager.RemoveServer(existingServer)
-		}
-
-		logger.Info().Msg("starting server")
-
-		gameServer, err := server.StartPresetServer(server.serverCtx)
-		if err != nil {
-			logger.Fatal().Err(err).Msg("failed to create server")
-			return "", errors.New("failed to create server")
-		}
-
-		logger = logger.With().Str("server", gameServer.Reference()).Logger()
-
-		go gameServer.Start(server.serverCtx, server.serverMessage)
-
-		tick := time.NewTicker(250 * time.Millisecond)
-		for {
-			status := gameServer.GetStatus()
-			if status == servers.ServerOK {
-				logger.Info().Msg("server ok")
-				break
-			}
-
-			select {
-			case <-ctx.Done():
-				return "", errors.New("server start timed out")
-			case <-tick.C:
-				continue
-			}
-		}
-
-		server.lastCreate[client.host] = time.Now()
-		server.hostServers[client.host] = gameServer
-
-		return gameServer.Id, nil
-	}
-
-	return "", nil
-}
-
 func (server *Cluster) Shutdown() {
 	server.manager.Shutdown()
 }
@@ -275,6 +334,7 @@ func main() {
 
 	enetIngress := ingress.NewENetIngress(cluster.clients)
 	enetIngress.Serve(28785)
+	enetIngress.InitialCommand = "join lobby"
 
 	go enetIngress.Poll(ctx)
 
