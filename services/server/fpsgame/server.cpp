@@ -3552,7 +3552,7 @@ best.add(clients[i]); \
                     break;
 
                 default:
-                    disconnect_client(sender, DISC_MSGERR);
+                    //disconnect_client(sender, DISC_MSGERR);
                     break;
             }
             return;
