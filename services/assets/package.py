@@ -263,6 +263,9 @@ def build_map_bundle(map_file: str, roots: List[str], outdir: str) -> BuiltMap:
         image = "%s%s" % (bundle, extension)
         shutil.copy(result, path.join(outdir, image))
 
+    # Copy the map file as well
+    shutil.copy(map_file, path.join(outdir, "%s.ogz" % bundle))
+
     return BuiltMap(bundle=bundle, image=image)
 
 
