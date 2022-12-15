@@ -56,12 +56,12 @@ type GameServer struct {
 	Alias      string
 	NumClients int
 	LastEvent  time.Time
+	Mutex   sync.Mutex
 
 	// The path of the socket
 	path    string
 	socket  *net.Conn
 	command *exec.Cmd
-	mutex   sync.Mutex
 	exit    chan bool
 	send    chan []byte
 }
@@ -105,8 +105,8 @@ func (server *GameServer) SendCommand(command string) {
 }
 
 func (server *GameServer) GetStatus() ServerStatus {
-	server.mutex.Lock()
-	defer server.mutex.Unlock()
+	server.Mutex.Lock()
+	defer server.Mutex.Unlock()
 	return server.Status
 }
 
@@ -219,14 +219,14 @@ func (server *GameServer) Wait() {
 			message := scanner.Text()
 
 			if strings.HasPrefix(message, "Join:") {
-				server.mutex.Lock()
+				server.Mutex.Lock()
 				server.NumClients++
 				server.LastEvent = time.Now()
-				server.mutex.Unlock()
+				server.Mutex.Unlock()
 			}
 
 			if strings.HasPrefix(message, "Leave:") {
-				server.mutex.Lock()
+				server.Mutex.Lock()
 				server.NumClients--
 				server.LastEvent = time.Now()
 
@@ -234,7 +234,7 @@ func (server *GameServer) Wait() {
 					server.NumClients = 0
 				}
 
-				server.mutex.Unlock()
+				server.Mutex.Unlock()
 			}
 
 			logger.Info().Msg(message)
@@ -255,9 +255,9 @@ func (server *GameServer) Wait() {
 
 	exitCode := state.ExitCode()
 	if exitCode != 0 || err != nil {
-		server.mutex.Lock()
+		server.Mutex.Lock()
 		server.Status = ServerFailure
-		server.mutex.Unlock()
+		server.Mutex.Unlock()
 
 		unixStatus := state.Sys().(syscall.WaitStatus)
 
@@ -276,9 +276,9 @@ func (server *GameServer) Wait() {
 		return
 	}
 
-	server.mutex.Lock()
+	server.Mutex.Lock()
 	server.Status = ServerExited
-	server.mutex.Unlock()
+	server.Mutex.Unlock()
 
 	logger.Info().Msg("exited")
 }
@@ -299,11 +299,11 @@ func (server *GameServer) Start(ctx context.Context, readChannel chan []byte) {
 
 			if err == nil {
 				logger.Info().Msg("connected")
-				server.mutex.Lock()
+				server.Mutex.Lock()
 				server.Status = ServerOK
 				status = ServerOK
 				server.socket = conn
-				server.mutex.Unlock()
+				server.Mutex.Unlock()
 
 				go server.PollWrites(ctx)
 				go server.PollReads(ctx, readChannel)

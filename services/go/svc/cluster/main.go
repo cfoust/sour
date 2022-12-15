@@ -31,6 +31,7 @@ type Client struct {
 
 const (
 	CREATE_SERVER_COOLDOWN = time.Duration(10 * time.Second)
+	DEBUG                  = false
 )
 
 type Cluster struct {
@@ -93,13 +94,38 @@ func (server *Cluster) StartServers(ctx context.Context) {
 
 func (server *Cluster) SendServerMessage(client clients.Client, message string) {
 	packet := game.Packet{}
-	packet.PutInt(int32(cubecode.ServerMessage))
+	packet.PutInt(int32(cubecode.N_SERVMSG))
 	message = fmt.Sprintf("%s %s", cubecode.Yellow("sour"), message)
 	packet.PutString(message)
 	client.Send(clients.GamePacket{
 		Channel: 1,
 		Data:    packet,
 	})
+}
+
+func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client clients.Client, gameServer *servers.GameServer) {
+	tick := time.NewTicker(30 * time.Second)
+
+	message := fmt.Sprintf("This is your private server. Have other players join by saying '#join %s' in any Sour server.", gameServer.Id)
+
+	for {
+		gameServer.Mutex.Lock()
+		clients := gameServer.NumClients
+		gameServer.Mutex.Unlock()
+
+		if clients <= 1 {
+			server.SendServerMessage(client, message)
+		} else {
+			return
+		}
+
+		select {
+		case <-tick.C:
+			continue
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func (server *Cluster) RunCommand(ctx context.Context, command string, client clients.Client, state *clients.ClientState) (string, error) {
@@ -167,6 +193,10 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 			return gameServer.Id, nil
 		}
 
+		if client.Type() == clients.ClientTypeENet {
+			go server.GivePrivateMatchHelp(ctx, client, state.Server)
+		}
+
 		state.Mutex.Unlock()
 		return server.RunCommand(ctx, fmt.Sprintf("join %s", gameServer.Id), client, state)
 
@@ -179,7 +209,6 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 
 		state.Mutex.Lock()
 		defer state.Mutex.Unlock()
-
 
 		if state.Server != nil && state.Server.IsReference(target) {
 			logger.Info().Msg("client already connected to target")
@@ -240,6 +269,8 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 	commands := client.ReceiveCommands()
 	disconnect := client.ReceiveDisconnect()
 
+	logger := log.With().Uint16("client", client.Id()).Logger()
+
 	// Tag messages with the server that the client was connected to
 	toServerTagged := make(chan clients.GamePacket, clients.CLIENT_MESSAGE_LIMIT)
 	go func() {
@@ -257,8 +288,6 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 		}
 	}()
 
-	log.Info().Uint16("client", client.Id()).Msg("polling client")
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -271,6 +300,7 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 			command, haveText := packet.GetString()
 
 			passthrough := func() {
+				logger.Debug().Str("code", cubecode.MessageCode(type_).String()).Msg("client -> server")
 				state.Mutex.Lock()
 				if state.Server != nil && state.Server == msg.Dest {
 					state.Server.SendData(client.Id(), uint32(msg.Channel), msg.Data)
@@ -281,11 +311,12 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 			// Intercept commands and run them first
 			if msg.Channel == 1 &&
 				haveType &&
-				type_ == int32(cubecode.ChatMessage) &&
+				type_ == int32(cubecode.N_TEXT) &&
 				haveText &&
 				strings.HasPrefix(command, "#") {
 
 				command := command[1:]
+				logger.Info().Str("command", command).Msg("intercepted command")
 
 				// Only send this packet after we've checked
 				// whether the cluster should handle it
@@ -421,6 +452,11 @@ func (server *Cluster) Shutdown() {
 
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
+
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	if DEBUG {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	}
 
 	serverPath := "../server/qserv"
 	if envPath, ok := os.LookupEnv("QSERV_PATH"); ok {
