@@ -191,6 +191,10 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 				continue
 			}
 
+			if state.Server != nil {
+				state.Server.SendDisconnect(client.Id())
+			}
+
 			state.Server = gameServer
 
 			logger.Info().Str("server", gameServer.Reference()).
