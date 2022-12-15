@@ -12,6 +12,7 @@ import (
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/game/cubecode"
+	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
@@ -36,6 +37,7 @@ const (
 
 type Cluster struct {
 	clients *clients.ClientManager
+	maps    *assets.MapFetcher
 
 	createMutex sync.Mutex
 	// host -> time a client from that host last created a server. We
@@ -50,9 +52,10 @@ type Cluster struct {
 	serverMessage chan []byte
 }
 
-func NewCluster(ctx context.Context, serverPath string) *Cluster {
+func NewCluster(ctx context.Context, serverPath string, maps *assets.MapFetcher) *Cluster {
 	server := &Cluster{
 		serverCtx:     ctx,
+		maps:          maps,
 		hostServers:   make(map[string]*servers.GameServer),
 		lastCreate:    make(map[string]time.Time),
 		clients:       clients.NewClientManager(),
@@ -231,7 +234,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 			logger.Info().Str("server", gameServer.Reference()).
 				Msg("client connecting to server")
 
-			gameServer.SendConnect(client.Id(), uint8(client.Type()))
+			gameServer.SendConnect(client.Id())
 
 			client.Connect()
 			return "", nil
@@ -468,26 +471,6 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 	}
 }
 
-func (server *Cluster) MoveClient(ctx context.Context, client *Client, targetServer *servers.GameServer) error {
-	if targetServer.Status != servers.ServerOK {
-		return errors.New("Server is not available")
-	}
-
-	if targetServer == client.server {
-		return nil
-	}
-
-	log.Info().Msgf("swapping from %s to %s", client.server.Id, targetServer.Id)
-
-	// We have 'em!
-	// TODO bring this back
-	//client.server.SendDisconnect(client.id)
-	//targetServer.SendConnect(client.id)
-	//client.server = targetServer
-
-	return nil
-}
-
 func (server *Cluster) Shutdown() {
 	server.manager.Shutdown()
 }
@@ -508,7 +491,17 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cluster := NewCluster(ctx, serverPath)
+	maps := assets.NewMapFetcher()
+	if assetSource, ok := os.LookupEnv("ASSET_SOURCE"); ok {
+		sources := strings.Split(assetSource, ";")
+		err := maps.FetchIndices(sources)
+
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to load assets")
+		}
+	}
+
+	cluster := NewCluster(ctx, serverPath, maps)
 
 	wsIngress := ingress.NewWSIngress(cluster.clients)
 
