@@ -17,6 +17,7 @@ const (
 type GamePacket struct {
 	Channel uint8
 	Data    []byte
+	Dest    *servers.GameServer
 }
 
 type CommandResult struct {

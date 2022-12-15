@@ -240,13 +240,30 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 	commands := client.ReceiveCommands()
 	disconnect := client.ReceiveDisconnect()
 
+	// Tag messages with the server that the client was connected to
+	toServerTagged := make(chan clients.GamePacket, clients.CLIENT_MESSAGE_LIMIT)
+	go func() {
+		for {
+			select {
+			case packet := <-toServer:
+				state.Mutex.Lock()
+				packet.Dest = state.Server
+				state.Mutex.Unlock()
+
+				toServerTagged <- packet
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	log.Info().Uint16("client", client.Id()).Msg("polling client")
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case msg := <-toServer:
+		case msg := <-toServerTagged:
 			data := msg.Data
 
 			packet := game.Packet(data)
@@ -255,7 +272,7 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 
 			passthrough := func() {
 				state.Mutex.Lock()
-				if state.Server != nil {
+				if state.Server != nil && state.Server == msg.Dest {
 					state.Server.SendData(client.Id(), uint32(msg.Channel), msg.Data)
 				}
 				state.Mutex.Unlock()
