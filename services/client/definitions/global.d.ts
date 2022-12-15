@@ -76,12 +76,7 @@ type ModuleType = {
     createGame: (name: string) => void
     connect: (name: string, password: string) => void
     send: (channel: number, dataPtr: number, dataLength: number) => void
-    receive: (
-      eventPtr: number,
-      channelPtr: number,
-      dataPtr: number,
-      dataLengthPtr: number
-    ) => void
+    receive: (dataPtr: number, dataLengthPtr: number) => void
     disconnect: () => void
   }
 }

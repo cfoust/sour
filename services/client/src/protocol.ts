@@ -9,6 +9,13 @@ export enum MessageType {
   Packet,
 }
 
+export enum ENetEventType {
+  None,
+  Connect,
+  Disconnect,
+  Receive,
+}
+
 export type ServerInfo = {
   Host: string
   Port: number
@@ -35,6 +42,8 @@ export type ServerConnectedMessage = {
 
 export type ServerDisconnectedMessage = {
   Op: MessageType.ServerDisconnected
+  Message: string
+  Reason: number
 }
 
 export type ConnectMessage = {

@@ -20,7 +20,7 @@ import {
 import type { GameState } from './types'
 import type { ServerMessage, SocketMessage, CommandMessage } from './protocol'
 import { GameStateType } from './types'
-import { MessageType } from './protocol'
+import { MessageType, ENetEventType } from './protocol'
 import StatusOverlay from './Loading'
 import NAMES from './names'
 import useAssets from './assets/hook'
@@ -290,6 +290,26 @@ function App() {
 
     let serverEvents: SocketMessage[] = []
 
+    let lastPointer: number = 0
+    let lastPointerLength: number = 0
+
+    // Only allocate memory if we really need to
+    const malloc = (size: number) => {
+      // reduce, reuse, recycle
+      if (size <= lastPointerLength) {
+        return lastPointer
+      }
+
+      if (lastPointer !== 0) {
+        Module._free(lastPointer)
+      }
+
+      const pointer = Module._malloc(size)
+      lastPointer = pointer
+      lastPointerLength = size
+      return pointer
+    }
+
     Module.cluster = {
       createGame: (preset: string) => {
         log.info('creating private game...')
@@ -326,12 +346,7 @@ function App() {
           })
         )
       },
-      receive: (
-        eventPtr: number,
-        channelPtr: number,
-        dataPtr: number,
-        dataLengthPtr: number
-      ) => {
+      receive: (dataPtr: number, dataLengthPtr: number) => {
         const view = new DataView(Module.HEAPU8.buffer)
 
         const message = serverEvents.shift()
@@ -340,28 +355,48 @@ function App() {
         }
 
         if (message.Op === MessageType.ServerConnected) {
-          return 1
+          // Layout:
+          // 2: Event
+          const frameLength = 2
+          const pointer = malloc(frameLength)
+          view.setUint16(pointer, ENetEventType.Connect, true)
+          return pointer
         }
 
         if (message.Op === MessageType.ServerDisconnected) {
-          return 2
+          const { Reason } = message
+
+          // Layout:
+          // 2: Event
+          // 2: Reason
+          const frameLength = 2 + 2
+          const pointer = malloc(frameLength)
+          view.setUint16(pointer, ENetEventType.Disconnect, true)
+          view.setUint16(pointer + 2, Reason, true)
+          return pointer
         }
 
         const { Channel, Data, Length } = message
 
+        // Layout:
+        // 2: Event
         // 2: Channel
         // 4: Length
-        // 4: Data
-        const frameLength = Length + 2 + 4
-        const pointer = Module._malloc(frameLength)
+        // N: Data
+        const frameLength = 2 + 2 + 4 + Length
+        const pointer = malloc(frameLength)
 
-        view.setUint16(pointer, Channel, true)
-        view.setUint32(pointer + 2, Length, true)
+        // sourEvent
+        view.setUint16(pointer, ENetEventType.Receive, true)
+        // sourChannel
+        view.setUint16(pointer + 2, Channel, true)
+        // dataLength
+        view.setUint32(pointer + 4, Length, true)
 
         // Copy in from data
         const dataHeap = new Uint8Array(
           Module.HEAPU8.buffer,
-          pointer + 6,
+          pointer + 8,
           Length
         )
         dataHeap.set(new Uint8Array(Data.buffer, Data.byteOffset, Length))

@@ -79,6 +79,12 @@ type ResponseMessage struct {
 	Id int
 }
 
+type ServerDisconnectedMessage struct {
+	Op      int // ServerDisconnectedOp
+	Message string
+	Reason  int
+}
+
 type GenericMessage struct {
 	Op int
 }
@@ -150,6 +156,14 @@ func (c *WSClient) ReceiveDisconnect() <-chan bool {
 }
 
 func (c *WSClient) Disconnect(reason int, message string) {
+	wsPacket := ServerDisconnectedMessage{
+		Op:      ServerDisconnectedOp,
+		Message: message,
+		Reason:  reason,
+	}
+
+	bytes, _ := cbor.Marshal(wsPacket)
+	c.send <- bytes
 }
 
 type WSIngress struct {

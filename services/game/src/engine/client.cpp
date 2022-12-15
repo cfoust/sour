@@ -390,16 +390,20 @@ void gets2c()           // get updates from the server
 #if __EMSCRIPTEN__
     if (sourconnected || sourconnecting) {
         ENetPacket packet;
-        ushort sourEvent, sourChannel;
+        ushort sourEvent, sourChannel, reason;
         while (true) {
             enet_uint8 * frame = (enet_uint8*) EM_ASM_INT({
-                return Module.cluster.receive($0, $1, $2, $3)
-            }, &sourEvent, &sourChannel, &packet.data, &packet.dataLength);
+                return Module.cluster.receive($0, $1)
+            }, &packet.data, &packet.dataLength);
 
-            if (frame == 0) {
+            if (frame == NULL) {
                 break;
-            } else if ((int) frame == ENET_EVENT_TYPE_CONNECT) {
-                conoutf("connected to server");
+            }
+
+            sourEvent = *((ushort*) frame);
+
+            if ((int) sourEvent == ENET_EVENT_TYPE_CONNECT) {
+                conoutf("joined server");
 
                 EM_ASM({
                     Module.onConnect(UTF8ToString($0), $1);
@@ -413,17 +417,33 @@ void gets2c()           // get updates from the server
                 sourconnecting = false;
                 game::gameconnect(true);
                 break;
-            } else if ((int) frame == ENET_EVENT_TYPE_DISCONNECT) {
-                abortjoin();
+            } else if ((int) sourEvent == ENET_EVENT_TYPE_DISCONNECT) {
+                reason = *((ushort*) (frame + 2));
+
+                if(sourconnecting)
+                {
+                    conoutf(CON_ERROR, "\f3could not join server");
+                    abortjoin();
+                }
+                else
+                {
+                    if(!discmillis)
+                    {
+                        const char *msg = disconnectreason(reason);
+                        if(msg) conoutf(CON_ERROR, "\f3server network error, leaving (%s) ...", msg);
+                        else conoutf(CON_ERROR, "\f3server network error, leaving...");
+                    }
+                    leave(false, false);
+                }
                 break;
             }
 
-            sourChannel = *((ushort*) frame);
+            sourChannel = *((ushort*) (frame + 2));
             packet.flags = 0;
-            packet.dataLength = *((size_t*)(frame + 2));
-            packet.data = frame + 6;
+            packet.dataLength = *((size_t*)(frame + 4));
+            packet.data = frame + 8;
 
-            if(discmillis) conoutf("attempting to disconnect...");
+            if(discmillis) conoutf("attempting to leave...");
             else localservertoclient(sourChannel, &packet);
         }
     }
