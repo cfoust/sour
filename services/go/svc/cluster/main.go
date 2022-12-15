@@ -398,8 +398,6 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 				}
 
 				if type_ == servers.SOCKET_EVENT_DISCONNECT {
-					log.Info().Msg("got disconnect")
-
 					id, ok := p.GetUint()
 					if !ok {
 						break
@@ -415,7 +413,7 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 						break
 					}
 
-					log.Info().Msgf("client kicked %d %s", reason, reasonText)
+					log.Info().Msgf("client forcibly disconnected %d %s", reason, reasonText)
 
 					client := server.clients.FindClient(uint16(id))
 
@@ -423,7 +421,7 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 						continue
 					}
 
-					client.Disconnect()
+					client.Disconnect(int(reason), reasonText)
 				}
 
 				numBytes, ok := p.GetUint()

@@ -57,7 +57,7 @@ type Client interface {
 	// When the client disconnects on its own
 	ReceiveDisconnect() <-chan bool
 	// Forcibly disconnect this client
-	Disconnect()
+	Disconnect(reason int, message string)
 }
 
 type ClientState struct {

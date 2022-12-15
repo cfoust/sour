@@ -84,7 +84,7 @@ func (c *WSClient) ReceiveDisconnect() <-chan bool {
 	return c.disconnect
 }
 
-func (c *WSClient) Disconnect() {
+func (c *WSClient) Disconnect(reason int, message string) {
 }
 
 type WSIngress struct {

@@ -14,7 +14,7 @@ import (
 type ENetClient struct {
 	id         uint16
 	peer       *enet.Peer
-	host       string
+	host       *enet.Host
 	cancel     context.CancelFunc
 	toClient   chan clients.GamePacket
 	toServer   chan clients.GamePacket
@@ -22,11 +22,12 @@ type ENetClient struct {
 	disconnect chan bool
 }
 
-func NewENetClient(cancel context.CancelFunc) *ENetClient {
+func NewENetClient(cancel context.CancelFunc, host *enet.Host) *ENetClient {
 	return &ENetClient{
 		cancel:     cancel,
 		toClient:   make(chan clients.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
 		toServer:   make(chan clients.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
+		host:       host,
 		commands:   make(chan clients.ClusterCommand, clients.CLIENT_MESSAGE_LIMIT),
 		disconnect: make(chan bool, 1),
 	}
@@ -37,7 +38,7 @@ func (c *ENetClient) Id() uint16 {
 }
 
 func (c *ENetClient) Host() string {
-	return c.host
+	return ""
 }
 
 func (c *ENetClient) Connect() {
@@ -83,8 +84,9 @@ func (c *ENetClient) Poll(ctx context.Context) {
 	}
 }
 
-func (c *ENetClient) Disconnect() {
+func (c *ENetClient) Disconnect(reason int, message string) {
 	c.cancel()
+	c.host.Disconnect(c.peer, enet.ID(reason))
 }
 
 type ENetIngress struct {
@@ -151,7 +153,7 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 			case enet.EventTypeConnect:
 				ctx, cancel := context.WithCancel(ctx)
 
-				client := NewENetClient(cancel)
+				client := NewENetClient(cancel, server.host)
 				client.peer = event.Peer
 
 				err := server.manager.AddClient(client)
