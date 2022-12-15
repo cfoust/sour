@@ -56,7 +56,7 @@ type GameServer struct {
 	Alias      string
 	NumClients int
 	LastEvent  time.Time
-	Mutex   sync.Mutex
+	Mutex      sync.Mutex
 
 	// The path of the socket
 	path    string
@@ -305,6 +305,12 @@ func (server *GameServer) Start(ctx context.Context, readChannel chan []byte) {
 				server.socket = conn
 				server.Mutex.Unlock()
 
+				name := server.Id
+				if len(server.Alias) > 0 {
+					name = server.Alias
+				}
+
+				go server.SendCommand(fmt.Sprintf("serverdesc \"Sour [%s]\"", name))
 				go server.PollWrites(ctx)
 				go server.PollReads(ctx, readChannel)
 			}
