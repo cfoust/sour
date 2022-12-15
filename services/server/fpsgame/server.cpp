@@ -13,6 +13,245 @@ namespace game {
     const char *gameident() { return "fps"; }
 }
 
+const char * gettype(int type) {
+	switch (type) {
+	case N_CONNECT:
+		return "N_CONNECT";
+	case N_SERVINFO:
+		return "N_SERVINFO";
+	case N_WELCOME:
+		return "N_WELCOME";
+	case N_INITCLIENT:
+		return "N_INITCLIENT";
+	case N_POS:
+		return "N_POS";
+	case N_TEXT:
+		return "N_TEXT";
+	case N_SOUND:
+		return "N_SOUND";
+	case N_CDIS:
+		return "N_CDIS";
+	case N_SHOOT:
+		return "N_SHOOT";
+	case N_EXPLODE:
+		return "N_EXPLODE";
+	case N_SUICIDE:
+		return "N_SUICIDE";
+	case N_DIED:
+		return "N_DIED";
+	case N_DAMAGE:
+		return "N_DAMAGE";
+	case N_HITPUSH:
+		return "N_HITPUSH";
+	case N_SHOTFX:
+		return "N_SHOTFX";
+	case N_EXPLODEFX:
+		return "N_EXPLODEFX";
+	case N_TRYSPAWN:
+		return "N_TRYSPAWN";
+	case N_SPAWNSTATE:
+		return "N_SPAWNSTATE";
+	case N_SPAWN:
+		return "N_SPAWN";
+	case N_FORCEDEATH:
+		return "N_FORCEDEATH";
+	case N_GUNSELECT:
+		return "N_GUNSELECT";
+	case N_TAUNT:
+		return "N_TAUNT";
+	case N_MAPCHANGE:
+		return "N_MAPCHANGE";
+	case N_MAPVOTE:
+		return "N_MAPVOTE";
+	case N_TEAMINFO:
+		return "N_TEAMINFO";
+	case N_ITEMSPAWN:
+		return "N_ITEMSPAWN";
+	case N_ITEMPICKUP:
+		return "N_ITEMPICKUP";
+	case N_ITEMACC:
+		return "N_ITEMACC";
+	case N_TELEPORT:
+		return "N_TELEPORT";
+	case N_JUMPPAD:
+		return "N_JUMPPAD";
+	case N_PING:
+		return "N_PING";
+	case N_PONG:
+		return "N_PONG";
+	case N_CLIENTPING:
+		return "N_CLIENTPING";
+	case N_TIMEUP:
+		return "N_TIMEUP";
+	case N_FORCEINTERMISSION:
+		return "N_FORCEINTERMISSION";
+	case N_SERVMSG:
+		return "N_SERVMSG";
+	case N_ITEMLIST:
+		return "N_ITEMLIST";
+	case N_RESUME:
+		return "N_RESUME";
+	case N_EDITMODE:
+		return "N_EDITMODE";
+	case N_EDITENT:
+		return "N_EDITENT";
+	case N_EDITF:
+		return "N_EDITF";
+	case N_EDITT:
+		return "N_EDITT";
+	case N_EDITM:
+		return "N_EDITM";
+	case N_FLIP:
+		return "N_FLIP";
+	case N_COPY:
+		return "N_COPY";
+	case N_PASTE:
+		return "N_PASTE";
+	case N_ROTATE:
+		return "N_ROTATE";
+	case N_REPLACE:
+		return "N_REPLACE";
+	case N_DELCUBE:
+		return "N_DELCUBE";
+	case N_REMIP:
+		return "N_REMIP";
+	case N_EDITVSLOT:
+		return "N_EDITVSLOT";
+	case N_UNDO:
+		return "N_UNDO";
+	case N_REDO:
+		return "N_REDO";
+	case N_NEWMAP:
+		return "N_NEWMAP";
+	case N_GETMAP:
+		return "N_GETMAP";
+	case N_SENDMAP:
+		return "N_SENDMAP";
+	case N_CLIPBOARD:
+		return "N_CLIPBOARD";
+	case N_EDITVAR:
+		return "N_EDITVAR";
+	case N_MASTERMODE:
+		return "N_MASTERMODE";
+	case N_KICK:
+		return "N_KICK";
+	case N_CLEARBANS:
+		return "N_CLEARBANS";
+	case N_CURRENTMASTER:
+		return "N_CURRENTMASTER";
+	case N_SPECTATOR:
+		return "N_SPECTATOR";
+	case N_SETMASTER:
+		return "N_SETMASTER";
+	case N_SETTEAM:
+		return "N_SETTEAM";
+	case N_BASES:
+		return "N_BASES";
+	case N_BASEINFO:
+		return "N_BASEINFO";
+	case N_BASESCORE:
+		return "N_BASESCORE";
+	case N_REPAMMO:
+		return "N_REPAMMO";
+	case N_BASEREGEN:
+		return "N_BASEREGEN";
+	case N_ANNOUNCE:
+		return "N_ANNOUNCE";
+	case N_LISTDEMOS:
+		return "N_LISTDEMOS";
+	case N_SENDDEMOLIST:
+		return "N_SENDDEMOLIST";
+	case N_GETDEMO:
+		return "N_GETDEMO";
+	case N_SENDDEMO:
+		return "N_SENDDEMO";
+	case N_DEMOPLAYBACK:
+		return "N_DEMOPLAYBACK";
+	case N_RECORDDEMO:
+		return "N_RECORDDEMO";
+	case N_STOPDEMO:
+		return "N_STOPDEMO";
+	case N_CLEARDEMOS:
+		return "N_CLEARDEMOS";
+	case N_TAKEFLAG:
+		return "N_TAKEFLAG";
+	case N_RETURNFLAG:
+		return "N_RETURNFLAG";
+	case N_RESETFLAG:
+		return "N_RESETFLAG";
+	case N_INVISFLAG:
+		return "N_INVISFLAG";
+	case N_TRYDROPFLAG:
+		return "N_TRYDROPFLAG";
+	case N_DROPFLAG:
+		return "N_DROPFLAG";
+	case N_SCOREFLAG:
+		return "N_SCOREFLAG";
+	case N_INITFLAGS:
+		return "N_INITFLAGS";
+	case N_SAYTEAM:
+		return "N_SAYTEAM";
+	case N_CLIENT:
+		return "N_CLIENT";
+	case N_AUTHTRY:
+		return "N_AUTHTRY";
+	case N_AUTHKICK:
+		return "N_AUTHKICK";
+	case N_AUTHCHAL:
+		return "N_AUTHCHAL";
+	case N_AUTHANS:
+		return "N_AUTHANS";
+	case N_REQAUTH:
+		return "N_REQAUTH";
+	case N_PAUSEGAME:
+		return "N_PAUSEGAME";
+	case N_GAMESPEED:
+		return "N_GAMESPEED";
+	case N_ADDBOT:
+		return "N_ADDBOT";
+	case N_DELBOT:
+		return "N_DELBOT";
+	case N_INITAI:
+		return "N_INITAI";
+	case N_FROMAI:
+		return "N_FROMAI";
+	case N_BOTLIMIT:
+		return "N_BOTLIMIT";
+	case N_BOTBALANCE:
+		return "N_BOTBALANCE";
+	case N_MAPCRC:
+		return "N_MAPCRC";
+	case N_CHECKMAPS:
+		return "N_CHECKMAPS";
+	case N_SWITCHNAME:
+		return "N_SWITCHNAME";
+	case N_SWITCHMODEL:
+		return "N_SWITCHMODEL";
+	case N_SWITCHTEAM:
+		return "N_SWITCHTEAM";
+	case N_INITTOKENS:
+		return "N_INITTOKENS";
+	case N_TAKETOKEN:
+		return "N_TAKETOKEN";
+	case N_EXPIRETOKENS:
+		return "N_EXPIRETOKENS";
+	case N_DROPTOKENS:
+		return "N_DROPTOKENS";
+	case N_DEPOSITTOKENS:
+		return "N_DEPOSITTOKENS";
+	case N_STEALTOKENS:
+		return "N_STEALTOKENS";
+	case N_SERVCMD:
+		return "N_SERVCMD";
+	case N_DEMOPACKET:
+		return "N_DEMOPACKET";
+	case NUMMSG:
+		return "NUMMSG";
+	default:
+		return "";
+	}
+}
+
 void out(int type, const char *fmt, ...)
 {
     char msg[1000];
@@ -3582,7 +3821,12 @@ curmsg = p.length(); \
 
         if (!ci) return;
 
-        while((curmsg = p.length()) < p.maxlen) switch(type = checktype(getint(p), ci)) {
+        while((curmsg = p.length()) < p.maxlen) {
+            int type = type = checktype(getint(p), ci);
+            if (false) {
+                conoutf("client -> server %s", gettype(type));
+            }
+            switch(type) {
             case N_POS:
             {
                 int pcn = getuint(p);
@@ -4418,6 +4662,7 @@ curmsg = p.length(); \
                 if(ci && cq && (ci != cq || ci->state.state!=CS_SPECTATOR)) { QUEUE_AI; QUEUE_MSG; }
                 break;
             }
+        }
         }
     }
 

@@ -231,7 +231,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 			logger.Info().Str("server", gameServer.Reference()).
 				Msg("client connecting to server")
 
-			gameServer.SendConnect(client.Id())
+			gameServer.SendConnect(client.Id(), uint8(client.Type()))
 
 			client.Connect()
 			return "", nil
@@ -302,7 +302,9 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 			command, haveText := packet.GetString()
 
 			passthrough := func() {
-				logger.Debug().Str("code", cubecode.MessageCode(type_).String()).Msg("client -> server")
+				if DEBUG {
+					logger.Debug().Str("code", cubecode.MessageCode(type_).String()).Msg("client -> server")
+				}
 				state.Mutex.Lock()
 				if state.Server != nil && state.Server == msg.Dest {
 					state.Server.SendData(client.Id(), uint32(msg.Channel), msg.Data)
@@ -448,6 +450,13 @@ func (server *Cluster) PollMessages(ctx context.Context) {
 					continue
 				}
 
+				parseData := data
+				parsed := game.Packet(parseData)
+				msgType, haveType := parsed.GetInt()
+				if haveType && msgType != -1 {
+					log.Debug().Str("code", cubecode.MessageCode(msgType).String()).Msg("server -> client")
+				}
+
 				packet := clients.GamePacket{
 					Channel: uint8(chan_),
 					Data:    data,
@@ -471,9 +480,10 @@ func (server *Cluster) MoveClient(ctx context.Context, client *Client, targetSer
 	log.Info().Msgf("swapping from %s to %s", client.server.Id, targetServer.Id)
 
 	// We have 'em!
-	client.server.SendDisconnect(client.id)
-	targetServer.SendConnect(client.id)
-	client.server = targetServer
+	// TODO bring this back
+	//client.server.SendDisconnect(client.id)
+	//targetServer.SendConnect(client.id)
+	//client.server = targetServer
 
 	return nil
 }

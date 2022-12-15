@@ -221,6 +221,7 @@ namespace server {
     {
         char *ip; //ipstring for QServ
         int clientnum, ownernum, connectmillis, sessionid, overflow, connectedmillis; //qserv
+        uint sourtype;
         string name, team, mapvote;
         int playermodel;
         int modevote;

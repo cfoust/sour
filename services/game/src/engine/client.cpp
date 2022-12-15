@@ -55,6 +55,14 @@ bool isconnected(bool attempt, bool local)
 
 ICOMMAND(isconnected, "bb", (int *attempt, int *local), intret(isconnected(*attempt > 0, *local != 0) ? 1 : 0));
 
+#if __EMSCRIPTEN__
+bool issourserver()
+{
+    return isconnected(false, false) && sourconnected;
+}
+ICOMMAND(issourserver, "", (), intret(issourserver() ? 1 : 0));
+#endif
+
 const ENetAddress *connectedpeer()
 {
     return curpeer ? &curpeer->address : NULL;

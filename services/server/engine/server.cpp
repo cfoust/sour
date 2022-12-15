@@ -799,6 +799,10 @@ void serverslice(bool dedicated, bool enet, uint timeout)   // main server updat
                         uint id = getuint(q);
                         client &c = addclient(ST_SOCKET);
                         c.id = id;
+
+                        server::clientinfo * info = (server::clientinfo*) getclientinfo(c.num);
+                        info->sourtype = getuint(q);
+
                         copystring(c.hostname, "unknown");
                         logoutf("Join: (socket:%d)", c.id);
                         int reason = server::clientconnect(c.num, 0, c.hostname);
