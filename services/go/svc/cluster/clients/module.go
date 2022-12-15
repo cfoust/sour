@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/big"
 	"sync"
-	"log"
 
 	"github.com/cfoust/sour/svc/cluster/servers"
 )
@@ -118,7 +117,6 @@ func (c *ClientManager) AddClient(client Client) error {
 	c.Clients[client] = state
 	c.Mutex.Unlock()
 
-	log.Printf("pushing to newClients")
 	c.newClients <- ClientBundle{
 		Client: client,
 		State:  state,

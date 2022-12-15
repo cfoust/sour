@@ -57,7 +57,7 @@ func (c *WSClient) Connect() {
 }
 
 func (c *WSClient) Type() clients.ClientType {
-	return clients.ClientTypeENet
+	return clients.ClientTypeWS
 }
 
 func (c *WSClient) Reference() string {

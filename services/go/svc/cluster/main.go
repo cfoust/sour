@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/cubecode"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
@@ -89,8 +91,21 @@ func (server *Cluster) StartServers(ctx context.Context) {
 	go server.manager.PruneServers(ctx)
 }
 
+func (server *Cluster) SendServerMessage(client clients.Client, message string) {
+	packet := game.Packet{}
+	packet.PutInt(int32(cubecode.ServerMessage))
+	message = fmt.Sprintf("%s %s", cubecode.Yellow("sour"), message)
+	packet.PutString(message)
+	client.Send(clients.GamePacket{
+		Channel: 1,
+		Data:    packet,
+	})
+}
+
 func (server *Cluster) RunCommand(ctx context.Context, command string, client clients.Client, state *clients.ClientState) (string, error) {
-	logger := log.With().Uint16("clientId", client.Id()).Logger()
+	logger := log.With().Uint16("client", client.Id()).Str("command", command).Logger()
+
+	logger.Info().Msg("running command")
 
 	args := strings.Split(command, " ")
 
@@ -144,7 +159,16 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 		server.lastCreate[client.Host()] = time.Now()
 		server.hostServers[client.Host()] = gameServer
 
-		return gameServer.Id, nil
+		state.Mutex.Lock()
+
+		// Automatically connect clients to their servers
+		if client.Type() == clients.ClientTypeWS && state.Server == nil {
+			state.Mutex.Unlock()
+			return gameServer.Id, nil
+		}
+
+		state.Mutex.Unlock()
+		return server.RunCommand(ctx, fmt.Sprintf("join %s", gameServer.Id), client, state)
 
 	case "join":
 		if len(args) != 2 {
@@ -156,7 +180,9 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 		state.Mutex.Lock()
 		defer state.Mutex.Unlock()
 
+
 		if state.Server != nil && state.Server.IsReference(target) {
+			logger.Info().Msg("client already connected to target")
 			break
 		}
 
@@ -173,12 +199,36 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 			gameServer.SendConnect(client.Id())
 
 			client.Connect()
-
-			break
+			return "", nil
 		}
+
+		logger.Warn().Msgf("could not find server: %s", target)
 	}
 
 	return "", nil
+}
+
+func (server *Cluster) RunCommandWithTimeout(ctx context.Context, command string, client clients.Client, state *clients.ClientState) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+
+	resultChannel := make(chan clients.CommandResult)
+
+	go func() {
+		response, err := server.RunCommand(ctx, command, client, state)
+		resultChannel <- clients.CommandResult{
+			Err:      err,
+			Response: response,
+		}
+	}()
+
+	select {
+	case result := <-resultChannel:
+		cancel()
+		return result.Response, result.Err
+	case <-ctx.Done():
+		cancel()
+		return "", errors.New("command timed out")
+	}
 }
 
 func (server *Cluster) PollClient(ctx context.Context, client clients.Client, state *clients.ClientState) {
@@ -193,43 +243,74 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 		case <-ctx.Done():
 			return
 		case msg := <-toServer:
-			state.Mutex.Lock()
-			if state.Server != nil {
-				state.Server.SendData(client.Id(), uint32(msg.Channel), msg.Data)
+			data := msg.Data
+
+			packet := game.Packet(data)
+			type_, haveType := packet.GetInt()
+			command, haveText := packet.GetString()
+
+			passthrough := func() {
+				state.Mutex.Lock()
+				if state.Server != nil {
+					state.Server.SendData(client.Id(), uint32(msg.Channel), msg.Data)
+				}
+				state.Mutex.Unlock()
 			}
-			state.Mutex.Unlock()
+
+			// Intercept commands and run them first
+			if msg.Channel == 1 &&
+				haveType &&
+				type_ == int32(cubecode.ChatMessage) &&
+				haveText &&
+				strings.HasPrefix(command, "#") {
+
+				command := command[1:]
+
+				// Only send this packet after we've checked
+				// whether the cluster should handle it
+				go func() {
+					response, err := server.RunCommandWithTimeout(ctx, command, client, state)
+
+					if len(response) == 0 && err == nil {
+						passthrough()
+						return
+					}
+
+					if err != nil {
+						server.SendServerMessage(client, cubecode.Red(err.Error()))
+						return
+					} else if len(response) > 0 {
+						server.SendServerMessage(client, response)
+						return
+					}
+
+					if command == "help" {
+						passthrough()
+					}
+				}()
+				continue
+			}
+
+			passthrough()
+
 		case request := <-commands:
 			command := request.Command
 			outChannel := request.Response
 
-			intermediateChannel := make(chan clients.CommandResult)
-			ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-
 			go func() {
-				response, err := server.RunCommand(ctx, command, client, state)
-				intermediateChannel <- clients.CommandResult{
+				response, err := server.RunCommandWithTimeout(ctx, command, client, state)
+				outChannel <- clients.CommandResult{
 					Err:      err,
 					Response: response,
 				}
 			}()
-
-			// Go run a command, but don't block
-			go func() {
-				select {
-				case result := <-intermediateChannel:
-					cancel()
-					if outChannel != nil {
-						outChannel <- result
-					}
-				case <-ctx.Done():
-					outChannel <- clients.CommandResult{
-						Err:      errors.New("command timed out"),
-						Response: "",
-					}
-					return
-				}
-			}()
 		case <-disconnect:
+			state.Mutex.Lock()
+			if state.Server != nil {
+				state.Server.SendDisconnect(client.Id())
+				state.Server = nil
+			}
+			state.Mutex.Unlock()
 		}
 	}
 }
