@@ -130,7 +130,6 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client clients.
 
 func (server *Cluster) RunCommand(ctx context.Context, command string, client clients.Client, state *clients.ClientState) (string, error) {
 	logger := log.With().Uint16("client", client.Id()).Str("command", command).Logger()
-
 	logger.Info().Msg("running command")
 
 	args := strings.Split(command, " ")

@@ -716,9 +716,9 @@ void updatetime()
     }
 }
 
-void serverslice(bool dedicated, uint timeout)   // main server update, called from main loop in sp, or from below in dedicated server
+void serverslice(bool dedicated, bool enet, uint timeout)   // main server update, called from main loop in sp, or from below in dedicated server
 {
-    if(!serverhost)
+    if(!serverhost && !dedicated && !enet)
     {
         server::serverupdate();
         server::sendpackets();
@@ -815,6 +815,11 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
                     break;
             }
         }
+    }
+
+    if (!enet) {
+        server::sendpackets();
+        return;
     }
 
     // Then check enet traffic
@@ -1148,8 +1153,7 @@ pthread_t thread2;
 
 void *main_thread(void*t) {
     for(;;) {
-        serverslice(true, 5);
-
+        serverslice(true, false, 5);
     }
     pthread_exit((void*)t);
 }
@@ -1166,7 +1170,7 @@ void *main_thread_s(void *t) {
             DispatchMessage(&msg);
         }
 #endif
-        serverslice(true, 5);
+        serverslice(true, false, 5);
 
     }
     pthread_exit((void*)t);
@@ -1200,7 +1204,7 @@ bool setuplistenserver(bool dedicated)
     if(!serverhost) return servererror(dedicated, "could not create server host");
     loopi(maxclients) serverhost->peers[i].data = NULL;
     address.port = server::serverinfoport(serverport > 0 ? serverport : -1);
-    conoutf("server=%d info=%d", serverport, address.port);
+
     pongsock = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
     if(pongsock != ENET_SOCKET_NULL && enet_socket_bind(pongsock, &address) < 0)
     {
@@ -1221,7 +1225,7 @@ bool setuplistenserver(bool dedicated)
     return true;
 }
 
-void initserver(bool listen, bool dedicated) //, const char *path
+void initserver(bool listen, bool enet, bool dedicated) //, const char *path
 {
     if(dedicated)
     {
@@ -1232,12 +1236,12 @@ void initserver(bool listen, bool dedicated) //, const char *path
 
     execfile(configpath, false);
 
-    if(listen) setuplistenserver(dedicated);
+    if(enet) setuplistenserver(dedicated);
 
     server::serverinit();
 	logoutf("Protocol version: %d", PROTOCOL_VERSION);
 
-    if(listen)
+    if(enet)
     {
         updatemasterserver();
         if(dedicated) rundedicatedserver(); // never returns
@@ -1279,7 +1283,7 @@ int main(int argc, char **argv) {
     socketCtl.init();
 
     //main server init
-    initserver(true, true);
+    initserver(true, false, true);
 
     pthread_t thread[2];
     int c; long t;
