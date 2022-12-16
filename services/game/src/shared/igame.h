@@ -41,6 +41,9 @@ namespace game
     extern int scaletime(int t);
     extern bool allowmouselook();
 
+#if __EMSCRIPTEN__
+    extern void startgame();
+#endif
     extern const char *gameident();
     extern const char *savedconfig();
     extern const char *restoreconfig();

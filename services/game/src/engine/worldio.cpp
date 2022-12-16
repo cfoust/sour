@@ -1389,6 +1389,7 @@ void load_world_6(void *)
     if(maptitle[0] && strcmp(maptitle, "Untitled Map by Unknown")) conoutf(CON_ECHO, "%s", maptitle);
 
 	async_loading_map = false;
+    game::startgame();
     startmap(cname ? cname : mname);
 
 #if __EMSCRIPTEN__

@@ -252,6 +252,10 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 
 	receive := make(chan []byte)
 
+	defer func() {
+		client.disconnect <- true
+	}()
+
 	go func() {
 		for {
 			if ctx.Err() != nil {

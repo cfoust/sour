@@ -107,8 +107,6 @@ function getMapChange(
   const oldData = message.Data.slice(0, packet.offset)
   const newData = message.Data.slice(packet.offset + 1)
 
-  console.log(message.Data, packet.offset, oldData, newData);
-
   return [
     {
       ...message,
