@@ -1,2 +1,3 @@
-websockify
+/websockify
 *.o
+/wsproxy

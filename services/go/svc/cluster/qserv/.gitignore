@@ -1,3 +1,6 @@
+/qserv
+*/CMakeFiles/**
+*Makefile**
 GeoIP/CMakeFiles/CMakeDirectoryInformation.cmake
 GeoIP/CMakeFiles/GeoIP.dir/C.includecache
 GeoIP/CMakeFiles/GeoIP.dir/DependInfo.cmake
