@@ -1532,7 +1532,7 @@ namespace game
         while(p.remaining()) {
             int type = getint(p);
 
-            if (true) {
+            if (false) {
                 conoutf("server -> client %s", gettype(type));
             }
             switch(type)
@@ -1660,7 +1660,12 @@ namespace game
                     int n;
                     while((n = getint(p))>=0 && !p.overread())
                     {
+#if __EMSCRIPTEN__
+                        // XXX does this break anything?
+                        entities::setspawn(n, true);
+#else
                         if(mapchanged) entities::setspawn(n, true);
+#endif
                         getint(p); // type
                     }
                     break;
