@@ -4,6 +4,11 @@
 client:
   enabled: true
 
+  # All client URLs can use these template variables:
+  # #host: replaced with window.location.host
+  # #origin: replaced with window.location.origin (basically #protocol + #host)
+  # #protocol: replaced with window.location.protocol e.g. https:
+
   # These are the URLs for each of the asset sources.
   # Order matters; the client uses the first map it finds.
   assets:
@@ -11,13 +16,15 @@ client:
     # we might not know the hostname the user will be accessing Sour at ahead
     # of time. We can take advantage of the browser's automatic addition of the
     # hostname to bare absolute paths.
-    - "/assets/.index.json"
+    - "#origin/assets/.index.json"
 
   # The URLs for all of the game servers, for now we only support one.
   clusters:
-    - "/service/cluster/"
+    # ws: and wss: are inferred
+    - "#host/service/cluster/"
 
-  proxy: "/service/proxy/"
+  # ws: and wss: are inferred
+  proxy: "#host/service/proxy/"
 
 proxy:
   enabled: true

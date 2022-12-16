@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 path="$1"
 shift 1
 
@@ -26,6 +28,7 @@ repl() {
     return 1
   fi
 
+  export SOUR_CONFIG="$(cat $SCRIPT_DIR/config/config.json)"
   $@ &
   result="$?"
   job_id="$!"
@@ -41,6 +44,7 @@ repl() {
 repl $@
 
 while true; do
-  inotifywait -qr "$path" -e MODIFY
+  inotifywait -qr "$path" "$SCRIPT_DIR/config" -e MODIFY
+  "$SCRIPT_DIR/config/build"
   repl $@
 done

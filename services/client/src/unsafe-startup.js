@@ -1,3 +1,5 @@
+import { CONFIG } from './config'
+
 export default function start() {
   Module = {
     ...Module,
@@ -37,11 +39,6 @@ export default function start() {
       BananaBread.execute(`screenres ${width} ${height}`)
     },
     locateFile: (file) => {
-      if (file.endsWith('.data')) {
-        // Strip the hash
-        const stripped = file.split('.').slice(1).join('.')
-        return `${process.env.ASSET_SOURCE}${stripped}`
-      }
       if (file.endsWith('.wasm')) return `/game/${file}`
       return null
     },

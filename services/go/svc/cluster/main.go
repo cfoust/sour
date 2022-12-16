@@ -51,7 +51,7 @@ type Cluster struct {
 	serverMessage chan []byte
 }
 
-func NewCluster(ctx context.Context, serverPath string, maps *assets.MapFetcher) *Cluster {
+func NewCluster(ctx context.Context, maps *assets.MapFetcher) *Cluster {
 	server := &Cluster{
 		serverCtx:     ctx,
 		hostServers:   make(map[string]*servers.GameServer),
@@ -450,9 +450,8 @@ func main() {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
-	serverPath := "../server/qserv"
-	if envPath, ok := os.LookupEnv("QSERV_PATH"); ok {
-		serverPath = envPath
+	if config, ok := os.LookupEnv("SOUR_CONFIG"); ok {
+		log.Info().Msg(config)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -468,7 +467,7 @@ func main() {
 		}
 	}
 
-	cluster := NewCluster(ctx, serverPath, maps)
+	cluster := NewCluster(ctx, maps)
 
 	err := cluster.manager.Start()
 	if err != nil {

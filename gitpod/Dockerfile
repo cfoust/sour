@@ -23,3 +23,5 @@ RUN cd /home/gitpod && \
 
 RUN /bin/bash -c 'source /home/gitpod/.nvm/nvm.sh && nvm install 14.17.5 && nvm alias default 14.17.5' && \
   echo 'source "/home/gitpod/.nvm/nvm.sh"' >> /home/gitpod/.bashrc
+
+RUN go install cuelang.org/go/cmd/cue@latest

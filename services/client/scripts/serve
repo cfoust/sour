@@ -22,6 +22,9 @@ if [ -z "$IN_DOCKER" ]; then
 fi
 cd "$SCRIPT_DIR/../"
 
+export SOUR_CONFIG="$(cat $SCRIPT_DIR/../../../config/config.json)"
+echo "$SOUR_CONFIG"
+trap 'kill $(jobs -p)' EXIT
 yarn serve:site &
 cd dist
 python ../spa.py

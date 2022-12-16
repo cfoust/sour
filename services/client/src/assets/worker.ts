@@ -19,7 +19,7 @@ import { getBundle as getSavedBundle, saveBundle, haveBundle } from './storage'
 
 class PullError extends Error {}
 
-let ASSET_SOURCE: string = ''
+let assetSources: string[] = []
 let bundleIndex: Maybe<BundleIndex> = null
 let pullState: BundleState[] = []
 
@@ -34,8 +34,7 @@ async function fetchIndex(source: string): Promise<AssetSource> {
 }
 
 async function fetchIndices(): Promise<BundleIndex> {
-  const sources = ASSET_SOURCE.split(';')
-  const indices = await Promise.all(R.map((v) => fetchIndex(v), sources))
+  const indices = await Promise.all(R.map((v) => fetchIndex(v), assetSources))
   return indices
 }
 
@@ -235,8 +234,8 @@ self.onmessage = (evt) => {
   const request: AssetRequest = data
 
   if (request.op === RequestType.Environment) {
-    const { ASSET_SOURCE: newPrefix } = request
-    ASSET_SOURCE = newPrefix
+    const { assetSources: newSources } = request
+    assetSources = newSources
     ;(async () => {
       bundleIndex = await fetchIndices()
 

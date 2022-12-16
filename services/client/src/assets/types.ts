@@ -94,7 +94,10 @@ export type IndexResponse = {
   index: BundleIndex
 }
 
-export type AssetResponse = AssetStateResponse | AssetBundleResponse | IndexResponse
+export type AssetResponse =
+  | AssetStateResponse
+  | AssetBundleResponse
+  | IndexResponse
 
 export enum RequestType {
   Environment,
@@ -103,7 +106,7 @@ export enum RequestType {
 
 export type AssetEnvironmentRequest = {
   op: RequestType.Environment
-  ASSET_SOURCE: string
+  assetSources: string[]
 }
 
 export type AssetLoadRequest = {

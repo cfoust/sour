@@ -23,6 +23,8 @@ import { GameStateType } from '../types'
 import type { PromiseSet } from '../utils'
 import { breakPromise } from '../utils'
 
+import { CONFIG } from '../config'
+
 enum NodeType {
   Game,
   Map,
@@ -123,7 +125,7 @@ export default function useAssets(
 
     worker.postMessage({
       op: AssetRequestType.Environment,
-      ASSET_SOURCE: process.env.ASSET_SOURCE,
+      assetSources: CONFIG.assets,
     })
 
     worker.onmessage = (evt) => {

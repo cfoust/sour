@@ -33,6 +33,7 @@ import { CubeMessageType } from './game'
 import * as cube from './game'
 
 import type { PromiseSet } from './utils'
+import { CONFIG } from './config'
 import { breakPromise } from './utils'
 import * as log from './logging'
 
@@ -187,9 +188,11 @@ function App() {
     // All commands in flight
     let commands: CommandRequest[] = []
 
+    const [clusterURL] = CONFIG.clusters
+
     const { protocol, host } = window.location
     const ws = new WebSocket(
-      `${protocol === 'https:' ? 'wss://' : 'ws:/'}${host}/service/cluster/`
+      `${protocol === 'https:' ? 'wss://' : 'ws:/'}${clusterURL}`
     )
     ws.binaryType = 'arraybuffer'
 
