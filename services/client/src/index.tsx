@@ -18,12 +18,19 @@ import {
 } from '@chakra-ui/react'
 
 import type { GameState } from './types'
-import type { ServerMessage, SocketMessage, CommandMessage } from './protocol'
+import type {
+  ServerMessage,
+  SocketMessage,
+  CommandMessage,
+  PacketMessage,
+} from './protocol'
 import { GameStateType } from './types'
 import { MessageType, ENetEventType } from './protocol'
 import StatusOverlay from './Loading'
 import NAMES from './names'
 import useAssets from './assets/hook'
+import { CubeMessageType } from './game'
+import * as cube from './game'
 
 import type { PromiseSet } from './utils'
 import { breakPromise } from './utils'
@@ -75,6 +82,46 @@ export type CommandRequest = {
 }
 
 const SERVER_URL_REGEX = /\/server\/([\w.]+)\/?(\d+)?/
+
+function getMapChange(
+  message: PacketMessage
+): Maybe<[PacketMessage, PacketMessage]> {
+  const packet = cube.newPacket(message.Data)
+
+  let msgType: Maybe<number> = cube.getInt(packet)
+  if (msgType == null) return null
+
+  // N_MAPCHANGE often follows this
+  if (msgType === CubeMessageType.N_WELCOME) {
+    msgType = cube.getInt(packet)
+    if (msgType == null) return null
+  }
+
+  if (msgType !== CubeMessageType.N_MAPCHANGE) {
+    return null
+  }
+
+  cube.getString(packet)
+  cube.getInt(packet)
+
+  const oldData = message.Data.slice(0, packet.offset)
+  const newData = message.Data.slice(packet.offset + 1)
+
+  console.log(message.Data, packet.offset, oldData, newData);
+
+  return [
+    {
+      ...message,
+      Data: oldData,
+      Length: oldData.length,
+    },
+    {
+      ...message,
+      Data: newData,
+      Length: newData.length,
+    },
+  ]
+}
 
 function App() {
   const [state, setState] = React.useState<GameState>({
@@ -209,9 +256,13 @@ function App() {
       )
     }
 
-    Module.postLoadWorld = function () {
-      BananaBread.execute('spawnitems')
+    let serverEvents: SocketMessage[] = []
+    let queuedEvents: SocketMessage[] = []
+    let loadingWorld = false
 
+    Module.postLoadWorld = function () {
+      loadingWorld = false
+      serverEvents = queuedEvents
       if (waitingForPlayers && lastSour) {
         navigator.clipboard.writeText(location.href)
         waitWarning()
@@ -287,8 +338,6 @@ function App() {
       lastSour = null
       pushURLState(`/`)
     }
-
-    let serverEvents: SocketMessage[] = []
 
     let lastPointer: number = 0
     let lastPointerLength: number = 0
@@ -447,11 +496,25 @@ function App() {
         }
 
         commands = R.filter(({ id: otherId }) => Id !== otherId, commands)
-
         return
       }
 
-      serverEvents.push(serverMessage)
+      if (serverMessage.Op === MessageType.Packet) {
+        const mapChange = getMapChange(serverMessage)
+        if (mapChange != null) {
+          const [first, second] = mapChange
+          loadingWorld = true
+          serverEvents.push(first)
+          queuedEvents.push(second)
+          return
+        }
+      }
+
+      if (loadingWorld) {
+        queuedEvents.push(serverMessage)
+      } else {
+        serverEvents.push(serverMessage)
+      }
     }
   }, [])
 
