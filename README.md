@@ -70,16 +70,18 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Full Terraform support for deploying Sour
 * [ ] Allow parts of Sour to be configured with a high-level configuration file
 ### Gameplay
-* [ ] CTF still doesn't work and flags don't show up
+* [X] CTF still doesn't work and flags don't show up
 * [ ] Modern multiplayer
   * [X] Use socket comms to connect to Sour-internal servers
   * [X] Arbitrary creation and hot swapping of users between servers
   * [X] Allow users to create private servers
     * [X] Update the URL to the current server on join eg `sourga.me/server/127.0.0.1:28785`
+  * [ ] Handle failure to connect from link
+  * [ ] LRU cache for map fetching
   * [ ] Creating servers from presets
   * [ ] Matchmaking (1v1)
   * [ ] Stretch: ELO
-  * [ ] Stretch: allow desktop clients full access to Sour clusters
+  * [X] Stretch: allow desktop clients full access to Sour clusters
 * [ ] Allow for backgrounding the tab by responding to pings
 * [ ] Simple, beautiful main menu
   * [ ] Clean loading page for slow connections

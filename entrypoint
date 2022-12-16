@@ -10,7 +10,10 @@ run_proxy() {
 
 run_cluster() {
   cd /qserv
-  QSERV_PATH=/bin/qserv QSERV_LOBBY_CONFIG=/qserv/config/server-init.cfg cluster
+  export QSERV_PATH=/bin/qserv
+  export QSERV_LOBBY_CONFIG=/qserv/config/server-init.cfg
+  export ASSET_SOURCE="http://localhost:1234/assets/.index.json"
+  cluster
 }
 
 run_site() {
