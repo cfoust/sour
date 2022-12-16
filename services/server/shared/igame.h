@@ -36,6 +36,7 @@ namespace game
     extern void writeclientinfo(stream *f);
     extern void toserver(char *text);
     extern void changemap(const char *name);
+    extern void _changemap(const char *name, int mode);
     extern void forceedit(const char *name);
     extern bool ispaused();
     extern int scaletime(int t);

@@ -7,6 +7,7 @@ import (
 
 	"github.com/cfoust/sour/pkg/enet"
 	"github.com/cfoust/sour/svc/cluster/clients"
+	"github.com/cfoust/sour/pkg/game"
 
 	"github.com/rs/zerolog/log"
 )
@@ -16,8 +17,8 @@ type ENetClient struct {
 	peer       *enet.Peer
 	host       *enet.Host
 	cancel     context.CancelFunc
-	toClient   chan clients.GamePacket
-	toServer   chan clients.GamePacket
+	toClient   chan game.GamePacket
+	toServer   chan game.GamePacket
 	commands   chan clients.ClusterCommand
 	disconnect chan bool
 }
@@ -25,8 +26,8 @@ type ENetClient struct {
 func NewENetClient(cancel context.CancelFunc, host *enet.Host) *ENetClient {
 	return &ENetClient{
 		cancel:     cancel,
-		toClient:   make(chan clients.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
-		toServer:   make(chan clients.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
+		toClient:   make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
+		toServer:   make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
 		host:       host,
 		commands:   make(chan clients.ClusterCommand, clients.CLIENT_MESSAGE_LIMIT),
 		disconnect: make(chan bool, 1),
@@ -56,11 +57,11 @@ func (c *ENetClient) SetId(id uint16) {
 	c.id = id
 }
 
-func (c *ENetClient) Send(packet clients.GamePacket) {
+func (c *ENetClient) Send(packet game.GamePacket) {
 	c.toClient <- packet
 }
 
-func (c *ENetClient) ReceivePackets() <-chan clients.GamePacket {
+func (c *ENetClient) ReceivePackets() <-chan game.GamePacket {
 	return c.toServer
 }
 
@@ -186,7 +187,7 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 					continue
 				}
 
-				target.toServer <- clients.GamePacket{
+				target.toServer <- game.GamePacket{
 					Channel: event.ChannelID,
 					Data:    event.Packet.Data,
 				}

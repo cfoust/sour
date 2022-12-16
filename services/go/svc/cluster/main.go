@@ -26,7 +26,7 @@ type Client struct {
 	host string
 
 	server     *servers.GameServer
-	sendPacket chan clients.GamePacket
+	sendPacket chan game.GamePacket
 	closeSlow  func()
 }
 
@@ -37,7 +37,6 @@ const (
 
 type Cluster struct {
 	clients *clients.ClientManager
-	maps    *assets.MapFetcher
 
 	createMutex sync.Mutex
 	// host -> time a client from that host last created a server. We
@@ -55,15 +54,13 @@ type Cluster struct {
 func NewCluster(ctx context.Context, serverPath string, maps *assets.MapFetcher) *Cluster {
 	server := &Cluster{
 		serverCtx:     ctx,
-		maps:          maps,
 		hostServers:   make(map[string]*servers.GameServer),
 		lastCreate:    make(map[string]time.Time),
 		clients:       clients.NewClientManager(),
 		serverMessage: make(chan []byte, 1),
 		manager: servers.NewServerManager(
 			serverPath,
-			50000,
-			51000,
+			maps,
 		),
 	}
 
@@ -83,6 +80,50 @@ func (server *Cluster) StartPresetServer(ctx context.Context) (*servers.GameServ
 	return gameServer, err
 }
 
+func (server *Cluster) PollServer(ctx context.Context, gameServer *servers.GameServer) {
+	forceDisconnects := gameServer.ReceiveDisconnects()
+	gamePackets := gameServer.ReceivePackets()
+
+	for {
+		select {
+		case event := <-forceDisconnects:
+			log.Info().Msgf("client forcibly disconnected %d %s", event.Reason, event.Text)
+
+			client := server.clients.FindClient(uint16(event.Client))
+
+			if client == nil {
+				continue
+			}
+
+			// TODO ideally we would move clients back to the lobby if they
+			// were not kicked for violent reasons
+			client.Disconnect(int(event.Reason), event.Text)
+		case packet := <-gamePackets:
+			client := server.clients.FindClient(uint16(packet.Client))
+
+			if client == nil {
+				continue
+			}
+
+			parseData := packet.Packet.Data
+			parsed := game.Packet(parseData)
+			msgType, haveType := parsed.GetInt()
+			if haveType && msgType != -1 {
+				log.Debug().Str("code", cubecode.MessageCode(msgType).String()).Msg("server -> client")
+			}
+
+			gamePacket := game.GamePacket{
+				Channel: uint8(packet.Packet.Channel),
+				Data:    packet.Packet.Data,
+			}
+
+			client.Send(gamePacket)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func (server *Cluster) StartServers(ctx context.Context) {
 	gameServer, err := server.StartPresetServer(ctx)
 	if err != nil {
@@ -91,7 +132,8 @@ func (server *Cluster) StartServers(ctx context.Context) {
 
 	gameServer.Alias = "lobby"
 
-	go gameServer.Start(ctx, server.serverMessage)
+	go gameServer.Start(ctx)
+	go server.PollServer(ctx, gameServer)
 	go server.manager.PruneServers(ctx)
 }
 
@@ -100,7 +142,7 @@ func (server *Cluster) SendServerMessage(client clients.Client, message string) 
 	packet.PutInt(int32(cubecode.N_SERVMSG))
 	message = fmt.Sprintf("%s %s", cubecode.Yellow("sour"), message)
 	packet.PutString(message)
-	client.Send(clients.GamePacket{
+	client.Send(game.GamePacket{
 		Channel: 1,
 		Data:    packet,
 	})
@@ -169,7 +211,8 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 
 		logger = logger.With().Str("server", gameServer.Reference()).Logger()
 
-		go gameServer.Start(server.serverCtx, server.serverMessage)
+		go gameServer.Start(server.serverCtx)
+		go server.PollServer(ctx, gameServer)
 
 		tick := time.NewTicker(250 * time.Millisecond)
 		for {
@@ -269,6 +312,12 @@ func (server *Cluster) RunCommandWithTimeout(ctx context.Context, command string
 	}
 }
 
+type DestPacket struct {
+	Data    []byte
+	Channel uint8
+	Dest    *servers.GameServer
+}
+
 func (server *Cluster) PollClient(ctx context.Context, client clients.Client, state *clients.ClientState) {
 	toServer := client.ReceivePackets()
 	commands := client.ReceiveCommands()
@@ -277,16 +326,20 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 	logger := log.With().Uint16("client", client.Id()).Logger()
 
 	// Tag messages with the server that the client was connected to
-	toServerTagged := make(chan clients.GamePacket, clients.CLIENT_MESSAGE_LIMIT)
+	toServerTagged := make(chan DestPacket, clients.CLIENT_MESSAGE_LIMIT)
 	go func() {
 		for {
 			select {
 			case packet := <-toServer:
 				state.Mutex.Lock()
-				packet.Dest = state.Server
+				tagged := DestPacket{
+					Data:    packet.Data,
+					Channel: packet.Channel,
+					Dest:    state.Server,
+				}
 				state.Mutex.Unlock()
 
-				toServerTagged <- packet
+				toServerTagged <- tagged
 			case <-ctx.Done():
 				return
 			}
@@ -388,89 +441,6 @@ func (server *Cluster) PollClients(ctx context.Context) {
 	}
 }
 
-func (server *Cluster) PollMessages(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case msg := <-server.serverMessage:
-			p := game.Packet(msg)
-
-			for len(p) > 0 {
-				type_, ok := p.GetUint()
-				if !ok {
-					break
-				}
-
-				if type_ == servers.SOCKET_EVENT_DISCONNECT {
-					id, ok := p.GetUint()
-					if !ok {
-						break
-					}
-
-					reason, ok := p.GetInt()
-					if !ok {
-						break
-					}
-
-					reasonText, ok := p.GetString()
-					if !ok {
-						break
-					}
-
-					log.Info().Msgf("client forcibly disconnected %d %s", reason, reasonText)
-
-					client := server.clients.FindClient(uint16(id))
-
-					if client == nil {
-						continue
-					}
-
-					client.Disconnect(int(reason), reasonText)
-					// TODO ideally we would move clients back to the lobby if they
-					// were not kicked for violent reasons
-				}
-
-				numBytes, ok := p.GetUint()
-				if !ok {
-					break
-				}
-				id, ok := p.GetUint()
-				if !ok {
-					break
-				}
-				chan_, ok := p.GetUint()
-				if !ok {
-					break
-				}
-
-				data := p[:numBytes]
-				p = p[len(data):]
-
-				client := server.clients.FindClient(uint16(id))
-
-				if client == nil {
-					continue
-				}
-
-				parseData := data
-				parsed := game.Packet(parseData)
-				msgType, haveType := parsed.GetInt()
-				if haveType && msgType != -1 {
-					log.Debug().Str("code", cubecode.MessageCode(msgType).String()).Msg("server -> client")
-				}
-
-				packet := clients.GamePacket{
-					Channel: uint8(chan_),
-					Data:    data,
-				}
-
-				client.Send(packet)
-			}
-		}
-	}
-}
-
 func (server *Cluster) Shutdown() {
 	server.manager.Shutdown()
 }
@@ -503,6 +473,11 @@ func main() {
 
 	cluster := NewCluster(ctx, serverPath, maps)
 
+	err := cluster.manager.Start()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to start server manager")
+	}
+
 	wsIngress := ingress.NewWSIngress(cluster.clients)
 
 	enetIngress := ingress.NewENetIngress(cluster.clients)
@@ -512,7 +487,6 @@ func main() {
 	go enetIngress.Poll(ctx)
 
 	go cluster.StartServers(ctx)
-	go cluster.PollMessages(ctx)
 	go cluster.PollClients(ctx)
 
 	errc := make(chan error, 1)

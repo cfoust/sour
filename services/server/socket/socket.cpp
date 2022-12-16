@@ -38,10 +38,19 @@ void SocketChannel::checkConnection() {
 
     int flags = fcntl(clientFd, F_GETFL);
     fcntl(clientFd, F_SETFL, flags | O_NONBLOCK);
+
+    if (preconnectOffset > 0) {
+        send(preconnect, preconnectOffset);
+    }
 }
 
 int SocketChannel::send(char * data, int length) {
-    if (!connected) return -1;
+    if (!connected) {
+        for (int i = 0; i < length; i++) {
+            preconnect[preconnectOffset++] = data[i];
+        }
+        return length;
+    }
     return write(clientFd, data, length);
 }
 

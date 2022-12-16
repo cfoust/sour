@@ -11,6 +11,10 @@ namespace game {
             conoutf(CON_ERROR, "No such command \"%s\"", args[i]);
     }
     const char *gameident() { return "fps"; }
+
+    void _changemap(const char *s, int mode) {
+        server::_changemap(s, mode);
+    }
 }
 
 const char * gettype(int type) {
@@ -2389,6 +2393,12 @@ namespace server {
     VAR(defaultgamespeed, 10, 100, 1000);
     extern int mapsucksvotes;
     void changemap(const char *s, int mode)
+    {
+        pausegame(true);
+        requestmap(s, mode);
+    }
+
+    void _changemap(const char *s, int mode)
     {
         //can cause excess flood on loop i mapchange for IRC
         out(ECHO_CONSOLE, "Map changed to: %s | Modenum: %d", s, mode);

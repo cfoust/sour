@@ -435,6 +435,7 @@ extern void getstring(char *t, ucharbuf &p, int len = MAXTRANS);
 extern void localconnect();
 extern const char *disconnectreason(int reason);
 extern void disconnect_client(int n, int reason);
+extern void requestmap(const char * mapname, int mode);
 /// Custom QServ disconnect /messages
 void dcres(int cn, const char *reason);
 

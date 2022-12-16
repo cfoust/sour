@@ -11,6 +11,7 @@ import (
 
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/watcher"
+	"github.com/cfoust/sour/pkg/game"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/rs/zerolog/log"
@@ -92,8 +93,8 @@ type GenericMessage struct {
 type WSClient struct {
 	id         uint16
 	host       string
-	toClient   chan clients.GamePacket
-	toServer   chan clients.GamePacket
+	toClient   chan game.GamePacket
+	toServer   chan game.GamePacket
 	commands   chan clients.ClusterCommand
 	disconnect chan bool
 	send       chan []byte
@@ -102,8 +103,8 @@ type WSClient struct {
 
 func NewWSClient() *WSClient {
 	return &WSClient{
-		toClient:   make(chan clients.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
-		toServer:   make(chan clients.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
+		toClient:   make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
+		toServer:   make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
 		commands:   make(chan clients.ClusterCommand, clients.CLIENT_MESSAGE_LIMIT),
 		send:       make(chan []byte, clients.CLIENT_MESSAGE_LIMIT),
 		disconnect: make(chan bool, 1),
@@ -139,11 +140,11 @@ func (c *WSClient) SetId(id uint16) {
 	c.id = id
 }
 
-func (c *WSClient) Send(packet clients.GamePacket) {
+func (c *WSClient) Send(packet game.GamePacket) {
 	c.toClient <- packet
 }
 
-func (c *WSClient) ReceivePackets() <-chan clients.GamePacket {
+func (c *WSClient) ReceivePackets() <-chan game.GamePacket {
 	return c.toServer
 }
 
@@ -287,7 +288,7 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 			if err := cbor.Unmarshal(msg, &packetMessage); err == nil &&
 				packetMessage.Op == PacketOp {
 
-				client.toServer <- clients.GamePacket{
+				client.toServer <- game.GamePacket{
 					Channel: uint8(packetMessage.Channel),
 					Data:    packetMessage.Data,
 				}

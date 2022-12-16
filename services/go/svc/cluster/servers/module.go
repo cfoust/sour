@@ -5,11 +5,12 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/big"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,9 +19,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/repeale/fp-go"
-
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/svc/cluster/assets"
+
+	"github.com/repeale/fp-go"
+	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -40,6 +43,13 @@ const (
 	SOCKET_EVENT_RECEIVE
 	SOCKET_EVENT_DISCONNECT
 	SOCKET_EVENT_COMMAND
+	SOCKET_EVENT_RESPOND_MAP
+)
+
+const (
+	SERVER_EVENT_PACKET uint32 = iota
+	SERVER_EVENT_DISCONNECT
+	SERVER_EVENT_REQUEST_MAP
 )
 
 const (
@@ -47,9 +57,23 @@ const (
 	SERVER_MAX_IDLE_TIME = time.Duration(10 * time.Minute)
 )
 
+type ForceDisconnect struct {
+	Client uint32
+	Reason int32
+	Text   string
+}
+
+type MapRequest struct {
+	Map  string
+	Mode int32
+}
+
+type ClientPacket struct {
+	Client uint32
+	Packet game.GamePacket
+}
+
 type GameServer struct {
-	// The UDP port of the server
-	Port   uint16
 	Status ServerStatus
 	Id     string
 	// Another way for the client to refer to this server
@@ -59,11 +83,29 @@ type GameServer struct {
 	Mutex      sync.Mutex
 
 	// The path of the socket
-	path    string
+	path string
+	// The working directory of the server
+	wdir    string
 	socket  *net.Conn
 	command *exec.Cmd
 	exit    chan bool
 	send    chan []byte
+
+	disconnects chan ForceDisconnect
+	mapRequests chan MapRequest
+	packets     chan ClientPacket
+}
+
+func (server *GameServer) ReceiveDisconnects() <-chan ForceDisconnect {
+	return server.disconnects
+}
+
+func (server *GameServer) ReceiveMapRequests() <-chan MapRequest {
+	return server.mapRequests
+}
+
+func (server *GameServer) ReceivePackets() <-chan ClientPacket {
+	return server.packets
 }
 
 func (server *GameServer) sendMessage(data []byte) {
@@ -101,6 +143,15 @@ func (server *GameServer) SendCommand(command string) {
 	p := game.Packet{}
 	p.PutUint(SOCKET_EVENT_COMMAND)
 	p.PutString(command)
+	server.sendMessage(p)
+}
+
+func (server *GameServer) SendMapResponse(mapName string, mode int32, succeeded int32) {
+	p := game.Packet{}
+	p.PutUint(SOCKET_EVENT_RESPOND_MAP)
+	p.PutString(mapName)
+	p.PutInt(mode)
+	p.PutInt(succeeded)
 	server.sendMessage(p)
 }
 
@@ -187,6 +238,94 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 	}
 }
 
+func (server *GameServer) PollEvents(ctx context.Context) {
+	socketWrites := make(chan []byte, 16)
+
+	go server.PollReads(ctx, socketWrites)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-socketWrites:
+			p := game.Packet(msg)
+
+			for len(p) > 0 {
+				type_, ok := p.GetUint()
+				if !ok {
+					break
+				}
+
+				if type_ == SERVER_EVENT_REQUEST_MAP {
+					mapName, ok := p.GetString()
+					if !ok {
+						break
+					}
+
+					mode, ok := p.GetInt()
+					if !ok {
+						break
+					}
+
+					server.mapRequests <- MapRequest{
+						Map:  mapName,
+						Mode: mode,
+					}
+					break
+				}
+
+				if type_ == SERVER_EVENT_DISCONNECT {
+					id, ok := p.GetUint()
+					if !ok {
+						break
+					}
+
+					reason, ok := p.GetInt()
+					if !ok {
+						break
+					}
+
+					reasonText, ok := p.GetString()
+					if !ok {
+						break
+					}
+
+					server.disconnects <- ForceDisconnect{
+						Client: id,
+						Reason: reason,
+						Text:   reasonText,
+					}
+
+				}
+
+				numBytes, ok := p.GetUint()
+				if !ok {
+					break
+				}
+				id, ok := p.GetUint()
+				if !ok {
+					break
+				}
+				chan_, ok := p.GetUint()
+				if !ok {
+					break
+				}
+
+				data := p[:numBytes]
+				p = p[len(data):]
+
+				server.packets <- ClientPacket{
+					Client: id,
+					Packet: game.GamePacket{
+						Data:    data,
+						Channel: uint8(chan_),
+					},
+				}
+			}
+		}
+	}
+}
+
 func (server *GameServer) Wait() {
 	logger := server.Log()
 
@@ -207,7 +346,7 @@ func (server *GameServer) Wait() {
 		return
 	}
 
-	logger.Info().Uint("port", uint(server.Port)).Msg("server started")
+	logger.Info().Msg("server started")
 
 	stdoutEOF := make(chan bool, 1)
 	stderrEOF := make(chan bool, 1)
@@ -283,7 +422,7 @@ func (server *GameServer) Wait() {
 	logger.Info().Msg("exited")
 }
 
-func (server *GameServer) Start(ctx context.Context, readChannel chan []byte) {
+func (server *GameServer) Start(ctx context.Context) {
 	logger := server.Log()
 	tick := time.NewTicker(250 * time.Millisecond)
 	exitChannel := make(chan bool, 1)
@@ -312,7 +451,7 @@ func (server *GameServer) Start(ctx context.Context, readChannel chan []byte) {
 
 				go server.SendCommand(fmt.Sprintf("serverdesc \"Sour [%s]\"", name))
 				go server.PollWrites(ctx)
-				go server.PollReads(ctx, readChannel)
+				go server.PollEvents(ctx)
 			}
 		}
 
@@ -330,19 +469,19 @@ type ServerManager struct {
 	Servers []*GameServer
 	Receive chan []byte
 
-	minPort    uint16
-	maxPort    uint16
+	maps       *assets.MapFetcher
 	serverPath string
 	mutex      sync.Mutex
+	// The working directory of all of the servers
+	workingDir string
 }
 
-func NewServerManager(serverPath string, minPort uint16, maxPort uint16) *ServerManager {
-	manager := ServerManager{}
-	manager.Servers = make([]*GameServer, 0)
-	manager.serverPath = serverPath
-	manager.minPort = minPort
-	manager.maxPort = maxPort
-	return &manager
+func NewServerManager(serverPath string, maps *assets.MapFetcher) *ServerManager {
+	return &ServerManager{
+		Servers:    make([]*GameServer, 0),
+		serverPath: serverPath,
+		maps:       maps,
+	}
 }
 
 func IsPortAvailable(port uint16) (bool, error) {
@@ -361,30 +500,20 @@ func IsPortAvailable(port uint16) (bool, error) {
 	return true, nil
 }
 
-func (manager *ServerManager) FindPort() (uint16, error) {
-	// Qserv uses port and port + 1
-	for port := manager.minPort; port < manager.maxPort; port += 2 {
-		occupied := false
-		for _, server := range manager.Servers {
-			if server.Port == port {
-				occupied = true
-			}
-		}
-		if occupied {
-			continue
-		}
-
-		available, err := IsPortAvailable(port)
-		if available {
-			return port, nil
-		}
-
-		if err != nil {
-			continue
-		}
+func (manager *ServerManager) Start() error {
+	tempDir, err := ioutil.TempDir("", "qserv")
+	if err != nil {
+		return err
 	}
 
-	return 0, errors.New("Failed to find port in range")
+	manager.workingDir = tempDir
+
+	err = os.MkdirAll(filepath.Join(tempDir, "packages/base"), 0755)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (manager *ServerManager) Shutdown() {
@@ -394,6 +523,8 @@ func (manager *ServerManager) Shutdown() {
 	for _, server := range manager.Servers {
 		server.Shutdown()
 	}
+
+	os.RemoveAll(manager.workingDir)
 }
 
 type Identity struct {
@@ -401,11 +532,11 @@ type Identity struct {
 	Path string
 }
 
-func FindIdentity(port uint16) Identity {
+func FindIdentity() Identity {
 	generate := func() Identity {
 		number, _ := rand.Int(rand.Reader, big.NewInt(1000))
 		hash := fmt.Sprintf("%x", sha256.Sum256(
-			[]byte(fmt.Sprintf("%d-%d", port, number)),
+			[]byte(fmt.Sprintf("%d", number)),
 		))[:8]
 		return Identity{
 			Hash: hash,
@@ -467,11 +598,74 @@ func (manager *ServerManager) PruneServers(ctx context.Context) {
 	}
 }
 
+func DownloadMap(url string, path string) error {
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Check server response
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	//Writer the body to file
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameServer) {
+	requests := server.ReceiveMapRequests()
+
+	for {
+		select {
+		case request := <-requests:
+			url := manager.maps.FindMapURL(request.Map)
+
+			if opt.IsNone(url) {
+				server.SendMapResponse(request.Map, request.Mode, 0)
+				continue
+			}
+
+			logger := log.With().Str("map", request.Map).Int32("mode", request.Mode).Logger()
+
+			logger.Info().Msg("downloading map")
+			path := filepath.Join(manager.workingDir, fmt.Sprintf("packages/base/%s.ogz", request.Map))
+			err := DownloadMap(url.Value, path)
+			if err != nil {
+				logger.Error().Err(err).Msg("failed to download map")
+				server.SendMapResponse(request.Map, request.Mode, 0)
+				continue
+			}
+
+			logger.Info().Str("destination", path).Msg("downloaded map")
+			server.SendMapResponse(request.Map, request.Mode, 1)
+			continue
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func (manager *ServerManager) NewServer(ctx context.Context, configPath string) (*GameServer, error) {
 	server := GameServer{
-		send:       make(chan []byte, 1),
-		NumClients: 0,
-		LastEvent:  time.Now(),
+		send:        make(chan []byte, 1),
+		NumClients:  0,
+		LastEvent:   time.Now(),
+		disconnects: make(chan ForceDisconnect, 10),
+		mapRequests: make(chan MapRequest, 10),
+		packets:     make(chan ClientPacket, 10),
 	}
 
 	// We don't want other servers to start while this one is being started
@@ -479,14 +673,7 @@ func (manager *ServerManager) NewServer(ctx context.Context, configPath string) 
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()
 
-	port, err := manager.FindPort()
-	if err != nil {
-		return nil, err
-	}
-
-	server.Port = port
-
-	identity := FindIdentity(port)
+	identity := FindIdentity()
 
 	server.Id = identity.Hash
 
@@ -495,14 +682,17 @@ func (manager *ServerManager) NewServer(ctx context.Context, configPath string) 
 		manager.serverPath,
 		fmt.Sprintf("-S%s", identity.Path),
 		fmt.Sprintf("-C%s", configPath),
-		fmt.Sprintf("-j%d", port),
 	)
+
+	cmd.Dir = manager.workingDir
 
 	server.command = cmd
 	server.path = identity.Path
 	server.exit = make(chan bool, 1)
 
 	manager.Servers = append(manager.Servers, &server)
+
+	go manager.PollMapRequests(ctx, &server)
 
 	return &server, nil
 }

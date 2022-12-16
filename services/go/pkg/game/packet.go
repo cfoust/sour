@@ -4,6 +4,11 @@ import (
 	"github.com/cfoust/sour/pkg/game/cubecode"
 )
 
+type GamePacket struct {
+	Channel uint8
+	Data    []byte
+}
+
 // Packet represents a Sauerbraten UDP packet.
 type Packet []byte
 
@@ -135,4 +140,3 @@ func (p *Packet) GetString() (s string, ok bool) {
 		s += string(cubecode.ToUnicode(cpoint))
 	}
 }
-

@@ -17,6 +17,8 @@ tasks:
     init: ./services/go/build
     env:
       ASSET_SOURCE: "http://localhost:1235/assets/.index.json"
+      QSERV_PATH: "/workspace/sour/services/server/qserv"
+      QSERV_LOBBY_CONFIG: "/workspace/sour/services/server/config/server-init.cfg"
     command: ./watch /workspace/sour/services/go ./cluster
 
   - name: Client

@@ -15,7 +15,15 @@ enum
     SOCKET_EVENT_CONNECT = 0,
     SOCKET_EVENT_RECEIVE,
     SOCKET_EVENT_DISCONNECT,
-    SOCKET_EVENT_COMMAND
+    SOCKET_EVENT_COMMAND,
+	SOCKET_EVENT_RESPOND_MAP
+};
+
+enum
+{
+	SERVER_EVENT_PACKET = 0,
+	SERVER_EVENT_DISCONNECT,
+	SERVER_EVENT_REQUEST_MAP
 };
 
 class SocketChannel
@@ -35,6 +43,10 @@ class SocketChannel
         int sockFd, clientFd;
         bool connected;
         unsigned char buffer[5242880]; // 5MB
+
+        int preconnectOffset = 0;
+        // Used to buffer anything sent before we connected
+        char preconnect[4096];
 };
 
 extern SocketChannel socketCtl;

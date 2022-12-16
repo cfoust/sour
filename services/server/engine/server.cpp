@@ -320,7 +320,7 @@ void sendpacket(int n, int chan, ENetPacket *packet, int exclude)
         case ST_SOCKET:
         {
             packetbuf p(MAXTRANS);
-            putuint(p, SOCKET_EVENT_RECEIVE);
+            putuint(p, SERVER_EVENT_PACKET);
             putuint(p, packet->dataLength);
             putuint(p, clients[n]->id);
             putuint(p, chan);
@@ -437,11 +437,20 @@ void disconnect_socket(int n, int reason) {
     if(!clients.inrange(n) ) return;
 
     packetbuf p(MAXTRANS);
-    putuint(p, SOCKET_EVENT_DISCONNECT);
+    putuint(p, SERVER_EVENT_DISCONNECT);
     putuint(p, clients[n]->id);
     putint(p, reason);
     const char *msg = disconnectreason(reason);
     sendstring(msg, p);
+    ENetPacket *newPacket = p.finalize();
+    socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+}
+
+void requestmap(const char *mapname, int mode) {
+    packetbuf p(MAXTRANS);
+    putuint(p, SERVER_EVENT_REQUEST_MAP);
+    sendstring(mapname, p);
+    putint(p, mode);
     ENetPacket *newPacket = p.finalize();
     socketCtl.send((char*) newPacket->data, newPacket->dataLength);
 }
@@ -838,6 +847,14 @@ void serverslice(bool dedicated, bool enet, uint timeout)   // main server updat
                         getstring(command, q, sizeof(command));
                         int result = execute(command);
                         logoutf("ran command: '%s' result=%d", command, result);
+                        break;
+                    }
+                case SOCKET_EVENT_RESPOND_MAP:
+                    {
+                        string mapName;
+                        getstring(mapName, q, sizeof(mapName));
+                        int mode = getint(q), succeeded = getint(q);
+                        game::_changemap(mapName, mode);
                         break;
                     }
                 default:
