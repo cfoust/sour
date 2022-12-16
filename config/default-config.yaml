@@ -1,0 +1,43 @@
+# This is Sour's default configuration.
+# It is validated against config/schema.cue.
+
+client:
+  enabled: true
+
+  # These are the URLs for each of the asset sources.
+  # Order matters; the client uses the first map it finds.
+  assets:
+    # The client's asset sources may not be the same as the cluster's because
+    # we might not know the hostname the user will be accessing Sour at ahead
+    # of time. We can take advantage of the browser's automatic addition of the
+    # hostname to bare absolute paths.
+    - "/assets/.index.json"
+
+  # The URLs for all of the game servers, for now we only support one.
+  clusters:
+    - "/service/cluster/"
+
+  proxy: "/service/proxy/"
+
+proxy:
+  enabled: true
+
+cluster:
+  enabled: true
+  assets:
+    # This is not the same thing as client.assets because the cluster has to
+    # specify complete URLs (and can access services using their addresses
+    # inside the container.)
+    - "http://localhost:1234/assets/.index.json"
+
+  # We set the Sauerbraten `serverdesc` according to this template.
+  # #id is replaced with the server's identifier.
+  serverDescription: "Sour [#id]"
+
+  presets:
+    default:
+      config: "/sour/server-init.cfg"
+
+  servers:
+    - alias: lobby
+      preset: default

@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
 
+set -e
+
+CONFIG_DIR=${CONFIG_DIR:-/sour/config}
+SOUR_CONFIG="/sour/config.json"
+
+# Validate the user's configuration and export the combined config
+cue export \
+  /sour/schema.cue \
+  /sour/default-config.yaml \
+  $CONFIG_DIR/config/*.{json,yaml,cue} > "$SOUR_CONFIG"
+
 # Update env vars in the source code
 ASSET_SOURCE=${ASSET_SOURCE:-/assets/.index.json}
 (cd /app/ && sed -i -e "s{__ASSET_SOURCE__{$ASSET_SOURCE{g" index.js)
@@ -10,7 +21,6 @@ run_proxy() {
 
 run_cluster() {
   cd /qserv
-  export QSERV_PATH=/bin/qserv
   export QSERV_LOBBY_CONFIG=/qserv/config/server-init.cfg
   export ASSET_SOURCE="http://localhost:1234/assets/.index.json"
   cluster

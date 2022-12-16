@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 
+set -e
+
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cd "$SCRIPT_DIR"
 if [ -z "$GITPOD_WORKSPACE_ID" ]; then
   unset GOPATH
 fi
+
+# build the game server first
+(cd svc/cluster/servers/qserv && cmake . && make)
+
+# then the go stuff
 go build -o cluster svc/cluster/main.go
 go build -o mapdump cmd/mapdump/main.go

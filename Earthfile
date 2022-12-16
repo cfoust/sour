@@ -13,15 +13,9 @@ proxy:
     RUN ./build
     SAVE ARTIFACT wsproxy AS LOCAL "earthly/wsproxy"
 
-server:
-    FROM +cpp
-    COPY services/server .
-    RUN ./build
-    SAVE ARTIFACT qserv AS LOCAL "earthly/qserv"
-
 go:
     FROM golang:1.18
-    RUN apt-get update && apt-get install -qqy libenet-dev inotify-tools
+    RUN apt-get update && apt-get install -qqy libenet-dev inotify-tools build-essential cmake zlib1g-dev inotify-tools
     SAVE IMAGE sour:go
 
 goexe:
@@ -61,17 +55,16 @@ client:
     SAVE ARTIFACT dist AS LOCAL "earthly/client"
 
 image-slim:
-  FROM ubuntu:20.04
-  # We would just use nginx:stable-alpine but the other services use some
-  # dynamic libraries.
+  FROM golang:1.18
+  RUN go install cuelang.org/go/cmd/cue@latest
   RUN apt-get update && apt-get install -y nginx libenet-dev
-  COPY +server/qserv /bin/qserv
+  COPY config/schema.cue /sour/schema.cue
+  COPY config/default-config.yaml /sour/default-config.yaml
   COPY +goexe/cluster /bin/cluster
   COPY +proxy/wsproxy /bin/wsproxy
   COPY +game/game /app/game/
   COPY +client/dist /app/
   COPY services/ingress/production.conf /etc/nginx/conf.d/default.conf
-  COPY services/server/config /qserv/config
   COPY entrypoint /bin/entrypoint
   CMD ["/bin/entrypoint"]
   SAVE IMAGE sour:slim
