@@ -58,10 +58,7 @@ func NewCluster(ctx context.Context, serverPath string, maps *assets.MapFetcher)
 		lastCreate:    make(map[string]time.Time),
 		clients:       clients.NewClientManager(),
 		serverMessage: make(chan []byte, 1),
-		manager: servers.NewServerManager(
-			serverPath,
-			maps,
-		),
+		manager:       servers.NewServerManager(maps),
 	}
 
 	return server

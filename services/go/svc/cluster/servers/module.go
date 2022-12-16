@@ -2,9 +2,11 @@ package servers
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	_ "embed"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -27,6 +29,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
+
+//go:embed qserv/qserv
+var QSERV_EXECUTABLE []byte
 
 type ServerStatus byte
 
@@ -476,11 +481,10 @@ type ServerManager struct {
 	workingDir string
 }
 
-func NewServerManager(serverPath string, maps *assets.MapFetcher) *ServerManager {
+func NewServerManager(maps *assets.MapFetcher) *ServerManager {
 	return &ServerManager{
-		Servers:    make([]*GameServer, 0),
-		serverPath: serverPath,
-		maps:       maps,
+		Servers: make([]*GameServer, 0),
+		maps:    maps,
 	}
 }
 
@@ -512,6 +516,29 @@ func (manager *ServerManager) Start() error {
 	if err != nil {
 		return err
 	}
+
+	qservPath := filepath.Join(tempDir, "qserv")
+
+	// Copy the qserv executable out
+	out, err := os.Create(qservPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	reader := bytes.NewReader(QSERV_EXECUTABLE)
+
+	_, err = io.Copy(out, reader)
+	if err != nil {
+		return err
+	}
+
+	err = out.Chmod(0774)
+	if err != nil {
+		return err
+	}
+
+	manager.serverPath = qservPath
 
 	return nil
 }
