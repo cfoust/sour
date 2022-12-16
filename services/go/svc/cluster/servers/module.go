@@ -535,9 +535,8 @@ type Identity struct {
 func FindIdentity() Identity {
 	generate := func() Identity {
 		number, _ := rand.Int(rand.Reader, big.NewInt(1000))
-		hash := fmt.Sprintf("%x", sha256.Sum256(
-			[]byte(fmt.Sprintf("%d", number)),
-		))[:8]
+		bytes := sha256.Sum256([]byte(fmt.Sprintf("%d", number)))
+		hash := strings.ToUpper(fmt.Sprintf("%x", bytes)[:4])
 		return Identity{
 			Hash: hash,
 			Path: filepath.Join("/tmp", fmt.Sprintf("qserv_%s.sock", hash)),

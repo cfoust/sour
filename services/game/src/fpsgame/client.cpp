@@ -1306,7 +1306,6 @@ namespace game
         {
             if(!m_noitems || cmode!=NULL) p.reliable();
             if(!m_noitems) entities::putitems(p);
-            conoutf("sending items to server");
             if(cmode) cmode->senditems(p);
             senditemstoserver = false;
         }

@@ -212,7 +212,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 		logger = logger.With().Str("server", gameServer.Reference()).Logger()
 
 		go gameServer.Start(server.serverCtx)
-		go server.PollServer(ctx, gameServer)
+		go server.PollServer(server.serverCtx, gameServer)
 
 		tick := time.NewTicker(250 * time.Millisecond)
 		for {
