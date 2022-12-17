@@ -2,7 +2,9 @@ package game
 
 import (
 	"fmt"
+	"math"
 	"reflect"
+	"strconv"
 
 	"github.com/rs/zerolog/log"
 )
@@ -25,9 +27,148 @@ func (m RawMessage) Data() interface{} {
 	return m.data
 }
 
+func getComponent(p *Packet, flags uint32, k uint32) float64 {
+	r, _ := p.GetByte()
+	n := int(r)
+	r, _ = p.GetByte()
+	n |= int(r) << 8
+	if flags&(1<<k) > 0 {
+		r, _ = p.GetByte()
+		n |= int(r) << 16
+		if n&0x800000 > 0 {
+			n |= -1 << 24
+		}
+	}
+
+	return float64(n)
+}
+
+func clamp(a int, b int, c int) int {
+	if a < b {
+		return b
+	}
+	if a > c {
+		return c
+	}
+
+	return a
+}
+
+const RAD = math.Pi / 180.0
+
+func vecFromYawPitch(yaw float64, pitch float64, move int, strafe int) Vector {
+	m := Vector{}
+	if move > 0 {
+		m.X = float64(move) * -math.Sin(RAD*yaw)
+		m.Y = float64(move) * math.Cos(RAD*yaw)
+	} else {
+		m.X = 0
+		m.Y = 0
+	}
+
+	if pitch > 0 {
+		m.X *= math.Cos(RAD * pitch)
+		m.Y *= math.Cos(RAD * pitch)
+		m.Z = float64(move) * math.Sin(RAD*pitch)
+	} else {
+		m.Z = 0
+	}
+
+	if strafe > 0 {
+		m.X += float64(strafe) * math.Cos(RAD*yaw)
+		m.Y += float64(strafe) * math.Sin(RAD*yaw)
+	}
+	return m
+}
+
+func readPhysics(p *Packet) PhysicsState {
+	d := PhysicsState{}
+
+	r, _ := p.GetByte()
+	state := r
+	flags, _ := p.GetUint()
+
+	d.O.X = getComponent(p, flags, 0)
+	d.O.Y = getComponent(p, flags, 1)
+	d.O.Z = getComponent(p, flags, 2)
+
+	r, _ = p.GetByte()
+	dir := int(r)
+	r, _ = p.GetByte()
+	dir |= int(r) << 8
+	yaw := dir % 360
+	pitch := clamp(dir/360, 0, 180) - 90
+	r, _ = p.GetByte()
+	roll := clamp(int(r), 0, 180) - 90
+	r, _ = p.GetByte()
+	mag := int(r)
+	if flags&(1<<3) > 0 {
+		r, _ = p.GetByte()
+		mag |= int(r) << 8
+	}
+	r, _ = p.GetByte()
+	dir = int(r)
+	r, _ = p.GetByte()
+	dir |= int(r) << 8
+
+	d.Velocity = vecFromYawPitch(float64(dir%360), float64(clamp(dir/360, 0, 180)-90), 1, 0)
+
+	falling := Vector{}
+	if flags&(1<<4) > 0 {
+		r, _ = p.GetByte()
+		mag := int(r)
+		if flags&(1<<5) > 0 {
+			r, _ = p.GetByte()
+			mag |= int(r) << 8
+		}
+
+		if flags&(1<<6) > 0 {
+			r, _ = p.GetByte()
+			dir = int(r)
+			r, _ = p.GetByte()
+			dir |= int(r) << 8
+			falling = vecFromYawPitch(float64(dir%360), float64(clamp(dir/360, 0, 180)-90), 1, 0)
+		} else {
+			falling = Vector{
+				X: 0,
+				Y: 0,
+				Z: -1,
+			}
+		}
+	}
+
+	d.Falling = falling
+
+	d.Yaw = yaw
+	d.Pitch = pitch
+	d.Roll = roll
+
+	if (state>>4)&2 > 0 {
+		d.Move = -1
+	} else {
+		d.Move = (int(state) >> 4) & 1
+	}
+
+	if (state>>6)&2 > 0 {
+		d.Strafe = -1
+	} else {
+		d.Strafe = (int(state) >> 6) & 1
+	}
+
+	d.State = state & 7
+
+	return d
+}
+
 func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	if value.Kind() != reflect.Struct {
 		return fmt.Errorf("cannot unmarshal non-struct")
+	}
+
+	if type_ == reflect.TypeOf(PhysicsState{}) {
+		state := readPhysics(p)
+		value.Set(reflect.ValueOf(state))
+		return nil
 	}
 
 	for i := 0; i < type_.NumField(); i++ {
@@ -63,6 +204,7 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 				for {
 					peekable := Packet(*p)
 
+					done := false
 					switch cmp {
 					case "gez":
 						endValue, ok := peekable.GetInt()
@@ -72,6 +214,7 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 
 						if endValue < 0 {
 							p.GetInt()
+							done = true
 							break
 						}
 					case "len":
@@ -82,17 +225,48 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 
 						if len(endValue) == 0 {
 							p.GetString()
+							done = true
 							break
 						}
 					}
 
+					if done {
+						break
+					}
+
 					entry := reflect.New(element)
-					log.Info().Msgf("entry kind %s", entry.Elem().Kind().String())
 					err := unmarshalStruct(p, element, entry.Elem())
 					if err != nil {
 						return err
 					}
+
+					reflect.Append(slice, entry.Elem())
 				}
+			case "count":
+				number, haveConst := field.Tag.Lookup("const")
+				var numElements int
+				if haveConst {
+					numElements, _ = strconv.Atoi(number)
+				} else {
+					readElements, ok := p.GetInt()
+					if !ok {
+						return fmt.Errorf("failed to read number of elements")
+					}
+					numElements = int(readElements)
+				}
+
+				for i := 0; i < numElements; i++ {
+					entry := reflect.New(element)
+					err := unmarshalStruct(p, element, entry.Elem())
+					if err != nil {
+						return err
+					}
+
+					reflect.Append(slice, entry.Elem())
+				}
+				break
+			default:
+				return fmt.Errorf("unhandled end type: %s", endType)
 			}
 
 			fieldValue.Set(slice)
@@ -158,6 +332,8 @@ func Read(b []byte) (*[]Message, error) {
 		var message Message
 		var err error
 		switch code {
+		case N_CONNECT:
+			message, err = Unmarshal(&p, N_CONNECT, &Connect{})
 		case N_SERVINFO:
 			message, err = Unmarshal(&p, N_SERVINFO, &ServerInfo{})
 		case N_WELCOME:

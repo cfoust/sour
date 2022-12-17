@@ -1,9 +1,9 @@
 package game
 
 type Vector struct {
-	X int
-	Y int
-	Z int
+	X float64
+	Y float64
+	Z float64
 }
 
 type PhysicsState struct {

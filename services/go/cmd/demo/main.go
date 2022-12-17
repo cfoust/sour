@@ -6,10 +6,13 @@ import (
 	"encoding/binary"
 	"flag"
 	"io"
-	"log"
 	"os"
+	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+
+	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 )
 
 type DemoHeader struct {
@@ -19,29 +22,31 @@ type DemoHeader struct {
 }
 
 type SectionHeader struct {
-	Millis int32
+	Millis  int32
 	Channel int32
-	Length int32
+	Length  int32
 }
 
 func main() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
+
 	flag.Parse()
 	args := flag.Args()
 
 	if len(args) != 1 {
-		log.Fatal("You must provide only a single argument.")
+		log.Fatal().Msg("You must provide only a single argument.")
 	}
 
 	file, err := os.Open(args[0])
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("could not open demo")
 	}
 
 	gz, err := gzip.NewReader(file)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("could not unzip demo")
 	}
 
 	defer file.Close()
@@ -58,8 +63,14 @@ func main() {
 		err = binary.Read(reader, binary.LittleEndian, &section)
 
 		bytes := make([]byte, section.Length)
-		reader.Read(bytes)
-		log.Print(game.Read(bytes))
-		break
+		numRead, _ := reader.Read(bytes)
+		if numRead == 0 {
+			break
+		}
+		_, err = game.Read(bytes[:numRead])
+		if err != nil {
+			log.Error().Err(err).Msg("failed to parse messages")
+			break
+		}
 	}
 }

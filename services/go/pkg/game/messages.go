@@ -1,13 +1,22 @@
 package game
 
+// N_CONNECT
+type Connect struct {
+	Name            string
+	Model           int
+	Password        string
+	AuthDescription string
+	AuthName        string
+}
+
 // N_SERVINFO
 type ServerInfo struct {
-	Client           int
-	Protocol_version int
-	Sessionid        int
-	Haspwd           int
-	Description      string
-	Domain           string
+	Client      int
+	Protocol    int
+	SessionId   int
+	HasPassword int
+	Description string
+	Domain      string
 }
 
 // N_WELCOME
@@ -133,24 +142,27 @@ type SpawnState struct {
 	} `type:"count" const:"6"`
 }
 
+type ClientState struct {
+	Id           int
+	State        int
+	Frags        int
+	Flags        int
+	Deaths       int
+	Quadmillis   int
+	Lifesequence int
+	Health       int
+	Maxhealth    int
+	Armour       int
+	Armourtype   int
+	Gunselect    int
+	Ammo         []struct {
+		Amount int
+	} `type:"count" const:"6"`
+}
+
 // N_RESUME
 type Resume struct {
-	Clients []struct {
-		State        int
-		Frags        int
-		Flags        int
-		Quadmillis   int
-		Client       int
-		Lifesequence int
-		Health       int
-		Maxhealth    int
-		Armour       int
-		Armourtype   int
-		Gunselect    int
-		Ammo         []struct {
-			Amount int
-		} `type:"count" const:"6"`
-	} `type:"term" cmp:"gez"`
+	Clients []ClientState `type:"term" cmp:"gez"`
 }
 
 // N_INITFLAGS
