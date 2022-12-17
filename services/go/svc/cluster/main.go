@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/game/messages"
 	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
@@ -96,7 +95,7 @@ func (server *Cluster) PollServer(ctx context.Context, gameServer *servers.GameS
 			parsed := game.Packet(parseData)
 			msgType, haveType := parsed.GetInt()
 			if haveType && msgType != -1 {
-				log.Debug().Str("code", messages.MessageCode(msgType).String()).Msg("server -> client")
+				log.Debug().Str("code", game.MessageCode(msgType).String()).Msg("server -> client")
 			}
 
 			gamePacket := game.GamePacket{
@@ -128,7 +127,7 @@ func (server *Cluster) StartServers(ctx context.Context) {
 
 func (server *Cluster) SendServerMessage(client clients.Client, message string) {
 	packet := game.Packet{}
-	packet.PutInt(int32(messages.N_SERVMSG))
+	packet.PutInt(int32(game.N_SERVMSG))
 	message = fmt.Sprintf("%s %s", game.Yellow("sour"), message)
 	packet.PutString(message)
 	client.Send(game.GamePacket{
@@ -353,7 +352,7 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 
 			passthrough := func() {
 				if DEBUG {
-					logger.Debug().Str("code", messages.MessageCode(type_).String()).Msg("client -> server")
+					logger.Debug().Str("code", game.MessageCode(type_).String()).Msg("client -> server")
 				}
 				state.Mutex.Lock()
 				if state.Server != nil && state.Server == msg.Dest {
@@ -365,7 +364,7 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 			// Intercept commands and run them first
 			if msg.Channel == 1 &&
 				haveType &&
-				type_ == int32(messages.N_TEXT) &&
+				type_ == int32(game.N_TEXT) &&
 				haveText &&
 				strings.HasPrefix(command, "#") {
 

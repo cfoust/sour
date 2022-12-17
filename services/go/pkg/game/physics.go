@@ -1,4 +1,4 @@
-package messages
+package game
 
 type Vector struct {
 	X int
@@ -13,7 +13,6 @@ type PhysicsState struct {
 	Yaw          int
 	Roll         int
 	Pitch        int
-	Strafe       int
 	Strafe       int
 	O            Vector
 	Falling      Vector

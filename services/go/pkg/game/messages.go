@@ -1,6 +1,4 @@
-package messages
-
-import ()
+package game
 
 // N_SERVINFO
 type ServerInfo struct {
@@ -100,9 +98,9 @@ type CurrentMaster struct {
 
 // N_MAPCHANGE
 type MapChange struct {
-	Map_name string
-	Mode_num int
-	Hasitems int
+	Name     string
+	Mode     int
+	HasItems int
 }
 
 // N_TEAMINFO
