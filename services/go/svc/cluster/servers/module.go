@@ -481,7 +481,7 @@ type ServerManager struct {
 	Servers []*GameServer
 	Receive chan []byte
 
-	presets           map[string]config.ServerPreset
+	presets           []config.ServerPreset
 	maps              *assets.MapFetcher
 	serverDescription string
 	serverPath        string
@@ -490,7 +490,7 @@ type ServerManager struct {
 	workingDir string
 }
 
-func NewServerManager(maps *assets.MapFetcher, serverDescription string, presets map[string]config.ServerPreset) *ServerManager {
+func NewServerManager(maps *assets.MapFetcher, serverDescription string, presets []config.ServerPreset) *ServerManager {
 	return &ServerManager{
 		Servers:           make([]*GameServer, 0),
 		maps:              maps,
@@ -696,8 +696,8 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 }
 
 func (manager *ServerManager) FindPreset(presetName string) opt.Option[config.ServerPreset] {
-	for name, preset := range manager.presets {
-		if name == presetName || (len(presetName) == 0 && preset.Default) {
+	for _, preset := range manager.presets {
+		if preset.Name == presetName || (len(presetName) == 0 && preset.Default) {
 			return opt.Some[config.ServerPreset](preset)
 		}
 	}

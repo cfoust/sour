@@ -45,7 +45,7 @@ cluster:
   # Server presets are templates for starting new servers, typically by a user through #creategame.
   # A mapping from preset name -> preset settings.
   presets:
-    default:
+    - name: "default" 
       # This means that if the user does not specify a config, we use this preset.
       default: true
       # If a config refers to a file that exists, we will just use that to start the server

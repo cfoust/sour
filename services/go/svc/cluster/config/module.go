@@ -7,6 +7,7 @@ import (
 )
 
 type ServerPreset struct {
+	Name string
 	Default bool
 	Config string
 }
@@ -31,7 +32,7 @@ type ClusterIngress struct {
 type ClusterSettings struct {
 	Enabled           bool
 	Assets            []string
-	Presets           map[string]ServerPreset
+	Presets           []ServerPreset
 	Servers           []ServerConfig
 	ServerDescription string
 	Ingress           ClusterIngress
