@@ -1,4 +1,4 @@
-package cubecode
+package messages
 
 import (
 	"fmt"
@@ -365,3 +365,19 @@ func (e MessageCode) String() string {
 		return fmt.Sprintf("%d", int(e))
 	}
 }
+
+const (
+	GUN_FIST uint16 = 0
+	GUN_SG
+	GUN_CG
+	GUN_RL
+	GUN_RIFLE
+	GUN_GL
+	GUN_PISTOL
+	GUN_FIREBALL
+	GUN_ICEBALL
+	GUN_SLIMEBALL
+	GUN_BITE
+	GUN_BARREL
+	NUMGUNS
+)
