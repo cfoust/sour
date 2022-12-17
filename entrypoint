@@ -14,21 +14,8 @@ fi
 # Update env vars in the source code
 (cd /app/ && sed -i -e "s{__SOUR_CONFIG__{$SOUR_CONFIG{g" index.js)
 
-run_proxy() {
-  wsproxy 28785
-}
-
-run_cluster() {
-  cd /qserv
-  cluster
-}
-
-run_site() {
-  nginx -g 'daemon off;'
-}
-
-run_proxy &
-run_cluster &
-run_site &
+wsproxy 28785 &
+cluster &
+nginx -g 'daemon off;' &
 
 tail -F /bin/entrypoint
