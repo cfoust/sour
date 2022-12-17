@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/watcher"
-	"github.com/cfoust/sour/pkg/game"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/rs/zerolog/log"
@@ -93,6 +93,7 @@ type GenericMessage struct {
 type WSClient struct {
 	id         uint16
 	host       string
+	status     clients.ClientStatus
 	toClient   chan game.GamePacket
 	toServer   chan game.GamePacket
 	commands   chan clients.ClusterCommand
@@ -103,6 +104,7 @@ type WSClient struct {
 
 func NewWSClient() *WSClient {
 	return &WSClient{
+		status:     clients.ClientStatusConnected,
 		toClient:   make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
 		toServer:   make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
 		commands:   make(chan clients.ClusterCommand, clients.CLIENT_MESSAGE_LIMIT),
@@ -117,6 +119,14 @@ func (c *WSClient) Id() uint16 {
 
 func (c *WSClient) Host() string {
 	return c.host
+}
+
+func (c *WSClient) Status() clients.ClientStatus {
+	return c.status
+}
+
+func (c *WSClient) Destroy() {
+	c.status = clients.ClientStatusDisconnected
 }
 
 func (c *WSClient) Connect() {

@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/cfoust/sour/pkg/enet"
-	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/svc/cluster/clients"
 
 	"github.com/rs/zerolog/log"
 )
@@ -16,6 +16,7 @@ type ENetClient struct {
 	id         uint16
 	peer       *enet.Peer
 	host       *enet.Host
+	status     clients.ClientStatus
 	cancel     context.CancelFunc
 	toClient   chan game.GamePacket
 	toServer   chan game.GamePacket
@@ -43,6 +44,14 @@ func (c *ENetClient) Host() string {
 }
 
 func (c *ENetClient) Connect() {
+}
+
+func (c *ENetClient) Status() clients.ClientStatus {
+	return c.status
+}
+
+func (c *ENetClient) Destroy() {
+	c.status = clients.ClientStatusDisconnected
 }
 
 func (c *ENetClient) Type() clients.ClientType {

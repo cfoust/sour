@@ -3,6 +3,7 @@ package clients
 import (
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -32,10 +33,18 @@ const (
 	ClientTypeENet
 )
 
+type ClientStatus uint8
+
+const (
+	ClientStatusConnected = iota
+	ClientStatusDisconnected
+)
+
 type Client interface {
 	// Get a string identifier for this client for logging purposes.
 	// This does not have to be unique.
 	Reference() string
+	Status() ClientStatus
 	Id() uint16
 	Host() string
 	SetId(newId uint16)
@@ -53,6 +62,7 @@ type Client interface {
 	ReceiveDisconnect() <-chan bool
 	// Forcibly disconnect this client
 	Disconnect(reason int, message string)
+	Destroy()
 }
 
 type ClientState struct {
@@ -99,6 +109,34 @@ func (c *ClientManager) newClientID() (uint16, error) {
 	return 0, errors.New("Failed to assign client ID")
 }
 
+func (c *ClientManager) GetState(client Client) *ClientState {
+	c.Mutex.Lock()
+	state, ok := c.Clients[client]
+	c.Mutex.Unlock()
+
+	if !ok {
+		return nil
+	}
+	return state
+}
+
+func (c *ClientManager) MoveClient(client Client, server *servers.GameServer) error {
+	state := c.GetState(client)
+	if state == nil {
+		return fmt.Errorf("could not find state for client")
+	}
+
+	if state.Server != nil {
+		state.Server.SendDisconnect(client.Id())
+	}
+
+	state.Server = server
+	server.SendConnect(client.Id())
+	client.Connect()
+
+	return nil
+}
+
 func (c *ClientManager) AddClient(client Client) error {
 	id, err := c.newClientID()
 	if err != nil {
@@ -119,6 +157,17 @@ func (c *ClientManager) AddClient(client Client) error {
 	}
 
 	return nil
+}
+
+func SendServerMessage(client Client, message string) {
+	packet := game.Packet{}
+	packet.PutInt(int32(game.N_SERVMSG))
+	message = fmt.Sprintf("%s %s", game.Yellow("sour"), message)
+	packet.PutString(message)
+	client.Send(game.GamePacket{
+		Channel: 1,
+		Data:    packet,
+	})
 }
 
 func (c *ClientManager) RemoveClient(client Client) {

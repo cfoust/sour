@@ -45,21 +45,14 @@ type GameServer struct {
 	rawBroadcasts chan game.GamePacket
 	broadcasts    chan messages.Message
 
-	disconnects chan ForceDisconnect
 	mapRequests chan MapRequest
-	packets     chan ClientPacket
-}
 
-func (server *GameServer) ReceiveDisconnects() <-chan ForceDisconnect {
-	return server.disconnects
+	disconnects chan ForceDisconnect
+	packets     chan ClientPacket
 }
 
 func (server *GameServer) ReceiveMapRequests() <-chan MapRequest {
 	return server.mapRequests
-}
-
-func (server *GameServer) ReceivePackets() <-chan ClientPacket {
-	return server.packets
 }
 
 func (server *GameServer) ReceiveBroadcasts() <-chan messages.Message {
@@ -426,9 +419,14 @@ func (server *GameServer) Wait() {
 	logger.Info().Msg("exited")
 }
 
-func (server *GameServer) Start(ctx context.Context) {
+func (server *GameServer) Start(ctx context.Context) error {
 	logger := server.Log()
 	tick := time.NewTicker(250 * time.Millisecond)
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*10)
+
+	defer cancel()
+
 	exitChannel := make(chan bool, 1)
 
 	go server.Wait()
@@ -454,13 +452,16 @@ func (server *GameServer) Start(ctx context.Context) {
 				}
 				go server.PollWrites(ctx)
 				go server.PollEvents(ctx)
+
+				exitChannel <- true
 			}
 		}
 
 		select {
 		case <-exitChannel:
-		case <-ctx.Done():
-			return
+			return nil
+		case <-timeoutCtx.Done():
+			return fmt.Errorf("starting server timed out")
 		case <-tick.C:
 			continue
 		}

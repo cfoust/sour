@@ -90,6 +90,17 @@ type ServerManager struct {
 	mutex             sync.Mutex
 	// The working directory of all of the servers
 	workingDir string
+
+	disconnects chan ForceDisconnect
+	packets     chan ClientPacket
+}
+
+func (manager *ServerManager) ReceiveDisconnects() <-chan ForceDisconnect {
+	return manager.disconnects
+}
+
+func (manager *ServerManager) ReceivePackets() <-chan ClientPacket {
+	return manager.packets
 }
 
 func NewServerManager(maps *assets.MapFetcher, serverDescription string, presets []config.ServerPreset) *ServerManager {
@@ -343,11 +354,11 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string) 
 		send:          make(chan []byte, 1),
 		NumClients:    0,
 		LastEvent:     time.Now(),
-		disconnects:   make(chan ForceDisconnect, 10),
+		disconnects:   manager.disconnects,
+		packets:       manager.packets,
 		rawBroadcasts: make(chan game.GamePacket, 10),
 		broadcasts:    make(chan messages.Message, 10),
 		mapRequests:   make(chan MapRequest, 10),
-		packets:       make(chan ClientPacket, 10),
 	}
 
 	// We don't want other servers to start while this one is being started

@@ -21,13 +21,13 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client clients.
 
 	for {
 		gameServer.Mutex.Lock()
-		clients := gameServer.NumClients
+		numClients := gameServer.NumClients
 		gameServer.Mutex.Unlock()
 
-		log.Info().Msgf("warning: %d", clients)
+		log.Info().Msgf("warning: %d", numClients)
 
-		if clients < 2 {
-			server.SendServerMessage(client, message)
+		if numClients < 2 {
+			clients.SendServerMessage(client, message)
 		} else {
 			return
 		}
@@ -82,23 +82,10 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 
 		logger = logger.With().Str("server", gameServer.Reference()).Logger()
 
-		go gameServer.Start(server.serverCtx)
-		go server.PollServer(server.serverCtx, gameServer)
-
-		tick := time.NewTicker(250 * time.Millisecond)
-		for {
-			status := gameServer.GetStatus()
-			if status == servers.ServerOK {
-				logger.Info().Msg("server ok")
-				break
-			}
-
-			select {
-			case <-ctx.Done():
-				return "", errors.New("server start timed out")
-			case <-tick.C:
-				continue
-			}
+		err = gameServer.Start(server.serverCtx)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("server failed to start")
+			return "", errors.New("server failed to start")
 		}
 
 		server.lastCreate[client.Host()] = time.Now()
@@ -113,7 +100,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 		}
 
 		if client.Type() == clients.ClientTypeENet {
-			go server.GivePrivateMatchHelp(ctx, client, state.Server)
+			go server.GivePrivateMatchHelp(server.serverCtx, client, state.Server)
 		}
 
 		state.Mutex.Unlock()

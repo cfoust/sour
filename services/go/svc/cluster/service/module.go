@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -60,15 +59,12 @@ func NewCluster(ctx context.Context, serverManager *servers.ServerManager, setti
 	return server
 }
 
-func (server *Cluster) PollServer(ctx context.Context, gameServer *servers.GameServer) {
-	forceDisconnects := gameServer.ReceiveDisconnects()
-	gamePackets := gameServer.ReceivePackets()
-	broadcasts := gameServer.ReceiveBroadcasts()
+func (server *Cluster) PollServers(ctx context.Context) {
+	forceDisconnects := server.manager.ReceiveDisconnects()
+	gamePackets := server.manager.ReceivePackets()
 
 	for {
 		select {
-		case msg := <-broadcasts:
-			log.Debug().Msgf("got broadcast: %s", msg.Type().String())
 		case event := <-forceDisconnects:
 			log.Info().Msgf("client forcibly disconnected %d %s", event.Reason, event.Text)
 
@@ -108,6 +104,7 @@ func (server *Cluster) PollServer(ctx context.Context, gameServer *servers.GameS
 }
 
 func (server *Cluster) StartServers(ctx context.Context) {
+	go server.PollServers(ctx)
 	for _, serverConfig := range server.settings.Servers {
 		gameServer, err := server.manager.NewServer(ctx, serverConfig.Preset)
 		if err != nil {
@@ -117,20 +114,8 @@ func (server *Cluster) StartServers(ctx context.Context) {
 		gameServer.Alias = serverConfig.Alias
 
 		go gameServer.Start(ctx)
-		go server.PollServer(ctx, gameServer)
 	}
 	go server.manager.PruneServers(ctx)
-}
-
-func (server *Cluster) SendServerMessage(client clients.Client, message string) {
-	packet := game.Packet{}
-	packet.PutInt(int32(game.N_SERVMSG))
-	message = fmt.Sprintf("%s %s", game.Yellow("sour"), message)
-	packet.PutString(message)
-	client.Send(game.GamePacket{
-		Channel: 1,
-		Data:    packet,
-	})
 }
 
 type DestPacket struct {
@@ -144,7 +129,12 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 	commands := client.ReceiveCommands()
 	disconnect := client.ReceiveDisconnect()
 
+	// A context valid JUST for the lifetime of the client
+	clientCtx, cancel := context.WithCancel(ctx)
+
 	logger := log.With().Uint16("client", client.Id()).Logger()
+
+	defer client.Destroy()
 
 	// Tag messages with the server that the client was connected to
 	toServerTagged := make(chan DestPacket, clients.CLIENT_MESSAGE_LIMIT)
@@ -170,6 +160,7 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 	for {
 		select {
 		case <-ctx.Done():
+			cancel()
 			return
 		case msg := <-toServerTagged:
 			data := msg.Data
@@ -202,7 +193,7 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 				// Only send this packet after we've checked
 				// whether the cluster should handle it
 				go func() {
-					response, err := server.RunCommandWithTimeout(ctx, command, client, state)
+					response, err := server.RunCommandWithTimeout(clientCtx, command, client, state)
 
 					if len(response) == 0 && err == nil {
 						passthrough()
@@ -210,10 +201,10 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 					}
 
 					if err != nil {
-						server.SendServerMessage(client, game.Red(err.Error()))
+						clients.SendServerMessage(client, game.Red(err.Error()))
 						return
 					} else if len(response) > 0 {
-						server.SendServerMessage(client, response)
+						clients.SendServerMessage(client, response)
 						return
 					}
 
@@ -231,13 +222,14 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 			outChannel := request.Response
 
 			go func() {
-				response, err := server.RunCommandWithTimeout(ctx, command, client, state)
+				response, err := server.RunCommandWithTimeout(clientCtx, command, client, state)
 				outChannel <- clients.CommandResult{
 					Err:      err,
 					Response: response,
 				}
 			}()
 		case <-disconnect:
+			cancel()
 			state.Mutex.Lock()
 			if state.Server != nil {
 				state.Server.SendDisconnect(client.Id())
