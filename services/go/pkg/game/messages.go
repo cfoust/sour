@@ -91,9 +91,9 @@ type SetTeam struct {
 type CurrentMaster struct {
 	Mastermode int
 	Clients    []struct {
-		Client    int `type:"term" cmp:"gez"`
+		Client    int
 		Privilege int
-	}
+	} `type:"term" cmp:"gez"`
 }
 
 // N_MAPCHANGE
@@ -106,9 +106,9 @@ type MapChange struct {
 // N_TEAMINFO
 type TeamInfo struct {
 	Teams []struct {
-		Team  string `type:"term" cmp:"gz"`
+		Team  string
 		Frags int
-	}
+	} `type:"term" cmp:"len"`
 }
 
 // N_INITCLIENT
@@ -136,7 +136,7 @@ type SpawnState struct {
 // N_RESUME
 type Resume struct {
 	Clients []struct {
-		State        int `type:"term" cmp:"gez"`
+		State        int
 		Frags        int
 		Flags        int
 		Quadmillis   int
@@ -150,7 +150,7 @@ type Resume struct {
 		Ammo         []struct {
 			Amount int
 		} `type:"count" const:"6"`
-	}
+	} `type:"term" cmp:"gez"`
 }
 
 // N_INITFLAGS
@@ -284,10 +284,10 @@ type InitTokens struct {
 		Z     int
 	} `type:"count"`
 
-	Clienttokens []struct {
-		Client int `type:"term" cmp:"gez"`
+	ClientTokens []struct {
+		Client int
 		Count  int
-	}
+	} `type:"term" cmp:"gez"`
 }
 
 // N_TAKETOKEN
@@ -300,8 +300,8 @@ type TakeToken struct {
 // N_EXPIRETOKENS
 type ExpireTokens struct {
 	Tokens []struct {
-		Token int `type:"term" cmp:"gez"`
-	}
+		Token int
+	} `type:"term" cmp:"gez"`
 }
 
 // N_DROPTOKENS
@@ -311,10 +311,10 @@ type DropTokens struct {
 	Dropy  int
 	Dropz  int
 	Tokens []struct {
-		Token int `type:"term" cmp:"gez"`
+		Token int
 		Team  int
 		Yaw   int
-	}
+	} `type:"term" cmp:"gez"`
 }
 
 // N_STEALTOKENS
@@ -328,10 +328,10 @@ type StealTokens struct {
 	Dropy     int
 	Dropz     int
 	Tokens    []struct {
-		Token int `type:"term" cmp:"gez"`
+		Token int
 		Team  int
 		Yaw   int
-	}
+	} `type:"term" cmp:"gez"`
 }
 
 // N_DEPOSITTOKENS
@@ -347,9 +347,9 @@ type DepositTokens struct {
 // N_ITEMLIST
 type ItemList struct {
 	Items []struct {
-		Item_index int `type:"term" cmp:"gez"`
-		Item_type  int
-	}
+		Index int
+		Type  int
+	} `type:"term" cmp:"gez"`
 }
 
 // N_ITEMSPAWN
