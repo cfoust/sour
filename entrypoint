@@ -5,7 +5,7 @@ set -e
 CONFIG_DIR=${CONFIG_DIR:-/sour/config}
 
 # Validate the user's configuration and export the combined config
-SOUR_CONFIG=$(cue export /sour/schema.cue /sour/default-config.yaml $CONFIG_DIR/*.{json,yaml,cue})
+export SOUR_CONFIG=$(cue export /sour/schema.cue /sour/default-config.yaml $CONFIG_DIR/*.{json,yaml,cue})
 
 if [ -z "$SOUR_CONFIG" ]; then
   echo "A Sour config must be defined."
@@ -20,8 +20,6 @@ run_proxy() {
 
 run_cluster() {
   cd /qserv
-  export QSERV_LOBBY_CONFIG=/qserv/config/server-init.cfg
-  export ASSET_SOURCE="http://localhost:1234/assets/.index.json"
   cluster
 }
 
