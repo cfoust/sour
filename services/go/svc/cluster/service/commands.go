@@ -142,6 +142,9 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 		}
 
 		logger.Warn().Msgf("could not find server: %s", target)
+
+	case "queue":
+		server.matches.Queue(client)
 	}
 
 	return "", nil

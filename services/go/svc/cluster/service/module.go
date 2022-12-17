@@ -41,17 +41,20 @@ type Cluster struct {
 
 	settings      config.ClusterSettings
 	manager       *servers.ServerManager
+	matches       *Matchmaker
 	serverCtx     context.Context
 	serverMessage chan []byte
 }
 
 func NewCluster(ctx context.Context, serverManager *servers.ServerManager, settings config.ClusterSettings) *Cluster {
+	clients := clients.NewClientManager()
 	server := &Cluster{
 		serverCtx:     ctx,
 		settings:      settings,
 		hostServers:   make(map[string]*servers.GameServer),
 		lastCreate:    make(map[string]time.Time),
-		Clients:       clients.NewClientManager(),
+		Clients:       clients,
+		matches:       NewMatchmaker(serverManager, clients),
 		serverMessage: make(chan []byte, 1),
 		manager:       serverManager,
 	}

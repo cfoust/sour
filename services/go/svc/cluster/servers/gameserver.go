@@ -176,11 +176,14 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 	buffer := make([]byte, 5242880)
 	for {
 		if ctx.Err() != nil {
+			log.Error().Err(ctx.Err()).Msg("context error while polling")
 			return
 		}
 
+		log.Info().Msgf("reading from server socket")
 		numBytes, err := (*server.socket).Read(buffer)
 		if err != nil {
+			log.Error().Err(err).Msg("error while reading from socket")
 			continue
 		}
 
@@ -190,6 +193,7 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 
 		result := make([]byte, numBytes)
 		copy(result, buffer[:numBytes])
+		log.Debug().Msgf("got %d bytes from server", numBytes)
 		out <- result
 	}
 }
@@ -229,6 +233,7 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case msg := <-socketWrites:
+			log.Debug().Msgf("received write")
 			p := game.Packet(msg)
 
 			for len(p) > 0 {
@@ -236,6 +241,8 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 				if !ok {
 					break
 				}
+
+				log.Debug().Msgf("got write from server of type %d", type_)
 
 				if type_ == SERVER_EVENT_REQUEST_MAP {
 					mapName, ok := p.GetString()
