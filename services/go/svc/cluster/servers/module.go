@@ -23,6 +23,7 @@ import (
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/assets"
+	"github.com/cfoust/sour/svc/cluster/config"
 
 	"github.com/repeale/fp-go"
 	"github.com/repeale/fp-go/option"
@@ -95,6 +96,9 @@ type GameServer struct {
 	command *exec.Cmd
 	exit    chan bool
 	send    chan []byte
+
+	configFile  string
+	description string
 
 	disconnects chan ForceDisconnect
 	mapRequests chan MapRequest
@@ -173,7 +177,7 @@ func (server *GameServer) IsReference(reference string) bool {
 
 func (server *GameServer) Reference() string {
 	if server.Alias != "" {
-		return fmt.Sprintf("%s-%s", server.Alias, server.Id)
+		return server.Alias
 	}
 	return server.Id
 }
@@ -205,6 +209,11 @@ func (server *GameServer) Shutdown() {
 	// Remove the socket if it's there
 	if _, err := os.Stat(server.path); !os.IsNotExist(err) {
 		os.Remove(server.path)
+	}
+
+	// And the config file
+	if _, err := os.Stat(server.configFile); !os.IsNotExist(err) {
+		os.Remove(server.configFile)
 	}
 }
 
@@ -449,12 +458,10 @@ func (server *GameServer) Start(ctx context.Context) {
 				server.socket = conn
 				server.Mutex.Unlock()
 
-				name := server.Id
-				if len(server.Alias) > 0 {
-					name = server.Alias
+				if len(server.description) > 0 {
+					replaced := strings.Replace(server.description, "#id", server.Reference(), -1)
+					go server.SendCommand(fmt.Sprintf("serverdesc \"%s\"", replaced))
 				}
-
-				go server.SendCommand(fmt.Sprintf("serverdesc \"Sour [%s]\"", name))
 				go server.PollWrites(ctx)
 				go server.PollEvents(ctx)
 			}
@@ -474,17 +481,21 @@ type ServerManager struct {
 	Servers []*GameServer
 	Receive chan []byte
 
-	maps       *assets.MapFetcher
-	serverPath string
-	mutex      sync.Mutex
+	presets           map[string]config.ServerPreset
+	maps              *assets.MapFetcher
+	serverDescription string
+	serverPath        string
+	mutex             sync.Mutex
 	// The working directory of all of the servers
 	workingDir string
 }
 
-func NewServerManager(maps *assets.MapFetcher) *ServerManager {
+func NewServerManager(maps *assets.MapFetcher, serverDescription string, presets map[string]config.ServerPreset) *ServerManager {
 	return &ServerManager{
-		Servers: make([]*GameServer, 0),
-		maps:    maps,
+		Servers:           make([]*GameServer, 0),
+		maps:              maps,
+		serverDescription: serverDescription,
+		presets:           presets,
 	}
 }
 
@@ -684,7 +695,48 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 	}
 }
 
-func (manager *ServerManager) NewServer(ctx context.Context, configPath string) (*GameServer, error) {
+func (manager *ServerManager) FindPreset(presetName string) opt.Option[config.ServerPreset] {
+	for name, preset := range manager.presets {
+		if name == presetName || (len(presetName) == 0 && preset.Default) {
+			return opt.Some[config.ServerPreset](preset)
+		}
+	}
+
+	return opt.None[config.ServerPreset]()
+}
+
+// Resolve a config string either to a file on the filesystem, or write one.
+func (manager *ServerManager) ResolveConfig(config string) (filepath string, err error) {
+	// If it exists, just resolve to that file path.
+	if _, err := os.Stat(config); err == nil {
+		return config, nil
+	}
+
+	temp, err := ioutil.TempFile(manager.workingDir, "server-config")
+	if err != nil {
+		return "", err
+	}
+
+	temp.Write([]byte(config))
+
+	return temp.Name(), nil
+}
+
+func (manager *ServerManager) NewServer(ctx context.Context, presetName string) (*GameServer, error) {
+	found := manager.FindPreset(presetName)
+
+	if opt.IsNone(found) {
+		return nil, fmt.Errorf("failed to find server preset %s and there is no default", presetName)
+	}
+
+	preset := found.Value
+
+	resolvedConfig, err := manager.ResolveConfig(preset.Config)
+	if err != nil {
+		return nil, err
+	}
+	log.Info().Msgf("using config %s", resolvedConfig)
+
 	server := GameServer{
 		send:        make(chan []byte, 1),
 		NumClients:  0,
@@ -702,16 +754,18 @@ func (manager *ServerManager) NewServer(ctx context.Context, configPath string) 
 	identity := FindIdentity()
 
 	server.Id = identity.Hash
+	server.configFile = resolvedConfig
 
 	cmd := exec.CommandContext(
 		ctx,
 		manager.serverPath,
 		fmt.Sprintf("-S%s", identity.Path),
-		fmt.Sprintf("-C%s", configPath),
+		fmt.Sprintf("-C%s", server.configFile),
 	)
 
 	cmd.Dir = manager.workingDir
 
+	server.description = manager.serverDescription
 	server.command = cmd
 	server.path = identity.Path
 	server.exit = make(chan bool, 1)

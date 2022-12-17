@@ -29,6 +29,7 @@ client:
 proxy:
   enabled: true
 
+# Sour clusters host game servers.
 cluster:
   enabled: true
   assets:
@@ -41,10 +42,66 @@ cluster:
   # #id is replaced with the server's identifier.
   serverDescription: "Sour [#id]"
 
+  # Server presets are templates for starting new servers, typically by a user through #creategame.
+  # A mapping from preset name -> preset settings.
   presets:
     default:
-      config: "/sour/server-init.cfg"
+      # This means that if the user does not specify a config, we use this preset.
+      default: true
+      # You can specify a CubeScript configuration for the server inline.
+      config: |
+        qserv_version "17"
+        servermotd "Press Esc twice to change your name or adjust game options."
+        maxclients 32
+        defaultgamespeed 100
+        defaultmodename "ffa"
+        defaultmap "complex"
+        autosendmap 1
+        enable_passflag 1
+        instacoop 0
+        serverflagruns 1
+        addbanner "^f7Sour ^f7is available online ^f1www.github.com/cfoust/sour^f7."
+        addbanner "^f1[Tip]: ^f7Use ^f2#mapsucks ^f7to vote for an intermission."
+        serverbotbalance 1
+        lockmaprotation 0
+        ffamaps = [
+          complex dust2 turbine
+        ]
+        maprotationreset
+        maprotation "*" $ffamaps
 
+        maxteamkills 7
+        teamkillkickreset
+        teamkillkick "?capture" 10 30
+        maxdemos 10
+        updatemaster 0
+        enablemultiplemasters 0
+        serverconnectmsg 1
+        welcomewithname 1
+        no_single_private 0
+        pingwarncustommsg "A little lagspike was detected, we just wanted to let you know."
+        restrictpausegame 1
+        restrictgamespeed 1
+        restrictdemos 0
+    empty:
+      # If a config refers to a file that exists, we will just use that to start the server
+      config: /sour/config/server-init.cfg
+
+  ingress:
+    # Describes all of the ways desktop clients can join this cluster
+    desktop:
+      # The UDP port to listen on
+      - port: 28785
+        # The cluster command to run when an ENet client joins
+        # This command must result in the client joining a server.
+        command: join lobby
+    # And web clients
+    web:
+      port: 29999
+
+  # These are all of the servers that will be started when the cluster starts.
   servers:
+    # An alias replaces the ID of a server. For example, users could run
+    # #join lobby (on desktop) or /join lobby (on the web)
     - alias: lobby
       preset: default

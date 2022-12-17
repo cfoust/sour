@@ -6,5 +6,4 @@ cd "$SCRIPT_DIR"
 yarn install
 
 trap 'kill $(jobs -p)' EXIT
-echo "$SOUR_CONFIG"
 yarn serve

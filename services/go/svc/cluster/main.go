@@ -14,6 +14,7 @@ import (
 	"github.com/cfoust/sour/pkg/game/cubecode"
 	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/clients"
+	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
@@ -46,35 +47,24 @@ type Cluster struct {
 	// each host can only have one server at once
 	hostServers map[string]*servers.GameServer
 
+	settings      config.ClusterSettings
 	manager       *servers.ServerManager
 	serverCtx     context.Context
 	serverMessage chan []byte
 }
 
-func NewCluster(ctx context.Context, maps *assets.MapFetcher) *Cluster {
+func NewCluster(ctx context.Context, serverManager *servers.ServerManager, settings config.ClusterSettings) *Cluster {
 	server := &Cluster{
 		serverCtx:     ctx,
+		settings:      settings,
 		hostServers:   make(map[string]*servers.GameServer),
 		lastCreate:    make(map[string]time.Time),
 		clients:       clients.NewClientManager(),
 		serverMessage: make(chan []byte, 1),
-		manager:       servers.NewServerManager(maps),
+		manager:       serverManager,
 	}
 
 	return server
-}
-
-func (server *Cluster) StartPresetServer(ctx context.Context) (*servers.GameServer, error) {
-	// Default in development
-	configPath := "../server/config/server-init.cfg"
-
-	if envPath, ok := os.LookupEnv("QSERV_LOBBY_CONFIG"); ok {
-		configPath = envPath
-	}
-
-	gameServer, err := server.manager.NewServer(ctx, configPath)
-
-	return gameServer, err
 }
 
 func (server *Cluster) PollServer(ctx context.Context, gameServer *servers.GameServer) {
@@ -122,15 +112,17 @@ func (server *Cluster) PollServer(ctx context.Context, gameServer *servers.GameS
 }
 
 func (server *Cluster) StartServers(ctx context.Context) {
-	gameServer, err := server.StartPresetServer(ctx)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to create server")
+	for _, serverConfig := range server.settings.Servers {
+		gameServer, err := server.manager.NewServer(ctx, serverConfig.Preset)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to create server")
+		}
+
+		gameServer.Alias = serverConfig.Alias
+
+		go gameServer.Start(ctx)
+		go server.PollServer(ctx, gameServer)
 	}
-
-	gameServer.Alias = "lobby"
-
-	go gameServer.Start(ctx)
-	go server.PollServer(ctx, gameServer)
 	go server.manager.PruneServers(ctx)
 }
 
@@ -200,7 +192,12 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 
 		logger.Info().Msg("starting server")
 
-		gameServer, err := server.StartPresetServer(server.serverCtx)
+		presetName := ""
+		if len(args) > 1 {
+			presetName = args[1]
+		}
+
+		gameServer, err := server.manager.NewServer(server.serverCtx, presetName)
 		if err != nil {
 			logger.Fatal().Err(err).Msg("failed to create server")
 			return "", errors.New("failed to create server")
@@ -450,44 +447,48 @@ func main() {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
-	if config, ok := os.LookupEnv("SOUR_CONFIG"); ok {
-		log.Info().Msg(config)
+	sourConfig, err := config.GetSourConfig()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to load sour configuration, please specify one with the SOUR_CONFIG environment variable")
 	}
+
+	clusterConfig := sourConfig.Cluster
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	maps := assets.NewMapFetcher()
-	if assetSource, ok := os.LookupEnv("ASSET_SOURCE"); ok {
-		sources := strings.Split(assetSource, ";")
-		err := maps.FetchIndices(sources)
+	err = maps.FetchIndices(clusterConfig.Assets)
 
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to load assets")
-		}
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to load assets")
 	}
 
-	cluster := NewCluster(ctx, maps)
+	serverManager := servers.NewServerManager(maps, clusterConfig.ServerDescription, clusterConfig.Presets)
+	cluster := NewCluster(ctx, serverManager, clusterConfig)
 
-	err := cluster.manager.Start()
+	err = cluster.manager.Start()
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to start server manager")
 	}
 
 	wsIngress := ingress.NewWSIngress(cluster.clients)
 
-	enetIngress := ingress.NewENetIngress(cluster.clients)
-	enetIngress.Serve(28785)
-	enetIngress.InitialCommand = "join lobby"
-
-	go enetIngress.Poll(ctx)
+	enet := make([]*ingress.ENetIngress, 0)
+	for _, enetConfig := range clusterConfig.Ingress.Desktop {
+		enetIngress := ingress.NewENetIngress(cluster.clients)
+		enetIngress.Serve(enetConfig.Port)
+		enetIngress.InitialCommand = enetConfig.Command
+		go enetIngress.Poll(ctx)
+		enet = append(enet, enetIngress)
+	}
 
 	go cluster.StartServers(ctx)
 	go cluster.PollClients(ctx)
 
 	errc := make(chan error, 1)
 	go func() {
-		errc <- wsIngress.Serve(ctx, 29999)
+		errc <- wsIngress.Serve(ctx, clusterConfig.Ingress.Web.Port)
 	}()
 
 	sigs := make(chan os.Signal, 1)
@@ -502,6 +503,8 @@ func main() {
 	}
 
 	wsIngress.Shutdown(ctx)
-	enetIngress.Shutdown()
+	for _, enetIngress := range enet {
+		enetIngress.Shutdown()
+	}
 	cluster.Shutdown()
 }

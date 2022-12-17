@@ -3,17 +3,16 @@
 set -e
 
 CONFIG_DIR=${CONFIG_DIR:-/sour/config}
-SOUR_CONFIG="/sour/config.json"
 
 # Validate the user's configuration and export the combined config
-cue export \
-  /sour/schema.cue \
-  /sour/default-config.yaml \
-  $CONFIG_DIR/config/*.{json,yaml,cue} > "$SOUR_CONFIG"
+SOUR_CONFIG=$(cue export /sour/schema.cue /sour/default-config.yaml $CONFIG_DIR/*.{json,yaml,cue})
+
+if [ -z "$SOUR_CONFIG" ]; then
+  echo "A Sour config must be defined."
+fi
 
 # Update env vars in the source code
-ASSET_SOURCE=${ASSET_SOURCE:-/assets/.index.json}
-(cd /app/ && sed -i -e "s{__ASSET_SOURCE__{$ASSET_SOURCE{g" index.js)
+(cd /app/ && sed -i -e "s{__SOUR_CONFIG__{$SOUR_CONFIG{g" index.js)
 
 run_proxy() {
   wsproxy 28785
