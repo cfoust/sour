@@ -119,6 +119,7 @@ func (server *Cluster) StartServers(ctx context.Context) {
 		go gameServer.Start(ctx)
 	}
 	go server.manager.PruneServers(ctx)
+	go server.matches.Poll(ctx)
 }
 
 type DestPacket struct {

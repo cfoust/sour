@@ -35,6 +35,7 @@ func NewMatchmaker(manager *servers.ServerManager, clients *clients.ClientManage
 }
 
 func (m *Matchmaker) Queue(client clients.Client) {
+	clients.SendServerMessage(client, "you are now queued for dueling")
 	m.mutex.Lock()
 	m.queue = append(m.queue, QueuedClient{
 		client:   client,

@@ -109,6 +109,7 @@ func NewServerManager(maps *assets.MapFetcher, serverDescription string, presets
 		maps:              maps,
 		serverDescription: serverDescription,
 		presets:           presets,
+		packets:           make(chan ClientPacket, 100),
 	}
 }
 

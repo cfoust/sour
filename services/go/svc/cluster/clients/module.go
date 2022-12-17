@@ -126,11 +126,15 @@ func (c *ClientManager) MoveClient(client Client, server *servers.GameServer) er
 		return fmt.Errorf("could not find state for client")
 	}
 
+	state.Mutex.Lock()
+
 	if state.Server != nil {
 		state.Server.SendDisconnect(client.Id())
 	}
 
 	state.Server = server
+	defer state.Mutex.Unlock()
+
 	server.SendConnect(client.Id())
 	client.Connect()
 

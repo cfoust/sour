@@ -41,7 +41,6 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client clients.
 	}
 }
 
-
 func (server *Cluster) RunCommand(ctx context.Context, command string, client clients.Client, state *clients.ClientState) (string, error) {
 	logger := log.With().Uint16("client", client.Id()).Str("command", command).Logger()
 	logger.Info().Msg("running command")
@@ -155,6 +154,8 @@ func (server *Cluster) RunCommandWithTimeout(ctx context.Context, command string
 
 	resultChannel := make(chan clients.CommandResult)
 
+	defer cancel()
+
 	go func() {
 		response, err := server.RunCommand(ctx, command, client, state)
 		resultChannel <- clients.CommandResult{
@@ -165,10 +166,10 @@ func (server *Cluster) RunCommandWithTimeout(ctx context.Context, command string
 
 	select {
 	case result := <-resultChannel:
-		cancel()
 		return result.Response, result.Err
 	case <-ctx.Done():
 		cancel()
 		return "", errors.New("command timed out")
 	}
+
 }

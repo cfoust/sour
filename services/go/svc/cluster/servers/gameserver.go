@@ -180,10 +180,8 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 			return
 		}
 
-		log.Info().Msgf("reading from server socket")
 		numBytes, err := (*server.socket).Read(buffer)
 		if err != nil {
-			log.Error().Err(err).Msg("error while reading from socket")
 			continue
 		}
 
@@ -193,7 +191,6 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 
 		result := make([]byte, numBytes)
 		copy(result, buffer[:numBytes])
-		log.Debug().Msgf("got %d bytes from server", numBytes)
 		out <- result
 	}
 }
