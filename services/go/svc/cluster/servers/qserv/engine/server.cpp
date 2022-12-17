@@ -305,6 +305,19 @@ void sendpacket(int n, int chan, ENetPacket *packet, int exclude)
     if(n<0)
     {
         server::recordpacket(chan, packet->data, packet->dataLength);
+
+        if (socketCtl.isConnected() && clients.length() > 0) {
+            // We want the cluster to be able to see all of the broadcasts that
+            // happen instead of having to sort through client messages.
+            packetbuf p(MAXTRANS);
+            putuint(p, SERVER_EVENT_BROADCAST);
+            putuint(p, packet->dataLength);
+            putuint(p, chan);
+            p.put(packet->data, packet->dataLength);
+            ENetPacket *newPacket = p.finalize();
+            socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+        }
+
         loopv(clients) {
             if(i!=exclude && server::allowbroadcast(i)) sendpacket(i, chan, packet);
         }

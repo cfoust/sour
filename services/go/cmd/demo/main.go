@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/messages"
 
 	"github.com/rs/zerolog/log"
 	"github.com/rs/zerolog"
@@ -67,7 +67,7 @@ func main() {
 		if numRead == 0 {
 			break
 		}
-		_, err = game.Read(bytes[:numRead])
+		_, err = messages.Read(bytes[:numRead])
 		if err != nil {
 			log.Error().Err(err).Msg("failed to parse messages")
 			break

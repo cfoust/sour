@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/messages"
 	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/config"
 
@@ -54,6 +55,7 @@ const (
 
 const (
 	SERVER_EVENT_PACKET uint32 = iota
+	SERVER_EVENT_BROADCAST
 	SERVER_EVENT_DISCONNECT
 	SERVER_EVENT_REQUEST_MAP
 )
@@ -100,6 +102,9 @@ type GameServer struct {
 	configFile  string
 	description string
 
+	rawBroadcasts chan game.GamePacket
+	broadcasts    chan messages.Message
+
 	disconnects chan ForceDisconnect
 	mapRequests chan MapRequest
 	packets     chan ClientPacket
@@ -115,6 +120,10 @@ func (server *GameServer) ReceiveMapRequests() <-chan MapRequest {
 
 func (server *GameServer) ReceivePackets() <-chan ClientPacket {
 	return server.packets
+}
+
+func (server *GameServer) ReceiveBroadcasts() <-chan messages.Message {
+	return server.broadcasts
 }
 
 func (server *GameServer) sendMessage(data []byte) {
@@ -252,10 +261,35 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 	}
 }
 
+func (server *GameServer) DecodeMessages(ctx context.Context) {
+	for {
+		select {
+		case bundle := <-server.rawBroadcasts:
+			// TODO handle files?
+			if bundle.Channel == 2 {
+				continue
+			}
+
+			decoded, err := messages.Read(bundle.Data)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to decode message from server")
+			}
+
+			for _, message := range decoded {
+				log.Debug().Msgf("decoded server message %s", message.Type().String())
+				server.broadcasts <- message
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func (server *GameServer) PollEvents(ctx context.Context) {
 	socketWrites := make(chan []byte, 16)
 
 	go server.PollReads(ctx, socketWrites)
+	go server.DecodeMessages(ctx)
 
 	for {
 		select {
@@ -309,13 +343,29 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 						Reason: reason,
 						Text:   reasonText,
 					}
-
 				}
 
 				numBytes, ok := p.GetUint()
 				if !ok {
 					break
 				}
+
+				if type_ == SERVER_EVENT_BROADCAST {
+					chan_, ok := p.GetUint()
+					if !ok {
+						break
+					}
+
+					data := p[:numBytes]
+					p = p[len(data):]
+
+					server.rawBroadcasts <- game.GamePacket{
+						Data:    data,
+						Channel: uint8(chan_),
+					}
+					break
+				}
+
 				id, ok := p.GetUint()
 				if !ok {
 					break
@@ -738,12 +788,14 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string) 
 	log.Info().Msgf("using config %s", resolvedConfig)
 
 	server := GameServer{
-		send:        make(chan []byte, 1),
-		NumClients:  0,
-		LastEvent:   time.Now(),
-		disconnects: make(chan ForceDisconnect, 10),
-		mapRequests: make(chan MapRequest, 10),
-		packets:     make(chan ClientPacket, 10),
+		send:          make(chan []byte, 1),
+		NumClients:    0,
+		LastEvent:     time.Now(),
+		disconnects:   make(chan ForceDisconnect, 10),
+		rawBroadcasts: make(chan game.GamePacket, 10),
+		broadcasts:    make(chan messages.Message, 10),
+		mapRequests:   make(chan MapRequest, 10),
+		packets:       make(chan ClientPacket, 10),
 	}
 
 	// We don't want other servers to start while this one is being started

@@ -1,4 +1,8 @@
-package game
+package messages
+
+import (
+	"github.com/cfoust/sour/pkg/game"
+)
 
 // N_CONNECT
 type Connect struct {
@@ -38,7 +42,7 @@ type Pong struct {
 // N_POS
 type Pos struct {
 	Client int
-	State  PhysicsState
+	State  game.PhysicsState
 }
 
 // N_SERVMSG
@@ -49,6 +53,7 @@ type ServerMessage struct {
 // N_PAUSEGAME
 type PauseGame struct {
 	Value int
+	Client int
 }
 
 // N_TIMEUP
@@ -604,10 +609,10 @@ type Damage struct {
 
 // N_DIED
 type Died struct {
-	Client       int
-	Killer       int
-	Frags        int
-	Victim_frags int
+	Client      int
+	Killer      int
+	Frags       int
+	VictimFrags int
 }
 
 // N_FORCEDEATH
@@ -652,8 +657,6 @@ type ClientInfo struct {
 	Client      int
 	Nummessages int
 }
-
-const GUN_COUNT = GUN_PISTOL - GUN_SG + 1
 
 // N_SPAWN
 type Spawn struct {

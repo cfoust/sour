@@ -69,9 +69,12 @@ func NewCluster(ctx context.Context, serverManager *servers.ServerManager, setti
 func (server *Cluster) PollServer(ctx context.Context, gameServer *servers.GameServer) {
 	forceDisconnects := gameServer.ReceiveDisconnects()
 	gamePackets := gameServer.ReceivePackets()
+	broadcasts := gameServer.ReceiveBroadcasts()
 
 	for {
 		select {
+		case msg := <-broadcasts:
+			log.Debug().Msgf("got broadcast: %s", msg.Type().String())
 		case event := <-forceDisconnects:
 			log.Info().Msgf("client forcibly disconnected %d %s", event.Reason, event.Text)
 
@@ -420,7 +423,6 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 	}
 }
 
-// When a new client is created, go
 func (server *Cluster) PollClients(ctx context.Context) {
 	newClients := server.clients.ReceiveClients()
 
