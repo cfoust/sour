@@ -3,7 +3,8 @@ package game
 import (
 	"reflect"
 	"fmt"
-	"log"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Message interface {
@@ -24,6 +25,47 @@ func (m RawMessage) Data() interface{} {
 	return m.data
 }
 
+func unmarshalStruct(p Packet, type_ reflect.Type, value reflect.Value) error {
+	if value.Kind() != reflect.Struct {
+		return fmt.Errorf("cannot unmarshal non-struct")
+	}
+
+	for i := 0; i < type_.NumField(); i++ {
+		field := type_.Field(i)
+		fieldValue := value.Field(i)
+		ref := fmt.Sprintf("%s.%s", type_.Name(), field.Name)
+
+		log.Debug().Str("ref", ref).Msg("parsing field")
+
+		tag := field.Tag
+		if len(tag) > 0 {
+			return fmt.Errorf("unhandled tag %s: %s", ref, tag)
+		}
+
+		switch field.Type.Kind() {
+		case reflect.Int:
+			readValue, ok := p.GetInt()
+			if !ok {
+				return fmt.Errorf("error reading int %s", ref)
+			}
+			fieldValue.SetInt(int64(readValue))
+		case reflect.String:
+			readValue, ok := p.GetString()
+			if !ok {
+				return fmt.Errorf("error reading string %s", ref)
+			}
+			fieldValue.SetString(readValue)
+		case reflect.Struct:
+			err := unmarshalStruct(p, field.Type, fieldValue)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func Unmarshal(p Packet, code MessageCode, message interface{}) (Message, error) {
 	raw := RawMessage{
 		code: code,
@@ -31,12 +73,16 @@ func Unmarshal(p Packet, code MessageCode, message interface{}) (Message, error)
 	}
 
 	type_ := reflect.TypeOf(message)
-	for i := 0; i < type_.NumField(); i++ {
-		field := type_.Field(i)
-		log.Print(field.Name)
+	value := reflect.ValueOf(message)
+
+	if value.Kind() != reflect.Ptr {
+		return nil, fmt.Errorf("can't unmarshal non-pointer")
 	}
 
-	return raw, nil
+	log.Debug().Str("type", type_.Elem().Name()).Msg("parsing message")
+	err := unmarshalStruct(p, type_.Elem(), value.Elem())
+
+	return raw, err
 }
 
 func Read(b []byte) (*[]Message, error) {
@@ -55,9 +101,9 @@ func Read(b []byte) (*[]Message, error) {
 		var err error
 		switch code {
 		case N_WELCOME:
-			message, err = Unmarshal(p, N_WELCOME, Welcome{})
+			message, err = Unmarshal(p, N_WELCOME, &Welcome{})
 		case N_MAPCHANGE:
-			message, err = Unmarshal(p, N_MAPCHANGE, MapChange{})
+			message, err = Unmarshal(p, N_MAPCHANGE, &MapChange{})
 		default:
 			return nil, fmt.Errorf("unhandled code %s", code.String())
 		}

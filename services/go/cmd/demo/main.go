@@ -53,13 +53,9 @@ func main() {
 	header := DemoHeader{}
 	err = binary.Read(reader, binary.LittleEndian, &header)
 
-	log.Print(header.Version)
-	log.Print(header.Protocol)
-
 	section := SectionHeader{}
 	for {
 		err = binary.Read(reader, binary.LittleEndian, &section)
-		log.Printf("%d %d %d", section.Millis, section.Channel, section.Length)
 
 		bytes := make([]byte, section.Length)
 		reader.Read(bytes)
