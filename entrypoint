@@ -4,6 +4,8 @@ set -e
 
 CONFIG_DIR=${CONFIG_DIR:-/sour/config}
 
+mkdir -p "$CONFIG_DIR"
+
 # Validate the user's configuration and export the combined config
 export SOUR_CONFIG=$(cue export /sour/schema.cue /sour/default-config.yaml $CONFIG_DIR/*.{json,yaml,cue})
 
