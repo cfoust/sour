@@ -48,7 +48,9 @@ cluster:
     default:
       # This means that if the user does not specify a config, we use this preset.
       default: true
-      # You can specify a CubeScript configuration for the server inline.
+      # If a config refers to a file that exists, we will just use that to start the server
+      #config: /sour/config/server-init.cfg
+      # You can also specify a CubeScript configuration for the server inline.
       config: |
         qserv_version "17"
         servermotd "Press Esc twice to change your name or adjust game options."
@@ -83,9 +85,6 @@ cluster:
         restrictpausegame 1
         restrictgamespeed 1
         restrictdemos 0
-    empty:
-      # If a config refers to a file that exists, we will just use that to start the server
-      config: /sour/config/server-init.cfg
 
   ingress:
     # Describes all of the ways desktop clients can join this cluster
@@ -99,7 +98,7 @@ cluster:
     web:
       port: 29999
 
-  # These are all of the servers that will be started when the cluster starts.
+  # These are all of the game servers that will be started when the cluster starts.
   servers:
     # An alias replaces the ID of a server. For example, users could run
     # #join lobby (on desktop) or /join lobby (on the web)

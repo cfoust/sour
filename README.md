@@ -68,7 +68,7 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Ensure Sour works in Firefox
 * [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Full Terraform support for deploying Sour
-* [ ] Allow parts of Sour to be configured with a high-level configuration file
+* [X] Allow parts of Sour to be configured with a high-level configuration file
 ### Gameplay
 * [X] CTF still doesn't work and flags don't show up
 * [ ] Modern multiplayer
@@ -76,12 +76,12 @@ Check out the roadmap below to see what you might be able to help with.
   * [X] Arbitrary creation and hot swapping of users between servers
   * [X] Allow users to create private servers
     * [X] Update the URL to the current server on join eg `sourga.me/server/127.0.0.1:28785`
+  * [X] Creating servers from presets
+  * [X] Stretch: allow desktop clients full access to Sour clusters
   * [ ] Handle failure to connect from link
   * [ ] LRU cache for map fetching
-  * [ ] Creating servers from presets
   * [ ] Matchmaking (1v1)
   * [ ] Stretch: ELO
-  * [X] Stretch: allow desktop clients full access to Sour clusters
 * [ ] Allow for backgrounding the tab by responding to pings
 * [ ] Simple, beautiful main menu
   * [ ] Clean loading page for slow connections
