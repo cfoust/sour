@@ -60,7 +60,6 @@ image-slim:
   RUN apt-get update && apt-get install -y nginx libenet-dev
   COPY config/schema.cue /sour/schema.cue
   COPY config/default-config.yaml /sour/default-config.yaml
-  COPY config/server-init.cfg /sour/config/server-init.cfg
   COPY +goexe/cluster /bin/cluster
   COPY +proxy/wsproxy /bin/wsproxy
   COPY +game/game /app/game/
