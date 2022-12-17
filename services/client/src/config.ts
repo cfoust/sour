@@ -19,8 +19,17 @@ function fillHost(url: string): string {
     .replace('#protocol', window.location.protocol)
 }
 
+function getInjected(): Maybe<string> {
+  try {
+    const injected = INJECTED_SOUR_CONFIG
+    return injected
+  } catch (e) {
+    return null
+  }
+}
+
 function init() {
-  const config = process.env.SOUR_CONFIG
+  const config = getInjected() ?? process.env.SOUR_CONFIG
   if (config == null) {
     new Error('no configuration provided')
     return

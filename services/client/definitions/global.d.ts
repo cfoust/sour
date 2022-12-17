@@ -90,6 +90,8 @@ declare const FS: {
 declare const ASSET_SOURCE: string
 declare const GAME_SERVER: string
 
+declare const INJECTED_SOUR_CONFIG: Maybe<string>
+
 type BananaBreadType = {
   conoutf: (level: number, message: string) => void
   execute: (command: string) => void

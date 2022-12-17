@@ -13,8 +13,10 @@ if [ -z "$SOUR_CONFIG" ]; then
   echo "A Sour config must be defined."
 fi
 
-# Update env vars in the source code
-(cd /app/ && sed -i -e "s{__SOUR_CONFIG__{$SOUR_CONFIG{g" index.js)
+# Inject the runtime configuration into the frontend's code
+echo "const INJECTED_SOUR_CONFIG = $SOUR_CONFIG;" >> /tmp/out.js
+cat /app/index.js >> /tmp/out.js
+cp /tmp/out.js /app/index.js
 
 wsproxy 28785 &
 cluster &
