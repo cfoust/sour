@@ -19,23 +19,28 @@ function fillHost(url: string): string {
     .replace('#protocol', window.location.protocol)
 }
 
-function getInjected(): Maybe<string> {
+function getInjected(): Maybe<Configuration> {
   try {
     const injected = INJECTED_SOUR_CONFIG
-    return injected
+    return injected.client
   } catch (e) {
     return null
   }
 }
 
 function init() {
-  const config = getInjected() ?? process.env.SOUR_CONFIG
-  if (config == null) {
-    new Error('no configuration provided')
-    return
-  }
+  const config = getInjected()
+  if (config != null) {
+    CONFIG = config
+  } else {
+    const configStr = process.env.SOUR_CONFIG
+    if (configStr == null) {
+      new Error('no configuration provided')
+      return
+    }
 
-  CONFIG = JSON.parse(config).client
+    CONFIG = JSON.parse(configStr).client
+  }
 
   CONFIG.assets = R.map((v) => fillHost(v), CONFIG.assets)
   CONFIG.clusters = R.map((v) => fillHost(v), CONFIG.clusters)

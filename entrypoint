@@ -19,7 +19,8 @@ cat /app/index.js >> /tmp/out.js
 cp /tmp/out.js /app/index.js
 
 wsproxy 28785 &
-cluster &
 nginx -g 'daemon off;' &
+sleep 1
+cluster &
 
 tail -F /bin/entrypoint
