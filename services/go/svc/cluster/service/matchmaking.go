@@ -138,21 +138,15 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 
 	logger = logger.With().Str("server", gameServer.Reference()).Logger()
 
-	err = gameServer.Start(ctx)
+	err = gameServer.StartAndWait(ctx)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("server failed to start")
 		failure()
 		return
 	}
 
-	err = gameServer.WaitUntilHealthy(ctx, 15 * time.Second)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("waiting for healthy server timed out")
-		failure()
-		return
-	}
-
 	// Move the clients to the new server
 	m.clients.MoveClient(clientA, gameServer)
+	time.Sleep(1 * time.Second)
 	m.clients.MoveClient(clientB, gameServer)
 }

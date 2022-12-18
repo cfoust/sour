@@ -81,7 +81,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 
 		logger = logger.With().Str("server", gameServer.Reference()).Logger()
 
-		err = gameServer.Start(server.serverCtx)
+		err = gameServer.StartAndWait(server.serverCtx)
 		if err != nil {
 			logger.Fatal().Err(err).Msg("server failed to start")
 			return "", errors.New("server failed to start")

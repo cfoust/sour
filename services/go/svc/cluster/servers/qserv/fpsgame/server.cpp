@@ -3387,13 +3387,9 @@ best.add(clients[i]); \
         ci->connectmillis = totalmillis;
         ci->sessionid = (rnd(0x1000000)*((totalmillis%10000)+1))&0xFFFFFF;
         connects.add(ci);
-        conoutf("a");
         if(ci->isSpecLocked) forcespectator(ci);
-        conoutf("b");
         if(ci->votedmapsucks) ci->votedmapsucks = true;
-        conoutf("c");
         if(!m_mp(gamemode)) return DISC_LOCAL;
-        conoutf("sending server info");
         sendservinfo(ci);
         return DISC_NONE;
     }

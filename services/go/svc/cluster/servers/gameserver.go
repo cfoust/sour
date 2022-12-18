@@ -517,3 +517,16 @@ func (server *GameServer) WaitUntilHealthy(ctx context.Context, timeout time.Dur
 		}
 	}
 }
+
+func (server *GameServer) StartAndWait(ctx context.Context) error {
+	err := server.Start(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = server.WaitUntilHealthy(ctx, 15*time.Second)
+	if err != nil {
+		return err
+	}
+	return nil
+}
