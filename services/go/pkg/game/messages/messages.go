@@ -4,6 +4,242 @@ import (
 	"github.com/cfoust/sour/pkg/game"
 )
 
+// N_ADDBOT
+type AddBot struct {
+	NumBots int
+}
+
+// N_AUTHANS
+type AuthAns struct {
+	Description string
+	Answer      string
+}
+
+// N_AUTHKICK
+type AuthKick struct {
+	Description string
+	Answer      string
+	Victim      int
+}
+
+// N_AUTHTRY
+type AuthTry struct {
+	Description string
+	Answer      string
+}
+
+// N_BOTBALANCE
+type BotBalance struct {
+	Balance int
+}
+
+// N_BOTLIMIT
+type BotLimit struct {
+	Limit int
+}
+
+// N_CHECKMAPS
+type CheckMaps struct {
+}
+
+// N_CLEARBANS
+type ClearBans struct {
+}
+
+// N_CLEARDEMOS
+type ClearDemos struct {
+	Demo int
+}
+
+// N_DELBOT
+type DelBot struct {
+}
+
+// N_DEMOPACKET
+type DemoPacket struct {
+}
+
+// N_DEMOPLAYBACK
+type DemoPlayback struct {
+	On     int
+	Client int
+}
+
+// N_EDITVAR
+type EditVar struct {
+	Type int
+	Text string
+	// TODO impl
+	//switch(type)
+	//{
+	//case ID_VAR: getint(p); break;
+	//case ID_FVAR: getfloat(p); break;
+	//case ID_SVAR: getstring(text, p);
+	//}
+}
+
+// N_EDITVSLOT
+type EditVSlot struct {
+	Sel_ox     int
+	Sel_oy     int
+	Sel_oz     int
+	Sel_sx     int
+	Sel_sy     int
+	Sel_sz     int
+	Sel_grid   int
+	Sel_orient int
+	Sel_cx     int
+	Sel_cxs    int
+	Sel_cy     int
+	Sel_cys    int
+	Sel_corner int
+	Delta      int
+	AllFaces   int
+	// TODO impl
+	Extra1 byte
+	Extra2 byte
+}
+
+type Hit struct {
+	Target       int
+	Lifesequence int
+	// TODO impl this calc
+	// hit.dist = getint(p)/DMF;
+	Dist int
+	Rays int
+	// TODO
+	// hit.dir[k] = getint(p)/DMF;
+	Dir0 int
+	Dir1 int
+	Dir2 int
+}
+
+// N_EXPLODE
+type Explode struct {
+	Cmillis int
+	Gun     int
+	Id      int
+	Hits    []Hit `type:"count"`
+}
+
+// N_FORCEINTERMISSION
+type ForceIntermission struct {
+}
+
+// N_FROMAI
+type FromAI struct {
+	Qcn int
+	// TODO impl
+	//else
+	//{
+	//cq = getinfo(qcn);
+	//if(cq && qcn != sender && cq->ownernum != sender) cq = NULL;
+	//}
+}
+
+// N_GAMESPEED
+type GameSpeed struct {
+	Speed int
+}
+
+// N_GETDEMO
+type GetDemo struct {
+	Demo int
+	Tag  int
+}
+
+// N_GETMAP
+type GetMap struct {
+}
+
+// N_ITEMPICKUP
+type ItemPickup struct {
+	Item int
+}
+
+// N_KICK
+type Kick struct {
+	Victim int
+	Reason string
+}
+
+// N_LISTDEMOS
+type ListDemos struct {
+}
+
+// N_MAPCRC
+type MapCRC struct {
+	Map string
+	Crc int
+}
+
+// N_MAPVOTE
+type MapVote struct {
+	Map  string
+	Mode int
+}
+
+// N_RECORDDEMO
+type RecordDemo struct {
+	Enabled int
+}
+
+// N_REDO
+type Redo struct {
+	// TODO impl
+}
+
+// N_SENDMAP
+type SendMap struct {
+	// TODO impl
+}
+
+// N_SERVCMD
+type ServCMD struct {
+	Command string
+}
+
+// N_SETMASTER
+type SetMaster struct {
+	Client int
+	Master int
+}
+
+// N_SHOOT
+type Shoot struct {
+	Id     int
+	Gun    int
+	From0  int
+	From1  int
+	From2  int
+	To0    int
+	To1    int
+	To2    int
+	Hits   []Hit `type:"count"`
+}
+
+// N_STOPDEMO
+type StopDemo struct {
+}
+
+// N_SUICIDE
+type Suicide struct {
+}
+
+// N_SWITCHTEAM
+type SwitchTeam struct {
+	Team string
+}
+
+// N_TRYDROPFLAG
+type TryDropFlag struct {
+}
+
+// N_UNDO
+type Undo struct {
+	// TODO impl
+}
+
 // N_CONNECT
 type Connect struct {
 	Name            string
@@ -57,7 +293,7 @@ type ServerMessage struct {
 
 // N_PAUSEGAME
 type PauseGame struct {
-	Value int
+	Value  int
 	Client int
 }
 

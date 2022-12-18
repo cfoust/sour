@@ -305,7 +305,7 @@ func Unmarshal(p *game.Packet, code game.MessageCode, message interface{}) (Mess
 	p.GetInt()
 
 	raw := RawMessage{
-		code: code,
+		code:    code,
 		message: message,
 	}
 
@@ -346,6 +346,78 @@ func Read(b []byte) ([]Message, error) {
 		var message Message
 		var err error
 		switch code {
+		case game.N_ADDBOT:
+			message, err = Unmarshal(&p, game.N_ADDBOT, &AddBot{})
+		case game.N_AUTHANS:
+			message, err = Unmarshal(&p, game.N_AUTHANS, &AuthAns{})
+		case game.N_AUTHKICK:
+			message, err = Unmarshal(&p, game.N_AUTHKICK, &AuthKick{})
+		case game.N_AUTHTRY:
+			message, err = Unmarshal(&p, game.N_AUTHTRY, &AuthTry{})
+		case game.N_BOTBALANCE:
+			message, err = Unmarshal(&p, game.N_BOTBALANCE, &BotBalance{})
+		case game.N_BOTLIMIT:
+			message, err = Unmarshal(&p, game.N_BOTLIMIT, &BotLimit{})
+		case game.N_CHECKMAPS:
+			message, err = Unmarshal(&p, game.N_CHECKMAPS, &CheckMaps{})
+		case game.N_CLEARBANS:
+			message, err = Unmarshal(&p, game.N_CLEARBANS, &ClearBans{})
+		case game.N_CLEARDEMOS:
+			message, err = Unmarshal(&p, game.N_CLEARDEMOS, &ClearDemos{})
+		case game.N_DELBOT:
+			message, err = Unmarshal(&p, game.N_DELBOT, &DelBot{})
+		case game.N_DEMOPACKET:
+			message, err = Unmarshal(&p, game.N_DEMOPACKET, &DemoPacket{})
+		case game.N_DEMOPLAYBACK:
+			message, err = Unmarshal(&p, game.N_DEMOPLAYBACK, &DemoPlayback{})
+		//case game.N_EDITVAR:
+			//message, err = Unmarshal(&p, game.N_EDITVAR, &Editvar{})
+		case game.N_EDITVSLOT:
+			message, err = Unmarshal(&p, game.N_EDITVSLOT, &EditVSlot{})
+		case game.N_EXPLODE:
+			message, err = Unmarshal(&p, game.N_EXPLODE, &Explode{})
+		case game.N_FORCEINTERMISSION:
+			message, err = Unmarshal(&p, game.N_FORCEINTERMISSION, &ForceIntermission{})
+		//case game.N_FROMAI:
+			//message, err = Unmarshal(&p, game.N_FROMAI, &Fromai{})
+		case game.N_GAMESPEED:
+			message, err = Unmarshal(&p, game.N_GAMESPEED, &GameSpeed{})
+		case game.N_GETDEMO:
+			message, err = Unmarshal(&p, game.N_GETDEMO, &GetDemo{})
+		case game.N_GETMAP:
+			message, err = Unmarshal(&p, game.N_GETMAP, &GetMap{})
+		case game.N_ITEMPICKUP:
+			message, err = Unmarshal(&p, game.N_ITEMPICKUP, &ItemPickup{})
+		case game.N_KICK:
+			message, err = Unmarshal(&p, game.N_KICK, &Kick{})
+		case game.N_LISTDEMOS:
+			message, err = Unmarshal(&p, game.N_LISTDEMOS, &ListDemos{})
+		case game.N_MAPCRC:
+			message, err = Unmarshal(&p, game.N_MAPCRC, &MapCRC{})
+		case game.N_MAPVOTE:
+			message, err = Unmarshal(&p, game.N_MAPVOTE, &MapVote{})
+		case game.N_RECORDDEMO:
+			message, err = Unmarshal(&p, game.N_RECORDDEMO, &RecordDemo{})
+		//case game.N_REDO:
+			//message, err = Unmarshal(&p, game.N_REDO, &Redo{})
+		//case game.N_SENDMAP:
+			//message, err = Unmarshal(&p, game.N_SENDMAP, &Sendmap{})
+		case game.N_SERVCMD:
+			message, err = Unmarshal(&p, game.N_SERVCMD, &ServCMD{})
+		case game.N_SETMASTER:
+			message, err = Unmarshal(&p, game.N_SETMASTER, &SetMaster{})
+		case game.N_SHOOT:
+			message, err = Unmarshal(&p, game.N_SHOOT, &Shoot{})
+		case game.N_STOPDEMO:
+			message, err = Unmarshal(&p, game.N_STOPDEMO, &StopDemo{})
+		case game.N_SUICIDE:
+			message, err = Unmarshal(&p, game.N_SUICIDE, &Suicide{})
+		case game.N_SWITCHTEAM:
+			message, err = Unmarshal(&p, game.N_SWITCHTEAM, &SwitchTeam{})
+		case game.N_TRYDROPFLAG:
+			message, err = Unmarshal(&p, game.N_TRYDROPFLAG, &TryDropFlag{})
+		//case game.N_UNDO:
+			//message, err = Unmarshal(&p, game.N_UNDO, &Undo{})
 		case game.N_CONNECT:
 			message, err = Unmarshal(&p, game.N_CONNECT, &Connect{})
 		case game.N_SERVINFO:
