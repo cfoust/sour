@@ -379,7 +379,7 @@ type SpawnState struct {
 	Client       int
 	Lifesequence int
 	Health       int
-	Maxhealth    int
+	MaxHealth    int
 	Armour       int
 	Armourtype   int
 	Gunselect    int
@@ -903,7 +903,7 @@ type ClientInfo struct {
 type Spawn struct {
 	Lifesequence int
 	Health       int
-	Maxhealth    int
+	MaxHealth    int
 	Armour       int
 	Armourtype   int
 	Gunselect    int

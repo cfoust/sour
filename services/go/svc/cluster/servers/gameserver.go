@@ -47,6 +47,7 @@ type GameServer struct {
 
 	mapRequests chan MapRequest
 
+	connects    chan uint32
 	disconnects chan ForceDisconnect
 	packets     chan ClientPacket
 }
@@ -280,6 +281,16 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 
 				if eventType == SERVER_EVENT_HEALTHY {
 					server.SetStatus(ServerHealthy)
+					continue
+				}
+
+				if eventType == SERVER_EVENT_CONNECT {
+					id, ok := p.GetUint()
+					if !ok {
+						break
+					}
+
+					server.connects <- id
 					continue
 				}
 

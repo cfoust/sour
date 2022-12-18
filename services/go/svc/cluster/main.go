@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	DEBUG = false
+	DEBUG = true
 )
 
 func main() {

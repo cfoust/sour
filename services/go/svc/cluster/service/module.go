@@ -63,11 +63,32 @@ func NewCluster(ctx context.Context, serverManager *servers.ServerManager, setti
 }
 
 func (server *Cluster) PollServers(ctx context.Context) {
+	connects := server.manager.ReceiveConnects()
 	forceDisconnects := server.manager.ReceiveDisconnects()
 	gamePackets := server.manager.ReceivePackets()
 
 	for {
 		select {
+		case id := <-connects:
+			client := server.Clients.FindClient(uint16(id))
+
+			if client == nil {
+				continue
+			}
+
+			state := server.Clients.GetState(client)
+			if state == nil {
+				continue
+			}
+
+			state.Mutex.Lock()
+			log.Info().
+				Uint16("client", client.Id()).
+				Str("server", state.Server.Reference()).
+				Msg("connected to server")
+			state.Status = clients.ClientStatusConnected
+			state.Mutex.Unlock()
+
 		case event := <-forceDisconnects:
 			log.Info().Msgf("client forcibly disconnected %d %s", event.Reason, event.Text)
 
@@ -119,16 +140,6 @@ func (server *Cluster) PollServers(ctx context.Context) {
 					Str("type", message.Type().String()).
 					Uint16("client", client.Id()).
 					Msg("cluster -> client")
-
-				if message.Type() == game.N_WELCOME && state.GetStatus() == clients.ClientStatusConnecting {
-					state.Mutex.Lock()
-					log.Info().
-						Uint16("client", client.Id()).
-						Str("server", state.Server.Reference()).
-						Msg("connected to server")
-					state.Status = clients.ClientStatusConnected
-					state.Mutex.Unlock()
-				}
 
 				client.Send(game.GamePacket{
 					Channel: channel,

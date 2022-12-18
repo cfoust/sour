@@ -459,6 +459,15 @@ void disconnect_socket(int n, int reason) {
     socketCtl.send((char*) newPacket->data, newPacket->dataLength);
 }
 
+void connect_client(int n) {
+    if(!clients.inrange(n) ) return;
+
+    packetbuf p(MAXTRANS);
+    putuint(p, SERVER_EVENT_CONNECT);
+    putuint(p, clients[n]->id);
+    ENetPacket *newPacket = p.finalize();
+    socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+}
 void requestmap(const char *mapname, int mode) {
     packetbuf p(MAXTRANS);
     putuint(p, SERVER_EVENT_REQUEST_MAP);

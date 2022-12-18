@@ -27,12 +27,11 @@ type ENetClient struct {
 	disconnect chan bool
 }
 
-func NewENetClient(cancel context.CancelFunc, host *enet.Host) *ENetClient {
+func NewENetClient() *ENetClient {
 	return &ENetClient{
-		cancel:     cancel,
+		status:     clients.ClientNetworkStatusConnected,
 		toClient:   make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
 		toServer:   make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
-		host:       host,
 		commands:   make(chan clients.ClusterCommand, clients.CLIENT_MESSAGE_LIMIT),
 		disconnect: make(chan bool, 1),
 	}
@@ -170,9 +169,11 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 			case enet.EventTypeConnect:
 				ctx, cancel := context.WithCancel(ctx)
 
-				client := NewENetClient(cancel, server.host)
+				client := NewENetClient()
 				client.peer = event.Peer
 				client.context = ctx
+				client.cancel = cancel
+				client.host = server.host
 
 				err := server.manager.AddClient(client)
 				if err != nil {

@@ -3737,6 +3737,7 @@ best.add(clients[i]); \
             }
         }
         //qs.getLocation(ci);
+        connect_client(ci->clientnum);
     }
 
     int vmessage(int cn, const char *fmt, va_list ap) {

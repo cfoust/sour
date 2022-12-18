@@ -35,6 +35,7 @@ func NewMatchmaker(manager *servers.ServerManager, clients *clients.ClientManage
 }
 
 func (m *Matchmaker) Queue(client clients.Client) {
+	log.Info().Uint16("client", client.Id()).Msg("queued for dueling")
 	clients.SendServerMessage(client, "you are now queued for dueling")
 	m.mutex.Lock()
 	m.queue = append(m.queue, QueuedClient{
@@ -56,11 +57,13 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 		cleaned := make([]QueuedClient, 0)
 		for _, queued := range m.queue {
 			if queued.client.NetworkStatus() == clients.ClientNetworkStatusDisconnected {
+				log.Info().Uint16("client", queued.client.Id()).Msg("pruning disconnected client")
 				continue
 			}
 			cleaned = append(cleaned, queued)
 		}
 		m.queue = cleaned
+
 
 		// Then look to see if we can make any matches
 		matched := make(map[clients.Client]bool, 0)
@@ -84,6 +87,7 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 				matched[queuedB.client] = true
 
 				// We have a match!
+				log.Info().Msg("starting duel")
 				go m.Duel(ctx, queuedA.client, queuedB.client)
 			}
 
@@ -146,7 +150,12 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 	}
 
 	// Move the clients to the new server
-	m.clients.ConnectClient(gameServer, clientA)
-	time.Sleep(1 * time.Second)
-	m.clients.ConnectClient(gameServer, clientB)
+	for _, client := range []clients.Client{clientA, clientB} {
+		m.clients.ConnectClient(gameServer, client)
+		err = m.clients.WaitUntilConnected(ctx, client)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("client failed to connect")
+			failure()
+		}
+	}
 }

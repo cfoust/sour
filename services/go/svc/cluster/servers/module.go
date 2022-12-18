@@ -60,6 +60,8 @@ const (
 	// The server is broadcasting a packet to all clients
 	// We don't want to have to infer this
 	SERVER_EVENT_BROADCAST
+	// The server finished connecting a client
+	SERVER_EVENT_CONNECT
 	// The server forces a client to disconnect
 	SERVER_EVENT_DISCONNECT
 	// The server is requesting a map URL
@@ -74,6 +76,8 @@ func (e ServerEvent) String() string {
 		return "SERVER_EVENT_PACKET"
 	case SERVER_EVENT_BROADCAST:
 		return "SERVER_EVENT_BROADCAST"
+	case SERVER_EVENT_CONNECT:
+		return "SERVER_EVENT_CONNECT"
 	case SERVER_EVENT_DISCONNECT:
 		return "SERVER_EVENT_DISCONNECT"
 	case SERVER_EVENT_REQUEST_MAP:
@@ -117,6 +121,7 @@ type ServerManager struct {
 	// The working directory of all of the servers
 	workingDir string
 
+	connects    chan uint32
 	disconnects chan ForceDisconnect
 	packets     chan ClientPacket
 }
@@ -129,6 +134,10 @@ func (manager *ServerManager) ReceivePackets() <-chan ClientPacket {
 	return manager.packets
 }
 
+func (manager *ServerManager) ReceiveConnects() <-chan uint32 {
+	return manager.connects
+}
+
 func NewServerManager(maps *assets.MapFetcher, serverDescription string, presets []config.ServerPreset) *ServerManager {
 	return &ServerManager{
 		Servers:           make([]*GameServer, 0),
@@ -136,6 +145,8 @@ func NewServerManager(maps *assets.MapFetcher, serverDescription string, presets
 		serverDescription: serverDescription,
 		presets:           presets,
 		packets:           make(chan ClientPacket, 100),
+		disconnects:       make(chan ForceDisconnect, 100),
+		connects:          make(chan uint32, 100),
 	}
 }
 
@@ -382,6 +393,7 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string) 
 		send:          make(chan []byte, 1),
 		NumClients:    0,
 		LastEvent:     time.Now(),
+		connects:      manager.connects,
 		disconnects:   manager.disconnects,
 		packets:       manager.packets,
 		rawBroadcasts: make(chan game.GamePacket, 10),

@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/servers"
@@ -175,6 +176,36 @@ func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client)
 	client.Connect()
 
 	return nil
+}
+
+// Wait for the client to be connected to its server (if it has one.)
+func (c *ClientManager) WaitUntilConnected(ctx context.Context, client Client) error {
+	state := c.GetState(client)
+	if state == nil {
+		return fmt.Errorf("could not find state for client")
+	}
+
+	tick := time.NewTicker(50 * time.Millisecond)
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*10)
+
+	defer cancel()
+
+	for {
+		if state.GetStatus() == ClientStatusConnected {
+			return nil
+		}
+
+		select {
+		case <-tick.C:
+			continue
+		case <-client.Context().Done():
+			return fmt.Errorf("client disconnected")
+		case <-ctx.Done():
+			return fmt.Errorf("parent context finished")
+		case <-timeoutCtx.Done():
+			return fmt.Errorf("timed out")
+		}
+	}
 }
 
 // Mark the client's status as disconnected and cancel its session context.
