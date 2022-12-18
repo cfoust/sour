@@ -39,6 +39,11 @@ type Pong struct {
 	Cmillis int
 }
 
+// N_PING
+type Ping struct {
+	Cmillis int
+}
+
 // N_POS
 type Pos struct {
 	Client int

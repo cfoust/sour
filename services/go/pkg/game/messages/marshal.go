@@ -356,6 +356,8 @@ func Read(b []byte) ([]Message, error) {
 			message, err = Unmarshal(&p, game.N_AUTHCHAL, &AuthChallenge{})
 		case game.N_PONG:
 			message, err = Unmarshal(&p, game.N_PONG, &Pong{})
+		case game.N_PING:
+			message, err = Unmarshal(&p, game.N_PING, &Ping{})
 		case game.N_POS:
 			message, err = Unmarshal(&p, game.N_POS, &Pos{})
 		case game.N_SERVMSG:

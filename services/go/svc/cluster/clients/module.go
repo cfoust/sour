@@ -20,6 +20,7 @@ const (
 )
 
 type CommandResult struct {
+	Handled  bool
 	Err      error
 	Response string
 }
@@ -187,6 +188,7 @@ func (c *ClientManager) ClientDisconnected(client Client) error {
 	state.Mutex.Lock()
 	state.Server = nil
 	state.Status = ClientStatusDisconnected
+	state.cancel()
 	state.Mutex.Unlock()
 
 	return nil

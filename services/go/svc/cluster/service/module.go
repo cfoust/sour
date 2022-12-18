@@ -110,7 +110,6 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
-			// TODO intercept packets and change client status to connected if we get an N_WELCOME
 			channel := uint8(packet.Packet.Channel)
 
 			// As opposed to client -> server, we don't actually need to do any filtering
@@ -177,92 +176,100 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 
 	defer client.Destroy()
 
-	// Tag messages with the server that the client was connected to
-	toServerTagged := make(chan DestPacket, clients.CLIENT_MESSAGE_LIMIT)
-	go func() {
-		for {
-			select {
-			case packet := <-toServer:
-				state.Mutex.Lock()
-				tagged := DestPacket{
-					Data:    packet.Data,
-					Channel: packet.Channel,
-					Dest:    state.Server,
-				}
-				state.Mutex.Unlock()
-
-				toServerTagged <- tagged
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
 	for {
 		select {
 		case <-ctx.Done():
 			cancel()
 			return
-		case msg := <-toServerTagged:
+		case msg := <-toServer:
 			data := msg.Data
 
-			packet := game.Packet(data)
-			type_, haveType := packet.GetInt()
-			command, haveText := packet.GetString()
+			gameMessages, err := messages.Read(data)
+			if err != nil {
+				log.Error().
+					Err(err).
+					Uint16("client", client.Id()).
+					Msg("client -> server (failed to decode message)")
 
-			passthrough := func() {
-				logger.Debug().Str("code", game.MessageCode(type_).String()).Str("server", msg.Dest.Reference()).Msg("client -> server")
+				// Forward it anyway
 				state.Mutex.Lock()
-				if state.Server != nil && state.Server == msg.Dest {
+				if state.Server != nil {
 					state.Server.SendData(client.Id(), uint32(msg.Channel), msg.Data)
+				}
+				state.Mutex.Unlock()
+				continue
+			}
+
+			passthrough := func(message messages.Message) {
+				state.Mutex.Lock()
+				if state.Server != nil {
+					state.Server.SendData(client.Id(), uint32(msg.Channel), message.Data())
 				}
 				state.Mutex.Unlock()
 			}
 
-			// Intercept commands and run them first
-			if msg.Channel == 1 &&
-				haveType &&
-				type_ == int32(game.N_TEXT) &&
-				haveText &&
-				strings.HasPrefix(command, "#") {
+			for _, message := range gameMessages {
+				if message.Type() == game.N_TEXT {
+					text := message.Contents().(*messages.Text).Text
 
-				command := command[1:]
-				logger.Info().Str("command", command).Msg("intercepted command")
+					if strings.HasPrefix(text, "#") {
+						command := text[1:]
+						logger.Info().Str("command", command).Msg("intercepted command")
 
-				// Only send this packet after we've checked
-				// whether the cluster should handle it
-				go func() {
-					response, err := server.RunCommandWithTimeout(clientCtx, command, client, state)
+						// Only send this packet after we've checked
+						// whether the cluster should handle it
+						go func() {
+							handled, response, err := server.RunCommandWithTimeout(clientCtx, command, client, state)
 
-					if len(response) == 0 && err == nil {
-						passthrough()
-						return
+							if !handled {
+								passthrough(message)
+								return
+							}
+
+							if err != nil {
+								clients.SendServerMessage(client, game.Red(err.Error()))
+								return
+							} else if len(response) > 0 {
+								clients.SendServerMessage(client, response)
+								return
+							}
+
+							if command == "help" {
+								passthrough(message)
+							}
+						}()
 					}
+				}
 
-					if err != nil {
-						clients.SendServerMessage(client, game.Red(err.Error()))
-						return
-					} else if len(response) > 0 {
-						clients.SendServerMessage(client, response)
-						return
-					}
+				// Skip messages that aren't allowed while the
+				// client is connecting, otherwise the server
+				// (rightfully) disconnects us. This solves a
+				// race condition when switching servers.
+				state.Mutex.Lock()
+				status := state.Status
+				if status == clients.ClientStatusConnecting && !game.IsConnectingMessage(message.Type()) {
+					state.Mutex.Unlock()
+					continue
+				}
+				state.Mutex.Unlock()
 
-					if command == "help" {
-						passthrough()
-					}
-				}()
-				continue
+				logger.Debug().Str("code", message.Type().String()).Msg("client -> server")
+
+				state.Mutex.Lock()
+				if state.Server != nil {
+					state.Server.SendData(client.Id(), uint32(msg.Channel), message.Data())
+				}
+				state.Mutex.Unlock()
 			}
-
-			passthrough()
 
 		case request := <-commands:
 			command := request.Command
 			outChannel := request.Response
 
 			go func() {
-				response, err := server.RunCommandWithTimeout(clientCtx, command, client, state)
+				handled, response, err := server.RunCommandWithTimeout(clientCtx, command, client, state)
 				outChannel <- clients.CommandResult{
+					Handled:  handled,
 					Err:      err,
 					Response: response,
 				}

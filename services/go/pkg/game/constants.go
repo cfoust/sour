@@ -366,6 +366,16 @@ func (e MessageCode) String() string {
 	}
 }
 
+func IsConnectingMessage(code MessageCode) bool {
+	for _, comparison := range []MessageCode{N_CONNECT, N_AUTHANS, N_PING} {
+		if code == comparison {
+			return true
+		}
+	}
+
+	return false
+}
+
 const (
 	GUN_FIST uint16 = 0
 	GUN_SG
