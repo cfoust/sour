@@ -122,13 +122,17 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 		clients.SendServerMessage(clientB, text)
 	}
 
+	failure := func() {
+		broadcast(game.Red("error starting match server"))
+	}
+
 	broadcast(game.Green("Found a match!"))
 	broadcast("starting match server")
 
 	gameServer, err := m.manager.NewServer(ctx, "1v1")
 	if err != nil {
 		logger.Fatal().Err(err).Msg("failed to create server")
-		broadcast(game.Red("error starting match server"))
+		failure()
 		return
 	}
 
@@ -137,7 +141,14 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 	err = gameServer.Start(ctx)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("server failed to start")
-		broadcast(game.Red("error starting match server"))
+		failure()
+		return
+	}
+
+	err = gameServer.WaitUntilHealthy(ctx, 15 * time.Second)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("waiting for healthy server timed out")
+		failure()
 		return
 	}
 

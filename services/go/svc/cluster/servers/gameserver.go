@@ -112,6 +112,20 @@ func (server *GameServer) GetStatus() ServerStatus {
 	return server.Status
 }
 
+func (server *GameServer) SetStatus(status ServerStatus) {
+	server.Mutex.Lock()
+	server.Status = status
+	server.Mutex.Unlock()
+}
+
+func (server *GameServer) IsRunning() bool {
+	status := server.GetStatus()
+	return status == ServerHealthy ||
+		status == ServerStarting ||
+		status == ServerStarted ||
+		status == ServerLoadingMap
+}
+
 // Whether this string is a reference to this server (either an alias or an id).
 func (server *GameServer) IsReference(reference string) bool {
 	return server.Id == reference || server.Alias == reference
@@ -140,7 +154,7 @@ func (server *GameServer) Log() zerolog.Logger {
 func (server *GameServer) Shutdown() {
 	status := server.GetStatus()
 
-	if status == ServerOK {
+	if status != ServerHealthy {
 		server.command.Process.Kill()
 	}
 
@@ -261,6 +275,11 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 						Map:  mapName,
 						Mode: mode,
 					}
+					continue
+				}
+
+				if eventType == SERVER_EVENT_HEALTHY {
+					server.SetStatus(ServerHealthy)
 					continue
 				}
 
@@ -451,8 +470,7 @@ func (server *GameServer) Start(ctx context.Context) error {
 			if err == nil {
 				logger.Info().Msg("connected")
 				server.Mutex.Lock()
-				server.Status = ServerOK
-				status = ServerOK
+				server.Status = ServerStarted
 				server.socket = conn
 				server.Mutex.Unlock()
 
@@ -470,6 +488,28 @@ func (server *GameServer) Start(ctx context.Context) error {
 		select {
 		case <-exitChannel:
 			return nil
+		case <-timeoutCtx.Done():
+			return fmt.Errorf("starting server timed out")
+		case <-tick.C:
+			continue
+		}
+	}
+}
+
+func (server *GameServer) WaitUntilHealthy(ctx context.Context, timeout time.Duration) error {
+	tick := time.NewTicker(100 * time.Millisecond)
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+
+	defer cancel()
+
+	for {
+		status := server.GetStatus()
+		if status == ServerHealthy {
+			return nil
+		}
+
+		select {
 		case <-timeoutCtx.Done():
 			return fmt.Errorf("starting server timed out")
 		case <-tick.C:

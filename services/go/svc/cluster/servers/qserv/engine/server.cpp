@@ -468,6 +468,13 @@ void requestmap(const char *mapname, int mode) {
     socketCtl.send((char*) newPacket->data, newPacket->dataLength);
 }
 
+void healthy() {
+    packetbuf p(MAXTRANS);
+    putuint(p, SERVER_EVENT_HEALTHY);
+    ENetPacket *newPacket = p.finalize();
+    socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+}
+
 VAR(serverdisconnectmsg, 0, 1, 1); //enable/disable msg
 void disconnect_client(int n, int reason) {
     qs.resetoLangWarn(n);

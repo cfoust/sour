@@ -36,7 +36,9 @@ type ServerStatus byte
 
 const (
 	ServerStarting ServerStatus = iota
-	ServerOK
+	ServerStarted
+	ServerLoadingMap
+	ServerHealthy
 	ServerFailure
 	ServerExited
 )
@@ -53,10 +55,17 @@ const (
 type ServerEvent uint32
 
 const (
+	// The server is sending a packet to a particular client
 	SERVER_EVENT_PACKET ServerEvent = iota
+	// The server is broadcasting a packet to all clients
+	// We don't want to have to infer this
 	SERVER_EVENT_BROADCAST
+	// The server forces a client to disconnect
 	SERVER_EVENT_DISCONNECT
+	// The server is requesting a map URL
 	SERVER_EVENT_REQUEST_MAP
+	// When the server is ready to accept connections (after the map loads)
+	SERVER_EVENT_HEALTHY
 )
 
 func (e ServerEvent) String() string {
@@ -299,6 +308,7 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 	for {
 		select {
 		case request := <-requests:
+			server.SetStatus(ServerLoadingMap)
 			url := manager.maps.FindMapURL(request.Map)
 
 			if opt.IsNone(url) {

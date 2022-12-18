@@ -115,7 +115,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 		}
 
 		for _, gameServer := range server.manager.Servers {
-			if !gameServer.IsReference(target) || gameServer.Status != servers.ServerOK {
+			if !gameServer.IsReference(target) || !gameServer.IsRunning() {
 				continue
 			}
 
