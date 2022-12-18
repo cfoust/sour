@@ -107,7 +107,7 @@ type WSClient struct {
 
 func NewWSClient() *WSClient {
 	return &WSClient{
-		status:     clients.ClientStatusConnected,
+		status:     clients.ClientNetworkStatusConnected,
 		toClient:   make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
 		toServer:   make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
 		commands:   make(chan clients.ClusterCommand, clients.CLIENT_MESSAGE_LIMIT),
