@@ -93,7 +93,7 @@ type GenericMessage struct {
 type WSClient struct {
 	id         uint16
 	host       string
-	status     clients.ClientStatus
+	status     clients.ClientNetworkStatus
 	toClient   chan game.GamePacket
 	toServer   chan game.GamePacket
 	commands   chan clients.ClusterCommand
@@ -121,12 +121,12 @@ func (c *WSClient) Host() string {
 	return c.host
 }
 
-func (c *WSClient) Status() clients.ClientStatus {
+func (c *WSClient) NetworkStatus() clients.ClientNetworkStatus {
 	return c.status
 }
 
 func (c *WSClient) Destroy() {
-	c.status = clients.ClientStatusDisconnected
+	c.status = clients.ClientNetworkStatusDisconnected
 }
 
 func (c *WSClient) Connect() {

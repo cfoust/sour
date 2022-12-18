@@ -33,10 +33,20 @@ const (
 	ClientTypeENet
 )
 
+// The status of the client's connection to the cluster.
+type ClientNetworkStatus uint8
+
+const (
+	ClientNetworkStatusConnected = iota
+	ClientNetworkStatusDisconnected
+)
+
+// The status of the client's connection to their game server.
 type ClientStatus uint8
 
 const (
-	ClientStatusConnected = iota
+	ClientStatusConnecting = iota
+	ClientStatusConnected
 	ClientStatusDisconnected
 )
 
@@ -44,7 +54,7 @@ type Client interface {
 	// Get a string identifier for this client for logging purposes.
 	// This does not have to be unique.
 	Reference() string
-	Status() ClientStatus
+	NetworkStatus() ClientNetworkStatus
 	Id() uint16
 	Host() string
 	SetId(newId uint16)
@@ -68,6 +78,15 @@ type Client interface {
 type ClientState struct {
 	Server *servers.GameServer
 	Mutex  sync.Mutex
+	Status ClientStatus
+}
+
+func (s *ClientState) GetStatus() ClientStatus {
+	s.Mutex.Lock()
+	status := s.Status
+	s.Mutex.Unlock()
+
+	return status
 }
 
 type ClientBundle struct {
@@ -76,14 +95,14 @@ type ClientBundle struct {
 }
 
 type ClientManager struct {
-	Clients    map[Client]*ClientState
+	state      map[Client]*ClientState
 	Mutex      sync.Mutex
 	newClients chan ClientBundle
 }
 
 func NewClientManager() *ClientManager {
 	return &ClientManager{
-		Clients:    make(map[Client]*ClientState),
+		state:      make(map[Client]*ClientState),
 		newClients: make(chan ClientBundle, 16),
 	}
 }
@@ -94,7 +113,7 @@ func (c *ClientManager) newClientID() (uint16, error) {
 		truncated := uint16(number.Uint64())
 
 		taken := false
-		for client, _ := range c.Clients {
+		for client, _ := range c.state {
 			if client.Id() == truncated {
 				taken = true
 			}
@@ -111,7 +130,7 @@ func (c *ClientManager) newClientID() (uint16, error) {
 
 func (c *ClientManager) GetState(client Client) *ClientState {
 	c.Mutex.Lock()
-	state, ok := c.Clients[client]
+	state, ok := c.state[client]
 	c.Mutex.Unlock()
 
 	if !ok {
@@ -120,20 +139,19 @@ func (c *ClientManager) GetState(client Client) *ClientState {
 	return state
 }
 
-func (c *ClientManager) MoveClient(client Client, server *servers.GameServer) error {
+func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client) error {
 	state := c.GetState(client)
 	if state == nil {
 		return fmt.Errorf("could not find state for client")
 	}
 
 	state.Mutex.Lock()
-
 	if state.Server != nil {
 		state.Server.SendDisconnect(client.Id())
 	}
-
 	state.Server = server
-	defer state.Mutex.Unlock()
+	state.Status = ClientStatusConnecting
+	state.Mutex.Unlock()
 
 	server.SendConnect(client.Id())
 	client.Connect()
@@ -152,7 +170,7 @@ func (c *ClientManager) AddClient(client Client) error {
 	state := &ClientState{}
 
 	c.Mutex.Lock()
-	c.Clients[client] = state
+	c.state[client] = state
 	c.Mutex.Unlock()
 
 	c.newClients <- ClientBundle{
@@ -176,7 +194,7 @@ func SendServerMessage(client Client, message string) {
 
 func (c *ClientManager) RemoveClient(client Client) {
 	c.Mutex.Lock()
-	delete(c.Clients, client)
+	delete(c.state, client)
 	c.Mutex.Unlock()
 }
 
@@ -187,7 +205,7 @@ func (c *ClientManager) ReceiveClients() <-chan ClientBundle {
 func (c *ClientManager) FindClient(id uint16) Client {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
-	for client, _ := range c.Clients {
+	for client, _ := range c.state {
 		if client.Id() != uint16(id) {
 			continue
 		}

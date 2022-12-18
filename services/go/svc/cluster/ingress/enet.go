@@ -16,7 +16,7 @@ type ENetClient struct {
 	id         uint16
 	peer       *enet.Peer
 	host       *enet.Host
-	status     clients.ClientStatus
+	status     clients.ClientNetworkStatus
 	cancel     context.CancelFunc
 	toClient   chan game.GamePacket
 	toServer   chan game.GamePacket
@@ -46,12 +46,12 @@ func (c *ENetClient) Host() string {
 func (c *ENetClient) Connect() {
 }
 
-func (c *ENetClient) Status() clients.ClientStatus {
+func (c *ENetClient) NetworkStatus() clients.ClientNetworkStatus {
 	return c.status
 }
 
 func (c *ENetClient) Destroy() {
-	c.status = clients.ClientStatusDisconnected
+	c.status = clients.ClientNetworkStatusDisconnected
 }
 
 func (c *ENetClient) Type() clients.ClientType {

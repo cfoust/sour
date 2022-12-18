@@ -11,19 +11,25 @@ import (
 
 type Message interface {
 	Type() game.MessageCode
-	Data() interface{}
+	Contents() interface{}
+	Data() []byte
 }
 
 type RawMessage struct {
-	code game.MessageCode
-	data interface{}
+	code    game.MessageCode
+	message interface{}
+	data    []byte
 }
 
 func (m RawMessage) Type() game.MessageCode {
 	return m.code
 }
 
-func (m RawMessage) Data() interface{} {
+func (m RawMessage) Contents() interface{} {
+	return m.message
+}
+
+func (m RawMessage) Data() []byte {
 	return m.data
 }
 
@@ -293,9 +299,14 @@ func unmarshalStruct(p *game.Packet, type_ reflect.Type, value reflect.Value) er
 }
 
 func Unmarshal(p *game.Packet, code game.MessageCode, message interface{}) (Message, error) {
+	before := *p
+
+	// Throw away the type information (we got it already)
+	p.GetInt()
+
 	raw := RawMessage{
 		code: code,
-		data: message,
+		message: message,
 	}
 
 	type_ := reflect.TypeOf(message)
@@ -307,6 +318,10 @@ func Unmarshal(p *game.Packet, code game.MessageCode, message interface{}) (Mess
 
 	err := unmarshalStruct(p, type_.Elem(), value.Elem())
 
+	after := *p
+
+	raw.data = before[:len(before)-len(after)]
+
 	return raw, err
 }
 
@@ -315,7 +330,9 @@ func Read(b []byte) ([]Message, error) {
 	p := game.Packet(b)
 
 	for len(p) > 0 {
-		type_, ok := p.GetInt()
+		// We just want to peek this so that the message type int gets into the RawMessage
+		q := game.Packet(p)
+		type_, ok := q.GetInt()
 		if !ok {
 			return nil, fmt.Errorf("failed to read message")
 		}

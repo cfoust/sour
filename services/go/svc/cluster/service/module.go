@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/messages"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/servers"
@@ -86,22 +87,56 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
+			state := server.Clients.GetState(client)
+			if state == nil {
+				continue
+			}
+
 			parseData := packet.Packet.Data
-			parsed := game.Packet(parseData)
-			msgType, haveType := parsed.GetInt()
-			if haveType && msgType != -1 {
+			messages, err := messages.Read(parseData)
+			if err != nil {
+				log.Error().
+					Err(err).
+					Uint16("client", client.Id()).
+					Msg("cluster -> client (failed to decode message)")
+
+				// Forward it anyway
+				client.Send(game.GamePacket{
+					Channel: uint8(packet.Packet.Channel),
+					Data:    packet.Packet.Data,
+				})
+				continue
+			}
+
+			// TODO intercept packets and change client status to connected if we get an N_WELCOME
+			channel := uint8(packet.Packet.Channel)
+
+			// As opposed to client -> server, we don't actually need to do any filtering
+			// so we won't repackage the messages individually
+			for _, message := range messages {
 				log.Debug().
-					Str("type", game.MessageCode(msgType).String()).
+					Str("type", message.Type().String()).
 					Uint16("client", client.Id()).
 					Msg("cluster -> client")
+
+				if message.Type() == game.N_WELCOME && state.GetStatus() == clients.ClientStatusConnecting {
+					state.Mutex.Lock()
+					log.Info().
+						Uint16("client", client.Id()).
+						Str("server", state.Server.Reference()).
+						Msg("connected to server")
+					state.Status = clients.ClientStatusConnected
+					state.Mutex.Unlock()
+				}
+
+				log.Print(message.Data())
+
+				client.Send(game.GamePacket{
+					Channel: channel,
+					Data:    message.Data(),
+				})
 			}
 
-			gamePacket := game.GamePacket{
-				Channel: uint8(packet.Packet.Channel),
-				Data:    packet.Packet.Data,
-			}
-
-			client.Send(gamePacket)
 		case <-ctx.Done():
 			return
 		}

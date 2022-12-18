@@ -84,44 +84,6 @@ export type CommandRequest = {
 
 const SERVER_URL_REGEX = /\/server\/([\w.]+)\/?(\d+)?/
 
-function getMapChange(
-  message: PacketMessage
-): Maybe<[PacketMessage, PacketMessage]> {
-  const packet = cube.newPacket(message.Data)
-
-  let msgType: Maybe<number> = cube.getInt(packet)
-  if (msgType == null) return null
-
-  // N_MAPCHANGE often follows this
-  if (msgType === CubeMessageType.N_WELCOME) {
-    msgType = cube.getInt(packet)
-    if (msgType == null) return null
-  }
-
-  if (msgType !== CubeMessageType.N_MAPCHANGE) {
-    return null
-  }
-
-  cube.getString(packet)
-  cube.getInt(packet)
-
-  const oldData = message.Data.slice(0, packet.offset)
-  const newData = message.Data.slice(packet.offset + 1)
-
-  return [
-    {
-      ...message,
-      Data: oldData,
-      Length: oldData.length,
-    },
-    {
-      ...message,
-      Data: newData,
-      Length: newData.length,
-    },
-  ]
-}
-
 function App() {
   const [state, setState] = React.useState<GameState>({
     type: GameStateType.PageLoading,
@@ -501,12 +463,11 @@ function App() {
       }
 
       if (serverMessage.Op === MessageType.Packet) {
-        const mapChange = getMapChange(serverMessage)
-        if (mapChange != null) {
-          const [first, second] = mapChange
+        const packet = cube.newPacket(serverMessage.Data)
+        const msgType = cube.getInt(packet)
+        if (msgType === CubeMessageType.N_MAPCHANGE) {
           loadingWorld = true
-          serverEvents.push(first)
-          queuedEvents.push(second)
+          serverEvents.push(serverMessage)
           return
         }
       }

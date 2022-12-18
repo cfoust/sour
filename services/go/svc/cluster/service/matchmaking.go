@@ -55,7 +55,7 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 		// First prune the list of any clients that are gone
 		cleaned := make([]QueuedClient, 0)
 		for _, queued := range m.queue {
-			if queued.client.Status() == clients.ClientStatusDisconnected {
+			if queued.client.NetworkStatus() == clients.ClientNetworkStatusDisconnected {
 				continue
 			}
 			cleaned = append(cleaned, queued)
@@ -146,7 +146,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 	}
 
 	// Move the clients to the new server
-	m.clients.MoveClient(clientA, gameServer)
+	m.clients.ConnectClient(gameServer, clientA)
 	time.Sleep(1 * time.Second)
-	m.clients.MoveClient(clientB, gameServer)
+	m.clients.ConnectClient(gameServer, clientB)
 }
