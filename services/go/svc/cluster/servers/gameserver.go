@@ -196,6 +196,7 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 }
 
 func (server *GameServer) DecodeMessages(ctx context.Context) {
+	logger := server.Log()
 	for {
 		select {
 		case bundle := <-server.rawBroadcasts:
@@ -206,11 +207,11 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 
 			decoded, err := messages.Read(bundle.Data)
 			if err != nil {
-				log.Warn().Err(err).Msg("failed to decode message from server")
+				logger.Warn().Err(err).Msg("failed to decode broadcast")
 			}
 
 			for _, message := range decoded {
-				log.Debug().Msgf("decoded server message %s", message.Type().String())
+				logger.Debug().Str("type", message.Type().String()).Msg("broadcast")
 				server.broadcasts <- message
 			}
 		case <-ctx.Done():
@@ -225,23 +226,27 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 	go server.PollReads(ctx, socketWrites)
 	go server.DecodeMessages(ctx)
 
+	logger := log.With().Str("server", server.Reference()).Logger()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case msg := <-socketWrites:
-			log.Debug().Msgf("received write")
 			p := game.Packet(msg)
 
 			for len(p) > 0 {
 				type_, ok := p.GetUint()
 				if !ok {
+					logger.Debug().Uint32("type", type_).Msg("server -> cluster (invalid packet)")
 					break
 				}
 
-				log.Debug().Msgf("got write from server of type %d", type_)
+				eventType := ServerEvent(type_)
 
-				if type_ == SERVER_EVENT_REQUEST_MAP {
+				logger.Debug().Str("type", eventType.String()).Msg("server -> cluster")
+
+				if eventType == SERVER_EVENT_REQUEST_MAP {
 					mapName, ok := p.GetString()
 					if !ok {
 						break
@@ -256,10 +261,10 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 						Map:  mapName,
 						Mode: mode,
 					}
-					break
+					continue
 				}
 
-				if type_ == SERVER_EVENT_DISCONNECT {
+				if eventType == SERVER_EVENT_DISCONNECT {
 					id, ok := p.GetUint()
 					if !ok {
 						break
@@ -280,6 +285,7 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 						Reason: reason,
 						Text:   reasonText,
 					}
+					continue
 				}
 
 				numBytes, ok := p.GetUint()
@@ -287,7 +293,7 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 					break
 				}
 
-				if type_ == SERVER_EVENT_BROADCAST {
+				if eventType == SERVER_EVENT_BROADCAST {
 					chan_, ok := p.GetUint()
 					if !ok {
 						break
@@ -300,7 +306,7 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 						Data:    data,
 						Channel: uint8(chan_),
 					}
-					break
+					continue
 				}
 
 				id, ok := p.GetUint()

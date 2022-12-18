@@ -50,12 +50,29 @@ const (
 	SOCKET_EVENT_RESPOND_MAP
 )
 
+type ServerEvent uint32
+
 const (
-	SERVER_EVENT_PACKET uint32 = iota
+	SERVER_EVENT_PACKET ServerEvent = iota
 	SERVER_EVENT_BROADCAST
 	SERVER_EVENT_DISCONNECT
 	SERVER_EVENT_REQUEST_MAP
 )
+
+func (e ServerEvent) String() string {
+	switch e {
+	case SERVER_EVENT_PACKET:
+		return "SERVER_EVENT_PACKET"
+	case SERVER_EVENT_BROADCAST:
+		return "SERVER_EVENT_BROADCAST"
+	case SERVER_EVENT_DISCONNECT:
+		return "SERVER_EVENT_DISCONNECT"
+	case SERVER_EVENT_REQUEST_MAP:
+		return "SERVER_EVENT_REQUEST_MAP"
+	}
+
+	return ""
+}
 
 const (
 	// How long we wait before pruning an unused server

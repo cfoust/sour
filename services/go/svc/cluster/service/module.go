@@ -25,7 +25,6 @@ type Client struct {
 
 const (
 	CREATE_SERVER_COOLDOWN = time.Duration(10 * time.Second)
-	DEBUG                  = false
 )
 
 type Cluster struct {
@@ -91,7 +90,10 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			parsed := game.Packet(parseData)
 			msgType, haveType := parsed.GetInt()
 			if haveType && msgType != -1 {
-				log.Debug().Str("code", game.MessageCode(msgType).String()).Msg("server -> client")
+				log.Debug().
+					Str("type", game.MessageCode(msgType).String()).
+					Uint16("client", client.Id()).
+					Msg("cluster -> client")
 			}
 
 			gamePacket := game.GamePacket{
@@ -174,9 +176,7 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 			command, haveText := packet.GetString()
 
 			passthrough := func() {
-				if DEBUG {
-					logger.Debug().Str("code", game.MessageCode(type_).String()).Msg("client -> server")
-				}
+				logger.Debug().Str("code", game.MessageCode(type_).String()).Str("server", msg.Dest.Reference()).Msg("client -> server")
 				state.Mutex.Lock()
 				if state.Server != nil && state.Server == msg.Dest {
 					state.Server.SendData(client.Id(), uint32(msg.Channel), msg.Data)

@@ -7,8 +7,6 @@ import (
 	"strconv"
 
 	"github.com/cfoust/sour/pkg/game"
-
-	"github.com/rs/zerolog/log"
 )
 
 type Message interface {
@@ -178,8 +176,6 @@ func unmarshalStruct(p *game.Packet, type_ reflect.Type, value reflect.Value) er
 		fieldValue := value.Field(i)
 		ref := fmt.Sprintf("%s.%s", type_.Name(), field.Name)
 
-		log.Debug().Str("ref", ref).Str("kind", field.Type.Kind().String()).Msg("parsing field")
-
 		switch field.Type.Kind() {
 		case reflect.Slice:
 			element := field.Type.Elem()
@@ -309,7 +305,6 @@ func Unmarshal(p *game.Packet, code game.MessageCode, message interface{}) (Mess
 		return nil, fmt.Errorf("can't unmarshal non-pointer")
 	}
 
-	log.Debug().Str("type", type_.Elem().Name()).Msg("parsing message")
 	err := unmarshalStruct(p, type_.Elem(), value.Elem())
 
 	return raw, err

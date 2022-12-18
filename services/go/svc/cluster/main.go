@@ -26,6 +26,7 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if DEBUG {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		log.Warn().Msg("debug logging enabled")
 	}
 
 	sourConfig, err := config.GetSourConfig()

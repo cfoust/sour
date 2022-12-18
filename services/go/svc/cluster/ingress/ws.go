@@ -226,7 +226,7 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 		c.Close(websocket.StatusPolicyViolation, "connection too slow to keep up with messages")
 	}
 
-	logger := log.With().Uint16("clientId", client.id).Str("host", host).Logger()
+	logger := log.With().Uint16("client", client.id).Str("host", host).Logger()
 
 	logger.Info().Msg("client joined")
 
@@ -324,7 +324,6 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 				go func() {
 					select {
 					case result := <-resultChannel:
-						cancel()
 						response := result.Response
 						err := result.Err
 
@@ -343,6 +342,7 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 
 						bytes, _ := cbor.Marshal(packet)
 						client.send <- bytes
+						cancel()
 					case <-ctx.Done():
 						// The command timed out
 						return

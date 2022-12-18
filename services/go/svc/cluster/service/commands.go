@@ -92,12 +92,6 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 
 		state.Mutex.Lock()
 
-		// Automatically connect clients to their servers
-		if client.Type() == clients.ClientTypeWS && state.Server == nil {
-			state.Mutex.Unlock()
-			return gameServer.Id, nil
-		}
-
 		if client.Type() == clients.ClientTypeENet {
 			go server.GivePrivateMatchHelp(server.serverCtx, client, state.Server)
 		}
