@@ -13,11 +13,14 @@ import (
 )
 
 type ENetClient struct {
-	id         uint16
-	peer       *enet.Peer
-	host       *enet.Host
-	status     clients.ClientNetworkStatus
-	cancel     context.CancelFunc
+	id     uint16
+	peer   *enet.Peer
+	host   *enet.Host
+	status clients.ClientNetworkStatus
+
+	context context.Context
+	cancel  context.CancelFunc
+
 	toClient   chan game.GamePacket
 	toServer   chan game.GamePacket
 	commands   chan clients.ClusterCommand
@@ -44,6 +47,10 @@ func (c *ENetClient) Host() string {
 }
 
 func (c *ENetClient) Connect() {
+}
+
+func (c *ENetClient) Context() context.Context {
+	return c.context
 }
 
 func (c *ENetClient) NetworkStatus() clients.ClientNetworkStatus {
@@ -165,6 +172,7 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 
 				client := NewENetClient(cancel, server.host)
 				client.peer = event.Peer
+				client.context = ctx
 
 				err := server.manager.AddClient(client)
 				if err != nil {

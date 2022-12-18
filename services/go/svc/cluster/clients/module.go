@@ -1,6 +1,7 @@
 package clients
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/servers"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -51,6 +54,8 @@ const (
 )
 
 type Client interface {
+	// Lasts for the duration of the client's connection to its ingress.
+	Context() context.Context
 	// Get a string identifier for this client for logging purposes.
 	// This does not have to be unique.
 	Reference() string
@@ -79,6 +84,12 @@ type ClientState struct {
 	Server *servers.GameServer
 	Mutex  sync.Mutex
 	Status ClientStatus
+
+	// Created when the user connects to a server and canceled when they
+	// leave, regardless of reason (network or being disconnected by the
+	// server)
+	SessionCtx context.Context
+	cancel     context.CancelFunc
 }
 
 func (s *ClientState) GetStatus() ClientStatus {
@@ -145,16 +156,38 @@ func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client)
 		return fmt.Errorf("could not find state for client")
 	}
 
+	log.Info().Str("server", server.Reference()).
+		Msg("client connecting to server")
+
 	state.Mutex.Lock()
 	if state.Server != nil {
 		state.Server.SendDisconnect(client.Id())
 	}
 	state.Server = server
 	state.Status = ClientStatusConnecting
+	sessionCtx, cancel := context.WithCancel(client.Context())
+	state.SessionCtx = sessionCtx
+	state.cancel = cancel
 	state.Mutex.Unlock()
 
 	server.SendConnect(client.Id())
 	client.Connect()
+
+	return nil
+}
+
+// Mark the client's status as disconnected and cancel its session context.
+// Called both when the client disconnects from ingress AND when the server kicks them out.
+func (c *ClientManager) ClientDisconnected(client Client) error {
+	state := c.GetState(client)
+	if state == nil {
+		return fmt.Errorf("could not find state for client")
+	}
+
+	state.Mutex.Lock()
+	state.Server = nil
+	state.Status = ClientStatusDisconnected
+	state.Mutex.Unlock()
 
 	return nil
 }
@@ -193,6 +226,7 @@ func SendServerMessage(client Client, message string) {
 }
 
 func (c *ClientManager) RemoveClient(client Client) {
+	c.ClientDisconnected(client)
 	c.Mutex.Lock()
 	delete(c.state, client)
 	c.Mutex.Unlock()

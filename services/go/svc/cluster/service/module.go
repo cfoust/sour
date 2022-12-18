@@ -77,6 +77,8 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
+			server.Clients.ClientDisconnected(client)
+
 			// TODO ideally we would move clients back to the lobby if they
 			// were not kicked for violent reasons
 			client.Disconnect(int(event.Reason), event.Text)
@@ -128,8 +130,6 @@ func (server *Cluster) PollServers(ctx context.Context) {
 					state.Status = clients.ClientStatusConnected
 					state.Mutex.Unlock()
 				}
-
-				log.Print(message.Data())
 
 				client.Send(game.GamePacket{
 					Channel: channel,

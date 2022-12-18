@@ -119,17 +119,11 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 				continue
 			}
 
-			if state.Server != nil {
-				state.Server.SendDisconnect(client.Id())
+			err := server.Clients.ConnectClient(gameServer, client)
+			if err != nil {
+				return "", err
 			}
 
-			state.Server = gameServer
-
-			logger.Info().Str("server", gameServer.Reference()).
-				Msg("client connecting to server")
-
-			gameServer.SendConnect(client.Id())
-			client.Connect()
 			return "", nil
 		}
 

@@ -100,6 +100,9 @@ type WSClient struct {
 	disconnect chan bool
 	send       chan []byte
 	closeSlow  func()
+
+	context context.Context
+	cancel  context.CancelFunc
 }
 
 func NewWSClient() *WSClient {
@@ -119,6 +122,10 @@ func (c *WSClient) Id() uint16 {
 
 func (c *WSClient) Host() string {
 	return c.host
+}
+
+func (c *WSClient) Context() context.Context {
+	return c.context
 }
 
 func (c *WSClient) NetworkStatus() clients.ClientNetworkStatus {
@@ -217,6 +224,13 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 	if err != nil {
 		log.Error().Err(err).Msg("failed to accept ws client")
 	}
+
+	clientCtx, cancel := context.WithCancel(ctx)
+
+	client.context = clientCtx
+	client.cancel = cancel
+
+	defer cancel()
 
 	server.AddClient(client)
 	defer server.RemoveClient(client)
