@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/messages"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/servers"
 	"github.com/rs/zerolog/log"
@@ -114,6 +115,45 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 	}
 }
 
+// Do a period of uninterrupted gameplay, like the warmup or main "struggle" sections.
+func (m *Matchmaker) DoSession(ctx context.Context, duration time.Duration) {
+	sessionCtx, cancelSession := context.WithTimeout(ctx, duration)
+	defer cancelSession()
+	select {
+	case <-ctx.Done():
+		cancelSession()
+		return
+	case <-sessionCtx.Done():
+	}
+}
+
+func (m *Matchmaker) DoCountdown(ctx context.Context, seconds int, message func(string)) {
+	tick := time.NewTicker(1 * time.Second)
+	count := seconds
+
+	for {
+		select {
+		case <-tick.C:
+			log.Info().Msgf("countdown tick %d", count)
+			message(fmt.Sprintf("%d", count))
+			if count == 0 {
+				return
+			}
+			count--
+		case <-ctx.Done():
+			log.Info().Msg("countdown context canceled")
+			return
+		}
+	}
+}
+
+func abs(x, y int) int {
+	if x < y {
+		return y - x
+	}
+	return x - y
+}
+
 func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB clients.Client) {
 	logger := log.With().Uint16("clientA", clientA.Id()).Uint16("clientB", clientB.Id()).Logger()
 
@@ -216,24 +256,73 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 
 	// Start with a warmup
 	broadcast(game.Blue("WARMUP: 30 seconds remaining"))
-	warmupContext, cancelWarmup := context.WithTimeout(matchContext, 30 * time.Second)
-	defer cancelWarmup()
-	select {
-	case <-matchContext.Done():
-		cancelWarmup()
-		return
-	case <-warmupContext.Done():
-	}
-
+	m.DoSession(matchContext, 10*time.Second)
 	broadcast(game.Blue("WARMUP OVER"))
-	gameServer.SendCommand("resetallplayers")
+	gameServer.SendCommand("resetplayers 1")
 
-	struggleContext, cancelStruggle := context.WithTimeout(matchContext, 120 * time.Second)
-	defer cancelStruggle()
-	select {
-	case <-matchContext.Done():
-		cancelStruggle()
-		return
-	case <-struggleContext.Done():
+	broadcasts := gameServer.BroadcastSubscribe()
+	defer gameServer.BroadcastUnsubscribe(broadcasts)
+
+	scoreA := 0
+	scoreB := 0
+	var scoreMutex sync.Mutex
+
+	go func() {
+		for {
+			select {
+			case msg := <-broadcasts:
+				if msg.Type() == game.N_DIED {
+					died := msg.Contents().(*messages.Died)
+
+					if died.Client == died.Killer {
+						continue
+					}
+
+					scoreMutex.Lock()
+					// should be A?
+					if died.Client == 0 {
+						logger.Info().Err(err).Msg("client B killed A")
+						scoreB = died.Frags
+					} else if died.Client == 1 {
+						logger.Info().Err(err).Msg("client A killed B")
+						scoreA = died.Frags
+					}
+					scoreMutex.Unlock()
+				}
+			case <-matchContext.Done():
+				return
+			}
+		}
+	}()
+
+	gameServer.SendCommand("pausegame 1")
+	m.DoCountdown(matchContext, 5, broadcast)
+	gameServer.SendCommand("pausegame 0")
+	broadcast(game.Red("GO"))
+
+	m.DoSession(matchContext, 10*time.Second)
+
+	// You have to win by three points from where overtime started
+	for {
+		scoreMutex.Lock()
+		overtimeA := scoreA
+		overtimeB := scoreB
+		scoreMutex.Unlock()
+
+		if abs(overtimeA, overtimeB) >= 3 {
+			break
+		}
+
+		broadcast("OVERTIME")
+		gameServer.SendCommand("resetplayers 0")
+
+		gameServer.SendCommand("pausegame 1")
+		m.DoCountdown(matchContext, 5, broadcast)
+		gameServer.SendCommand("pausegame 0")
+
+		broadcast(game.Red("GO"))
+		m.DoSession(matchContext, 10*time.Second)
 	}
+
+	logger.Info().Msgf("match ended %d:%d", scoreA, scoreB)
 }

@@ -1427,7 +1427,7 @@ namespace server {
         gamepaused = val;
         sendf(-1, 1, "riii", N_PAUSEGAME, gamepaused ? 1 : 0, ci ? ci->clientnum : -1);
     }
-    ICOMMAND(pausegame, "i", (int val), { pausegame(val == 1, NULL); });
+    ICOMMAND(pausegame, "b", (int *val), pausegame(*val != 0));
 
     void checkpausegame()
     {
@@ -3025,16 +3025,18 @@ best.add(clients[i]); \
         out(ECHO_SERV, "\f0%s \f7%s", colorname(ci), spreesuicidemsg);
     }
 
-    void resetallplayers()
+    void resetplayers(bool resetfrags)
     {
         loopv(clients)
         {
             clientinfo *ci = clients[i];
             gamestate &gs = ci->state;
-            ci->state.frags = 0;
-            ci->state.deaths = 0;
             teaminfo *t = m_teammode ? teaminfos.access(ci->team) : NULL;
-            if(t) t->frags = 0;
+            if (resetfrags) {
+                ci->state.frags = 0;
+                ci->state.deaths = 0;
+                if(t) t->frags = 0;
+            }
             sendf(-1, 1, "ri5", N_DIED, ci->clientnum, ci->clientnum, gs.frags, t ? t->frags : 0);
             gs.spreefrags = 0;
             gs.multifrags = 0;
@@ -3047,8 +3049,7 @@ best.add(clients[i]); \
             ci->state._suicides = 0;
         }
     }
-
-    COMMAND(resetallplayers, "");
+    ICOMMAND(resetplayers, "i", (int val), { resetplayers(val == 1); });
 
     void suicideevent::process(clientinfo *ci) { suicide(ci); }
 

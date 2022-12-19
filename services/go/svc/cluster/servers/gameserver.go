@@ -65,7 +65,7 @@ func (server *GameServer) BroadcastSubscribe() <-chan messages.Message {
 	return channel
 }
 
-func (server *GameServer) BroadcastUnsubscribe(channel chan messages.Message) {
+func (server *GameServer) BroadcastUnsubscribe(channel <-chan messages.Message) {
 	server.Mutex.Lock()
 	newChannels := make([]chan messages.Message, 0)
 	for _, subscriber := range server.subscribers {

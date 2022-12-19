@@ -106,7 +106,6 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 
 		target := args[1]
 
-
 		state.Mutex.Lock()
 		if state.Server != nil && state.Server.IsReference(target) {
 			logger.Info().Msg("client already connected to target")
