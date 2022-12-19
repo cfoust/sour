@@ -36,8 +36,15 @@ func NewMatchmaker(manager *servers.ServerManager, clients *clients.ClientManage
 }
 
 func (m *Matchmaker) Queue(client clients.Client) {
+	m.mutex.Lock()
+	for _, queued := range m.queue {
+		if queued.client == client {
+			return
+		}
+	}
+	m.mutex.Unlock()
+
 	log.Info().Uint16("client", client.Id()).Msg("queued for dueling")
-	clients.SendServerMessage(client, "you are now queued for dueling")
 	m.mutex.Lock()
 	m.queue = append(m.queue, QueuedClient{
 		client:   client,
@@ -45,6 +52,22 @@ func (m *Matchmaker) Queue(client clients.Client) {
 	})
 	m.mutex.Unlock()
 	m.queueEvent <- true
+	clients.SendServerMessage(client, "you are now queued for dueling")
+}
+
+func (m *Matchmaker) Dequeue(client clients.Client) {
+	log.Info().Uint16("client", client.Id()).Msg("left duel queue")
+	m.mutex.Lock()
+	cleaned := make([]QueuedClient, 0)
+	for _, queued := range m.queue {
+		if queued.client == client {
+			continue
+		}
+		cleaned = append(cleaned, queued)
+	}
+	m.queue = cleaned
+	m.mutex.Unlock()
+	clients.SendServerMessage(client, "you are no longer queued")
 }
 
 func (m *Matchmaker) Poll(ctx context.Context) {
@@ -89,9 +112,6 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 				// We have a match!
 				go m.Duel(ctx, queuedA.client, queuedB.client)
 			}
-
-			since := time.Now().Sub(queuedA.joinTime)
-			clients.SendServerMessage(queuedA.client, fmt.Sprintf("You have been queued for %s. Say #leavequeue to leave.", since.String()))
 		}
 
 		// Remove the matches we made from the queue

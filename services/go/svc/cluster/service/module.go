@@ -269,6 +269,7 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 								passthrough(message)
 							}
 						}()
+						continue
 					}
 				}
 

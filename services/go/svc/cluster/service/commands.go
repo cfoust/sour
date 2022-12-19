@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
@@ -128,9 +129,29 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 		}
 
 		logger.Warn().Msgf("could not find server: %s", target)
+		return true, "", fmt.Errorf("failed to find server %s", target)
 
-	case "queue":
+	case "duel":
 		server.matches.Queue(client)
+		return true, "", nil
+
+	case "stopduel":
+		server.matches.Dequeue(client)
+		return true, "", nil
+
+	case "help":
+		messages := []string{
+			fmt.Sprintf("%s: create a private game", game.Blue("#creategame")),
+			fmt.Sprintf("%s: join a Sour game server by room code", game.Blue("#join [code]")),
+			fmt.Sprintf("%s: queue for a duel", game.Blue("#duel")),
+			fmt.Sprintf("%s: leave the duel queue", game.Blue("#stopduel")),
+		}
+
+		for _, message := range messages {
+			clients.SendServerMessage(client, message)
+		}
+
+		return true, "", nil
 	}
 
 	return false, "", nil
