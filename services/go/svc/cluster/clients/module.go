@@ -217,6 +217,9 @@ func (c *ClientManager) ClientDisconnected(client Client) error {
 	}
 
 	state.Mutex.Lock()
+	if state.Server != nil {
+		state.Server.SendDisconnect(client.Id())
+	}
 	state.Server = nil
 	state.Status = ClientStatusDisconnected
 	state.cancel()

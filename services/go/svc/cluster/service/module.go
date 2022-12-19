@@ -286,12 +286,7 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 				}
 			}()
 		case <-disconnect:
-			state.Mutex.Lock()
-			if state.Server != nil {
-				state.Server.SendDisconnect(client.Id())
-				state.Server = nil
-			}
-			state.Mutex.Unlock()
+			server.Clients.ClientDisconnected(client)
 		}
 	}
 }

@@ -470,6 +470,17 @@ function App() {
           serverEvents.push(serverMessage)
           return
         }
+        if (
+          loadingWorld &&
+          (msgType === CubeMessageType.N_CLIENTPING ||
+            msgType === CubeMessageType.N_PONG)
+        ) {
+          serverEvents.push(serverMessage)
+          return
+        }
+        //if (msgType != null && loadingWorld) {
+        //console.log(`queueing ${CubeMessageType[msgType]}`)
+        //}
       }
 
       if (loadingWorld) {
