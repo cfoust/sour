@@ -264,6 +264,8 @@ void delclient(client *c)
     switch(c->type)
     {
         case ST_SOCKET:
+            c->id = 0;
+            // intentional passthrough
         case ST_TCPIP:
             nonlocalclients--; if(c->peer) c->peer->data = NULL; break;
         case ST_LOCAL: localclients--; break;
@@ -882,7 +884,6 @@ void serverslice(bool dedicated, bool enet, uint timeout)   // main server updat
                         string command;
                         getstring(command, q, sizeof(command));
                         int result = execute(command);
-                        logoutf("ran command: '%s' result=%d", command, result);
                         break;
                     }
                 case SOCKET_EVENT_RESPOND_MAP:
