@@ -274,7 +274,7 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 
 	for {
 		select {
-		case broadcast :=  <-server.broadcasts:
+		case broadcast := <-server.broadcasts:
 			server.Mutex.Lock()
 			for _, subscriber := range server.subscribers {
 				subscriber <- broadcast

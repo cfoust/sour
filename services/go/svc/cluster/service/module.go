@@ -133,6 +133,22 @@ func (server *Cluster) PollServers(ctx context.Context) {
 
 			channel := uint8(packet.Packet.Channel)
 
+			// Sometimes clients are expecting messages to follow
+			// each other directly; this is one of those cases
+			// (arbitrary message passing between clients) and took
+			// me too many hours of debugging
+			if len(messages) > 0 && messages[0].Type() == game.N_CLIENT {
+				log.Debug().
+					Str("type", game.N_CLIENT.String()).
+					Uint16("client", client.Id()).
+					Msgf("cluster -> client (%d messages)", len(messages)-1)
+
+				client.Send(game.GamePacket{
+					Channel: channel,
+					Data:    packet.Packet.Data,
+				})
+			}
+
 			// As opposed to client -> server, we don't actually need to do any filtering
 			// so we won't repackage the messages individually
 			for _, message := range messages {

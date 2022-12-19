@@ -367,13 +367,6 @@ namespace game
     bool senditemstoserver = false, sendcrc = false; // after a map change, since server doesn't have map data
     int lastping = 0;
 
-#if __EMSCRIPTEN__
-    void forcesenditems()
-    {
-        senditemstoserver = true;
-    }
-#endif
-
     bool connected = false, remote = false, demoplayback = false, gamepaused = false;
     int sessionid = 0, mastermode = MM_OPEN, gamespeed = 100;
     string servinfo = "", servauth = "", connectpass = "";

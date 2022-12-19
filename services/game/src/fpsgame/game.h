@@ -732,6 +732,9 @@ namespace game
     extern void clientdisconnected(int cn, bool notify = true);
     extern void clearclients(bool notify = true);
     extern void startgame();
+#if __EMSCRIPTEN__
+    extern void reloadgamemode();
+#endif
     extern float proximityscore(float x, float lower, float upper);
     extern void pickgamespawn(fpsent *d);
     extern void spawnplayer(fpsent *d);

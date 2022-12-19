@@ -1389,10 +1389,12 @@ void load_world_6(void *)
     if(maptitle[0] && strcmp(maptitle, "Untitled Map by Unknown")) conoutf(CON_ECHO, "%s", maptitle);
 
 	async_loading_map = false;
-    game::startgame();
     startmap(cname ? cname : mname);
 
 #if __EMSCRIPTEN__
+    // This is necessary for CTF flags to work. The CTF setup process looks
+    // through the map's entities to find flag spawns
+    game::reloadgamemode();
     // Do stuff like stop the loading music etc., and play music (right here, at the very end of world loading)
     emscripten_run_script("Module['postLoadWorld']()");
 #endif

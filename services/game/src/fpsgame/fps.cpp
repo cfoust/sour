@@ -238,6 +238,7 @@ namespace game
             if(!lagtime || intermission) continue;
             else if(lagtime>1000 && d->state==CS_ALIVE)
             {
+				conoutf("%i lagtime %d", i, lagtime);
                 d->state = CS_LAGGED;
                 continue;
             }
@@ -685,6 +686,17 @@ namespace game
 
         execident("mapstart");
     }
+
+#if __EMSCRIPTEN__
+    void reloadgamemode()
+    {
+		if(cmode)
+		{
+			cmode->preload();
+			cmode->setup();
+		}
+	}
+#endif
 
     void loadingmap(const char *name)
     {

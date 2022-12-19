@@ -82,6 +82,12 @@ export type CommandRequest = {
   promiseSet: PromiseSet<string>
 }
 
+const DEBUG = false
+const DELAY_AFTER_LOAD: CubeMessageType[] = [
+  CubeMessageType.N_ITEMLIST,
+  CubeMessageType.N_SPAWN,
+]
+
 const SERVER_URL_REGEX = /\/server\/([\w.]+)\/?(\d+)?/
 
 function App() {
@@ -225,7 +231,7 @@ function App() {
 
     Module.postLoadWorld = function () {
       loadingWorld = false
-      serverEvents = queuedEvents
+      serverEvents = [...serverEvents, ...queuedEvents]
       if (waitingForPlayers && lastSour) {
         navigator.clipboard.writeText(location.href)
         waitWarning()
@@ -349,6 +355,13 @@ function App() {
       send: (channel: number, dataPtr: number, dataLength: number) => {
         const packet = new Uint8Array(dataLength)
         packet.set(new Uint8Array(Module.HEAPU8.buffer, dataPtr, dataLength))
+        if (DEBUG) {
+          const p = cube.newPacket(packet)
+          const msgType = cube.getInt(p)
+          if (msgType != null) {
+            console.log(`%c client -> server type=${CubeMessageType[msgType]}`, 'background-color: blue; color: white')
+          }
+        }
         ws.send(
           CBOR.encode({
             Op: MessageType.Packet,
@@ -465,22 +478,25 @@ function App() {
       if (serverMessage.Op === MessageType.Packet) {
         const packet = cube.newPacket(serverMessage.Data)
         const msgType = cube.getInt(packet)
+
         if (msgType === CubeMessageType.N_MAPCHANGE) {
           loadingWorld = true
           serverEvents.push(serverMessage)
           return
         }
-        if (
-          loadingWorld &&
-          (msgType === CubeMessageType.N_CLIENTPING ||
-            msgType === CubeMessageType.N_PONG)
-        ) {
-          serverEvents.push(serverMessage)
-          return
+
+        if (msgType != null) {
+          if (DEBUG) {
+            console.log(`%c server -> client type=${CubeMessageType[msgType]}`, 'background-color: green; color: white')
+          }
+          if (loadingWorld && !DELAY_AFTER_LOAD.includes(msgType)) {
+            serverEvents.push(serverMessage)
+            return
+          }
+          if (loadingWorld) {
+            console.log(`queueing ${CubeMessageType[msgType]}`)
+          }
         }
-        //if (msgType != null && loadingWorld) {
-        //console.log(`queueing ${CubeMessageType[msgType]}`)
-        //}
       }
 
       if (loadingWorld) {

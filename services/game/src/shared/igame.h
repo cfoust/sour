@@ -42,7 +42,7 @@ namespace game
     extern bool allowmouselook();
 
 #if __EMSCRIPTEN__
-    extern void startgame();
+    extern void reloadgamemode();
 #endif
     extern const char *gameident();
     extern const char *savedconfig();

@@ -216,6 +216,7 @@ func (c *ClientManager) ClientDisconnected(client Client) error {
 		return fmt.Errorf("could not find state for client")
 	}
 
+	c.Mutex.Lock()
 	state.Mutex.Lock()
 	if state.Server != nil {
 		state.Server.SendDisconnect(client.Id())
@@ -224,6 +225,7 @@ func (c *ClientManager) ClientDisconnected(client Client) error {
 	state.Status = ClientStatusDisconnected
 	state.cancel()
 	state.Mutex.Unlock()
+	c.Mutex.Unlock()
 
 	return nil
 }
