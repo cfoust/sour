@@ -124,7 +124,7 @@ func (c *WSClient) Host() string {
 	return c.host
 }
 
-func (c *WSClient) Context() context.Context {
+func (c *WSClient) SessionContext() context.Context {
 	return c.context
 }
 

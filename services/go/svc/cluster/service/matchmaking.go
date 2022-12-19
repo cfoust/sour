@@ -64,7 +64,6 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 		}
 		m.queue = cleaned
 
-
 		// Then look to see if we can make any matches
 		matched := make(map[clients.Client]bool, 0)
 		for _, queuedA := range m.queue {
@@ -87,7 +86,6 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 				matched[queuedB.client] = true
 
 				// We have a match!
-				log.Info().Msg("starting duel")
 				go m.Duel(ctx, queuedA.client, queuedB.client)
 			}
 
@@ -121,6 +119,31 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 
 	logger.Info().Msg("initiating 1v1")
 
+	matchContext, cancelMatch := context.WithCancel(ctx)
+
+	defer cancelMatch()
+
+	// If any client disconnects from the CLUSTER, end the match
+	for _, client := range []clients.Client{clientA, clientB} {
+		go func(client clients.Client) {
+			select {
+			case <-matchContext.Done():
+				return
+			case <-client.SessionContext().Done():
+				cancelMatch()
+				return
+			}
+		}(client)
+	}
+
+	go func() {
+		select {
+		case <-matchContext.Done():
+			logger.Info().Msg("the duel ended")
+			return
+		}
+	}()
+
 	broadcast := func(text string) {
 		clients.SendServerMessage(clientA, text)
 		clients.SendServerMessage(clientB, text)
@@ -149,13 +172,47 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 		return
 	}
 
+	gameServer.SendCommand("pausegame 1")
+
+	if matchContext.Err() != nil {
+		return
+	}
+
 	// Move the clients to the new server
 	for _, client := range []clients.Client{clientA, clientB} {
+		state := m.clients.GetState(client)
+
+		// Store previous server
+		oldServer := state.GetServer()
+
+		go func(client clients.Client, oldServer *servers.GameServer) {
+			select {
+			case <-matchContext.Done():
+				// When the match is done (regardless of result) attempt to move
+				m.clients.ConnectClient(oldServer, client)
+				return
+			case <-state.ServerSessionContext().Done():
+				// If any client disconnects from the SERVER, end the match
+				cancelMatch()
+				return
+			}
+		}(client, oldServer)
+
 		m.clients.ConnectClient(gameServer, client)
 		err = m.clients.WaitUntilConnected(ctx, client)
 		if err != nil {
 			logger.Fatal().Err(err).Msg("client failed to connect")
 			failure()
 		}
+
 	}
+
+	if matchContext.Err() != nil {
+		return
+	}
+
+	gameServer.SendCommand("pausegame 0")
+	broadcast(game.Blue("WARMUP: 30 seconds remaining"))
+
+	// Start with a warmup
 }

@@ -48,7 +48,7 @@ func (c *ENetClient) Host() string {
 func (c *ENetClient) Connect() {
 }
 
-func (c *ENetClient) Context() context.Context {
+func (c *ENetClient) SessionContext() context.Context {
 	return c.context
 }
 

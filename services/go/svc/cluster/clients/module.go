@@ -57,7 +57,7 @@ const (
 
 type Client interface {
 	// Lasts for the duration of the client's connection to its ingress.
-	Context() context.Context
+	SessionContext() context.Context
 	// Get a string identifier for this client for logging purposes.
 	// This does not have to be unique.
 	Reference() string
@@ -90,16 +90,31 @@ type ClientState struct {
 	// Created when the user connects to a server and canceled when they
 	// leave, regardless of reason (network or being disconnected by the
 	// server)
-	SessionCtx context.Context
-	cancel     context.CancelFunc
+	// This is NOT the same thing as Client.SessionContext(), which refers to
+	// the lifecycle of the client's ingress connection
+	serverSessionCtx context.Context
+	cancel           context.CancelFunc
 }
 
 func (s *ClientState) GetStatus() ClientStatus {
 	s.Mutex.Lock()
 	status := s.Status
 	s.Mutex.Unlock()
-
 	return status
+}
+
+func (s *ClientState) ServerSessionContext() context.Context {
+	s.Mutex.Lock()
+	ctx := s.serverSessionCtx
+	s.Mutex.Unlock()
+	return ctx
+}
+
+func (s *ClientState) GetServer() *servers.GameServer {
+	s.Mutex.Lock()
+	server := s.Server
+	s.Mutex.Unlock()
+	return server
 }
 
 type ClientBundle struct {
@@ -158,6 +173,10 @@ func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client)
 		return fmt.Errorf("could not find state for client")
 	}
 
+	if state.GetStatus() != ClientStatusConnected {
+		return fmt.Errorf("client not connected to cluster")
+	}
+
 	log.Info().Str("server", server.Reference()).
 		Msg("client connecting to server")
 
@@ -167,8 +186,8 @@ func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client)
 	}
 	state.Server = server
 	state.Status = ClientStatusConnecting
-	sessionCtx, cancel := context.WithCancel(client.Context())
-	state.SessionCtx = sessionCtx
+	sessionCtx, cancel := context.WithCancel(client.SessionContext())
+	state.serverSessionCtx = sessionCtx
 	state.cancel = cancel
 	state.Mutex.Unlock()
 
@@ -198,7 +217,7 @@ func (c *ClientManager) WaitUntilConnected(ctx context.Context, client Client) e
 		select {
 		case <-tick.C:
 			continue
-		case <-client.Context().Done():
+		case <-client.SessionContext().Done():
 			return fmt.Errorf("client disconnected")
 		case <-ctx.Done():
 			return fmt.Errorf("parent context finished")
