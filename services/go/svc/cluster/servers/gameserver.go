@@ -44,6 +44,7 @@ type GameServer struct {
 
 	rawBroadcasts chan game.GamePacket
 	broadcasts    chan messages.Message
+	subscribers   []chan messages.Message
 
 	mapRequests chan MapRequest
 
@@ -56,8 +57,25 @@ func (server *GameServer) ReceiveMapRequests() <-chan MapRequest {
 	return server.mapRequests
 }
 
-func (server *GameServer) ReceiveBroadcasts() <-chan messages.Message {
-	return server.broadcasts
+func (server *GameServer) BroadcastSubscribe() <-chan messages.Message {
+	server.Mutex.Lock()
+	channel := make(chan messages.Message, 16)
+	server.subscribers = append(server.subscribers, channel)
+	server.Mutex.Unlock()
+	return channel
+}
+
+func (server *GameServer) BroadcastUnsubscribe(channel chan messages.Message) {
+	server.Mutex.Lock()
+	newChannels := make([]chan messages.Message, 0)
+	for _, subscriber := range server.subscribers {
+		if subscriber == channel {
+			continue
+		}
+		newChannels = append(newChannels, subscriber)
+	}
+	server.subscribers = newChannels
+	server.Mutex.Unlock()
 }
 
 func (server *GameServer) sendMessage(data []byte) {
@@ -95,6 +113,12 @@ func (server *GameServer) SendCommand(command string) {
 	p := game.Packet{}
 	p.PutUint(SOCKET_EVENT_COMMAND)
 	p.PutString(command)
+	server.sendMessage(p)
+}
+
+func (server *GameServer) SendPing() {
+	p := game.Packet{}
+	p.PutUint(SOCKET_EVENT_PING)
 	server.sendMessage(p)
 }
 
@@ -236,6 +260,11 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 }
 
 func (server *GameServer) PollEvents(ctx context.Context) {
+	pingInterval := 500 * time.Millisecond
+	pingTicker := time.NewTicker(pingInterval)
+	lastPong := time.Now()
+	server.SendPing()
+
 	socketWrites := make(chan []byte, 16)
 
 	go server.PollReads(ctx, socketWrites)
@@ -245,8 +274,23 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 
 	for {
 		select {
+		case broadcast :=  <-server.broadcasts:
+			server.Mutex.Lock()
+			for _, subscriber := range server.subscribers {
+				subscriber <- broadcast
+			}
+			server.Mutex.Unlock()
 		case <-ctx.Done():
 			return
+		case <-pingTicker.C:
+			if time.Now().Sub(lastPong) > 2*pingInterval {
+				logger.Error().Msg("server stopped responding to pings, going down")
+				server.Mutex.Lock()
+				server.Status = ServerFailure
+				server.Mutex.Unlock()
+				return
+			}
+			server.SendPing()
 		case msg := <-socketWrites:
 			p := game.Packet(msg)
 
@@ -259,7 +303,9 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 
 				eventType := ServerEvent(type_)
 
-				logger.Debug().Str("type", eventType.String()).Msg("server -> cluster")
+				if eventType != SERVER_EVENT_PONG {
+					logger.Debug().Str("type", eventType.String()).Msg("server -> cluster")
+				}
 
 				if eventType == SERVER_EVENT_REQUEST_MAP {
 					mapName, ok := p.GetString()
@@ -281,6 +327,11 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 
 				if eventType == SERVER_EVENT_HEALTHY {
 					server.SetStatus(ServerHealthy)
+					continue
+				}
+
+				if eventType == SERVER_EVENT_PONG {
+					lastPong = time.Now()
 					continue
 				}
 

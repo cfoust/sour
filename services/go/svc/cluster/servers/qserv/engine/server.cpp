@@ -484,6 +484,13 @@ void healthy() {
     socketCtl.send((char*) newPacket->data, newPacket->dataLength);
 }
 
+void sendsocketpong() {
+    packetbuf p(MAXTRANS);
+    putuint(p, SERVER_EVENT_PONG);
+    ENetPacket *newPacket = p.finalize();
+    socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+}
+
 VAR(serverdisconnectmsg, 0, 1, 1); //enable/disable msg
 void disconnect_client(int n, int reason) {
     qs.resetoLangWarn(n);
@@ -884,6 +891,11 @@ void serverslice(bool dedicated, bool enet, uint timeout)   // main server updat
                         getstring(mapName, q, sizeof(mapName));
                         int mode = getint(q), succeeded = getint(q);
                         game::_changemap(mapName, mode);
+                        break;
+                    }
+                case SOCKET_EVENT_PING:
+                    {
+                        sendsocketpong();
                         break;
                     }
                 default:

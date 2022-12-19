@@ -50,6 +50,7 @@ const (
 	SOCKET_EVENT_DISCONNECT
 	SOCKET_EVENT_COMMAND
 	SOCKET_EVENT_RESPOND_MAP
+	SOCKET_EVENT_PING
 )
 
 type ServerEvent uint32
@@ -68,6 +69,7 @@ const (
 	SERVER_EVENT_REQUEST_MAP
 	// When the server is ready to accept connections (after the map loads)
 	SERVER_EVENT_HEALTHY
+	SERVER_EVENT_PONG
 )
 
 func (e ServerEvent) String() string {
@@ -82,6 +84,8 @@ func (e ServerEvent) String() string {
 		return "SERVER_EVENT_DISCONNECT"
 	case SERVER_EVENT_REQUEST_MAP:
 		return "SERVER_EVENT_REQUEST_MAP"
+	case SERVER_EVENT_PONG:
+		return "SERVER_EVENT_PONG"
 	}
 
 	return ""
@@ -398,6 +402,7 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string) 
 		packets:       manager.packets,
 		rawBroadcasts: make(chan game.GamePacket, 10),
 		broadcasts:    make(chan messages.Message, 10),
+		subscribers:   make([]chan messages.Message, 0),
 		mapRequests:   make(chan MapRequest, 10),
 	}
 
