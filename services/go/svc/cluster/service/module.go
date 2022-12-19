@@ -115,6 +115,10 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
+			if state.GetServer() != packet.Server {
+				continue
+			}
+
 			parseData := packet.Packet.Data
 			messages, err := messages.Read(parseData)
 			if err != nil {

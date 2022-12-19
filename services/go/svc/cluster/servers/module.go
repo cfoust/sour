@@ -110,6 +110,7 @@ type MapRequest struct {
 type ClientPacket struct {
 	Client uint32
 	Packet game.GamePacket
+	Server *GameServer
 }
 
 type ServerManager struct {
