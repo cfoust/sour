@@ -25,10 +25,14 @@ type GameServer struct {
 	Status ServerStatus
 	Id     string
 	// Another way for the client to refer to this server
-	Alias      string
-	NumClients int
-	LastEvent  time.Time
-	Mutex      sync.Mutex
+	Alias        string
+	NumClients   int
+	LastEvent    time.Time
+	Mutex        sync.Mutex
+
+	// Servers do not handle multiple clients connecting at the exact same
+	// time very well.
+	ConnectMutex sync.Mutex
 
 	// The path of the socket
 	path string

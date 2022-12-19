@@ -119,7 +119,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 				continue
 			}
 
-			err := server.Clients.ConnectClient(gameServer, client)
+			_, err := server.Clients.ConnectClient(gameServer, client)
 			if err != nil {
 				return true, "", err
 			}

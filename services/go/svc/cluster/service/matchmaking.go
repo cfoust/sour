@@ -116,14 +116,56 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 }
 
 // Do a period of uninterrupted gameplay, like the warmup or main "struggle" sections.
-func (m *Matchmaker) DoSession(ctx context.Context, duration time.Duration) {
-	sessionCtx, cancelSession := context.WithTimeout(ctx, duration)
+func (m *Matchmaker) DoSession(ctx context.Context, numSeconds int, announce bool, message func(string)) {
+	tick := time.NewTicker(50 * time.Millisecond)
+
+	startTime := time.Now()
+	endTime := startTime.Add(time.Duration(numSeconds) * time.Second)
+
+	sessionCtx, cancelSession := context.WithDeadline(ctx, endTime)
 	defer cancelSession()
-	select {
-	case <-ctx.Done():
-		cancelSession()
-		return
-	case <-sessionCtx.Done():
+
+	announceThresholds := []int{
+		120,
+		60,
+		30,
+		15,
+		10,
+		9,
+		8,
+		7,
+		6,
+		5,
+		4,
+		3,
+		2,
+		1,
+	}
+
+	announceIndex := 0
+
+	for i, announce := range announceThresholds {
+		if numSeconds > announce {
+			break
+		}
+
+		announceIndex = i
+	}
+
+	for {
+		select {
+		case <-tick.C:
+			remaining := int(endTime.Sub(time.Now()))
+			if announceIndex < len(announceThresholds) && remaining <= announceThresholds[announceIndex] {
+				message(fmt.Sprintf("%d seconds remaining", announceThresholds[announceIndex]))
+				announceIndex++
+			}
+		case <-ctx.Done():
+			cancelSession()
+			return
+		case <-sessionCtx.Done():
+			return
+		}
 	}
 }
 
@@ -134,11 +176,10 @@ func (m *Matchmaker) DoCountdown(ctx context.Context, seconds int, message func(
 	for {
 		select {
 		case <-tick.C:
-			log.Info().Msgf("countdown tick %d", count)
-			message(fmt.Sprintf("%d", count))
 			if count == 0 {
 				return
 			}
+			message(fmt.Sprintf("%d", count))
 			count--
 		case <-ctx.Done():
 			log.Info().Msg("countdown context canceled")
@@ -176,14 +217,6 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 		}(client)
 	}
 
-	go func() {
-		select {
-		case <-matchContext.Done():
-			logger.Info().Msg("the duel ended")
-			return
-		}
-	}()
-
 	broadcast := func(text string) {
 		clients.SendServerMessage(clientA, text)
 		clients.SendServerMessage(clientB, text)
@@ -203,6 +236,14 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 		return
 	}
 
+	go func() {
+		select {
+		case <-matchContext.Done():
+			m.manager.RemoveServer(gameServer)
+			return
+		}
+	}()
+
 	logger = logger.With().Str("server", gameServer.Reference()).Logger()
 
 	err = gameServer.StartAndWait(ctx)
@@ -213,6 +254,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 	}
 
 	gameServer.SendCommand("pausegame 1")
+	gameServer.SendCommand(fmt.Sprintf("serverdesc \"Sour %s\"", game.Red("DUEL")))
 
 	if matchContext.Err() != nil {
 		return
@@ -239,9 +281,9 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 			}
 		}(client, oldServer)
 
-		m.clients.ConnectClient(gameServer, client)
-		err = m.clients.WaitUntilConnected(ctx, client)
-		if err != nil {
+		connected, err := m.clients.ConnectClient(gameServer, client)
+		result := <-connected
+		if result == false || err != nil {
 			logger.Fatal().Err(err).Msg("client failed to connect")
 			failure()
 		}
@@ -253,12 +295,17 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 	}
 
 	gameServer.SendCommand("pausegame 0")
+	broadcast("Duel: You must win by at least three frags. You are respawned automatically. Disconnecting counts as a loss.")
 
 	// Start with a warmup
-	broadcast(game.Blue("WARMUP: 30 seconds remaining"))
-	m.DoSession(matchContext, 10*time.Second)
-	broadcast(game.Blue("WARMUP OVER"))
+	broadcast(game.Blue("WARMUP"))
+	m.DoSession(matchContext, 30, true, broadcast)
 	gameServer.SendCommand("resetplayers 1")
+	gameServer.SendCommand("forcerespawn")
+
+	if matchContext.Err() != nil {
+		return
+	}
 
 	broadcasts := gameServer.BroadcastSubscribe()
 	defer gameServer.BroadcastUnsubscribe(broadcasts)
@@ -288,6 +335,11 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 						scoreA = died.Frags
 					}
 					scoreMutex.Unlock()
+
+					gameServer.SendCommand("forcerespawn")
+					gameServer.SendCommand("pausegame 1")
+					m.DoCountdown(matchContext, 1, broadcast)
+					gameServer.SendCommand("pausegame 0")
 				}
 			case <-matchContext.Done():
 				return
@@ -295,12 +347,21 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 		}
 	}()
 
+	broadcast(game.Red("GET READY"))
 	gameServer.SendCommand("pausegame 1")
 	m.DoCountdown(matchContext, 5, broadcast)
 	gameServer.SendCommand("pausegame 0")
-	broadcast(game.Red("GO"))
+	broadcast(game.Green("GO"))
 
-	m.DoSession(matchContext, 10*time.Second)
+	if matchContext.Err() != nil {
+		return
+	}
+
+	m.DoSession(matchContext, 180, true, broadcast)
+
+	if matchContext.Err() != nil {
+		return
+	}
 
 	// You have to win by three points from where overtime started
 	for {
@@ -313,7 +374,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 			break
 		}
 
-		broadcast("OVERTIME")
+		broadcast(game.Red("OVERTIME"))
 		gameServer.SendCommand("resetplayers 0")
 
 		gameServer.SendCommand("pausegame 1")
@@ -321,7 +382,11 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 		gameServer.SendCommand("pausegame 0")
 
 		broadcast(game.Red("GO"))
-		m.DoSession(matchContext, 10*time.Second)
+		m.DoSession(matchContext, 60, true, broadcast)
+
+		if matchContext.Err() != nil {
+			return
+		}
 	}
 
 	logger.Info().Msgf("match ended %d:%d", scoreA, scoreB)

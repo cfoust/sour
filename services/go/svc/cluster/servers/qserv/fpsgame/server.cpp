@@ -2446,7 +2446,6 @@ namespace server {
             ci->mapchange();
             ci->state.lasttimeplayed = lastmillis;
             if(m_mp(gamemode) && ci->state.state!=CS_SPECTATOR) sendspawn(ci);
-
         }
 
         aiman::changemap();
@@ -3025,6 +3024,7 @@ best.add(clients[i]); \
         out(ECHO_SERV, "\f0%s \f7%s", colorname(ci), spreesuicidemsg);
     }
 
+    // Kill players and respawn them
     void resetplayers(bool resetfrags)
     {
         loopv(clients)
@@ -3050,6 +3050,16 @@ best.add(clients[i]); \
         }
     }
     ICOMMAND(resetplayers, "i", (int val), { resetplayers(val == 1); });
+
+    void forcerespawn()
+    {
+        loopv(clients)
+        {
+            clientinfo *ci = clients[i];
+            if(m_mp(gamemode) && ci->state.state!=CS_SPECTATOR) sendspawn(ci);
+        }
+    }
+    COMMAND(forcerespawn, "");
 
     void suicideevent::process(clientinfo *ci) { suicide(ci); }
 

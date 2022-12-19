@@ -118,7 +118,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			parseData := packet.Packet.Data
 			messages, err := messages.Read(parseData)
 			if err != nil {
-				log.Error().
+				log.Debug().
 					Err(err).
 					Uint16("client", client.Id()).
 					Msg("cluster -> client (failed to decode message)")

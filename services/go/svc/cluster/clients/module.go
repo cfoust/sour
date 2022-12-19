@@ -167,16 +167,18 @@ func (c *ClientManager) GetState(client Client) *ClientState {
 	return state
 }
 
-func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client) error {
+func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client) (<-chan bool, error) {
 	state := c.GetState(client)
 	if state == nil {
-		return fmt.Errorf("could not find state for client")
+		return nil, fmt.Errorf("could not find state for client")
 	}
 
 	if client.NetworkStatus() == ClientNetworkStatusDisconnected {
 		log.Warn().Msgf("client not connected to cluster but attempted connect")
-		return fmt.Errorf("client not connected to cluster")
+		return nil, fmt.Errorf("client not connected to cluster")
 	}
+
+	connected := make(chan bool, 1)
 
 	log.Info().Str("server", server.Reference()).
 		Msg("client connecting to server")
@@ -186,6 +188,7 @@ func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client)
 		state.Server.SendDisconnect(client.Id())
 	}
 	state.Server = server
+	state.Server.ConnectMutex.Lock()
 	state.Status = ClientStatusConnecting
 	sessionCtx, cancel := context.WithCancel(client.SessionContext())
 	state.serverSessionCtx = sessionCtx
@@ -195,37 +198,34 @@ func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client)
 	server.SendConnect(client.Id())
 	client.Connect()
 
-	return nil
-}
+	// Give the client one second to connect.
+	go func() {
+		tick := time.NewTicker(50 * time.Millisecond)
+		connectCtx, cancel := context.WithTimeout(sessionCtx, time.Second*1)
 
-// Wait for the client to be connected to its server (if it has one.)
-func (c *ClientManager) WaitUntilConnected(ctx context.Context, client Client) error {
-	state := c.GetState(client)
-	if state == nil {
-		return fmt.Errorf("could not find state for client")
-	}
+		defer cancel()
+		defer state.Server.ConnectMutex.Unlock()
 
-	tick := time.NewTicker(50 * time.Millisecond)
-	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*10)
+		for {
+			if state.GetStatus() == ClientStatusConnected {
+				connected <- true
+				return
+			}
 
-	defer cancel()
-
-	for {
-		if state.GetStatus() == ClientStatusConnected {
-			return nil
+			select {
+			case <-tick.C:
+				continue
+			case <-client.SessionContext().Done():
+				connected <- false
+				return
+			case <-connectCtx.Done():
+				connected <- false
+				return
+			}
 		}
+	}()
 
-		select {
-		case <-tick.C:
-			continue
-		case <-client.SessionContext().Done():
-			return fmt.Errorf("client disconnected")
-		case <-ctx.Done():
-			return fmt.Errorf("parent context finished")
-		case <-timeoutCtx.Done():
-			return fmt.Errorf("timed out")
-		}
-	}
+	return connected, nil
 }
 
 // Mark the client's status as disconnected and cancel its session context.
