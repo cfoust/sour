@@ -173,7 +173,8 @@ func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client)
 		return fmt.Errorf("could not find state for client")
 	}
 
-	if state.GetStatus() != ClientStatusConnected {
+	if client.NetworkStatus() == ClientNetworkStatusDisconnected {
+		log.Warn().Msgf("client not connected to cluster but attempted connect")
 		return fmt.Errorf("client not connected to cluster")
 	}
 
@@ -235,16 +236,16 @@ func (c *ClientManager) ClientDisconnected(client Client) error {
 		return fmt.Errorf("could not find state for client")
 	}
 
-	c.Mutex.Lock()
 	state.Mutex.Lock()
 	if state.Server != nil {
 		state.Server.SendDisconnect(client.Id())
 	}
 	state.Server = nil
 	state.Status = ClientStatusDisconnected
-	state.cancel()
+	if state.cancel != nil {
+		state.cancel()
+	}
 	state.Mutex.Unlock()
-	c.Mutex.Unlock()
 
 	return nil
 }

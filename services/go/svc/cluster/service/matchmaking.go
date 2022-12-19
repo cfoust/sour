@@ -120,7 +120,6 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 	logger.Info().Msg("initiating 1v1")
 
 	matchContext, cancelMatch := context.WithCancel(ctx)
-
 	defer cancelMatch()
 
 	// If any client disconnects from the CLUSTER, end the match
@@ -130,6 +129,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 			case <-matchContext.Done():
 				return
 			case <-client.SessionContext().Done():
+				logger.Info().Msgf("client %d disconnected from cluster, ending match", client.Id())
 				cancelMatch()
 				return
 			}
@@ -192,6 +192,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 				m.clients.ConnectClient(oldServer, client)
 				return
 			case <-state.ServerSessionContext().Done():
+				logger.Info().Msgf("client %d disconnected from server, ending match", client.Id())
 				// If any client disconnects from the SERVER, end the match
 				cancelMatch()
 				return
@@ -212,7 +213,27 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 	}
 
 	gameServer.SendCommand("pausegame 0")
-	broadcast(game.Blue("WARMUP: 30 seconds remaining"))
 
 	// Start with a warmup
+	broadcast(game.Blue("WARMUP: 30 seconds remaining"))
+	warmupContext, cancelWarmup := context.WithTimeout(matchContext, 30 * time.Second)
+	defer cancelWarmup()
+	select {
+	case <-matchContext.Done():
+		cancelWarmup()
+		return
+	case <-warmupContext.Done():
+	}
+
+	broadcast(game.Blue("WARMUP OVER"))
+	gameServer.SendCommand("resetallplayers")
+
+	struggleContext, cancelStruggle := context.WithTimeout(matchContext, 120 * time.Second)
+	defer cancelStruggle()
+	select {
+	case <-matchContext.Done():
+		cancelStruggle()
+		return
+	case <-struggleContext.Done():
+	}
 }
