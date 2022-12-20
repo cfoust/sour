@@ -251,7 +251,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 
 	gameServer, err := m.manager.NewServer(ctx, "1v1")
 	if err != nil {
-		logger.Fatal().Err(err).Msg("failed to create server")
+		logger.Error().Err(err).Msg("failed to create server")
 		failure()
 		return
 	}
@@ -268,7 +268,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 
 	err = gameServer.StartAndWait(ctx)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("server failed to start")
+		logger.Error().Err(err).Msg("server failed to start")
 		failure()
 		return
 	}
@@ -304,8 +304,9 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 		connected, err := m.clients.ConnectClient(gameServer, client)
 		result := <-connected
 		if result == false || err != nil {
-			logger.Fatal().Err(err).Msg("client failed to connect")
+			logger.Error().Err(err).Msg("client failed to connect")
 			failure()
+			return
 		}
 
 	}

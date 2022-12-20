@@ -76,7 +76,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 
 		gameServer, err := server.manager.NewServer(server.serverCtx, presetName)
 		if err != nil {
-			logger.Fatal().Err(err).Msg("failed to create server")
+			logger.Error().Err(err).Msg("failed to create server")
 			return true, "", errors.New("failed to create server")
 		}
 
@@ -84,7 +84,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 
 		err = gameServer.StartAndWait(server.serverCtx)
 		if err != nil {
-			logger.Fatal().Err(err).Msg("server failed to start")
+			logger.Error().Err(err).Msg("server failed to start")
 			return true, "", errors.New("server failed to start")
 		}
 
