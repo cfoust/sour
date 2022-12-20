@@ -207,15 +207,15 @@ type SetMaster struct {
 
 // N_SHOOT
 type Shoot struct {
-	Id     int
-	Gun    int
-	From0  int
-	From1  int
-	From2  int
-	To0    int
-	To1    int
-	To2    int
-	Hits   []Hit `type:"count"`
+	Id    int
+	Gun   int
+	From0 int
+	From1 int
+	From2 int
+	To0   int
+	To1   int
+	To2   int
+	Hits  []Hit `type:"count"`
 }
 
 // N_STOPDEMO
@@ -319,14 +319,15 @@ type ClientDisconnected struct {
 
 // N_JUMPPAD
 type JumpPad struct {
-	Aiclientnum int
-	Jumppad     int
+	Client  int
+	JumpPad int
 }
 
 // N_TELEPORT
 type Teleport struct {
-	Aiclientnum int
-	Teledest    int
+	Client      int
+	Source      int
+	Destination int
 }
 
 // N_SPECTATOR
@@ -901,7 +902,7 @@ type ClientInfo struct {
 
 // N_SPAWN
 type Spawn struct {
-	Lifesequence int
+	LifeSequence int
 	Health       int
 	MaxHealth    int
 	Armour       int
@@ -928,7 +929,7 @@ type Taunt struct {
 
 // N_GUNSELECT
 type GunSelect struct {
-	Gunselect int
+	GunSelect int
 }
 
 // N_TEXT
