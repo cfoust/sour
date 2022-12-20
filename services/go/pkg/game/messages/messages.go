@@ -140,6 +140,7 @@ type FromAI struct {
 // N_GAMESPEED
 type GameSpeed struct {
 	Speed int
+	Client int
 }
 
 // N_GETDEMO
