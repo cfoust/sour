@@ -32,7 +32,7 @@ type GameServer struct {
 
 	// Servers do not handle multiple clients connecting at the exact same
 	// time very well.
-	ConnectMutex sync.Mutex
+	Connecting chan bool
 
 	// The path of the socket
 	path string

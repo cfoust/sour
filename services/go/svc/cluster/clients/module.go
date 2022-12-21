@@ -188,7 +188,7 @@ func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client)
 		state.Server.SendDisconnect(client.Id())
 	}
 	state.Server = server
-	state.Server.ConnectMutex.Lock()
+	server.Connecting <- true
 	state.Status = ClientStatusConnecting
 	sessionCtx, cancel := context.WithCancel(client.SessionContext())
 	state.serverSessionCtx = sessionCtx
@@ -205,11 +205,7 @@ func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client)
 
 		defer cancel()
 		defer func() {
-			state.Mutex.Lock()
-			if state.Server != nil {
-				state.Server.ConnectMutex.Unlock()
-			}
-			state.Mutex.Unlock()
+			<-server.Connecting
 		}()
 
 		for {

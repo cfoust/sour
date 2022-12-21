@@ -344,6 +344,7 @@ function App() {
       },
       connect: (name: string, password: string) => {
         const Target = name.length === 0 ? 'lobby' : name
+        console.log(`name=${name} password=${password} Target=${Target}`);
         lastSour = Target
         ws.send(
           CBOR.encode({

@@ -92,12 +92,16 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 		server.hostServers[client.Host()] = gameServer
 
 		state.Mutex.Lock()
+		if client.Type() == clients.ClientTypeWS && state.Server == nil {
+			state.Mutex.Unlock()
+			return true, gameServer.Id, nil
+		}
 
 		if client.Type() == clients.ClientTypeENet {
 			go server.GivePrivateMatchHelp(server.serverCtx, client, state.Server)
 		}
-
 		state.Mutex.Unlock()
+
 		return server.RunCommand(ctx, fmt.Sprintf("join %s", gameServer.Id), client, state)
 
 	case "join":

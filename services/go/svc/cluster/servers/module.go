@@ -395,16 +395,18 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string) 
 	log.Info().Msgf("using config %s", resolvedConfig)
 
 	server := GameServer{
-		send:          make(chan []byte, 1),
-		NumClients:    0,
+		Alias:         "",
+		Connecting:    make(chan bool, 1),
 		LastEvent:     time.Now(),
+		NumClients:    0,
+		broadcasts:    make(chan messages.Message, 10),
 		connects:      manager.connects,
 		disconnects:   manager.disconnects,
+		mapRequests:   make(chan MapRequest, 10),
 		packets:       manager.packets,
 		rawBroadcasts: make(chan game.GamePacket, 10),
-		broadcasts:    make(chan messages.Message, 10),
+		send:          make(chan []byte, 1),
 		subscribers:   make([]chan messages.Message, 0),
-		mapRequests:   make(chan MapRequest, 10),
 	}
 
 	// We don't want other servers to start while this one is being started
