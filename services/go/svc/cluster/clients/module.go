@@ -204,7 +204,13 @@ func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client)
 		connectCtx, cancel := context.WithTimeout(sessionCtx, time.Second*1)
 
 		defer cancel()
-		defer state.Server.ConnectMutex.Unlock()
+		defer func() {
+			state.Mutex.Lock()
+			if state.Server != nil {
+				state.Server.ConnectMutex.Unlock()
+			}
+			state.Mutex.Unlock()
+		}()
 
 		for {
 			if state.GetStatus() == ClientStatusConnected {

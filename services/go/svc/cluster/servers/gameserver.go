@@ -183,7 +183,7 @@ func (server *GameServer) Log() zerolog.Logger {
 func (server *GameServer) Shutdown() {
 	status := server.GetStatus()
 
-	if status != ServerHealthy {
+	if status == ServerHealthy {
 		server.command.Process.Kill()
 	}
 
