@@ -23,4 +23,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 httpd = socketserver.TCPServer(HOST, Handler)
-httpd.serve_forever()
+
+try:
+    httpd.serve_forever()
+except Exception:
+    httpd.socket.close()
+    httpd.shutdown()

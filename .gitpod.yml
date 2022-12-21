@@ -17,6 +17,10 @@ tasks:
     init: ./services/go/build
     command: ./watch /workspace/sour/services/go ./cluster
 
+  - name: Config
+    init: ./config/build
+    command: CONFIG=1 ./watch /workspace/sour/config cat
+
   - name: Client
     init: cd services/client && yarn install
     command: /workspace/sour/services/client/build

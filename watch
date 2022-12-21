@@ -28,7 +28,9 @@ repl() {
     return 1
   fi
 
-  export SOUR_CONFIG="$(cat $SCRIPT_DIR/config/config.json)"
+  if [ -z "$CONFIG" ]; then
+    export SOUR_CONFIG="$(cat $SCRIPT_DIR/config/config.json)"
+  fi
   $@ &
   result="$?"
   job_id="$!"
@@ -41,10 +43,15 @@ repl() {
   return 0
 }
 
+paths="$path"
+
+if [ -z "$CONFIG" ]; then
+  paths+=" $SCRIPT_DIR/config/config.json"
+fi
+
 repl $@
 
 while true; do
-  inotifywait -qr "$path" "$SCRIPT_DIR/config" -e MODIFY
-  "$SCRIPT_DIR/config/build"
+  inotifywait -qr $paths -e MODIFY
   repl $@
 done
