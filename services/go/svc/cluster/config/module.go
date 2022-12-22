@@ -6,15 +6,33 @@ import (
 	"os"
 )
 
+type RespawnType string
+
+const (
+	RespawnTypeAll  = "all"
+	RespawnTypeDead = "dead"
+	RespawnTypeNone = "none"
+)
+
+type DuelType struct {
+	Name         string
+	Preset       string
+	ForceRespawn RespawnType
+	PauseOnDeath bool
+	Default      bool
+}
+
 type ServerPreset struct {
-	Name string
+	Name    string
+	Virtual bool
+	Inherit string
 	Default bool
-	Config string
+	Config  string
 }
 
 type ServerConfig struct {
-	Alias   string
-	Preset  string
+	Alias  string
+	Preset string
 }
 
 type ENetIngress struct {
@@ -29,11 +47,16 @@ type ClusterIngress struct {
 	}
 }
 
+type MatchmakingSettings struct {
+	Duel []DuelType
+}
+
 type ClusterSettings struct {
 	Enabled           bool
 	Assets            []string
 	Presets           []ServerPreset
 	Servers           []ServerConfig
+	Matchmaking       MatchmakingSettings
 	ServerDescription string
 	Ingress           ClusterIngress
 }

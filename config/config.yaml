@@ -1,0 +1,81 @@
+# This is Sour's default configuration.
+
+cluster:
+  assets:
+    - "http://localhost:1234/assets/.index.json"
+
+  presets:
+    - name: "common" 
+      virtual: true
+      config: |
+        qserv_version "17"
+        servermotd "Press Esc twice to change your name or adjust game options."
+        maxclients 128
+        bannerintervolmillis 100000
+        addbanner "^f7Sour ^f7is available online ^f1www.github.com/cfoust/sour^f7."
+        defaultgamespeed 100
+        defaultmodename "ffa"
+        defaultmap "complex"
+        autosendmap 1
+        enable_passflag 1
+        instacoop 0
+        serverflagruns 1
+        serverbotbalance 1
+        lockmaprotation 0
+        ffamaps = [
+          complex dust2 turbine
+        ]
+        maprotationreset
+        maprotation "*" $ffamaps
+
+        maxteamkills 7
+        teamkillkickreset
+        teamkillkick "?capture" 10 30
+        maxdemos 10
+        updatemaster 0
+        enablemultiplemasters 0
+        serverconnectmsg 1
+        welcomewithname 1
+        no_single_private 0
+        pingwarncustommsg "A little lagspike was detected, we just wanted to let you know."
+        restrictpausegame 1
+        restrictgamespeed 1
+        restrictdemos 0
+    - name: "default" 
+      default: true
+      inherit: "common"
+      config: |
+        defaultmodename "ffa"
+        defaultmap "complex"
+    - name: "ffa-duel" 
+      virtual: true
+      inherit: "common"
+      config: |
+        defaultmodename "ffa"
+        defaultmap "turbine"
+    - name: "insta-duel" 
+      virtual: true
+      inherit: "common"
+      config: |
+        defaultmodename "insta"
+        defaultmap "turbine"
+
+  ingress:
+    desktop:
+      - port: 28785
+        command: join lobby
+    web:
+      port: 29999
+
+  matchmaking:
+    duel:
+      - name: "ffa"
+        preset: "ffa-duel"
+        forceRespawn: "dead"
+        default: true
+      - name: "insta"
+        preset: "insta-duel"
+
+  servers:
+    - alias: lobby
+      preset: default
