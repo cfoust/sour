@@ -154,7 +154,7 @@ func (c *Client) ConnectToServer(server *servers.GameServer) (<-chan bool, error
 
 		// Remove all the other clients from this client's perspective
 		c.manager.Mutex.Lock()
-		for client, _ := range c.manager.state {
+		for client, _ := range c.manager.State {
 			if client == c || client.GetServer() != c.Server {
 				continue
 			}
@@ -233,14 +233,14 @@ func (c *Client) DisconnectFromServer() error {
 }
 
 type ClientManager struct {
-	state      map[*Client]struct{}
+	State      map[*Client]struct{}
 	Mutex      sync.Mutex
 	newClients chan *Client
 }
 
 func NewClientManager() *ClientManager {
 	return &ClientManager{
-		state:      make(map[*Client]struct{}),
+		State:      make(map[*Client]struct{}),
 		newClients: make(chan *Client, 16),
 	}
 }
@@ -253,7 +253,7 @@ func (c *ClientManager) newClientID() (uint16, error) {
 		truncated := uint16(number.Uint64())
 
 		taken := false
-		for client, _ := range c.state {
+		for client, _ := range c.State {
 			if client.Id == truncated {
 				taken = true
 			}
@@ -282,7 +282,7 @@ func (c *ClientManager) AddClient(networkClient NetworkClient) error {
 	}
 
 	c.Mutex.Lock()
-	c.state[&client] = struct{}{}
+	c.State[&client] = struct{}{}
 	c.Mutex.Unlock()
 
 	c.newClients <- &client
@@ -293,13 +293,13 @@ func (c *ClientManager) AddClient(networkClient NetworkClient) error {
 func (c *ClientManager) RemoveClient(networkClient NetworkClient) {
 	c.Mutex.Lock()
 
-	for client, _ := range c.state {
+	for client, _ := range c.State {
 		if client.Connection != networkClient {
 			continue
 		}
 
 		client.DisconnectFromServer()
-		delete(c.state, client)
+		delete(c.State, client)
 		break
 	}
 
@@ -313,7 +313,7 @@ func (c *ClientManager) ReceiveClients() <-chan *Client {
 func (c *ClientManager) FindClient(id uint16) *Client {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
-	for client, _ := range c.state {
+	for client, _ := range c.State {
 		if client.Id != uint16(id) {
 			continue
 		}

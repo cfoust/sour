@@ -67,6 +67,7 @@ func main() {
 
 	go cluster.StartServers(ctx)
 	go cluster.PollClients(ctx)
+	go cluster.PollDuels(ctx)
 
 	errc := make(chan error, 1)
 	go func() {

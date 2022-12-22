@@ -16,6 +16,19 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type DuelResult struct {
+	Winner       *clients.Client
+	Loser        *clients.Client
+	Type         string
+	IsDraw       bool
+	Disconnected bool
+}
+
+type DuelQueue struct {
+	Client *clients.Client
+	Type   string
+}
+
 type QueuedClient struct {
 	JoinTime time.Time
 	Client   *clients.Client
@@ -31,6 +44,8 @@ type Matchmaker struct {
 	clients    *clients.ClientManager
 	queue      []*QueuedClient
 	queueEvent chan bool
+	results    chan DuelResult
+	queues     chan DuelQueue
 	mutex      sync.Mutex
 }
 
@@ -39,9 +54,19 @@ func NewMatchmaker(manager *servers.ServerManager, clients *clients.ClientManage
 		duelTypes:  duelTypes,
 		queue:      make([]*QueuedClient, 0),
 		queueEvent: make(chan bool, 0),
+		results:    make(chan DuelResult, 10),
+		queues:     make(chan DuelQueue, 10),
 		manager:    manager,
 		clients:    clients,
 	}
+}
+
+func (m *Matchmaker) ReceiveResults() <-chan DuelResult {
+	return m.results
+}
+
+func (m *Matchmaker) ReceiveQueues() <-chan DuelQueue {
+	return m.queues
 }
 
 func (m *Matchmaker) FindDuelType(name string) opt.Option[config.DuelType] {
@@ -100,6 +125,11 @@ func (m *Matchmaker) Queue(client *clients.Client, typeName string) error {
 	m.queueEvent <- true
 	log.Info().Uint16("client", client.Id).Str("type", queued.Type).Msg("queued for dueling")
 	client.SendServerMessage(fmt.Sprintf("you are now in the queue for %s", queued.Type))
+
+	m.queues <- DuelQueue{
+		Client: client,
+		Type:   duelType.Value.Name,
+	}
 
 	return nil
 }
@@ -285,6 +315,32 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA *clients.Client, clientB 
 	matchContext, cancelMatch := context.WithCancel(ctx)
 	defer cancelMatch()
 
+	// If client is client A, B is the winner, and vice versa.
+	getLeaveWinner := func(client *clients.Client) DuelResult {
+		result := DuelResult{
+			Type:         typeName,
+			IsDraw:       false,
+			Disconnected: true,
+		}
+		if client == clientA {
+			result.Winner = clientB
+			result.Loser = clientA
+			return result
+		}
+
+		result.Winner = clientA
+		result.Loser = clientB
+		return result
+	}
+
+	outResult := make(chan DuelResult, 1)
+
+	// Take the first result we get (one disconnect could trigger multiple)
+	go func() {
+		result := <-outResult
+		m.results <- result
+	}()
+
 	// If any client disconnects from the CLUSTER, end the match
 	for _, client := range []*clients.Client{clientA, clientB} {
 		go func(client *clients.Client) {
@@ -292,6 +348,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA *clients.Client, clientB 
 			case <-matchContext.Done():
 				return
 			case <-client.Connection.SessionContext().Done():
+				outResult <- getLeaveWinner(client)
 				logger.Info().Msgf("client %d disconnected from cluster, ending match", client.Id)
 				cancelMatch()
 				return
@@ -354,6 +411,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA *clients.Client, clientB 
 				client.ConnectToServer(oldServer)
 				return
 			case <-client.ServerSessionContext().Done():
+				outResult <- getLeaveWinner(client)
 				logger.Info().Msgf("client %d disconnected from server, ending match", client.Id)
 				// If any client disconnects from the SERVER, end the match
 				cancelMatch()
@@ -425,7 +483,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA *clients.Client, clientB 
 					scoreMutex.Unlock()
 
 					if duelType.ForceRespawn == config.RespawnTypeAll {
-						gameServer.SendCommand("forcerespawn")
+						gameServer.SendCommand("resetplayers 0")
 					} else if duelType.ForceRespawn == config.RespawnTypeDead {
 						gameServer.SendCommand(fmt.Sprintf("forcerespawn %d", killed.ClientNum))
 					}
@@ -485,4 +543,19 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA *clients.Client, clientB 
 	}
 
 	logger.Info().Msgf("match ended %d:%d", scoreA, scoreB)
+
+	result := DuelResult{
+		Type:   typeName,
+		Winner: clientA,
+		Loser:  clientB,
+		IsDraw: false,
+	}
+	if scoreA == scoreB {
+		result.IsDraw = true
+	} else if scoreB > scoreA {
+		result.Winner = clientB
+		result.Loser = clientA
+	}
+
+	m.results <- result
 }

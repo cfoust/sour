@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"fmt"
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/game/messages"
@@ -60,6 +61,37 @@ func NewCluster(ctx context.Context, serverManager *servers.ServerManager, setti
 	}
 
 	return server
+}
+
+func (server *Cluster) PollDuels(ctx context.Context) {
+	queues := server.matches.ReceiveQueues()
+	results := server.matches.ReceiveResults()
+
+	for {
+		select {
+		case result := <-results:
+			server.Clients.Mutex.Lock()
+			for client, _ := range server.Clients.State {
+				if client == result.Winner {
+					client.SendServerMessage(game.Green("you won!"))
+				} else if client == result.Loser {
+					client.SendServerMessage(game.Red("you lost"))
+				}
+			}
+			server.Clients.Mutex.Unlock()
+		case queue := <-queues:
+			server.Clients.Mutex.Lock()
+			for client, _ := range server.Clients.State {
+				if client == queue.Client {
+					continue
+				}
+				client.SendServerMessage(fmt.Sprintf("someone queued for dueling (%s)", queue.Type))
+			}
+			server.Clients.Mutex.Unlock()
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func (server *Cluster) PollServers(ctx context.Context) {
