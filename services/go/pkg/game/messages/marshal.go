@@ -7,6 +7,8 @@ import (
 	"strconv"
 
 	"github.com/cfoust/sour/pkg/game"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Message interface {
@@ -329,6 +331,8 @@ func Read(b []byte) ([]Message, error) {
 	messages := make([]Message, 0)
 	p := game.Packet(b)
 
+	log.Debug().Msgf("reading messages from %d bytes", len(b))
+
 	for len(p) > 0 {
 		// We just want to peek this so that the message type int gets into the RawMessage
 		q := game.Packet(p)
@@ -579,6 +583,8 @@ func Read(b []byte) ([]Message, error) {
 		default:
 			return nil, fmt.Errorf("unhandled code %s", code.String())
 		}
+
+		log.Debug().Msgf("read message %s", message.Type().String())
 
 		if err != nil {
 			return nil, err
