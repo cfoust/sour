@@ -358,9 +358,9 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 	}
 }
 
-func (manager *ServerManager) FindPreset(presetName string) opt.Option[config.ServerPreset] {
+func (manager *ServerManager) FindPreset(presetName string, isVirtualOk bool) opt.Option[config.ServerPreset] {
 	for _, preset := range manager.presets {
-		if preset.Name == presetName || (len(presetName) == 0 && preset.Default) {
+		if (preset.Name == presetName || (len(presetName) == 0 && preset.Default)) && (isVirtualOk || !preset.Virtual) {
 			return opt.Some[config.ServerPreset](preset)
 		}
 	}
@@ -385,8 +385,25 @@ func (manager *ServerManager) ResolveConfig(config string) (filepath string, err
 	return temp.Name(), nil
 }
 
-func (manager *ServerManager) NewServer(ctx context.Context, presetName string) (*GameServer, error) {
-	found := manager.FindPreset(presetName)
+func (manager *ServerManager) ComputeConfig(preset config.ServerPreset) (string, error) {
+	if len(preset.Inherit) != 0 {
+		found := manager.FindPreset(preset.Inherit, true)
+		if opt.IsNone(found) {
+			return "", fmt.Errorf("preset inherited from nonexistent preset: %s", preset.Inherit)
+		}
+
+		computed, err := manager.ComputeConfig(found.Value)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%s\n%s", computed, preset.Config), nil
+	}
+
+	return preset.Config, nil
+}
+
+func (manager *ServerManager) NewServer(ctx context.Context, presetName string, isVirtualOk bool) (*GameServer, error) {
+	found := manager.FindPreset(presetName, isVirtualOk)
 
 	if opt.IsNone(found) {
 		return nil, fmt.Errorf("failed to find server preset %s and there is no default", presetName)
@@ -394,7 +411,9 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string) 
 
 	preset := found.Value
 
-	resolvedConfig, err := manager.ResolveConfig(preset.Config)
+	config, err := manager.ComputeConfig(preset)
+
+	resolvedConfig, err := manager.ResolveConfig(config)
 	if err != nil {
 		return nil, err
 	}

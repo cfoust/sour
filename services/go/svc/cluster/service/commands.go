@@ -74,7 +74,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 			presetName = args[1]
 		}
 
-		gameServer, err := server.manager.NewServer(server.serverCtx, presetName)
+		gameServer, err := server.manager.NewServer(server.serverCtx, presetName, false)
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to create server")
 			return true, "", errors.New("failed to create server")
@@ -136,7 +136,17 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 		return true, "", fmt.Errorf("failed to find server %s", target)
 
 	case "duel":
-		server.matches.Queue(client)
+		duelType := ""
+		if len(args) > 1 {
+			duelType = args[1]
+		}
+
+		err := server.matches.Queue(client, duelType)
+		if err != nil {
+			// Theoretically, there might also just not be a default, but whatever.
+			return true, "", fmt.Errorf("duel type '%s' does not exist", duelType)
+		}
+
 		return true, "", nil
 
 	case "stopduel":

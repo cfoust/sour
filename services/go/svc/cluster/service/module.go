@@ -54,7 +54,7 @@ func NewCluster(ctx context.Context, serverManager *servers.ServerManager, setti
 		hostServers:   make(map[string]*servers.GameServer),
 		lastCreate:    make(map[string]time.Time),
 		Clients:       clients,
-		matches:       NewMatchmaker(serverManager, clients),
+		matches:       NewMatchmaker(serverManager, clients, settings.Matchmaking.Duel),
 		serverMessage: make(chan []byte, 1),
 		manager:       serverManager,
 	}
@@ -170,7 +170,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 func (server *Cluster) StartServers(ctx context.Context) {
 	go server.PollServers(ctx)
 	for _, serverConfig := range server.settings.Servers {
-		gameServer, err := server.manager.NewServer(ctx, serverConfig.Preset)
+		gameServer, err := server.manager.NewServer(ctx, serverConfig.Preset, true)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to create server")
 		}

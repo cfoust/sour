@@ -95,7 +95,7 @@ type Client struct {
 	// Created when the user connects to a server and canceled when they
 	// leave, regardless of reason (network or being disconnected by the
 	// server)
-	// This is NOT the same thing as Client.SessionContext(), which refers to
+	// This is NOT the same thing as Client.Connection.SessionContext(), which refers to
 	// the lifecycle of the client's ingress connection
 	serverSessionCtx context.Context
 	cancel           context.CancelFunc
