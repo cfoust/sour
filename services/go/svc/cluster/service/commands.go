@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client clients.Client, gameServer *servers.GameServer) {
+func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client *clients.Client, gameServer *servers.GameServer) {
 	// TODO this is broken; the context is from the timeout for the command so it never runs again
 	tick := time.NewTicker(30 * time.Second)
 
@@ -28,7 +28,7 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client clients.
 		log.Info().Msgf("warning: %d", numClients)
 
 		if numClients < 2 {
-			clients.SendServerMessage(client, message)
+			client.SendServerMessage(message)
 		} else {
 			return
 		}
@@ -42,8 +42,8 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client clients.
 	}
 }
 
-func (server *Cluster) RunCommand(ctx context.Context, command string, client clients.Client, state *clients.ClientState) (handled bool, response string, err error) {
-	logger := log.With().Uint16("client", client.Id()).Str("command", command).Logger()
+func (server *Cluster) RunCommand(ctx context.Context, command string, client *clients.Client) (handled bool, response string, err error) {
+	logger := log.With().Uint16("client", client.Id).Str("command", command).Logger()
 	logger.Info().Msg("running command")
 
 	args := strings.Split(command, " ")
@@ -57,12 +57,12 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 		server.createMutex.Lock()
 		defer server.createMutex.Unlock()
 
-		lastCreate, hasLastCreate := server.lastCreate[client.Host()]
+		lastCreate, hasLastCreate := server.lastCreate[client.Connection.Host()]
 		if hasLastCreate && (time.Now().Sub(lastCreate)) < CREATE_SERVER_COOLDOWN {
 			return true, "", errors.New("too soon since last server create")
 		}
 
-		existingServer, hasExistingServer := server.hostServers[client.Host()]
+		existingServer, hasExistingServer := server.hostServers[client.Connection.Host()]
 		if hasExistingServer {
 			server.manager.RemoveServer(existingServer)
 		}
@@ -88,21 +88,21 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 			return true, "", errors.New("server failed to start")
 		}
 
-		server.lastCreate[client.Host()] = time.Now()
-		server.hostServers[client.Host()] = gameServer
+		server.lastCreate[client.Connection.Host()] = time.Now()
+		server.hostServers[client.Connection.Host()] = gameServer
 
-		state.Mutex.Lock()
-		if client.Type() == clients.ClientTypeWS && state.Server == nil {
-			state.Mutex.Unlock()
+		client.Mutex.Lock()
+		if client.Connection.Type() == clients.ClientTypeWS && client.Server == nil {
+			client.Mutex.Unlock()
 			return true, gameServer.Id, nil
 		}
 
-		if client.Type() == clients.ClientTypeENet {
-			go server.GivePrivateMatchHelp(server.serverCtx, client, state.Server)
+		if client.Connection.Type() == clients.ClientTypeENet {
+			go server.GivePrivateMatchHelp(server.serverCtx, client, client.Server)
 		}
-		state.Mutex.Unlock()
+		client.Mutex.Unlock()
 
-		return server.RunCommand(ctx, fmt.Sprintf("join %s", gameServer.Id), client, state)
+		return server.RunCommand(ctx, fmt.Sprintf("join %s", gameServer.Id), client)
 
 	case "join":
 		if len(args) != 2 {
@@ -111,20 +111,20 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 
 		target := args[1]
 
-		state.Mutex.Lock()
-		if state.Server != nil && state.Server.IsReference(target) {
+		client.Mutex.Lock()
+		if client.Server != nil && client.Server.IsReference(target) {
 			logger.Info().Msg("client already connected to target")
-			state.Mutex.Unlock()
+			client.Mutex.Unlock()
 			break
 		}
-		state.Mutex.Unlock()
+		client.Mutex.Unlock()
 
 		for _, gameServer := range server.manager.Servers {
 			if !gameServer.IsReference(target) || !gameServer.IsRunning() {
 				continue
 			}
 
-			_, err := server.Clients.ConnectClient(gameServer, client)
+			_, err := client.ConnectToServer(gameServer)
 			if err != nil {
 				return true, "", err
 			}
@@ -152,7 +152,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 		}
 
 		for _, message := range messages {
-			clients.SendServerMessage(client, message)
+			client.SendServerMessage(message)
 		}
 
 		return true, "", nil
@@ -161,7 +161,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client cl
 	return false, "", nil
 }
 
-func (server *Cluster) RunCommandWithTimeout(ctx context.Context, command string, client clients.Client, state *clients.ClientState) (handled bool, response string, err error) {
+func (server *Cluster) RunCommandWithTimeout(ctx context.Context, command string, client *clients.Client) (handled bool, response string, err error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 
 	resultChannel := make(chan clients.CommandResult)
@@ -169,7 +169,7 @@ func (server *Cluster) RunCommandWithTimeout(ctx context.Context, command string
 	defer cancel()
 
 	go func() {
-		handled, response, err := server.RunCommand(ctx, command, client, state)
+		handled, response, err := server.RunCommand(ctx, command, client)
 		resultChannel <- clients.CommandResult{
 			Handled:  handled,
 			Err:      err,
