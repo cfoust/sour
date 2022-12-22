@@ -437,6 +437,7 @@ extern const char *disconnectreason(int reason);
 extern void disconnect_client(int n, int reason);
 extern void connect_client(int n);
 extern void requestmap(const char * mapname, int mode);
+extern void setclientname(int n, const char *name);
 extern void healthy();
 /// Custom QServ disconnect /messages
 void dcres(int cn, const char *reason);

@@ -81,7 +81,9 @@ type NetworkClient interface {
 }
 
 type Client struct {
-	Id         uint16
+	Id   uint16
+	Name string
+
 	Connection NetworkClient
 
 	// The ID of the client on the Sauer server
@@ -102,7 +104,7 @@ type Client struct {
 
 	// XXX This is nasty but to make the API nice, Clients have to be able
 	// to see the list of clients. This could/should be refactored someday.
-	manager          *ClientManager
+	manager *ClientManager
 }
 
 func (c *Client) GetStatus() ClientStatus {
@@ -276,6 +278,7 @@ func (c *ClientManager) AddClient(networkClient NetworkClient) error {
 
 	client := Client{
 		Id:         id,
+		Name:       "unnamed",
 		Connection: networkClient,
 		Status:     ClientStatusDisconnected,
 		manager:    c,

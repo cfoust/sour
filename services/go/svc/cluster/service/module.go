@@ -2,10 +2,10 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
-	"fmt"
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/game/messages"
@@ -98,6 +98,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 	connects := server.manager.ReceiveConnects()
 	forceDisconnects := server.manager.ReceiveDisconnects()
 	gamePackets := server.manager.ReceivePackets()
+	names := server.manager.ReceiveNames()
 
 	for {
 		select {
@@ -118,6 +119,21 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				client.Status = clients.ClientStatusConnected
 				client.ClientNum = join.ClientNum
 			}
+			client.Mutex.Unlock()
+
+		case event := <-names:
+			client := server.Clients.FindClient(uint16(event.Client))
+
+			if client == nil {
+				continue
+			}
+
+			client.Mutex.Lock()
+			client.Name = event.Name
+			log.Info().
+				Uint16("client", client.Id).
+				Str("name", client.Name).
+				Msg("client has new name")
 			client.Mutex.Unlock()
 
 		case event := <-forceDisconnects:

@@ -70,6 +70,8 @@ const (
 	// When the server is ready to accept connections (after the map loads)
 	SERVER_EVENT_HEALTHY
 	SERVER_EVENT_PONG
+	// When the server becomes aware of a client's name
+	SERVER_EVENT_NAME
 )
 
 func (e ServerEvent) String() string {
@@ -86,6 +88,8 @@ func (e ServerEvent) String() string {
 		return "SERVER_EVENT_REQUEST_MAP"
 	case SERVER_EVENT_PONG:
 		return "SERVER_EVENT_PONG"
+	case SERVER_EVENT_NAME:
+		return "SERVER_EVENT_NAME"
 	}
 
 	return ""
@@ -119,6 +123,11 @@ type ClientJoin struct {
 	ClientNum int32
 }
 
+type ClientName struct {
+	Client uint32
+	Name   string
+}
+
 type ServerManager struct {
 	Servers []*GameServer
 	Receive chan []byte
@@ -133,6 +142,7 @@ type ServerManager struct {
 	workingDir string
 
 	connects    chan ClientJoin
+	names       chan ClientName
 	disconnects chan ForceDisconnect
 	packets     chan ClientPacket
 }
@@ -149,6 +159,10 @@ func (manager *ServerManager) ReceiveConnects() <-chan ClientJoin {
 	return manager.connects
 }
 
+func (manager *ServerManager) ReceiveNames() <-chan ClientName {
+	return manager.names
+}
+
 func NewServerManager(maps *assets.MapFetcher, serverDescription string, presets []config.ServerPreset) *ServerManager {
 	return &ServerManager{
 		Servers:           make([]*GameServer, 0),
@@ -157,6 +171,7 @@ func NewServerManager(maps *assets.MapFetcher, serverDescription string, presets
 		presets:           presets,
 		packets:           make(chan ClientPacket, 100),
 		disconnects:       make(chan ForceDisconnect, 100),
+		names:             make(chan ClientName, 100),
 		connects:          make(chan ClientJoin, 100),
 	}
 }
@@ -432,6 +447,7 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		rawBroadcasts: make(chan game.GamePacket, 10),
 		send:          make(chan []byte, 1),
 		subscribers:   make([]chan messages.Message, 0),
+		names:         manager.names,
 	}
 
 	// We don't want other servers to start while this one is being started

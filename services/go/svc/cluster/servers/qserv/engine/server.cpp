@@ -395,6 +395,61 @@ ENetPacket *sendf(int cn, int chan, const char *format, ...)
     return packet->referenceCount > 0 ? packet : NULL;
 }
 
+void sendsockf(const char *format, ...)
+{
+    int exclude = -1;
+    packetbuf p(MAXTRANS, 0);
+    va_list args;
+    va_start(args, format);
+    while(*format) switch(*format++)
+    {
+        case 'x':
+            exclude = va_arg(args, int);
+            break;
+
+        case 'v':
+        {
+            int n = va_arg(args, int);
+            int *v = va_arg(args, int *);
+            loopi(n) putint(p, v[i]);
+            break;
+        }
+
+        case 'i':
+        {
+            int n = isdigit(*format) ? *format++-'0' : 1;
+            loopi(n) putint(p, va_arg(args, int));
+            break;
+        }
+
+        case 'u':
+        {
+            int n = isdigit(*format) ? *format++-'0' : 1;
+            loopi(n) putuint(p, va_arg(args, int));
+            break;
+        }
+
+        case 'f':
+        {
+            int n = isdigit(*format) ? *format++-'0' : 1;
+            loopi(n) putfloat(p, (float)va_arg(args, double));
+            break;
+        }
+
+        case 's': sendstring(va_arg(args, const char *), p); break;
+
+        case 'm':
+        {
+            int n = va_arg(args, int);
+            p.put(va_arg(args, uchar *), n);
+            break;
+        }
+    }
+    va_end(args);
+    ENetPacket *newPacket = p.finalize();
+    socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+}
+
 ENetPacket *sendfile(int cn, int chan, stream *file, const char *format, ...)
 {
     if(cn < 0)
@@ -450,48 +505,33 @@ const char *disconnectreason(int reason)
 
 void disconnect_socket(int n, int reason) {
     if(!clients.inrange(n) ) return;
-
-    packetbuf p(MAXTRANS);
-    putuint(p, SERVER_EVENT_DISCONNECT);
-    putuint(p, clients[n]->id);
-    putint(p, reason);
     const char *msg = disconnectreason(reason);
-    sendstring(msg, p);
-    ENetPacket *newPacket = p.finalize();
-    socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+    sendsockf("uuis", SERVER_EVENT_DISCONNECT, clients[n]->id, reason, msg);
 }
 
 void connect_client(int n) {
     if(!clients.inrange(n) ) return;
-
-    packetbuf p(MAXTRANS);
-    putuint(p, SERVER_EVENT_CONNECT);
-    putuint(p, clients[n]->id);
-    putint(p, n);
-    ENetPacket *newPacket = p.finalize();
-    socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+    sendsockf("uui", SERVER_EVENT_CONNECT, clients[n]->id, n);
 }
+
 void requestmap(const char *mapname, int mode) {
     packetbuf p(MAXTRANS);
-    putuint(p, SERVER_EVENT_REQUEST_MAP);
-    sendstring(mapname, p);
-    putint(p, mode);
-    ENetPacket *newPacket = p.finalize();
-    socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+    sendsockf("usi", SERVER_EVENT_REQUEST_MAP, mapname, mode);
+}
+
+void setclientname(int n, const char *name) {
+    packetbuf p(MAXTRANS);
+    sendsockf("uus", SERVER_EVENT_NAME, clients[n]->id, name);
 }
 
 void healthy() {
     packetbuf p(MAXTRANS);
-    putuint(p, SERVER_EVENT_HEALTHY);
-    ENetPacket *newPacket = p.finalize();
-    socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+    sendsockf("u", SERVER_EVENT_HEALTHY);
 }
 
 void sendsocketpong() {
     packetbuf p(MAXTRANS);
-    putuint(p, SERVER_EVENT_PONG);
-    ENetPacket *newPacket = p.finalize();
-    socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+    sendsockf("u", SERVER_EVENT_PONG);
 }
 
 VAR(serverdisconnectmsg, 0, 1, 1); //enable/disable msg

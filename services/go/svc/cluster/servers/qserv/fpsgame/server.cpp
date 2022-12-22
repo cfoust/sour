@@ -3776,6 +3776,7 @@ best.add(clients[i]); \
         }
         //qs.getLocation(ci);
         connect_client(ci->clientnum);
+        setclientname(ci->clientnum, ci->name);
     }
 
     int vmessage(int cn, const char *fmt, va_list ap) {
@@ -4189,6 +4190,7 @@ curmsg = p.length(); \
                 if(!ci->name[0]) copystring(ci->name, "unnamed");
                 QUEUE_STR(ci->name);
                 out(ECHO_NOCOLOR, "%s changed their name", text);
+                setclientname(ci->clientnum, ci->name);
                 break;
             }
 
