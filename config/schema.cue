@@ -34,6 +34,16 @@ proxy: #Service
 #DuelType: {
 	name:   string
 	preset: string
+	// How long the warmup lasts
+	warmupSeconds: uint | *30
+	// How long the main match (after warmup lasts)
+	gameSeconds: uint | *180
+	// How many frags a player has to win by to win
+	// (otherwise the game goes into overtime)
+	winThreshold: uint | *3
+	// The length of each overtime session. If a player is still not
+	// winning by winThreshold, overtime is repeated.
+	overtimeSeconds: uint | *60
 	// "all" = force respawn everyone when someone dies
 	// "dead" = force respawn just the person who died when they die
 	// "none" = don't respawn anyone

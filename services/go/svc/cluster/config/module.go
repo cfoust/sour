@@ -15,11 +15,15 @@ const (
 )
 
 type DuelType struct {
-	Name         string
-	Preset       string
-	ForceRespawn RespawnType
-	PauseOnDeath bool
-	Default      bool
+	Name            string
+	Preset          string
+	ForceRespawn    RespawnType
+	WarmupSeconds   uint
+	GameSeconds     uint
+	WinThreshold    uint
+	OvertimeSeconds uint
+	PauseOnDeath    bool
+	Default         bool
 }
 
 type ServerPreset struct {

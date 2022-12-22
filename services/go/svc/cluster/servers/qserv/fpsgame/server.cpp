@@ -3051,15 +3051,16 @@ best.add(clients[i]); \
     }
     ICOMMAND(resetplayers, "i", (int val), { resetplayers(val == 1); });
 
-    void forcerespawn()
+    void forcerespawn(int n)
     {
         loopv(clients)
         {
             clientinfo *ci = clients[i];
+            if (n != -1 && ci->clientnum != n) continue;
             if(m_mp(gamemode) && ci->state.state!=CS_SPECTATOR) sendspawn(ci);
         }
     }
-    COMMAND(forcerespawn, "");
+    ICOMMAND(forcerespawn, "i", (int *val), forcerespawn(val == NULL ? -1 : *val));
 
     void suicideevent::process(clientinfo *ci) { suicide(ci); }
 
