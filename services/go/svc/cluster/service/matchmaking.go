@@ -15,7 +15,7 @@ import (
 
 type QueuedClient struct {
 	joinTime time.Time
-	client   clients.Client
+	client   *clients.Client
 }
 
 type Matchmaker struct {
@@ -35,7 +35,7 @@ func NewMatchmaker(manager *servers.ServerManager, clients *clients.ClientManage
 	}
 }
 
-func (m *Matchmaker) Queue(client clients.Client) {
+func (m *Matchmaker) Queue(client *clients.Client) {
 	m.mutex.Lock()
 	for _, queued := range m.queue {
 		if queued.client == client {
@@ -44,7 +44,7 @@ func (m *Matchmaker) Queue(client clients.Client) {
 	}
 	m.mutex.Unlock()
 
-	log.Info().Uint16("client", client.Id()).Msg("queued for dueling")
+	log.Info().Uint16("client", client.Id).Msg("queued for dueling")
 	m.mutex.Lock()
 	m.queue = append(m.queue, QueuedClient{
 		client:   client,
@@ -52,11 +52,11 @@ func (m *Matchmaker) Queue(client clients.Client) {
 	})
 	m.mutex.Unlock()
 	m.queueEvent <- true
-	clients.SendServerMessage(client, "you are now queued for dueling")
+	client.SendServerMessage("you are now queued for dueling")
 }
 
-func (m *Matchmaker) Dequeue(client clients.Client) {
-	log.Info().Uint16("client", client.Id()).Msg("left duel queue")
+func (m *Matchmaker) Dequeue(client *clients.Client) {
+	log.Info().Uint16("client", client.Id).Msg("left duel queue")
 	m.mutex.Lock()
 	cleaned := make([]QueuedClient, 0)
 	for _, queued := range m.queue {
@@ -67,7 +67,7 @@ func (m *Matchmaker) Dequeue(client clients.Client) {
 	}
 	m.queue = cleaned
 	m.mutex.Unlock()
-	clients.SendServerMessage(client, "you are no longer queued")
+	client.SendServerMessage("you are no longer queued")
 }
 
 func (m *Matchmaker) Poll(ctx context.Context) {
@@ -80,8 +80,8 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 		// First prune the list of any clients that are gone
 		cleaned := make([]QueuedClient, 0)
 		for _, queued := range m.queue {
-			if queued.client.NetworkStatus() == clients.ClientNetworkStatusDisconnected {
-				log.Info().Uint16("client", queued.client.Id()).Msg("pruning disconnected client")
+			if queued.client.Connection.NetworkStatus() == clients.ClientNetworkStatusDisconnected {
+				log.Info().Uint16("client", queued.client.Id).Msg("pruning disconnected client")
 				continue
 			}
 			cleaned = append(cleaned, queued)
@@ -89,7 +89,7 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 		m.queue = cleaned
 
 		// Then look to see if we can make any matches
-		matched := make(map[clients.Client]bool, 0)
+		matched := make(map[*clients.Client]bool, 0)
 		for _, queuedA := range m.queue {
 			// We may have already matched this queued
 			// note: can this actually occur?
@@ -215,8 +215,8 @@ func abs(x, y int) int {
 	return x - y
 }
 
-func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB clients.Client) {
-	logger := log.With().Uint16("clientA", clientA.Id()).Uint16("clientB", clientB.Id()).Logger()
+func (m *Matchmaker) Duel(ctx context.Context, clientA *clients.Client, clientB *clients.Client) {
+	logger := log.With().Uint16("clientA", clientA.Id).Uint16("clientB", clientB.Id).Logger()
 
 	logger.Info().Msg("initiating 1v1")
 
@@ -224,13 +224,13 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 	defer cancelMatch()
 
 	// If any client disconnects from the CLUSTER, end the match
-	for _, client := range []clients.Client{clientA, clientB} {
-		go func(client clients.Client) {
+	for _, client := range []*clients.Client{clientA, clientB} {
+		go func(client *clients.Client) {
 			select {
 			case <-matchContext.Done():
 				return
-			case <-client.SessionContext().Done():
-				logger.Info().Msgf("client %d disconnected from cluster, ending match", client.Id())
+			case <-client.Connection.SessionContext().Done():
+				logger.Info().Msgf("client %d disconnected from cluster, ending match", client.Id)
 				cancelMatch()
 				return
 			}
@@ -238,8 +238,8 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 	}
 
 	broadcast := func(text string) {
-		clients.SendServerMessage(clientA, text)
-		clients.SendServerMessage(clientB, text)
+		clientA.SendServerMessage(text)
+		clientB.SendServerMessage(text)
 	}
 
 	failure := func() {
@@ -281,27 +281,25 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA clients.Client, clientB c
 	}
 
 	// Move the clients to the new server
-	for _, client := range []clients.Client{clientA, clientB} {
-		state := m.clients.GetState(client)
-
+	for _, client := range []*clients.Client{clientA, clientB} {
 		// Store previous server
-		oldServer := state.GetServer()
+		oldServer := client.GetServer()
 
-		go func(client clients.Client, oldServer *servers.GameServer) {
+		go func(client *clients.Client, oldServer *servers.GameServer) {
 			select {
 			case <-matchContext.Done():
 				// When the match is done (regardless of result) attempt to move
-				m.clients.ConnectClient(oldServer, client)
+				client.ConnectToServer(oldServer)
 				return
-			case <-state.ServerSessionContext().Done():
-				logger.Info().Msgf("client %d disconnected from server, ending match", client.Id())
+			case <-client.ServerSessionContext().Done():
+				logger.Info().Msgf("client %d disconnected from server, ending match", client.Id)
 				// If any client disconnects from the SERVER, end the match
 				cancelMatch()
 				return
 			}
 		}(client, oldServer)
 
-		connected, err := m.clients.ConnectClient(gameServer, client)
+		connected, err := client.ConnectToServer(gameServer)
 		result := <-connected
 		if result == false || err != nil {
 			logger.Error().Err(err).Msg("client failed to connect")

@@ -76,18 +76,15 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
-			state := server.Clients.GetState(client)
-			if state == nil {
-				continue
+			client.Mutex.Lock()
+			if client.Server != nil {
+				log.Info().
+					Uint16("client", client.Id).
+					Str("server", client.Server.Reference()).
+					Msg("connected to server")
+				client.Status = clients.ClientStatusConnected
 			}
-
-			state.Mutex.Lock()
-			log.Info().
-				Uint16("client", client.Id()).
-				Str("server", state.Server.Reference()).
-				Msg("connected to server")
-			state.Status = clients.ClientStatusConnected
-			state.Mutex.Unlock()
+			client.Mutex.Unlock()
 
 		case event := <-forceDisconnects:
 			log.Info().Msgf("client forcibly disconnected %d %s", event.Reason, event.Text)
@@ -98,11 +95,11 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
-			server.Clients.ClientDisconnected(client)
+			client.DisconnectFromServer()
 
 			// TODO ideally we would move clients back to the lobby if they
 			// were not kicked for violent reasons
-			client.Disconnect(int(event.Reason), event.Text)
+			client.Connection.Disconnect(int(event.Reason), event.Text)
 		case packet := <-gamePackets:
 			client := server.Clients.FindClient(uint16(packet.Client))
 
@@ -110,12 +107,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
-			state := server.Clients.GetState(client)
-			if state == nil {
-				continue
-			}
-
-			if state.GetServer() != packet.Server {
+			if client.GetServer() != packet.Server {
 				continue
 			}
 
@@ -124,11 +116,11 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			if err != nil {
 				log.Debug().
 					Err(err).
-					Uint16("client", client.Id()).
+					Uint16("client", client.Id).
 					Msg("cluster -> client (failed to decode message)")
 
 				// Forward it anyway
-				client.Send(game.GamePacket{
+				client.Connection.Send(game.GamePacket{
 					Channel: uint8(packet.Packet.Channel),
 					Data:    packet.Packet.Data,
 				})
@@ -144,10 +136,10 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			if len(messages) > 0 && messages[0].Type() == game.N_CLIENT {
 				log.Debug().
 					Str("type", game.N_CLIENT.String()).
-					Uint16("client", client.Id()).
+					Uint16("client", client.Id).
 					Msgf("cluster -> client (%d messages)", len(messages)-1)
 
-				client.Send(game.GamePacket{
+				client.Connection.Send(game.GamePacket{
 					Channel: channel,
 					Data:    packet.Packet.Data,
 				})
@@ -158,10 +150,10 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			for _, message := range messages {
 				log.Debug().
 					Str("type", message.Type().String()).
-					Uint16("client", client.Id()).
+					Uint16("client", client.Id).
 					Msg("cluster -> client")
 
-				client.Send(game.GamePacket{
+				client.Connection.Send(game.GamePacket{
 					Channel: channel,
 					Data:    message.Data(),
 				})
@@ -195,17 +187,17 @@ type DestPacket struct {
 	Dest    *servers.GameServer
 }
 
-func (server *Cluster) PollClient(ctx context.Context, client clients.Client, state *clients.ClientState) {
-	toServer := client.ReceivePackets()
-	commands := client.ReceiveCommands()
-	disconnect := client.ReceiveDisconnect()
+func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
+	toServer := client.Connection.ReceivePackets()
+	commands := client.Connection.ReceiveCommands()
+	disconnect := client.Connection.ReceiveDisconnect()
 
 	// A context valid JUST for the lifetime of the client
 	clientCtx, cancel := context.WithCancel(ctx)
 
-	logger := log.With().Uint16("client", client.Id()).Logger()
+	logger := log.With().Uint16("client", client.Id).Logger()
 
-	defer client.Destroy()
+	defer client.Connection.Destroy()
 
 	for {
 		select {
@@ -219,24 +211,24 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 			if err != nil {
 				log.Error().
 					Err(err).
-					Uint16("client", client.Id()).
+					Uint16("client", client.Id).
 					Msg("client -> server (failed to decode message)")
 
 				// Forward it anyway
-				state.Mutex.Lock()
-				if state.Server != nil {
-					state.Server.SendData(client.Id(), uint32(msg.Channel), msg.Data)
+				client.Mutex.Lock()
+				if client.Server != nil {
+					client.Server.SendData(client.Id, uint32(msg.Channel), msg.Data)
 				}
-				state.Mutex.Unlock()
+				client.Mutex.Unlock()
 				continue
 			}
 
 			passthrough := func(message messages.Message) {
-				state.Mutex.Lock()
-				if state.Server != nil {
-					state.Server.SendData(client.Id(), uint32(msg.Channel), message.Data())
+				client.Mutex.Lock()
+				if client.Server != nil {
+					client.Server.SendData(client.Id, uint32(msg.Channel), message.Data())
 				}
-				state.Mutex.Unlock()
+				client.Mutex.Unlock()
 			}
 
 			for _, message := range gameMessages {
@@ -250,7 +242,7 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 						// Only send this packet after we've checked
 						// whether the cluster should handle it
 						go func() {
-							handled, response, err := server.RunCommandWithTimeout(clientCtx, command, client, state)
+							handled, response, err := server.RunCommandWithTimeout(clientCtx, command, client)
 
 							if !handled {
 								passthrough(message)
@@ -258,10 +250,10 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 							}
 
 							if err != nil {
-								clients.SendServerMessage(client, game.Red(err.Error()))
+								client.SendServerMessage(game.Red(err.Error()))
 								return
 							} else if len(response) > 0 {
-								clients.SendServerMessage(client, response)
+								client.SendServerMessage(response)
 								return
 							}
 
@@ -277,21 +269,21 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 				// client is connecting, otherwise the server
 				// (rightfully) disconnects us. This solves a
 				// race condition when switching servers.
-				state.Mutex.Lock()
-				status := state.Status
+				client.Mutex.Lock()
+				status := client.Status
 				if status == clients.ClientStatusConnecting && !game.IsConnectingMessage(message.Type()) {
-					state.Mutex.Unlock()
+					client.Mutex.Unlock()
 					continue
 				}
-				state.Mutex.Unlock()
+				client.Mutex.Unlock()
 
 				logger.Debug().Str("code", message.Type().String()).Msg("client -> server")
 
-				state.Mutex.Lock()
-				if state.Server != nil {
-					state.Server.SendData(client.Id(), uint32(msg.Channel), message.Data())
+				client.Mutex.Lock()
+				if client.Server != nil {
+					client.Server.SendData(client.Id, uint32(msg.Channel), message.Data())
 				}
-				state.Mutex.Unlock()
+				client.Mutex.Unlock()
 			}
 
 		case request := <-commands:
@@ -299,7 +291,7 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 			outChannel := request.Response
 
 			go func() {
-				handled, response, err := server.RunCommandWithTimeout(clientCtx, command, client, state)
+				handled, response, err := server.RunCommandWithTimeout(clientCtx, command, client)
 				outChannel <- clients.CommandResult{
 					Handled:  handled,
 					Err:      err,
@@ -307,7 +299,7 @@ func (server *Cluster) PollClient(ctx context.Context, client clients.Client, st
 				}
 			}()
 		case <-disconnect:
-			server.Clients.ClientDisconnected(client)
+			client.DisconnectFromServer()
 		}
 	}
 }
@@ -318,7 +310,7 @@ func (server *Cluster) PollClients(ctx context.Context) {
 	for {
 		select {
 		case client := <-newClients:
-			go server.PollClient(ctx, client.Client, client.State)
+			go server.PollClient(ctx, client)
 		case <-ctx.Done():
 			return
 		}

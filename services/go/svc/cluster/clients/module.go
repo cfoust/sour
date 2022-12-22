@@ -55,16 +55,14 @@ const (
 	ClientStatusDisconnected
 )
 
-type Client interface {
+type NetworkClient interface {
 	// Lasts for the duration of the client's connection to its ingress.
 	SessionContext() context.Context
 	// Get a string identifier for this client for logging purposes.
 	// This does not have to be unique.
 	Reference() string
 	NetworkStatus() ClientNetworkStatus
-	Id() uint16
 	Host() string
-	SetId(newId uint16)
 	Type() ClientType
 	// Tell the client that we've connected
 	Connect()
@@ -82,7 +80,10 @@ type Client interface {
 	Destroy()
 }
 
-type ClientState struct {
+type Client struct {
+	Id         uint16
+	Connection NetworkClient
+
 	Server *servers.GameServer
 	Mutex  sync.Mutex
 	Status ClientStatus
@@ -96,84 +97,40 @@ type ClientState struct {
 	cancel           context.CancelFunc
 }
 
-func (s *ClientState) GetStatus() ClientStatus {
-	s.Mutex.Lock()
-	status := s.Status
-	s.Mutex.Unlock()
+func (c *Client) GetStatus() ClientStatus {
+	c.Mutex.Lock()
+	status := c.Status
+	c.Mutex.Unlock()
 	return status
 }
 
-func (s *ClientState) ServerSessionContext() context.Context {
-	s.Mutex.Lock()
-	ctx := s.serverSessionCtx
-	s.Mutex.Unlock()
+func (c *Client) ServerSessionContext() context.Context {
+	c.Mutex.Lock()
+	ctx := c.serverSessionCtx
+	c.Mutex.Unlock()
 	return ctx
 }
 
-func (s *ClientState) GetServer() *servers.GameServer {
-	s.Mutex.Lock()
-	server := s.Server
-	s.Mutex.Unlock()
+func (c *Client) GetServer() *servers.GameServer {
+	c.Mutex.Lock()
+	server := c.Server
+	c.Mutex.Unlock()
 	return server
 }
 
-type ClientBundle struct {
-	Client Client
-	State  *ClientState
+func (c *Client) SendServerMessage(message string) {
+	packet := game.Packet{}
+	packet.PutInt(int32(game.N_SERVMSG))
+	message = fmt.Sprintf("%s %s", game.Yellow("sour"), message)
+	packet.PutString(message)
+	c.Connection.Send(game.GamePacket{
+		Channel: 1,
+		Data:    packet,
+	})
 }
 
-type ClientManager struct {
-	state      map[Client]*ClientState
-	Mutex      sync.Mutex
-	newClients chan ClientBundle
-}
-
-func NewClientManager() *ClientManager {
-	return &ClientManager{
-		state:      make(map[Client]*ClientState),
-		newClients: make(chan ClientBundle, 16),
-	}
-}
-
-func (c *ClientManager) newClientID() (uint16, error) {
-	for attempts := 0; attempts < math.MaxUint16; attempts++ {
-		number, _ := rand.Int(rand.Reader, big.NewInt(math.MaxUint16))
-		truncated := uint16(number.Uint64())
-
-		taken := false
-		for client, _ := range c.state {
-			if client.Id() == truncated {
-				taken = true
-			}
-		}
-		if taken {
-			continue
-		}
-
-		return truncated, nil
-	}
-
-	return 0, errors.New("Failed to assign client ID")
-}
-
-func (c *ClientManager) GetState(client Client) *ClientState {
-	c.Mutex.Lock()
-	state, ok := c.state[client]
-	c.Mutex.Unlock()
-
-	if !ok {
-		return nil
-	}
-	return state
-}
-
-func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client) (<-chan bool, error) {
-	state := c.GetState(client)
-	if state == nil {
-		return nil, fmt.Errorf("could not find state for client")
-	}
-
-	if client.NetworkStatus() == ClientNetworkStatusDisconnected {
+func (c *Client) ConnectToServer(server *servers.GameServer) (<-chan bool, error) {
+	if c.Connection.NetworkStatus() == ClientNetworkStatusDisconnected {
 		log.Warn().Msgf("client not connected to cluster but attempted connect")
 		return nil, fmt.Errorf("client not connected to cluster")
 	}
@@ -183,20 +140,20 @@ func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client)
 	log.Info().Str("server", server.Reference()).
 		Msg("client connecting to server")
 
-	state.Mutex.Lock()
-	if state.Server != nil {
-		state.Server.SendDisconnect(client.Id())
+	c.Mutex.Lock()
+	if c.Server != nil {
+		c.Server.SendDisconnect(c.Id)
 	}
-	state.Server = server
+	c.Server = server
 	server.Connecting <- true
-	state.Status = ClientStatusConnecting
-	sessionCtx, cancel := context.WithCancel(client.SessionContext())
-	state.serverSessionCtx = sessionCtx
-	state.cancel = cancel
-	state.Mutex.Unlock()
+	c.Status = ClientStatusConnecting
+	sessionCtx, cancel := context.WithCancel(c.Connection.SessionContext())
+	c.serverSessionCtx = sessionCtx
+	c.cancel = cancel
+	c.Mutex.Unlock()
 
-	server.SendConnect(client.Id())
-	client.Connect()
+	server.SendConnect(c.Id)
+	c.Connection.Connect()
 
 	// Give the client one second to connect.
 	go func() {
@@ -209,7 +166,7 @@ func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client)
 		}()
 
 		for {
-			if state.GetStatus() == ClientStatusConnected {
+			if c.GetStatus() == ClientStatusConnected {
 				connected <- true
 				return
 			}
@@ -217,7 +174,7 @@ func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client)
 			select {
 			case <-tick.C:
 				continue
-			case <-client.SessionContext().Done():
+			case <-c.Connection.SessionContext().Done():
 				connected <- false
 				return
 			case <-connectCtx.Done():
@@ -232,75 +189,103 @@ func (c *ClientManager) ConnectClient(server *servers.GameServer, client Client)
 
 // Mark the client's status as disconnected and cancel its session context.
 // Called both when the client disconnects from ingress AND when the server kicks them out.
-func (c *ClientManager) ClientDisconnected(client Client) error {
-	state := c.GetState(client)
-	if state == nil {
-		return fmt.Errorf("could not find state for client")
+func (c *Client) DisconnectFromServer() error {
+	c.Mutex.Lock()
+	if c.Server != nil {
+		c.Server.SendDisconnect(c.Id)
 	}
-
-	state.Mutex.Lock()
-	if state.Server != nil {
-		state.Server.SendDisconnect(client.Id())
+	c.Server = nil
+	c.Status = ClientStatusDisconnected
+	if c.cancel != nil {
+		c.cancel()
 	}
-	state.Server = nil
-	state.Status = ClientStatusDisconnected
-	if state.cancel != nil {
-		state.cancel()
-	}
-	state.Mutex.Unlock()
+	c.Mutex.Unlock()
 
 	return nil
 }
 
-func (c *ClientManager) AddClient(client Client) error {
+type ClientManager struct {
+	state      map[*Client]struct{}
+	Mutex      sync.Mutex
+	newClients chan *Client
+}
+
+func NewClientManager() *ClientManager {
+	return &ClientManager{
+		state:      make(map[*Client]struct{}),
+		newClients: make(chan *Client, 16),
+	}
+}
+
+func (c *ClientManager) newClientID() (uint16, error) {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+	for attempts := 0; attempts < math.MaxUint16; attempts++ {
+		number, _ := rand.Int(rand.Reader, big.NewInt(math.MaxUint16))
+		truncated := uint16(number.Uint64())
+
+		taken := false
+		for client, _ := range c.state {
+			if client.Id == truncated {
+				taken = true
+			}
+		}
+		if taken {
+			continue
+		}
+
+		return truncated, nil
+	}
+
+	return 0, errors.New("Failed to assign client ID")
+}
+
+func (c *ClientManager) AddClient(networkClient NetworkClient) error {
 	id, err := c.newClientID()
 	if err != nil {
 		return err
 	}
 
-	client.SetId(id)
-
-	state := &ClientState{}
+	client := Client{
+		Id:         id,
+		Connection: networkClient,
+		Status:     ClientStatusDisconnected,
+	}
 
 	c.Mutex.Lock()
-	c.state[client] = state
+	c.state[&client] = struct{}{}
 	c.Mutex.Unlock()
 
-	c.newClients <- ClientBundle{
-		Client: client,
-		State:  state,
-	}
+	c.newClients <- &client
 
 	return nil
 }
 
-func SendServerMessage(client Client, message string) {
-	packet := game.Packet{}
-	packet.PutInt(int32(game.N_SERVMSG))
-	message = fmt.Sprintf("%s %s", game.Yellow("sour"), message)
-	packet.PutString(message)
-	client.Send(game.GamePacket{
-		Channel: 1,
-		Data:    packet,
-	})
-}
-
-func (c *ClientManager) RemoveClient(client Client) {
-	c.ClientDisconnected(client)
+func (c *ClientManager) RemoveClient(networkClient NetworkClient) {
 	c.Mutex.Lock()
-	delete(c.state, client)
+
+	for client, _ := range c.state {
+		if client.Connection != networkClient {
+			continue
+		}
+
+		client.DisconnectFromServer()
+		delete(c.state, client)
+		break
+	}
+
 	c.Mutex.Unlock()
 }
 
-func (c *ClientManager) ReceiveClients() <-chan ClientBundle {
+func (c *ClientManager) ReceiveClients() <-chan *Client {
 	return c.newClients
 }
 
-func (c *ClientManager) FindClient(id uint16) Client {
+func (c *ClientManager) FindClient(id uint16) *Client {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 	for client, _ := range c.state {
-		if client.Id() != uint16(id) {
+		if client.Id != uint16(id) {
 			continue
 		}
 
