@@ -17,19 +17,6 @@ services:
     networks:
       - letsencrypt
 
-  sour-server:
-    image: registry.digitalocean.com/cfoust/sour:latest
-    container_name: sour-server
-    environment:
-      VIRTUAL_HOST: server.sourga.me
-      VIRTUAL_PORT: 28785
-      LETSENCRYPT_HOST: server.sourga.me
-      LETSENCRYPT_EMAIL: XXXXXXX
-    stdin_open: True
-    tty: True
-    networks:
-      - letsencrypt
-
 networks:
   letsencrypt:
     external: true
