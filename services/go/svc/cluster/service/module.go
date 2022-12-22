@@ -71,11 +71,25 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 		select {
 		case result := <-results:
 			server.Clients.Mutex.Lock()
+
+			message := fmt.Sprintf(
+				"%s beat %s in %s",
+				result.Winner.Reference(),
+				result.Loser.Reference(),
+				result.Type,
+			)
+
+			if result.Disconnected {
+				message = fmt.Sprintf("%s because they disconnected", message)
+			}
+
 			for client, _ := range server.Clients.State {
 				if client == result.Winner {
 					client.SendServerMessage(game.Green("you won!"))
 				} else if client == result.Loser {
 					client.SendServerMessage(game.Red("you lost"))
+				} else {
+					client.SendServerMessage(message)
 				}
 			}
 			server.Clients.Mutex.Unlock()
@@ -85,7 +99,12 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 				if client == queue.Client {
 					continue
 				}
-				client.SendServerMessage(fmt.Sprintf("someone queued for dueling (%s)", queue.Type))
+
+				client.SendServerMessage(fmt.Sprintf(
+					"%s queued for %s",
+					client.Reference(),
+					queue.Type,
+				))
 			}
 			server.Clients.Mutex.Unlock()
 		case <-ctx.Done():

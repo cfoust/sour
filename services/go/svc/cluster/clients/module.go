@@ -128,6 +128,17 @@ func (c *Client) GetServer() *servers.GameServer {
 	return server
 }
 
+func (c *Client) Reference() string {
+	c.Mutex.Lock()
+	server := c.Server
+	reference := c.Name
+	if server != nil {
+		reference = fmt.Sprintf("%s (%s)", c.Name, server.Reference())
+	}
+	c.Mutex.Unlock()
+	return reference
+}
+
 func (c *Client) SendServerMessage(message string) {
 	packet := game.Packet{}
 	packet.PutInt(int32(game.N_SERVMSG))
