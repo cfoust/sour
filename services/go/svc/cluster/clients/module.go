@@ -84,9 +84,13 @@ type Client struct {
 	Id         uint16
 	Connection NetworkClient
 
-	Server *servers.GameServer
-	Mutex  sync.Mutex
+	// The ID of the client on the Sauer server
+	ClientNum int32
+	Server    *servers.GameServer
+	// Whether the client is connected (or connecting) to a game server
 	Status ClientStatus
+
+	Mutex sync.Mutex
 
 	// Created when the user connects to a server and canceled when they
 	// leave, regardless of reason (network or being disconnected by the
@@ -95,6 +99,10 @@ type Client struct {
 	// the lifecycle of the client's ingress connection
 	serverSessionCtx context.Context
 	cancel           context.CancelFunc
+
+	// XXX This is nasty but to make the API nice, Clients have to be able
+	// to see the list of clients. This could/should be refactored someday.
+	manager          *ClientManager
 }
 
 func (c *Client) GetStatus() ClientStatus {
@@ -143,6 +151,26 @@ func (c *Client) ConnectToServer(server *servers.GameServer) (<-chan bool, error
 	c.Mutex.Lock()
 	if c.Server != nil {
 		c.Server.SendDisconnect(c.Id)
+
+		// Remove all the other clients from this client's perspective
+		c.manager.Mutex.Lock()
+		for client, _ := range c.manager.state {
+			if client == c || client.GetServer() != c.Server {
+				continue
+			}
+
+			// Send N_CDIS
+			client.Mutex.Lock()
+			packet := game.Packet{}
+			packet.PutInt(int32(game.N_CDIS))
+			packet.PutInt(int32(client.ClientNum))
+			c.Connection.Send(game.GamePacket{
+				Channel: 1,
+				Data:    packet,
+			})
+			client.Mutex.Unlock()
+		}
+		c.manager.Mutex.Unlock()
 	}
 	c.Server = server
 	server.Connecting <- true
@@ -250,6 +278,7 @@ func (c *ClientManager) AddClient(networkClient NetworkClient) error {
 		Id:         id,
 		Connection: networkClient,
 		Status:     ClientStatusDisconnected,
+		manager:    c,
 	}
 
 	c.Mutex.Lock()

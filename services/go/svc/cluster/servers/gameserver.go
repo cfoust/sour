@@ -52,7 +52,7 @@ type GameServer struct {
 
 	mapRequests chan MapRequest
 
-	connects    chan uint32
+	connects    chan ClientJoin
 	disconnects chan ForceDisconnect
 	packets     chan ClientPacket
 }
@@ -345,7 +345,15 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 						break
 					}
 
-					server.connects <- id
+					clientNum, ok := p.GetInt()
+					if !ok {
+						break
+					}
+
+					server.connects <- ClientJoin{
+						Client: id,
+						ClientNum: clientNum,
+					}
 					continue
 				}
 

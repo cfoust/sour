@@ -69,8 +69,8 @@ func (server *Cluster) PollServers(ctx context.Context) {
 
 	for {
 		select {
-		case id := <-connects:
-			client := server.Clients.FindClient(uint16(id))
+		case join := <-connects:
+			client := server.Clients.FindClient(uint16(join.Client))
 
 			if client == nil {
 				continue
@@ -80,9 +80,11 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			if client.Server != nil {
 				log.Info().
 					Uint16("client", client.Id).
+					Int32("clientNum", join.ClientNum).
 					Str("server", client.Server.Reference()).
 					Msg("connected to server")
 				client.Status = clients.ClientStatusConnected
+				client.ClientNum = join.ClientNum
 			}
 			client.Mutex.Unlock()
 

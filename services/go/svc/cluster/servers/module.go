@@ -113,6 +113,12 @@ type ClientPacket struct {
 	Server *GameServer
 }
 
+type ClientJoin struct {
+	Client uint32
+	// Sauerbraten server clients each get their own identifiers as well
+	ClientNum int32
+}
+
 type ServerManager struct {
 	Servers []*GameServer
 	Receive chan []byte
@@ -126,7 +132,7 @@ type ServerManager struct {
 	// The working directory of all of the servers
 	workingDir string
 
-	connects    chan uint32
+	connects    chan ClientJoin
 	disconnects chan ForceDisconnect
 	packets     chan ClientPacket
 }
@@ -139,7 +145,7 @@ func (manager *ServerManager) ReceivePackets() <-chan ClientPacket {
 	return manager.packets
 }
 
-func (manager *ServerManager) ReceiveConnects() <-chan uint32 {
+func (manager *ServerManager) ReceiveConnects() <-chan ClientJoin {
 	return manager.connects
 }
 
@@ -151,7 +157,7 @@ func NewServerManager(maps *assets.MapFetcher, serverDescription string, presets
 		presets:           presets,
 		packets:           make(chan ClientPacket, 100),
 		disconnects:       make(chan ForceDisconnect, 100),
-		connects:          make(chan uint32, 100),
+		connects:          make(chan ClientJoin, 100),
 	}
 }
 

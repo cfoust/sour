@@ -467,6 +467,7 @@ void connect_client(int n) {
     packetbuf p(MAXTRANS);
     putuint(p, SERVER_EVENT_CONNECT);
     putuint(p, clients[n]->id);
+    putint(p, n);
     ENetPacket *newPacket = p.finalize();
     socketCtl.send((char*) newPacket->data, newPacket->dataLength);
 }
