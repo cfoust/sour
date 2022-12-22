@@ -3060,7 +3060,7 @@ best.add(clients[i]); \
             if(m_mp(gamemode) && ci->state.state!=CS_SPECTATOR) sendspawn(ci);
         }
     }
-    ICOMMAND(forcerespawn, "i", (int *val), forcerespawn(val == NULL ? -1 : *val));
+    ICOMMAND(forcerespawn, "i", (int *val), forcerespawn(*val));
 
     void suicideevent::process(clientinfo *ci) { suicide(ci); }
 

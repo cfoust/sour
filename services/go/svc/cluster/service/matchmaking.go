@@ -219,7 +219,7 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 }
 
 // Do a period of uninterrupted gameplay, like the warmup or main "struggle" sections.
-func (m *Matchmaker) DoSession(ctx context.Context, numSeconds uint, announce bool, message func(string)) {
+func (m *Matchmaker) DoSession(ctx context.Context, numSeconds uint, title string, message func(string)) {
 	tick := time.NewTicker(50 * time.Millisecond)
 
 	startTime := time.Now()
@@ -260,7 +260,7 @@ func (m *Matchmaker) DoSession(ctx context.Context, numSeconds uint, announce bo
 		case <-tick.C:
 			remaining := uint(endTime.Sub(time.Now()).Round(time.Second) / time.Second)
 			if announceIndex < len(announceThresholds) && remaining <= announceThresholds[announceIndex] {
-				message(fmt.Sprintf("%d seconds remaining", announceThresholds[announceIndex]))
+				message(fmt.Sprintf("%s %d seconds remaining", title, announceThresholds[announceIndex]))
 				announceIndex++
 			}
 		case <-ctx.Done():
@@ -437,9 +437,9 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA *clients.Client, clientB 
 
 	// Start with a warmup
 	broadcast(game.Blue("Warmup"))
-	m.DoSession(matchContext, duelType.WarmupSeconds, true, broadcast)
+	m.DoSession(matchContext, duelType.WarmupSeconds, game.Blue("Warmup"), broadcast)
 	gameServer.SendCommand("resetplayers 1")
-	gameServer.SendCommand("forcerespawn")
+	gameServer.SendCommand("forcerespawn -1")
 
 	if matchContext.Err() != nil {
 		return
@@ -483,7 +483,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA *clients.Client, clientB 
 					scoreMutex.Unlock()
 
 					if duelType.ForceRespawn == config.RespawnTypeAll {
-						gameServer.SendCommand("resetplayers 0")
+						gameServer.SendCommand("forcerespawn -1")
 					} else if duelType.ForceRespawn == config.RespawnTypeDead {
 						gameServer.SendCommand(fmt.Sprintf("forcerespawn %d", killed.ClientNum))
 					}
@@ -510,7 +510,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA *clients.Client, clientB 
 		return
 	}
 
-	m.DoSession(matchContext, duelType.GameSeconds, true, broadcast)
+	m.DoSession(matchContext, duelType.GameSeconds, game.Red("Duel"), broadcast)
 
 	if matchContext.Err() != nil {
 		return
@@ -535,7 +535,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA *clients.Client, clientB 
 		gameServer.SendCommand("pausegame 0")
 
 		broadcast(game.Red("GO!"))
-		m.DoSession(matchContext, duelType.OvertimeSeconds, true, broadcast)
+		m.DoSession(matchContext, duelType.OvertimeSeconds, game.Red("Overtime"), broadcast)
 
 		if matchContext.Err() != nil {
 			return
