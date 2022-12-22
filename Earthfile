@@ -59,7 +59,7 @@ image-slim:
   RUN go install cuelang.org/go/cmd/cue@latest
   RUN apt-get update && apt-get install -y nginx libenet-dev
   COPY config/schema.cue /sour/schema.cue
-  COPY config/default-config.yaml /sour/default-config.yaml
+  COPY config/config.yaml /sour/config.yaml
   COPY +goexe/cluster /bin/cluster
   COPY +proxy/wsproxy /bin/wsproxy
   COPY +game/game /app/game/

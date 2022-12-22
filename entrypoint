@@ -7,7 +7,7 @@ CONFIG_DIR=${CONFIG_DIR:-/sour/config}
 mkdir -p "$CONFIG_DIR"
 
 # Validate the user's configuration and export the combined config
-export SOUR_CONFIG=$(cue export /sour/schema.cue /sour/default-config.yaml $(find $CONFIG_DIR -name '*.json' -or -name '*.yaml' -or -name '*.cue'))
+export SOUR_CONFIG=$(cue export /sour/schema.cue /sour/config.yaml $(find $CONFIG_DIR -name '*.json' -or -name '*.yaml' -or -name '*.cue'))
 
 if [ -z "$SOUR_CONFIG" ]; then
   echo "A Sour config must be defined."
