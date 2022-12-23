@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/game/messages"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/servers"
@@ -195,7 +194,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			}
 
 			parseData := packet.Packet.Data
-			messages, err := messages.Read(parseData)
+			messages, err := game.Read(parseData)
 			if err != nil {
 				log.Debug().
 					Err(err).
@@ -290,7 +289,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 		case msg := <-toServer:
 			data := msg.Data
 
-			gameMessages, err := messages.Read(data)
+			gameMessages, err := game.Read(data)
 			if err != nil {
 				log.Error().
 					Err(err).
@@ -306,7 +305,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 				continue
 			}
 
-			passthrough := func(message messages.Message) {
+			passthrough := func(message game.Message) {
 				client.Mutex.Lock()
 				if client.Server != nil {
 					client.Server.SendData(client.Id, uint32(msg.Channel), message.Data())
@@ -316,7 +315,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 			for _, message := range gameMessages {
 				if message.Type() == game.N_TEXT {
-					text := message.Contents().(*messages.Text).Text
+					text := message.Contents().(*game.Text).Text
 
 					if strings.HasPrefix(text, "#") {
 						command := text[1:]

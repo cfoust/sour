@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/game/messages"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/servers"
@@ -457,7 +456,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA *clients.Client, clientB 
 			select {
 			case msg := <-broadcasts:
 				if msg.Type() == game.N_DIED {
-					died := msg.Contents().(*messages.Died)
+					died := msg.Contents().(*game.Died)
 
 					if died.Client == died.Killer {
 						continue

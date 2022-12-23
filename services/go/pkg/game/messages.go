@@ -1,8 +1,4 @@
-package messages
-
-import (
-	"github.com/cfoust/sour/pkg/game"
-)
+package game
 
 // N_ADDBOT
 type AddBot struct {
@@ -284,7 +280,7 @@ type Ping struct {
 // N_POS
 type Pos struct {
 	Client int
-	State  game.PhysicsState
+	State  PhysicsState
 }
 
 // N_SERVMSG

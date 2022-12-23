@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/game/messages"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -51,8 +50,8 @@ type GameServer struct {
 	description string
 
 	rawBroadcasts chan game.GamePacket
-	broadcasts    chan messages.Message
-	subscribers   []chan messages.Message
+	broadcasts    chan game.Message
+	subscribers   []chan game.Message
 
 	mapRequests chan MapRequest
 
@@ -66,17 +65,17 @@ func (server *GameServer) ReceiveMapRequests() <-chan MapRequest {
 	return server.mapRequests
 }
 
-func (server *GameServer) BroadcastSubscribe() <-chan messages.Message {
+func (server *GameServer) BroadcastSubscribe() <-chan game.Message {
 	server.Mutex.Lock()
-	channel := make(chan messages.Message, 16)
+	channel := make(chan game.Message, 16)
 	server.subscribers = append(server.subscribers, channel)
 	server.Mutex.Unlock()
 	return channel
 }
 
-func (server *GameServer) BroadcastUnsubscribe(channel <-chan messages.Message) {
+func (server *GameServer) BroadcastUnsubscribe(channel <-chan game.Message) {
 	server.Mutex.Lock()
-	newChannels := make([]chan messages.Message, 0)
+	newChannels := make([]chan game.Message, 0)
 	for _, subscriber := range server.subscribers {
 		if subscriber == channel {
 			continue
@@ -260,7 +259,7 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 				continue
 			}
 
-			decoded, err := messages.Read(bundle.Data)
+			decoded, err := game.Read(bundle.Data)
 			if err != nil {
 				logger.Warn().Err(err).Msg("failed to decode broadcast")
 			}
@@ -282,97 +281,58 @@ func (server *GameServer) GetServerInfo() *ServerInfo {
 	return &info
 }
 
-func (server *GameServer) HandleServerInfo(data []byte) {
+func (server *GameServer) HandleServerInfo(data []byte) error {
 	info := ServerInfo{}
 
 	p := game.Packet(data)
 
 	millis, ok := p.GetInt()
 	if !ok {
-		return
+		return fmt.Errorf("invalid info request")
 	}
 
 	// TODO implement extinfo
 	if millis == 0 {
-		return
+		return nil
 	}
 
-	numClients, ok := p.GetInt()
-	if !ok {
-		return
+	var protocol int
+	var numAttributes int
+	err := p.Get(
+		&info.NumClients,
+		&numAttributes,
+		&protocol,
+		&info.GameMode,
+		&info.TimeLeft,
+		&info.MaxClients,
+		&info.PasswordMode,
+	)
+	if err != nil {
+		return err
 	}
-	info.NumClients = numClients
-
-	numAttributes, ok := p.GetInt()
-	if !ok {
-		return
-	}
-
-	// protocol version
-	_, ok = p.GetInt()
-	if !ok {
-		return
-	}
-
-	gameMode, ok := p.GetInt()
-	if !ok {
-		return
-	}
-	info.GameMode = gameMode
-
-	timeLeft, ok := p.GetInt()
-	if !ok {
-		return
-	}
-	info.TimeLeft = timeLeft
-
-	maxClients, ok := p.GetInt()
-	if !ok {
-		return
-	}
-	info.MaxClients = maxClients
-
-	passwordMode, ok := p.GetInt()
-	if !ok {
-		return
-	}
-	info.PasswordMode = passwordMode
 
 	if numAttributes == 7 {
-		gamePaused, ok := p.GetInt()
-		if !ok {
-			return
-		}
-		info.GamePaused = false
-		if gamePaused == 1 {
-			info.GamePaused = true
-		}
-
-		gameSpeed, ok := p.GetInt()
-		if !ok {
-			return
-		}
-		info.GameSpeed = gameSpeed
+		err = p.Get(
+			&info.GamePaused,
+			&info.GameSpeed,
+		)
 	} else {
 		info.GamePaused = false
 		info.GameSpeed = 100
 	}
 
-	mapName, ok := p.GetString()
-	if !ok {
-		return
+	err = p.Get(
+		&info.Map,
+		&info.Description,
+	)
+	if err != nil {
+		return err
 	}
-	info.Map = mapName
-
-	desc, ok := p.GetString()
-	if !ok {
-		return
-	}
-	info.Description = desc
 
 	server.Mutex.Lock()
 	server.Info = info
 	server.Mutex.Unlock()
+	return nil
 }
 
 func (server *GameServer) PollEvents(ctx context.Context) {
@@ -460,9 +420,12 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 					}
 
 					reply := p[:numBytes]
-					server.HandleServerInfo(reply)
-
+					err := server.HandleServerInfo(reply)
 					p = p[numBytes:]
+
+					if err != nil {
+						log.Error().Err(err).Msg("failed to retrieve")
+					}
 
 					continue
 				}

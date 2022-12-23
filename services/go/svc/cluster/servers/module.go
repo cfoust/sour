@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/game/messages"
 	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/config"
 
@@ -458,14 +457,14 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		Connecting:    make(chan bool, 1),
 		LastEvent:     time.Now(),
 		NumClients:    0,
-		broadcasts:    make(chan messages.Message, 10),
+		broadcasts:    make(chan game.Message, 10),
 		connects:      manager.connects,
 		disconnects:   manager.disconnects,
 		mapRequests:   make(chan MapRequest, 10),
 		packets:       manager.packets,
 		rawBroadcasts: make(chan game.GamePacket, 10),
 		send:          make(chan []byte, 1),
-		subscribers:   make([]chan messages.Message, 0),
+		subscribers:   make([]chan game.Message, 0),
 		names:         manager.names,
 	}
 

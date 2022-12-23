@@ -753,6 +753,12 @@ static ENetAddress pongaddr;
 
 void sendserverinforeply(ucharbuf &p)
 {
+    packetbuf r(MAXTRANS);
+    putuint(r, SERVER_EVENT_SERVER_INFO_REPLY);
+    putuint(r, p.len);
+    r.put(p.buf, p.len);
+    ENetPacket *newPacket = r.finalize();
+    socketCtl.send((char*) newPacket->data, newPacket->dataLength);
 }
 
 void checkserversockets()        // reply all server info requests
@@ -934,13 +940,6 @@ void serverslice(bool dedicated, bool enet, uint timeout)   // main server updat
                         ucharbuf res(pong, MAXTRANS);
                         res.put(q.buf + q.len, messageBytes - q.len);
                         server::serverinforeply(q, res);
-
-                        packetbuf r(MAXTRANS);
-                        putuint(r, SERVER_EVENT_SERVER_INFO_REPLY);
-                        putuint(r, res.len);
-                        r.put(res.buf, res.len);
-                        ENetPacket *newPacket = r.finalize();
-                        socketCtl.send((char*) newPacket->data, newPacket->dataLength);
                         break;
                     }
 
