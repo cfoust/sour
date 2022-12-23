@@ -19,7 +19,7 @@ MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.or
 ## Running
 
 ```
-docker run --rm -it -p 1234:1234 28785:28785/udp ghcr.io/cfoust/sour
+docker run --rm -it -p 1234:1234 -p 28785:28785/udp ghcr.io/cfoust/sour
 ```
 
 You can then access Sour at `http://localhost:1234/` or by connecting in [the desktop client](http://sauerbraten.org/) with `/connect localhost`.
