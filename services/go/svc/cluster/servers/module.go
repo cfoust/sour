@@ -137,13 +137,13 @@ type ClientName struct {
 type ServerManager struct {
 	Servers []*GameServer
 	Receive chan []byte
+	Mutex   sync.Mutex
 
 	presets []config.ServerPreset
 	maps    *assets.MapFetcher
 
 	serverDescription string
 	serverPath        string
-	mutex             sync.Mutex
 	// The working directory of all of the servers
 	workingDir string
 
@@ -238,8 +238,8 @@ func (manager *ServerManager) Start() error {
 }
 
 func (manager *ServerManager) Shutdown() {
-	manager.mutex.Lock()
-	defer manager.mutex.Unlock()
+	manager.Mutex.Lock()
+	defer manager.Mutex.Unlock()
 
 	for _, server := range manager.Servers {
 		server.Shutdown()
@@ -278,8 +278,8 @@ func FindIdentity() Identity {
 func (manager *ServerManager) RemoveServer(server *GameServer) error {
 	server.Shutdown()
 
-	manager.mutex.Lock()
-	defer manager.mutex.Unlock()
+	manager.Mutex.Lock()
+	defer manager.Mutex.Unlock()
 
 	manager.Servers = fp.Filter(func(v *GameServer) bool { return v.Id != server.Id })(manager.Servers)
 
@@ -292,7 +292,7 @@ func (manager *ServerManager) PruneServers(ctx context.Context) {
 	for {
 		select {
 		case <-interval.C:
-			manager.mutex.Lock()
+			manager.Mutex.Lock()
 
 			toPrune := make([]*GameServer, 0)
 
@@ -303,7 +303,7 @@ func (manager *ServerManager) PruneServers(ctx context.Context) {
 				toPrune = append(toPrune, server)
 			}
 
-			manager.mutex.Unlock()
+			manager.Mutex.Unlock()
 
 			for _, server := range toPrune {
 				logger := server.Log()
@@ -458,8 +458,8 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 
 	// We don't want other servers to start while this one is being started
 	// because of port contention
-	manager.mutex.Lock()
-	defer manager.mutex.Unlock()
+	manager.Mutex.Lock()
+	defer manager.Mutex.Unlock()
 
 	identity := FindIdentity()
 

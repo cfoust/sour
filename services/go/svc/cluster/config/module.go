@@ -39,9 +39,19 @@ type ServerConfig struct {
 	Preset string
 }
 
+type ENetServerInfo struct {
+	Enabled bool
+	Master  bool
+	Cluster struct {
+		Description string
+		Map         string
+	}
+}
+
 type ENetIngress struct {
-	Port    int
-	Command string
+	Port       int
+	Target     string
+	ServerInfo ENetServerInfo
 }
 
 type ClusterIngress struct {

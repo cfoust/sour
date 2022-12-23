@@ -61,9 +61,19 @@ proxy: #Service
 #ENetIngress: {
 	// The UDP port to listen on
 	port: #Port
-	// The cluster command to run when an ENet client joins
-	// This command must result in the client joining a server.
-	command: string
+	// The name of the server to join when a client connects
+	target: string
+	// Configure the serverinfo port
+	serverInfo: {
+		enabled: bool | *false
+		// Whether to register with the master server
+		master: bool | *false
+		// If defined, use the cluster's server info instead of the target info.
+		cluster?: {
+			description: string
+			map:         string
+		}
+	}
 }
 
 // Describes all of the ways desktop clients can join this cluster

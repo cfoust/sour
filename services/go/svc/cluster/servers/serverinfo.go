@@ -28,6 +28,10 @@ func (i *ENetDatagram) Serve(port int) error {
 	return nil
 }
 
+func (i *ENetDatagram) Shutdown() {
+	i.socket.DestroySocket()
+}
+
 type PingEvent struct {
 	Request  []byte
 	Response chan []byte
@@ -176,4 +180,8 @@ func (s *ServerInfoService) Serve(ctx context.Context, port int) error {
 	}()
 
 	return nil
+}
+
+func (s *ServerInfoService) Shutdown() {
+	s.datagram.Shutdown()
 }

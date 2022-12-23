@@ -64,7 +64,9 @@ cluster:
   ingress:
     desktop:
       - port: 28785
-        command: join lobby
+        target: lobby
+        serverInfo:
+          enabled: true
     web:
       port: 29999
 

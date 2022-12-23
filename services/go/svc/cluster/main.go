@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"time"
@@ -57,15 +58,32 @@ func main() {
 	wsIngress := ingress.NewWSIngress(cluster.Clients)
 
 	enet := make([]*ingress.ENetIngress, 0)
+	infoServices := make([]*servers.ServerInfoService, 0)
+
+	cluster.StartServers(ctx)
+
 	for _, enetConfig := range clusterConfig.Ingress.Desktop {
 		enetIngress := ingress.NewENetIngress(cluster.Clients)
 		enetIngress.Serve(enetConfig.Port)
-		enetIngress.InitialCommand = enetConfig.Command
+		enetIngress.InitialCommand = fmt.Sprintf("join %s", enetConfig.Target)
 		go enetIngress.Poll(ctx)
+
+		if enetConfig.ServerInfo.Enabled {
+			serverManager.Mutex.Lock()
+			for _, server := range serverManager.Servers {
+				if server.Reference() != enetConfig.Target {
+					continue
+				}
+
+				serverInfo := servers.NewServerInfoService(server)
+				serverInfo.Serve(ctx, enetConfig.Port + 1)
+				infoServices = append(infoServices, serverInfo)
+			}
+			serverManager.Mutex.Unlock()
+		}
+
 		enet = append(enet, enetIngress)
 	}
-
-	go cluster.StartServers(ctx)
 	go cluster.PollClients(ctx)
 	go cluster.PollDuels(ctx)
 
@@ -88,6 +106,9 @@ func main() {
 	wsIngress.Shutdown(ctx)
 	for _, enetIngress := range enet {
 		enetIngress.Shutdown()
+	}
+	for _, infoService := range infoServices {
+		infoService.Shutdown()
 	}
 	cluster.Shutdown()
 }

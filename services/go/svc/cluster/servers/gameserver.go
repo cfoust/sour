@@ -275,6 +275,13 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 	}
 }
 
+func (server *GameServer) GetServerInfo() *ServerInfo {
+	server.Mutex.Lock()
+	info := server.Info
+	server.Mutex.Unlock()
+	return &info
+}
+
 func (server *GameServer) HandleServerInfo(data []byte) {
 	info := ServerInfo{}
 
