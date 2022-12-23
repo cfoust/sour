@@ -185,6 +185,8 @@ func DecodeServerInfo(p game.Packet) (*ServerInfo, error) {
 
 type InfoProvider interface {
 	GetServerInfo() *ServerInfo
+	GetClientInfo() []*ClientExtInfo
+	GetUptime() int // seconds
 }
 
 type ServerInfoService struct {

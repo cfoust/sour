@@ -27,9 +27,12 @@ type GameServer struct {
 	Alias string
 
 	NumClients int
+
+	// Everything we get from serverinfo
 	Info       ServerInfo
 	ClientInfo map[uint16]*ClientExtInfo
 	Uptime     ServerUptime
+
 	Mutex      sync.Mutex
 
 	// The last time a client connected
@@ -281,6 +284,23 @@ func (server *GameServer) GetServerInfo() *ServerInfo {
 	info := server.Info
 	server.Mutex.Unlock()
 	return &info
+}
+
+func (server *GameServer) GetClientInfo() []*ClientExtInfo {
+	info := make([]*ClientExtInfo, 0)
+	server.Mutex.Lock()
+	for _, clientInfo := range server.ClientInfo {
+		info = append(info, clientInfo)
+	}
+	server.Mutex.Unlock()
+	return info
+}
+
+func (server *GameServer) GetUptime() int {
+	server.Mutex.Lock()
+	uptime := server.Uptime.TimeUp
+	server.Mutex.Unlock()
+	return uptime
 }
 
 func (server *GameServer) HandleServerInfo(numClients int, data []byte) error {

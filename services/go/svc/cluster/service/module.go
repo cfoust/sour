@@ -39,6 +39,7 @@ type Cluster struct {
 	// each host can only have one server at once
 	hostServers map[string]*servers.GameServer
 
+	startTime     time.Time
 	settings      config.ClusterSettings
 	manager       *servers.ServerManager
 	matches       *Matchmaker
@@ -57,6 +58,7 @@ func NewCluster(ctx context.Context, serverManager *servers.ServerManager, setti
 		matches:       NewMatchmaker(serverManager, clients, settings.Matchmaking.Duel),
 		serverMessage: make(chan []byte, 1),
 		manager:       serverManager,
+		startTime:     time.Now(),
 	}
 
 	return server
@@ -74,6 +76,39 @@ func (server *Cluster) GetServerInfo() *servers.ServerInfo {
 	info.Description = settings.Description
 
 	return info
+}
+
+// We need client information, so this is not on the ServerManager like GetServerInfo is
+func (server *Cluster) GetClientInfo() []*servers.ClientExtInfo {
+	info := make([]*servers.ClientExtInfo, 0)
+
+	server.Clients.Mutex.Lock()
+	server.manager.Mutex.Lock()
+
+	for _, gameServer := range server.manager.Servers {
+		clients := gameServer.GetClientInfo()
+		for _, client := range clients {
+			newClient := *client
+
+			// Replace with clientID
+			for client, _ := range server.Clients.State {
+				if client.GetServer() == gameServer && int(client.GetClientNum()) == newClient.Client {
+					newClient.Client = int(client.Id)
+				}
+			}
+
+			info = append(info, &newClient)
+		}
+	}
+
+	server.manager.Mutex.Unlock()
+	server.Clients.Mutex.Unlock()
+
+	return info
+}
+
+func (server *Cluster) GetUptime() int {
+	return int(time.Now().Sub(server.startTime).Round(time.Second) / time.Second)
 }
 
 func (server *Cluster) PollDuels(ctx context.Context) {
