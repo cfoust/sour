@@ -60,6 +60,7 @@ func (i *ENetDatagram) Poll(ctx context.Context) <-chan PingEvent {
 
 					select {
 					case data := <-response:
+						log.Info().Msgf("sending datagram response %v", data)
 						i.socket.SendDatagram(
 							event.Address,
 							data,
@@ -77,6 +78,60 @@ func (i *ENetDatagram) Poll(ctx context.Context) <-chan PingEvent {
 	return out
 }
 
+const (
+	EXT_ACK                    = -1
+	EXT_VERSION                = 105
+	EXT_NO_ERROR               = 0
+	EXT_ERROR                  = 1
+	EXT_PLAYERSTATS_RESP_IDS   = -10
+	EXT_PLAYERSTATS_RESP_STATS = -11
+	EXT_UPTIME                 = 0
+	EXT_PLAYERSTATS            = 1
+	EXT_TEAMSCORE              = 2
+)
+
+type ClientExtInfo struct {
+	Client    int
+	Ping      int
+	Name      string
+	Team      string
+	Frags     int
+	Flags     int
+	Deaths    int
+	TeamKills int
+	Damage    int
+	Health    int
+	Armour    int
+	GunSelect int
+	Privilege int
+	State     int
+	Ip0       byte
+	Ip1       byte
+	Ip2       byte
+}
+
+func DecodeClientInfo(p game.Packet) (*ClientExtInfo, error) {
+	client := ClientExtInfo{}
+	err := p.Get(&client)
+	if err != nil {
+		return nil, err
+	}
+	return &client, nil
+}
+
+type ServerUptime struct {
+	TimeUp int
+}
+
+func DecodeServerUptime(p game.Packet) (*ServerUptime, error) {
+	uptime := ServerUptime{}
+	err := p.Get(&uptime)
+	if err != nil {
+		return nil, err
+	}
+	return &uptime, nil
+}
+
 type ServerInfo struct {
 	NumClients int32
 	GamePaused bool
@@ -90,8 +145,49 @@ type ServerInfo struct {
 	Description  string
 }
 
+func DecodeServerInfo(p game.Packet) (*ServerInfo, error) {
+	info := ServerInfo{}
+
+	var protocol int
+	var numAttributes int
+	err := p.Get(
+		&info.NumClients,
+		&numAttributes,
+		&protocol,
+		&info.GameMode,
+		&info.TimeLeft,
+		&info.MaxClients,
+		&info.PasswordMode,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if numAttributes == 7 {
+		err = p.Get(
+			&info.GamePaused,
+			&info.GameSpeed,
+		)
+	} else {
+		info.GamePaused = false
+		info.GameSpeed = 100
+	}
+
+	err = p.Get(
+		&info.Map,
+		&info.Description,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &info, nil
+}
+
 type InfoProvider interface {
 	GetServerInfo() *ServerInfo
+	GetClientInfo() []*ClientExtInfo
+	GetUptime() int // seconds
 }
 
 type ServerInfoService struct {
@@ -106,46 +202,123 @@ func NewServerInfoService(provider InfoProvider) *ServerInfoService {
 	}
 }
 
-func (s *ServerInfoService) Handle(request *game.Packet, response *game.Packet) error {
+func (s *ServerInfoService) Handle(request *game.Packet, out chan []byte) error {
+	// The response includes the entirety of the
+	// request since they use it to calculate ping
+	// time
+	response := game.Packet(*request)
+
 	millis, ok := request.GetInt()
 	if !ok {
 		return fmt.Errorf("invalid request")
 	}
 
-	// TODO Other kinds of server info
 	if millis == 0 {
-		return fmt.Errorf("not yet implemented")
+		extCmd, ok := request.GetInt()
+		if !ok {
+			return fmt.Errorf("missing cmd")
+		}
+
+		switch extCmd {
+		case EXT_UPTIME:
+			response.PutInt(int32(s.provider.GetUptime()))
+			out <- response
+			return nil
+		case EXT_PLAYERSTATS:
+			clientNum, ok := request.GetInt()
+			if !ok {
+				return fmt.Errorf("missing client")
+			}
+
+			if clientNum >= 0 {
+				clients := s.provider.GetClientInfo()
+
+				found := false
+				for _, client := range clients {
+					if client.Client == int(clientNum) {
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					response.PutInt(EXT_ERROR)
+					out <- response
+					return nil
+				}
+			}
+
+			response.PutInt(EXT_NO_ERROR)
+
+			// Remember position
+			q := game.Packet(response)
+			q.PutInt(EXT_PLAYERSTATS_RESP_IDS)
+			if clientNum >= 0 {
+				q.PutInt(clientNum)
+			} else {
+				clients := s.provider.GetClientInfo()
+
+				for _, client := range clients {
+					q.PutInt(int32(client.Client))
+				}
+			}
+			out <- q
+
+			clients := s.provider.GetClientInfo()
+
+			for _, client := range clients {
+				if clientNum < 0 || client.Client != int(clientNum) {
+					break
+				}
+				q = game.Packet(response)
+				q.PutInt(EXT_PLAYERSTATS_RESP_STATS)
+				q.Put(client)
+				out <- q
+			}
+		}
+		return nil
 	}
 
 	info := s.provider.GetServerInfo()
 
-	response.PutInt(info.NumClients)
+	response.Put(info.NumClients)
 
 	// The number of attributes following
 	if info.GameSpeed != 100 || info.GamePaused {
-		response.PutInt(7)
+		response.Put(7)
 	} else {
-		response.PutInt(5)
+		response.Put(5)
 	}
 
-	response.PutInt(PROTOCOL_VERSION)
-	response.PutInt(info.GameMode)
-	response.PutInt(info.TimeLeft)
-	response.PutInt(info.MaxClients)
-	response.PutInt(info.PasswordMode)
+	err := response.Put(
+		PROTOCOL_VERSION,
+		info.GameMode,
+		info.TimeLeft,
+		info.MaxClients,
+		info.PasswordMode,
+	)
+	if err != nil {
+		return err
+	}
 
 	if info.GameSpeed != 100 || info.GamePaused {
-		if info.GamePaused {
-			response.PutInt(1)
-		} else {
-			response.PutInt(0)
-		}
-
-		response.PutInt(info.GameSpeed)
+		response.Put(
+			info.GamePaused,
+			info.GameSpeed,
+		)
 	}
 
-	response.PutString(info.Map)
-	response.PutString(info.Description)
+	err = response.Put(
+		info.Map,
+		info.Description,
+	)
+	if err != nil {
+		return err
+	}
+
+	log.Info().Msgf("standard response %v", response)
+
+	out <- response
 
 	return nil
 }
@@ -217,18 +390,13 @@ func (s *ServerInfoService) Serve(ctx context.Context, port int, registerMaster 
 			select {
 			case event := <-events:
 				request := game.Packet(event.Request)
-				// The response includes the entirety of the
-				// request since they use it to calculate ping
-				// time
-				response := game.Packet(event.Request)
 
-				err := s.Handle(&request, &response)
+				err := s.Handle(&request, event.Response)
 				if err != nil {
 					log.Warn().Err(err).Msg("error handling server info")
 					continue
 				}
 
-				event.Response <- response
 			case <-ctx.Done():
 				return
 			}

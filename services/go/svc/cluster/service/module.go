@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/game/messages"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/servers"
@@ -40,6 +39,7 @@ type Cluster struct {
 	// each host can only have one server at once
 	hostServers map[string]*servers.GameServer
 
+	startTime     time.Time
 	settings      config.ClusterSettings
 	manager       *servers.ServerManager
 	matches       *Matchmaker
@@ -58,6 +58,7 @@ func NewCluster(ctx context.Context, serverManager *servers.ServerManager, setti
 		matches:       NewMatchmaker(serverManager, clients, settings.Matchmaking.Duel),
 		serverMessage: make(chan []byte, 1),
 		manager:       serverManager,
+		startTime:     time.Now(),
 	}
 
 	return server
@@ -75,6 +76,39 @@ func (server *Cluster) GetServerInfo() *servers.ServerInfo {
 	info.Description = settings.Description
 
 	return info
+}
+
+// We need client information, so this is not on the ServerManager like GetServerInfo is
+func (server *Cluster) GetClientInfo() []*servers.ClientExtInfo {
+	info := make([]*servers.ClientExtInfo, 0)
+
+	server.Clients.Mutex.Lock()
+	server.manager.Mutex.Lock()
+
+	for _, gameServer := range server.manager.Servers {
+		clients := gameServer.GetClientInfo()
+		for _, client := range clients {
+			newClient := *client
+
+			// Replace with clientID
+			for client, _ := range server.Clients.State {
+				if client.GetServer() == gameServer && int(client.GetClientNum()) == newClient.Client {
+					newClient.Client = int(client.Id)
+				}
+			}
+
+			info = append(info, &newClient)
+		}
+	}
+
+	server.manager.Mutex.Unlock()
+	server.Clients.Mutex.Unlock()
+
+	return info
+}
+
+func (server *Cluster) GetUptime() int {
+	return int(time.Now().Sub(server.startTime).Round(time.Second) / time.Second)
 }
 
 func (server *Cluster) PollDuels(ctx context.Context) {
@@ -195,7 +229,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			}
 
 			parseData := packet.Packet.Data
-			messages, err := messages.Read(parseData)
+			messages, err := game.Read(parseData)
 			if err != nil {
 				log.Debug().
 					Err(err).
@@ -290,7 +324,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 		case msg := <-toServer:
 			data := msg.Data
 
-			gameMessages, err := messages.Read(data)
+			gameMessages, err := game.Read(data)
 			if err != nil {
 				log.Error().
 					Err(err).
@@ -306,7 +340,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 				continue
 			}
 
-			passthrough := func(message messages.Message) {
+			passthrough := func(message game.Message) {
 				client.Mutex.Lock()
 				if client.Server != nil {
 					client.Server.SendData(client.Id, uint32(msg.Channel), message.Data())
@@ -316,7 +350,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 			for _, message := range gameMessages {
 				if message.Type() == game.N_TEXT {
-					text := message.Contents().(*messages.Text).Text
+					text := message.Contents().(*game.Text).Text
 
 					if strings.HasPrefix(text, "#") {
 						command := text[1:]

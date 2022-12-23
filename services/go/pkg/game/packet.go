@@ -77,6 +77,14 @@ func (p *Packet) GetByte() (byte, bool) {
 	return b, true
 }
 
+func (p *Packet) Get(pieces ...interface{}) error {
+	return Unmarshal(p, pieces...)
+}
+
+func (p *Packet) Put(pieces ...interface{}) error {
+	return Marshal(p, pieces...)
+}
+
 // GetInt returns the integer value encoded in the next byte(s) of the packet.
 func (p *Packet) GetInt() (int32, bool) {
 	b, ok := p.GetByte()
