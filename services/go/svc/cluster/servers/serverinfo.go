@@ -275,6 +275,8 @@ func (s *ServerInfoService) Handle(request *game.Packet, out chan []byte) error 
 				q.Put(client)
 				out <- q
 			}
+		default:
+			return fmt.Errorf("unsupported extinfo command: %d", extCmd)
 		}
 		return nil
 	}
