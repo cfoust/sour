@@ -53,6 +53,8 @@ const (
 	SOCKET_EVENT_PING
 )
 
+const PROTOCOL_VERSION = 260
+
 type ServerEvent uint32
 
 const (
