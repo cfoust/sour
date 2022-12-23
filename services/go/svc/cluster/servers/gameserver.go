@@ -24,10 +24,12 @@ type GameServer struct {
 	Status ServerStatus
 	Id     string
 	// Another way for the client to refer to this server
-	Alias      string
+	Alias string
 
 	NumClients int
 	Info       ServerInfo
+	ClientInfo map[uint16]*ClientExtInfo
+	Uptime     ServerUptime
 	Mutex      sync.Mutex
 
 	// The last time a client connected
@@ -281,9 +283,7 @@ func (server *GameServer) GetServerInfo() *ServerInfo {
 	return &info
 }
 
-func (server *GameServer) HandleServerInfo(data []byte) error {
-	info := ServerInfo{}
-
+func (server *GameServer) HandleServerInfo(numClients int, data []byte) error {
 	p := game.Packet(data)
 
 	millis, ok := p.GetInt()
@@ -293,44 +293,80 @@ func (server *GameServer) HandleServerInfo(data []byte) error {
 
 	// TODO implement extinfo
 	if millis == 0 {
+		extType, ok := p.GetInt()
+		if !ok {
+			return fmt.Errorf("missing request type")
+		}
+
+		// Lookahead at argument
+		if extType == EXT_PLAYERSTATS {
+			// The client, which we don't use
+			p.GetInt()
+		}
+
+		ack, ok := p.GetInt()
+		if !ok || ack != EXT_ACK {
+			return fmt.Errorf("bad ack")
+		}
+		version, ok := p.GetInt()
+		if !ok || version != EXT_VERSION {
+			log.Info().Msgf("version %d %v", version, p)
+			return fmt.Errorf("bad version")
+		}
+
+		switch extType {
+		case EXT_UPTIME:
+			uptime, err := DecodeServerUptime(p)
+			if err != nil {
+				return err
+			}
+
+			server.Mutex.Lock()
+			server.Uptime = *uptime
+			server.Mutex.Unlock()
+		case EXT_PLAYERSTATS:
+			// We will never make individual client
+			// requests, so we can ignore that block
+			errorCode, ok := p.GetInt()
+			if !ok || errorCode != EXT_NO_ERROR {
+				log.Info().Msgf("%d %v", errorCode, p)
+				return fmt.Errorf("error code issue")
+			}
+
+			statsType, ok := p.GetInt()
+			if !ok {
+				return fmt.Errorf("missing stats response type")
+			}
+
+			switch statsType {
+			case EXT_PLAYERSTATS_RESP_IDS:
+				// We don't need these
+				for i := 0; i < numClients; i++ {
+					p.GetInt()
+				}
+			case EXT_PLAYERSTATS_RESP_STATS:
+				clientInfo, err := DecodeClientInfo(p)
+				if err != nil {
+					return err
+				}
+
+				log.Info().Msgf("%v", clientInfo)
+				server.Mutex.Lock()
+				server.ClientInfo[uint16(clientInfo.Client)] = clientInfo
+				server.Mutex.Unlock()
+			}
+		}
+
 		return nil
 	}
 
-	var protocol int
-	var numAttributes int
-	err := p.Get(
-		&info.NumClients,
-		&numAttributes,
-		&protocol,
-		&info.GameMode,
-		&info.TimeLeft,
-		&info.MaxClients,
-		&info.PasswordMode,
-	)
-	if err != nil {
-		return err
-	}
-
-	if numAttributes == 7 {
-		err = p.Get(
-			&info.GamePaused,
-			&info.GameSpeed,
-		)
-	} else {
-		info.GamePaused = false
-		info.GameSpeed = 100
-	}
-
-	err = p.Get(
-		&info.Map,
-		&info.Description,
-	)
+	info, err := DecodeServerInfo(p)
 	if err != nil {
 		return err
 	}
 
 	server.Mutex.Lock()
-	server.Info = info
+	server.Info = *info
 	server.Mutex.Unlock()
 	return nil
 }
@@ -373,6 +409,17 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 		case <-infoTicker.C:
 			request := game.Packet{}
 			request.PutInt(1234) // random millis
+			server.RequestServerInfo(request)
+
+			request = game.Packet{}
+			request.PutInt(0)
+			request.PutInt(EXT_UPTIME)
+			server.RequestServerInfo(request)
+
+			request = game.Packet{}
+			request.PutInt(0)
+			request.PutInt(EXT_PLAYERSTATS)
+			request.PutInt(-1)
 			server.RequestServerInfo(request)
 		case msg := <-socketWrites:
 			p := game.Packet(msg)
@@ -420,7 +467,10 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 					}
 
 					reply := p[:numBytes]
-					err := server.HandleServerInfo(reply)
+					server.Mutex.Lock()
+					numClients := server.Info.NumClients
+					server.Mutex.Unlock()
+					err := server.HandleServerInfo(int(numClients), reply)
 					p = p[numBytes:]
 
 					if err != nil {

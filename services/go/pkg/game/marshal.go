@@ -341,7 +341,7 @@ func Unmarshal(p *Packet, pieces ...interface{}) error {
 			}
 			value.SetString(readValue)
 		case reflect.Struct:
-			err := unmarshalStruct(p, type_.Elem(), value.Elem())
+			err := unmarshalStruct(p, type_, value)
 			if err != nil {
 				return err
 			}

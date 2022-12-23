@@ -77,6 +77,60 @@ func (i *ENetDatagram) Poll(ctx context.Context) <-chan PingEvent {
 	return out
 }
 
+const (
+	EXT_ACK                    = -1
+	EXT_VERSION                = 105
+	EXT_NO_ERROR               = 0
+	EXT_ERROR                  = 1
+	EXT_PLAYERSTATS_RESP_IDS   = -10
+	EXT_PLAYERSTATS_RESP_STATS = -11
+	EXT_UPTIME                 = 0
+	EXT_PLAYERSTATS            = 1
+	EXT_TEAMSCORE              = 2
+)
+
+type ClientExtInfo struct {
+	Client    int
+	Ping      int
+	Name      string
+	Team      string
+	Frags     int
+	Flags     int
+	Deaths    int
+	TeamKills int
+	Damage    int
+	Health    int
+	Armour    int
+	GunSelect int
+	Privilege int
+	State     int
+	Ip0       byte
+	Ip1       byte
+	Ip2       byte
+}
+
+func DecodeClientInfo(p game.Packet) (*ClientExtInfo, error) {
+	client := ClientExtInfo{}
+	err := p.Get(&client)
+	if err != nil {
+		return nil, err
+	}
+	return &client, nil
+}
+
+type ServerUptime struct {
+	TimeUp int
+}
+
+func DecodeServerUptime(p game.Packet) (*ServerUptime, error) {
+	uptime := ServerUptime{}
+	err := p.Get(&uptime)
+	if err != nil {
+		return nil, err
+	}
+	return &uptime, nil
+}
+
 type ServerInfo struct {
 	NumClients int32
 	GamePaused bool
@@ -88,6 +142,45 @@ type ServerInfo struct {
 	GameSpeed    int32
 	Map          string
 	Description  string
+}
+
+func DecodeServerInfo(p game.Packet) (*ServerInfo, error) {
+	info := ServerInfo{}
+
+	var protocol int
+	var numAttributes int
+	err := p.Get(
+		&info.NumClients,
+		&numAttributes,
+		&protocol,
+		&info.GameMode,
+		&info.TimeLeft,
+		&info.MaxClients,
+		&info.PasswordMode,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if numAttributes == 7 {
+		err = p.Get(
+			&info.GamePaused,
+			&info.GameSpeed,
+		)
+	} else {
+		info.GamePaused = false
+		info.GameSpeed = 100
+	}
+
+	err = p.Get(
+		&info.Map,
+		&info.Description,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &info, nil
 }
 
 type InfoProvider interface {
