@@ -349,7 +349,6 @@ func (server *GameServer) HandleServerInfo(numClients int, data []byte) error {
 			// requests, so we can ignore that block
 			errorCode, ok := p.GetInt()
 			if !ok || errorCode != EXT_NO_ERROR {
-				log.Info().Msgf("%d %v", errorCode, p)
 				return fmt.Errorf("error code issue")
 			}
 
@@ -370,7 +369,6 @@ func (server *GameServer) HandleServerInfo(numClients int, data []byte) error {
 					return err
 				}
 
-				log.Info().Msgf("%v", clientInfo)
 				server.Mutex.Lock()
 				server.ClientInfo[uint16(clientInfo.Client)] = clientInfo
 				server.Mutex.Unlock()
