@@ -67,6 +67,7 @@ cluster:
         target: lobby
         serverInfo:
           enabled: true
+          cluster: true
     web:
       port: 29999
 

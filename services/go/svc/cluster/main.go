@@ -81,7 +81,7 @@ func main() {
 					serverInfo = servers.NewServerInfoService(cluster)
 				}
 
-				err := serverInfo.Serve(ctx, enetConfig.Port+1)
+				err := serverInfo.Serve(ctx, enetConfig.Port+1, enetConfig.ServerInfo.Master)
 				if err != nil {
 					log.Fatal().Err(err).Msg("failed to start server info service")
 				}

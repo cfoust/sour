@@ -3,6 +3,7 @@ package servers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cfoust/sour/pkg/enet"
@@ -149,11 +150,64 @@ func (s *ServerInfoService) Handle(request *game.Packet, response *game.Packet) 
 	return nil
 }
 
-func (s *ServerInfoService) Serve(ctx context.Context, port int) error {
+func (s *ServerInfoService) UpdateMaster(port int) error {
+	socket, err := enet.NewConnectSocket("master.sauerbraten.org", 28787)
+	defer socket.DestroySocket()
+
+	if err != nil {
+		return fmt.Errorf("error creating socket")
+	}
+
+	err = socket.SendString(fmt.Sprintf("regserv %d\n", port))
+	if err != nil {
+		return fmt.Errorf("error registering server")
+	}
+
+	output, length := socket.Receive()
+	if length < 0 {
+		return fmt.Errorf("failed to receive master response")
+	}
+
+	for _, line := range strings.Split(output, "\n") {
+		if strings.HasPrefix(line, "failreg") {
+			return fmt.Errorf("master rejected registration: %s", line)
+		} else if strings.HasPrefix(line, "succreg") {
+			log.Info().Msg("registered with master")
+			return nil
+		}
+	}
+
+	return fmt.Errorf("failed to register")
+}
+
+func (s *ServerInfoService) PollMaster(ctx context.Context, port int) {
+	tick := time.NewTicker(1 * time.Hour)
+
+	for {
+		err := s.UpdateMaster(port)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to register with master")
+		}
+
+		select {
+		case <-tick.C:
+			continue
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (s *ServerInfoService) Serve(ctx context.Context, port int, registerMaster bool) error {
 	err := s.datagram.Serve(port)
 
 	if err != nil {
 		return err
+	}
+
+	if registerMaster {
+		// You register a game server with master
+		go s.PollMaster(ctx, port-1)
 	}
 
 	events := s.datagram.Poll(ctx)
@@ -163,7 +217,6 @@ func (s *ServerInfoService) Serve(ctx context.Context, port int) error {
 			select {
 			case event := <-events:
 				request := game.Packet(event.Request)
-				log.Info().Msgf("request = %v", request)
 				// The response includes the entirety of the
 				// request since they use it to calculate ping
 				// time
@@ -175,7 +228,6 @@ func (s *ServerInfoService) Serve(ctx context.Context, port int) error {
 					continue
 				}
 
-				log.Info().Msgf("response = %v", response)
 				event.Response <- response
 			case <-ctx.Done():
 				return
