@@ -20,12 +20,12 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client *clients
 
 	message := fmt.Sprintf("This is your private server. Have other players join by saying '#join %s' in any Sour server.", gameServer.Id)
 
+	sessionContext := client.ServerSessionContext()
+
 	for {
 		gameServer.Mutex.Lock()
 		numClients := gameServer.NumClients
 		gameServer.Mutex.Unlock()
-
-		log.Info().Msgf("warning: %d", numClients)
 
 		if numClients < 2 {
 			client.SendServerMessage(message)
@@ -34,6 +34,8 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client *clients
 		}
 
 		select {
+		case <-sessionContext.Done():
+			return
 		case <-tick.C:
 			continue
 		case <-ctx.Done():
