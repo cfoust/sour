@@ -91,7 +91,6 @@ type GenericMessage struct {
 }
 
 type WSClient struct {
-	id         uint16
 	host       string
 	status     clients.ClientNetworkStatus
 	toClient   chan game.GamePacket
@@ -114,10 +113,6 @@ func NewWSClient() *WSClient {
 		send:       make(chan []byte, clients.CLIENT_MESSAGE_LIMIT),
 		disconnect: make(chan bool, 1),
 	}
-}
-
-func (c *WSClient) Id() uint16 {
-	return c.id
 }
 
 func (c *WSClient) Host() string {
@@ -147,14 +142,6 @@ func (c *WSClient) Connect() {
 
 func (c *WSClient) Type() clients.ClientType {
 	return clients.ClientTypeWS
-}
-
-func (c *WSClient) Reference() string {
-	return fmt.Sprintf("ws:%d", c.id)
-}
-
-func (c *WSClient) SetId(id uint16) {
-	c.id = id
 }
 
 func (c *WSClient) Send(packet game.GamePacket) {
@@ -240,7 +227,7 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 		c.Close(websocket.StatusPolicyViolation, "connection too slow to keep up with messages")
 	}
 
-	logger := log.With().Uint16("client", client.id).Str("host", host).Logger()
+	logger := log.With().Str("host", host).Logger()
 
 	logger.Info().Msg("client joined")
 

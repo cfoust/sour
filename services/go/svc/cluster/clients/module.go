@@ -58,9 +58,6 @@ const (
 type NetworkClient interface {
 	// Lasts for the duration of the client's connection to its ingress.
 	SessionContext() context.Context
-	// Get a string identifier for this client for logging purposes.
-	// This does not have to be unique.
-	Reference() string
 	NetworkStatus() ClientNetworkStatus
 	Host() string
 	Type() ClientType

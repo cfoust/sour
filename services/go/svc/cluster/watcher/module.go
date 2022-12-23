@@ -106,7 +106,7 @@ func NewWatcher() *Watcher {
 func FetchServers() ([]Address, error) {
 	var servers []Address
 
-	socket, err := enet.NewSocket("master.sauerbraten.org", 28787)
+	socket, err := enet.NewSocket("master.sauerbraten.org", 28787, enet.ENET_SOCKET_TYPE_STREAM, true)
 	defer socket.DestroySocket()
 	if err != nil {
 		fmt.Println("Error creating socket")

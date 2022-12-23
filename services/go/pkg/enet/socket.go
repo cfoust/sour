@@ -7,16 +7,18 @@ package enet
 #include <enet/enet.h>
 
 
-ENetSocket _initSocket(const char *host, int port) {
+ENetSocket _initSocket(const char *host, int port, int type, int nonBlock) {
 	ENetAddress serverAddress = { ENET_HOST_ANY, ENET_PORT_ANY };
         serverAddress.port = port;
 
 	int result = enet_address_set_host(&serverAddress, host);
 	if (result < 0) return ENET_SOCKET_NULL;
 
-	ENetSocket sock = enet_socket_create(ENET_SOCKET_TYPE_STREAM);
+	ENetSocket sock = enet_socket_create(type);
 
-	enet_socket_set_option(sock, ENET_SOCKOPT_NONBLOCK, 1);
+	if (nonBlock) {
+		enet_socket_set_option(sock, ENET_SOCKOPT_NONBLOCK, 1);
+	}
 
 	result = enet_socket_connect(sock, &serverAddress);
 	if (result < 0) return ENET_SOCKET_NULL;
@@ -34,7 +36,7 @@ int sendSocket(ENetSocket sock, const void * req, size_t numBytes) {
 	while(reqlen > 0)
 	{
 		enet_uint32 events = ENET_SOCKET_WAIT_SEND;
-		if(enet_socket_wait(sock, &events, 250) >= 0 && events) 
+		if(enet_socket_wait(sock, &events, 250) >= 0 && events)
 		{
 			buf.data = (void *)req;
 			buf.dataLength = reqlen;
@@ -67,6 +69,24 @@ int receiveSocket(ENetSocket sock, void * data, size_t maxSize) {
 	return dataLength;
 }
 
+int receiveDatagram(ENetSocket sock, ENetAddress * addr, void * data, size_t maxSize) {
+	ENetBuffer buf;
+
+        buf.data = data;
+        buf.dataLength = maxSize;
+
+	return enet_socket_receive(sock, addr, &buf, 1);
+}
+
+void sendDatagram(ENetSocket sock, ENetAddress * addr, void * data, size_t length) {
+	ENetBuffer buf;
+
+        buf.data = data;
+        buf.dataLength = length;
+
+	enet_socket_send(sock, addr, &buf, 1);
+}
+
 */
 import "C"
 
@@ -75,12 +95,24 @@ import (
 	"unsafe"
 )
 
+type ENetSocketType int
+
+const (
+	ENET_SOCKET_TYPE_STREAM   = C.ENET_SOCKET_TYPE_STREAM
+	ENET_SOCKET_TYPE_DATAGRAM = C.ENET_SOCKET_TYPE_DATAGRAM
+)
+
 type Socket struct {
 	cSocket C.ENetSocket
 }
 
-func NewSocket(host string, port int) (*Socket, error) {
-	cSocket := C._initSocket(C.CString(host), C.int(port))
+func NewSocket(host string, port int, socketType ENetSocketType, nonBlock bool) (*Socket, error) {
+	var nonBlockInt int
+	if nonBlock {
+		nonBlockInt = 1
+	}
+
+	cSocket := C._initSocket(C.CString(host), C.int(port), C.int(socketType), C.int(nonBlockInt))
 	if cSocket == C.ENET_SOCKET_NULL {
 		return nil, errors.New("an error occured initializing the ENet socket in C")
 	}
@@ -111,4 +143,45 @@ func (sock *Socket) Receive() (string, int) {
 	buf := make([]byte, 8192)
 	length := C.receiveSocket(sock.cSocket, unsafe.Pointer(&buf[0]), C.size_t(len(buf)))
 	return string(buf), int(length)
+}
+
+func (sock *Socket) SendDatagram(address C.ENetAddress, data []byte) {
+	// Copy the data to avoid a segfault
+	buf := make([]byte, len(data))
+	copy(buf, data)
+	C.sendDatagram(sock.cSocket, &address, unsafe.Pointer(&buf[0]), C.size_t(len(buf)))
+}
+
+type SocketMessage struct {
+	Address C.ENetAddress
+	Data    []byte
+}
+
+func (sock *Socket) Service() <-chan SocketMessage {
+	out := make(chan SocketMessage)
+	go func() {
+		buf := make([]byte, 5000)
+		for {
+			address := C.ENetAddress{}
+			numBytes := C.receiveDatagram(
+				sock.cSocket,
+				&address,
+				unsafe.Pointer(&buf[0]),
+				C.size_t(len(buf)),
+			)
+
+			if numBytes < 0 {
+				continue
+			}
+
+			copied := make([]byte, numBytes)
+			copy(copied, buf)
+			out <- SocketMessage{
+				Address: address,
+				Data:    copied,
+			}
+		}
+	}()
+
+	return out
 }

@@ -2,7 +2,6 @@ package ingress
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/cfoust/sour/pkg/enet"
@@ -13,7 +12,6 @@ import (
 )
 
 type ENetClient struct {
-	id     uint16
 	peer   *enet.Peer
 	host   *enet.Host
 	status clients.ClientNetworkStatus
@@ -37,10 +35,6 @@ func NewENetClient() *ENetClient {
 	}
 }
 
-func (c *ENetClient) Id() uint16 {
-	return c.id
-}
-
 func (c *ENetClient) Host() string {
 	return ""
 }
@@ -62,14 +56,6 @@ func (c *ENetClient) Destroy() {
 
 func (c *ENetClient) Type() clients.ClientType {
 	return clients.ClientTypeENet
-}
-
-func (c *ENetClient) Reference() string {
-	return fmt.Sprintf("enet:%d", c.id)
-}
-
-func (c *ENetClient) SetId(id uint16) {
-	c.id = id
 }
 
 func (c *ENetClient) Send(packet game.GamePacket) {
@@ -182,8 +168,7 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 
 				server.AddClient(client)
 
-				logger := log.With().Uint16("clientId", client.id).Logger()
-				logger.Info().Msg("client joined (desktop)")
+				log.Info().Msg("client joined (desktop)")
 
 				if len(server.InitialCommand) > 0 {
 					client.commands <- clients.ClusterCommand{
