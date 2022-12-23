@@ -63,10 +63,7 @@ Check out the roadmap below to see what you might be able to help with.
 ### Gameplay
 * [ ] Modern multiplayer
   * [ ] Update URL correctly when web user runs commands that change server
-  * [ ] Make duel servers private
-  * [ ] User can provide map name and mode on server create
   * [ ] User who creates private match is automatically admin
-  * [ ] Support listing on master server
   * [ ] Handle failure to connect from link
   * [ ] Stretch: Discord login with ELO
 * [ ] LRU cache for cluster map fetching

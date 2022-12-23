@@ -11,6 +11,7 @@ import (
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
+	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog/log"
 )
 
@@ -44,6 +45,56 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client *clients
 	}
 }
 
+func getModeNames() []string {
+	return []string{
+		"ffa", "coop", "teamplay", "insta", "instateam", "effic", "efficteam", "tac", "tacteam", "capture", "regencapture", "ctf", "instactf", "protect", "instaprotect", "hold", "instahold", "efficctf", "efficprotect", "effichold", "collect", "instacollect", "efficcollect",
+	}
+}
+
+func getModeNumber(mode string) opt.Option[int] {
+	for i, name := range getModeNames() {
+		if name == mode {
+			return opt.Some[int](i)
+		}
+	}
+
+	return opt.None[int]()
+}
+
+type CreateParams struct {
+	Map    opt.Option[string]
+	Preset opt.Option[string]
+	Mode   opt.Option[int]
+}
+
+func (server *Cluster) inferCreateParams(args []string) (*CreateParams, error) {
+	params := CreateParams{}
+
+	for _, arg := range args {
+		mode := getModeNumber(arg)
+		if opt.IsSome(mode) {
+			params.Mode = mode
+			continue
+		}
+
+		map_ := server.manager.Maps.FindMapURL(arg)
+		if opt.IsSome(map_) {
+			params.Map = opt.Some[string](arg)
+			continue
+		}
+
+		preset := server.manager.FindPreset(arg, false)
+		if opt.IsSome(preset) {
+			params.Preset = opt.Some[string](preset.Value.Name)
+			continue
+		}
+
+		return nil, fmt.Errorf("argument '%s' neither corresponded to a map nor a game mode", arg)
+	}
+
+	return &params, nil
+}
+
 func (server *Cluster) RunCommand(ctx context.Context, command string, client *clients.Client) (handled bool, response string, err error) {
 	logger := log.With().Uint16("client", client.Id).Str("command", command).Logger()
 	logger.Info().Msg("running command")
@@ -56,6 +107,14 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 
 	switch args[0] {
 	case "creategame":
+		params := &CreateParams{}
+		if len(args) > 1 {
+			params, err = server.inferCreateParams(args[1:])
+			if err != nil {
+				return true, "", err
+			}
+		}
+
 		server.createMutex.Lock()
 		defer server.createMutex.Unlock()
 
@@ -72,8 +131,8 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 		logger.Info().Msg("starting server")
 
 		presetName := ""
-		if len(args) > 1 {
-			presetName = args[1]
+		if opt.IsSome(params.Preset) {
+			presetName = params.Preset.Value
 		}
 
 		gameServer, err := server.manager.NewServer(server.serverCtx, presetName, false)
@@ -88,6 +147,14 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 		if err != nil {
 			logger.Error().Err(err).Msg("server failed to start")
 			return true, "", errors.New("server failed to start")
+		}
+
+		if opt.IsSome(params.Mode) && opt.IsSome(params.Map) {
+			gameServer.SendCommand(fmt.Sprintf("changemap %s %d", params.Map.Value, params.Mode.Value))
+		} else if opt.IsSome(params.Mode) {
+			gameServer.SendCommand(fmt.Sprintf("setmode %d", params.Mode.Value))
+		} else if opt.IsSome(params.Map) {
+			gameServer.SendCommand(fmt.Sprintf("setmap %s", params.Map.Value))
 		}
 
 		server.lastCreate[client.Connection.Host()] = time.Now()

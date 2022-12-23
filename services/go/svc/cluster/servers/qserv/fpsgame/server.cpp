@@ -2475,6 +2475,8 @@ namespace server {
         healthy();
     }
     ICOMMAND(changemap, "si", (char *target, int *mode), { changemap(target, *mode); });
+    ICOMMAND(setmode, "i", (int *mode), { changemap(smapname, *mode); });
+    ICOMMAND(setmap, "s", (char *target), { changemap(target, gamemode); });
 
     void rotatemap(bool next)
     {

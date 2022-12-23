@@ -139,7 +139,7 @@ type ServerManager struct {
 	Mutex   sync.Mutex
 
 	presets []config.ServerPreset
-	maps    *assets.MapFetcher
+	Maps    *assets.MapFetcher
 
 	serverDescription string
 	serverPath        string
@@ -184,7 +184,7 @@ func (manager *ServerManager) GetServerInfo() *ServerInfo {
 func NewServerManager(maps *assets.MapFetcher, serverDescription string, presets []config.ServerPreset) *ServerManager {
 	return &ServerManager{
 		Servers:           make([]*GameServer, 0),
-		maps:              maps,
+		Maps:              maps,
 		serverDescription: serverDescription,
 		presets:           presets,
 		packets:           make(chan ClientPacket, 100),
@@ -364,7 +364,7 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 		select {
 		case request := <-requests:
 			server.SetStatus(ServerLoadingMap)
-			url := manager.maps.FindMapURL(request.Map)
+			url := manager.Maps.FindMapURL(request.Map)
 
 			if opt.IsNone(url) {
 				server.SendMapResponse(request.Map, request.Mode, 0)
