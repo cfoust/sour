@@ -7,20 +7,31 @@ package enet
 #include <enet/enet.h>
 
 
-ENetSocket _initSocket(const char *host, int port, int type, int nonBlock) {
+ENetSocket _initConnectSocket(const char *host, int port) {
 	ENetAddress serverAddress = { ENET_HOST_ANY, ENET_PORT_ANY };
         serverAddress.port = port;
 
 	int result = enet_address_set_host(&serverAddress, host);
 	if (result < 0) return ENET_SOCKET_NULL;
 
-	ENetSocket sock = enet_socket_create(type);
+	ENetSocket sock = enet_socket_create(ENET_SOCKET_TYPE_STREAM);
 
-	if (nonBlock) {
-		enet_socket_set_option(sock, ENET_SOCKOPT_NONBLOCK, 1);
-	}
+	enet_socket_set_option(sock, ENET_SOCKOPT_NONBLOCK, 1);
 
 	result = enet_socket_connect(sock, &serverAddress);
+	if (result < 0) return ENET_SOCKET_NULL;
+
+	return sock;
+}
+
+ENetSocket _initDatagramSocket(int port) {
+	ENetAddress address = { ENET_HOST_ANY, ENET_PORT_ANY };
+        address.port = port;
+
+	ENetSocket sock = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
+	if (sock == ENET_SOCKET_NULL) return sock;
+
+	int result = enet_socket_bind(sock, &address);
 	if (result < 0) return ENET_SOCKET_NULL;
 
 	return sock;
@@ -97,22 +108,12 @@ import (
 
 type ENetSocketType int
 
-const (
-	ENET_SOCKET_TYPE_STREAM   = C.ENET_SOCKET_TYPE_STREAM
-	ENET_SOCKET_TYPE_DATAGRAM = C.ENET_SOCKET_TYPE_DATAGRAM
-)
-
 type Socket struct {
 	cSocket C.ENetSocket
 }
 
-func NewSocket(host string, port int, socketType ENetSocketType, nonBlock bool) (*Socket, error) {
-	var nonBlockInt int
-	if nonBlock {
-		nonBlockInt = 1
-	}
-
-	cSocket := C._initSocket(C.CString(host), C.int(port), C.int(socketType), C.int(nonBlockInt))
+func NewConnectSocket(host string, port int) (*Socket, error) {
+	cSocket := C._initConnectSocket(C.CString(host), C.int(port))
 	if cSocket == C.ENET_SOCKET_NULL {
 		return nil, errors.New("an error occured initializing the ENet socket in C")
 	}
@@ -122,7 +123,21 @@ func NewSocket(host string, port int, socketType ENetSocketType, nonBlock bool) 
 	}, nil
 }
 
+func NewDatagramSocket(port int) (*Socket, error) {
+	cSocket := C._initDatagramSocket(C.int(port))
+	if cSocket == C.ENET_SOCKET_NULL {
+		return nil, errors.New("an error occured initializing the ENet datagram socket in C")
+	}
+
+	return &Socket{
+		cSocket: cSocket,
+	}, nil
+}
+
 func (sock *Socket) DestroySocket() {
+	if sock.cSocket == 0 {
+		return
+	}
 	C._destroySocket(sock.cSocket)
 }
 

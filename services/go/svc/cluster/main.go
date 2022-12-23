@@ -76,7 +76,10 @@ func main() {
 				}
 
 				serverInfo := servers.NewServerInfoService(server)
-				serverInfo.Serve(ctx, enetConfig.Port + 1)
+				err := serverInfo.Serve(ctx, enetConfig.Port + 1)
+				if err != nil {
+					log.Fatal().Err(err).Msg("failed to start server info service")
+				}
 				infoServices = append(infoServices, serverInfo)
 			}
 			serverManager.Mutex.Unlock()

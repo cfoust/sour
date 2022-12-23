@@ -20,7 +20,7 @@ func NewENetDatagram() *ENetDatagram {
 }
 
 func (i *ENetDatagram) Serve(port int) error {
-	socket, err := enet.NewSocket("", port, enet.ENET_SOCKET_TYPE_DATAGRAM, false)
+	socket, err := enet.NewDatagramSocket(port)
 	if err != nil {
 		return err
 	}
@@ -129,6 +129,8 @@ func (s *ServerInfoService) Handle(request *game.Packet, response *game.Packet) 
 
 	response.PutInt(PROTOCOL_VERSION)
 	response.PutInt(info.GameMode)
+	response.PutInt(info.TimeLeft)
+	response.PutInt(info.MaxClients)
 	response.PutInt(info.PasswordMode)
 
 	if info.GameSpeed != 100 || info.GamePaused {
@@ -161,6 +163,7 @@ func (s *ServerInfoService) Serve(ctx context.Context, port int) error {
 			select {
 			case event := <-events:
 				request := game.Packet(event.Request)
+				log.Info().Msgf("request = %v", request)
 				// The response includes the entirety of the
 				// request since they use it to calculate ping
 				// time
@@ -172,6 +175,7 @@ func (s *ServerInfoService) Serve(ctx context.Context, port int) error {
 					continue
 				}
 
+				log.Info().Msgf("response = %v", response)
 				event.Response <- response
 			case <-ctx.Done():
 				return
