@@ -60,7 +60,6 @@ func (i *ENetDatagram) Poll(ctx context.Context) <-chan PingEvent {
 
 					select {
 					case data := <-response:
-						log.Info().Msgf("sending datagram response %v", data)
 						i.socket.SendDatagram(
 							event.Address,
 							data,
@@ -317,8 +316,6 @@ func (s *ServerInfoService) Handle(request *game.Packet, out chan []byte) error 
 	if err != nil {
 		return err
 	}
-
-	log.Info().Msgf("standard response %v", response)
 
 	out <- response
 
