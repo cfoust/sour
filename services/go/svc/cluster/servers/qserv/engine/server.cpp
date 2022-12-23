@@ -529,11 +529,6 @@ void healthy() {
     sendsockf("u", SERVER_EVENT_HEALTHY);
 }
 
-void sendsocketpong() {
-    packetbuf p(MAXTRANS);
-    sendsockf("u", SERVER_EVENT_PONG);
-}
-
 VAR(serverdisconnectmsg, 0, 1, 1); //enable/disable msg
 void disconnect_client(int n, int reason) {
     qs.resetoLangWarn(n);
@@ -758,10 +753,6 @@ static ENetAddress pongaddr;
 
 void sendserverinforeply(ucharbuf &p)
 {
-    ENetBuffer buf;
-    buf.data = p.buf;
-    buf.dataLength = p.length();
-    enet_socket_send(pongsock, &pongaddr, &buf, 1);
 }
 
 void checkserversockets()        // reply all server info requests
@@ -937,9 +928,25 @@ void serverslice(bool dedicated, bool enet, uint timeout)   // main server updat
                     }
                 case SOCKET_EVENT_PING:
                     {
-                        sendsocketpong();
+                        sendsockf("u", SERVER_EVENT_PONG);
                         break;
                     }
+                case SOCKET_EVENT_SERVER_INFO_REQUEST:
+                    {
+                        uchar pong[MAXTRANS];
+                        ucharbuf res(pong, MAXTRANS);
+                        res.put(q.buf + q.len, messageBytes - q.len);
+                        server::serverinforeply(q, res);
+
+                        packetbuf r(MAXTRANS);
+                        putuint(r, SERVER_EVENT_SERVER_INFO_REPLY);
+                        putuint(r, res.len);
+                        r.put(res.buf, res.len);
+                        ENetPacket *newPacket = r.finalize();
+                        socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+                        break;
+                    }
+
                 default:
                     break;
             }

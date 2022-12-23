@@ -26,9 +26,13 @@ type GameServer struct {
 	Id     string
 	// Another way for the client to refer to this server
 	Alias      string
+
 	NumClients int
-	LastEvent  time.Time
+	Info       ServerInfo
 	Mutex      sync.Mutex
+
+	// The last time a client connected
+	LastEvent time.Time
 
 	// Servers do not handle multiple clients connecting at the exact same
 	// time very well.
@@ -124,6 +128,13 @@ func (server *GameServer) SendCommand(command string) {
 func (server *GameServer) SendPing() {
 	p := game.Packet{}
 	p.PutUint(SOCKET_EVENT_PING)
+	server.sendMessage(p)
+}
+
+func (server *GameServer) RequestServerInfo(request []byte) {
+	p := game.Packet{}
+	p.PutUint(SOCKET_EVENT_SERVER_INFO_REQUEST)
+	p = append(p, request...)
 	server.sendMessage(p)
 }
 
@@ -264,9 +275,105 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 	}
 }
 
+func (server *GameServer) HandleServerInfo(data []byte) {
+	info := ServerInfo{}
+
+	p := game.Packet(data)
+
+	millis, ok := p.GetInt()
+	if !ok {
+		return
+	}
+
+	// TODO implement extinfo
+	if millis == 0 {
+		return
+	}
+
+	numClients, ok := p.GetInt()
+	if !ok {
+		return
+	}
+	info.NumClients = numClients
+
+	numAttributes, ok := p.GetInt()
+	if !ok {
+		return
+	}
+
+	// protocol version
+	_, ok = p.GetInt()
+	if !ok {
+		return
+	}
+
+	gameMode, ok := p.GetInt()
+	if !ok {
+		return
+	}
+	info.GameMode = gameMode
+
+	timeLeft, ok := p.GetInt()
+	if !ok {
+		return
+	}
+	info.TimeLeft = timeLeft
+
+	maxClients, ok := p.GetInt()
+	if !ok {
+		return
+	}
+	info.MaxClients = maxClients
+
+	passwordMode, ok := p.GetInt()
+	if !ok {
+		return
+	}
+	info.PasswordMode = passwordMode
+
+	if numAttributes == 7 {
+		gamePaused, ok := p.GetInt()
+		if !ok {
+			return
+		}
+		info.GamePaused = false
+		if gamePaused == 1 {
+			info.GamePaused = true
+		}
+
+		gameSpeed, ok := p.GetInt()
+		if !ok {
+			return
+		}
+		info.GameSpeed = gameSpeed
+	} else {
+		info.GamePaused = false
+		info.GameSpeed = 100
+	}
+
+	mapName, ok := p.GetString()
+	if !ok {
+		return
+	}
+	info.Map = mapName
+
+	desc, ok := p.GetString()
+	if !ok {
+		return
+	}
+	info.Description = desc
+
+	server.Mutex.Lock()
+	server.Info = info
+	server.Mutex.Unlock()
+}
+
 func (server *GameServer) PollEvents(ctx context.Context) {
 	pingInterval := 500 * time.Millisecond
 	pingTicker := time.NewTicker(pingInterval)
+
+	infoTicker := time.NewTicker(1 * time.Second)
+
 	lastPong := time.Now()
 	server.SendPing()
 
@@ -296,6 +403,10 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 				return
 			}
 			server.SendPing()
+		case <-infoTicker.C:
+			request := game.Packet{}
+			request.PutInt(1234) // random millis
+			server.RequestServerInfo(request)
 		case msg := <-socketWrites:
 			p := game.Packet(msg)
 
@@ -332,6 +443,20 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 
 				if eventType == SERVER_EVENT_HEALTHY {
 					server.SetStatus(ServerHealthy)
+					continue
+				}
+
+				if eventType == SERVER_EVENT_SERVER_INFO_REPLY {
+					numBytes, ok := p.GetUint()
+					if !ok {
+						break
+					}
+
+					reply := p[:numBytes]
+					server.HandleServerInfo(reply)
+
+					p = p[numBytes:]
+
 					continue
 				}
 

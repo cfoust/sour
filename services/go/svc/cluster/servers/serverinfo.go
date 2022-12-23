@@ -77,12 +77,12 @@ type ServerInfo struct {
 	GamePaused bool
 	GameMode   int32
 	// Seconds
-	TimeRemaining int32
-	MaxClients    int32
-	PasswordMode  int32
-	GameSpeed     int32
-	Map           string
-	Description   string
+	TimeLeft     int32
+	MaxClients   int32
+	PasswordMode int32
+	GameSpeed    int32
+	Map          string
+	Description  string
 }
 
 type InfoProvider interface {

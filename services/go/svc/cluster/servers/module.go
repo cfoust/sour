@@ -51,6 +51,7 @@ const (
 	SOCKET_EVENT_COMMAND
 	SOCKET_EVENT_RESPOND_MAP
 	SOCKET_EVENT_PING
+	SOCKET_EVENT_SERVER_INFO_REQUEST
 )
 
 const PROTOCOL_VERSION = 260
@@ -74,6 +75,7 @@ const (
 	SERVER_EVENT_PONG
 	// When the server becomes aware of a client's name
 	SERVER_EVENT_NAME
+	SERVER_EVENT_SERVER_INFO_REPLY
 )
 
 func (e ServerEvent) String() string {
@@ -92,6 +94,8 @@ func (e ServerEvent) String() string {
 		return "SERVER_EVENT_PONG"
 	case SERVER_EVENT_NAME:
 		return "SERVER_EVENT_NAME"
+	case SERVER_EVENT_SERVER_INFO_REPLY:
+		return "SERVER_EVENT_SERVER_INFO_REPLY"
 	}
 
 	return ""

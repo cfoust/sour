@@ -3,7 +3,6 @@ package ingress
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/cfoust/sour/pkg/enet"
 	"github.com/cfoust/sour/pkg/game"
