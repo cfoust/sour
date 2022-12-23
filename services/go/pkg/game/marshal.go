@@ -353,29 +353,46 @@ func Unmarshal(p *Packet, pieces ...interface{}) error {
 	return nil
 }
 
+func marshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
+	switch type_.Kind() {
+	case reflect.Int32:
+		fallthrough
+	case reflect.Int:
+		p.PutInt(int32(value.Int()))
+	case reflect.Uint8:
+		p.PutInt(int32(value.Uint()))
+	case reflect.Bool:
+		boolean := value.Bool()
+		if boolean {
+			p.PutInt(1)
+		} else {
+			p.PutInt(0)
+		}
+	case reflect.Uint:
+		p.PutUint(uint32(value.Uint()))
+	case reflect.String:
+		p.PutString(value.String())
+	case reflect.Struct:
+		for i := 0; i < type_.NumField(); i++ {
+			field := type_.Field(i)
+			fieldValue := value.Field(i)
+			marshalValue(p, field.Type, fieldValue)
+		}
+	default:
+		return fmt.Errorf("unimplemented type: %s", type_.String())
+	}
+
+	return nil
+}
+
 func Marshal(p *Packet, pieces ...interface{}) error {
 	for _, piece := range pieces {
 		type_ := reflect.TypeOf(piece)
 		value := reflect.ValueOf(piece)
 
-		switch type_.Kind() {
-		case reflect.Int:
-			p.PutInt(int32(value.Int()))
-		case reflect.Uint8:
-			p.PutInt(int32(value.Uint()))
-		case reflect.Bool:
-			boolean := value.Bool()
-			if boolean {
-				p.PutInt(1)
-			} else {
-				p.PutInt(0)
-			}
-		case reflect.Uint:
-			p.PutUint(uint32(value.Uint()))
-		case reflect.String:
-			p.PutString(value.String())
-		default:
-			return fmt.Errorf("unimplemented type: %s", type_.String())
+		err := marshalValue(p, type_, value)
+		if err != nil {
+			return err
 		}
 	}
 
