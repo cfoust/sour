@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/cfoust/sour/pkg/enet"
 	"github.com/cfoust/sour/pkg/game"
@@ -218,4 +219,65 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 
 func (server *ENetIngress) Shutdown() {
 	server.host.Shutdown()
+}
+
+type ENetServerInfo struct {
+	socket *enet.Socket
+}
+
+func NewENetServerInfo() *ENetServerInfo {
+	return &ENetServerInfo{}
+}
+
+func (i *ENetServerInfo) Serve(port int) error {
+	socket, err := enet.NewSocket("", port, enet.ENET_SOCKET_TYPE_DATAGRAM, false)
+	if err != nil {
+		return err
+	}
+	i.socket = socket
+	return nil
+}
+
+type PingEvent struct {
+	Request  []byte
+	Response <-chan []byte
+}
+
+func (i *ENetServerInfo) Poll(ctx context.Context) <-chan PingEvent {
+	out := make(chan PingEvent)
+
+	go func() {
+		events := i.socket.Service()
+		for {
+			select {
+			case event := <-events:
+				go func(msg enet.SocketMessage) {
+					ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+
+					defer cancel()
+
+					response := make(chan []byte)
+
+					out <- PingEvent{
+						Request:  event.Data,
+						Response: response,
+					}
+
+					select {
+					case data := <-response:
+						i.socket.SendDatagram(
+							event.Address,
+							data,
+						)
+					case <-ctx.Done():
+						return
+					}
+				}(event)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return out
 }
