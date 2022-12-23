@@ -848,9 +848,6 @@ void serverslice(bool dedicated, bool enet, uint timeout)   // main server updat
     flushmasteroutput();
     checkserversockets();
 
-    if(!lastupdatemaster || totalmillis-lastupdatemaster>60*60*1000)       // send alive signal to masterserver every hour of uptime
-        updatemasterserver();
-
     if(totalmillis-laststatus>60*1000 && serverhost)   // display bandwidth stats, useful for server ops
     {
         laststatus = totalmillis;
