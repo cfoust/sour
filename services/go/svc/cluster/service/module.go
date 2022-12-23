@@ -63,6 +63,20 @@ func NewCluster(ctx context.Context, serverManager *servers.ServerManager, setti
 	return server
 }
 
+func (server *Cluster) GetServerInfo() *servers.ServerInfo {
+	info := server.manager.GetServerInfo()
+
+	settings := server.settings.ServerInfo
+
+	info.TimeLeft = int32(settings.TimeLeft)
+	info.MaxClients = 999
+	info.GameSpeed = int32(settings.GameSpeed)
+	info.Map = settings.Map
+	info.Description = settings.Description
+
+	return info
+}
+
 func (server *Cluster) PollDuels(ctx context.Context) {
 	queues := server.matches.ReceiveQueues()
 	results := server.matches.ReceiveResults()

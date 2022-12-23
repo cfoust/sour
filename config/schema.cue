@@ -68,11 +68,8 @@ proxy: #Service
 		enabled: bool | *false
 		// Whether to register with the master server
 		master: bool | *false
-		// If defined, use the cluster's server info instead of the target info.
-		cluster?: {
-			description: string
-			map:         string
-		}
+		// Whether to use the cluster's server info instead of the target info
+		cluster: bool | *false
 	}
 }
 
@@ -88,6 +85,14 @@ proxy: #Service
 // Sour clusters host game servers.
 #ClusterSettings: {
 	#Service
+
+	// Information used to respond to server info requests
+	serverInfo: {
+		map:         string | *"Sourland"
+		description: string | *"Sour"
+		timeLeft:    uint | *3600
+		gameSpeed:   uint | *100
+	}
 
 	// Server presets are templates for starting new servers, typically by a user through #creategame.
 	// A mapping from preset name -> preset settings.

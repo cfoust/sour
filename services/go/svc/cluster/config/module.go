@@ -42,10 +42,7 @@ type ServerConfig struct {
 type ENetServerInfo struct {
 	Enabled bool
 	Master  bool
-	Cluster struct {
-		Description string
-		Map         string
-	}
+	Cluster bool
 }
 
 type ENetIngress struct {
@@ -61,12 +58,20 @@ type ClusterIngress struct {
 	}
 }
 
+type ClusterServerInfo struct {
+	Map         string
+	Description string
+	TimeLeft    int
+	GameSpeed   int
+}
+
 type MatchmakingSettings struct {
 	Duel []DuelType
 }
 
 type ClusterSettings struct {
 	Enabled           bool
+	ServerInfo        ClusterServerInfo
 	Assets            []string
 	Presets           []ServerPreset
 	Servers           []ServerConfig

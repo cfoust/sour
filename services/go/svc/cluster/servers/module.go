@@ -169,6 +169,19 @@ func (manager *ServerManager) ReceiveNames() <-chan ClientName {
 	return manager.names
 }
 
+func (manager *ServerManager) GetServerInfo() *ServerInfo {
+	info := ServerInfo{}
+
+	manager.Mutex.Lock()
+	for _, server := range manager.Servers {
+		serverInfo := server.GetServerInfo()
+		info.NumClients += serverInfo.NumClients
+	}
+	manager.Mutex.Unlock()
+
+	return &info
+}
+
 func NewServerManager(maps *assets.MapFetcher, serverDescription string, presets []config.ServerPreset) *ServerManager {
 	return &ServerManager{
 		Servers:           make([]*GameServer, 0),
