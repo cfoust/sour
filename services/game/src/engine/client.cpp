@@ -360,7 +360,6 @@ void gets2c()           // get updates from the server
     ENetEvent event;
 
 #if __EMSCRIPTEN__
-    if(!clienthost && !sourconnected && !sourconnecting) return;
     if(totalmillis/3000 > connmillis/3000 && sourconnecting)
     {
 
@@ -396,65 +395,65 @@ void gets2c()           // get updates from the server
 #endif
 
 #if __EMSCRIPTEN__
-    if (sourconnected || sourconnecting) {
-        ENetPacket packet;
-        ushort sourEvent, sourChannel, reason;
-        while (true) {
-            enet_uint8 * frame = (enet_uint8*) EM_ASM_INT({
-                return Module.cluster.receive($0, $1)
-            }, &packet.data, &packet.dataLength);
+    ENetPacket packet;
+    ushort sourEvent, sourChannel, reason;
+    while (true) {
+        enet_uint8 * frame = (enet_uint8*) EM_ASM_INT({
+            return Module.cluster.receive($0, $1)
+        }, &packet.data, &packet.dataLength);
 
-            if (frame == NULL) {
-                break;
-            }
-
-            sourEvent = *((ushort*) frame);
-
-            if ((int) sourEvent == ENET_EVENT_TYPE_CONNECT) {
-                conoutf("joined server");
-
-                EM_ASM({
-                    Module.onConnect(UTF8ToString($0), $1);
-                }, connectname, connectport);
-
-                EM_ASM({
-                    Module.assets.onConnect();
-                });
-
-                sourconnected = true;
-                sourconnecting = false;
-                game::gameconnect(true);
-                break;
-            } else if ((int) sourEvent == ENET_EVENT_TYPE_DISCONNECT) {
-                reason = *((ushort*) (frame + 2));
-
-                if(sourconnecting)
-                {
-                    conoutf(CON_ERROR, "\f3could not join server");
-                    abortjoin();
-                }
-                else
-                {
-                    if(!discmillis)
-                    {
-                        const char *msg = disconnectreason(reason);
-                        if(msg) conoutf(CON_ERROR, "\f3server network error, leaving (%s) ...", msg);
-                        else conoutf(CON_ERROR, "\f3server network error, leaving...");
-                    }
-                    leave(false, false);
-                }
-                break;
-            }
-
-            sourChannel = *((ushort*) (frame + 2));
-            packet.flags = 0;
-            packet.dataLength = *((size_t*)(frame + 4));
-            packet.data = frame + 8;
-
-            if(discmillis) conoutf("attempting to leave...");
-            else localservertoclient(sourChannel, &packet);
+        if (frame == NULL) {
+            break;
         }
+
+        sourEvent = *((ushort*) frame);
+
+        if ((int) sourEvent == ENET_EVENT_TYPE_CONNECT) {
+            conoutf("joined server");
+
+            EM_ASM({
+                Module.onConnect(UTF8ToString($0), $1);
+            }, connectname, connectport);
+
+            EM_ASM({
+                Module.assets.onConnect();
+            });
+
+            sourconnected = true;
+            sourconnecting = false;
+            game::gameconnect(true);
+            break;
+        } else if ((int) sourEvent == ENET_EVENT_TYPE_DISCONNECT) {
+            reason = *((ushort*) (frame + 2));
+
+            if(sourconnecting)
+            {
+                conoutf(CON_ERROR, "\f3could not join server");
+                abortjoin();
+            }
+            else
+            {
+                if(!discmillis)
+                {
+                    const char *msg = disconnectreason(reason);
+                    if(msg) conoutf(CON_ERROR, "\f3server network error, leaving (%s) ...", msg);
+                    else conoutf(CON_ERROR, "\f3server network error, leaving...");
+                }
+                leave(false, false);
+            }
+            break;
+        }
+
+        sourChannel = *((ushort*) (frame + 2));
+        packet.flags = 0;
+        packet.dataLength = *((size_t*)(frame + 4));
+        packet.data = frame + 8;
+
+        if(discmillis) conoutf("attempting to leave...");
+        else localservertoclient(sourChannel, &packet);
     }
+
+    if(!clienthost) return;
 #endif
 
     while(clienthost && enet_host_service(clienthost, &event, 0)>0)

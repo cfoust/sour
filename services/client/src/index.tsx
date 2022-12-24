@@ -467,9 +467,6 @@ function App() {
             serverEvents.push(serverMessage)
             return
           }
-          if (loadingWorld) {
-            console.log(`queueing ${CubeMessageType[msgType]}`)
-          }
         }
       }
 
