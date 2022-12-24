@@ -407,7 +407,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA *clients.Client, clientB 
 			select {
 			case <-matchContext.Done():
 				// When the match is done (regardless of result) attempt to move
-				client.ConnectToServer(oldServer)
+				client.ConnectToServer(oldServer, false, false)
 				return
 			case <-client.ServerSessionContext().Done():
 				outResult <- getLeaveWinner(client)
@@ -418,7 +418,7 @@ func (m *Matchmaker) Duel(ctx context.Context, clientA *clients.Client, clientB 
 			}
 		}(client, oldServer)
 
-		connected, err := client.ConnectToServer(gameServer)
+		connected, err := client.ConnectToServer(gameServer, true, false)
 		result := <-connected
 		if result == false || err != nil {
 			logger.Error().Err(err).Msg("client failed to connect")

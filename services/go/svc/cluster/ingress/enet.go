@@ -39,7 +39,10 @@ func (c *ENetClient) Host() string {
 	return ""
 }
 
-func (c *ENetClient) Connect() {
+func (c *ENetClient) Connect(name string, internal bool, owned bool) {
+}
+
+func (c *ENetClient) ServerChanged(target string) {
 }
 
 func (c *ENetClient) SessionContext() context.Context {

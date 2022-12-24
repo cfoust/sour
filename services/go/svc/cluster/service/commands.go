@@ -16,10 +16,12 @@ import (
 )
 
 func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client *clients.Client, gameServer *servers.GameServer) {
-	// TODO this is broken; the context is from the timeout for the command so it never runs again
 	tick := time.NewTicker(30 * time.Second)
 
 	message := fmt.Sprintf("This is your private server. Have other players join by saying '#join %s' in any Sour server.", gameServer.Id)
+	if client.Connection.Type() == clients.ClientTypeWS {
+		message = fmt.Sprintf("This is your private server. Have other players join by saying '#join %s' in any Sour server or by sending the link in your URL bar. (We also copied it for you!)", gameServer.Id)
+	}
 
 	sessionContext := client.ServerSessionContext()
 
@@ -160,18 +162,10 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 		server.lastCreate[client.Connection.Host()] = time.Now()
 		server.hostServers[client.Connection.Host()] = gameServer
 
-		client.Mutex.Lock()
-		if client.Connection.Type() == clients.ClientTypeWS && client.Server == nil {
-			client.Mutex.Unlock()
-			return true, gameServer.Id, nil
-		}
+		_, err = client.ConnectToServer(gameServer, false, true)
+		go server.GivePrivateMatchHelp(server.serverCtx, client, client.Server)
 
-		if client.Connection.Type() == clients.ClientTypeENet {
-			go server.GivePrivateMatchHelp(server.serverCtx, client, client.Server)
-		}
-		client.Mutex.Unlock()
-
-		return server.RunCommand(ctx, fmt.Sprintf("join %s", gameServer.Id), client)
+		return true, "", nil
 
 	case "join":
 		if len(args) != 2 {
@@ -193,7 +187,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 				continue
 			}
 
-			_, err := client.ConnectToServer(gameServer)
+			_, err := client.ConnectToServer(gameServer, false, false)
 			if err != nil {
 				return true, "", err
 			}

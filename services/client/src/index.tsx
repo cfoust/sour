@@ -215,16 +215,6 @@ function App() {
       BananaBread.execute('sortservers')
     }
 
-    // This is only used when we make a match and are waiting for players.
-    let waitingForPlayers: boolean = false
-    let lastSour: Maybe<string> = null
-    let warningTimer: Maybe<NodeJS.Timer> = null
-    const waitWarning = () => {
-      log.info(
-        `This is your private server. Invite other players using the link in your URL bar (we copied it to your clipboard) or having them type /join ${lastSour} at sourga.me.`
-      )
-    }
-
     let serverEvents: SocketMessage[] = []
     let queuedEvents: SocketMessage[] = []
     let loadingWorld = false
@@ -232,20 +222,6 @@ function App() {
     Module.postLoadWorld = function () {
       loadingWorld = false
       serverEvents = [...serverEvents, ...queuedEvents]
-      if (waitingForPlayers && lastSour) {
-        navigator.clipboard.writeText(location.href)
-        waitWarning()
-        warningTimer = setInterval(waitWarning, 30000)
-      }
-    }
-
-    Module.onClientJoin = () => {
-      if (waitingForPlayers) {
-        waitingForPlayers = false
-      }
-      if (warningTimer != null) {
-        clearInterval(warningTimer)
-      }
     }
 
     let cachedServers: Maybe<any> = null
@@ -283,30 +259,18 @@ function App() {
       setTimeout(() => BananaBread.execute(cmd), 0)
     }
 
-    Module.onConnect = (name: string, port: number) => {
+    const updateServerURL = (name: string, port: number) => {
       // Sour server
       if (port === 0) {
-        // what is even going on?
-        if (name.length != 0) {
-          pushURLState(`/server/${name}`)
-          return
-        }
-
-        if (lastSour == null) return
-        pushURLState(`/server/${lastSour}`)
+        pushURLState(`/server/${name}`)
         return
       }
 
       pushURLState(`/server/${name}/${port}`)
     }
-    Module.onDisconnect = () => {
-      waitingForPlayers = false
-      if (warningTimer != null) {
-        clearInterval(warningTimer)
-      }
-      lastSour = null
-      pushURLState(`/`)
-    }
+
+    Module.onConnect = () => {}
+    Module.onDisconnect = clearURLState
 
     let lastPointer: number = 0
     let lastPointerLength: number = 0
@@ -335,8 +299,6 @@ function App() {
           try {
             const result = await runCommand('creategame')
             log.success('created game!')
-            BananaBread.execute(`join ${result}`)
-            waitingForPlayers = true
           } catch (e) {
             log.error(`failed to create private game: ${e}`)
           }
@@ -344,8 +306,6 @@ function App() {
       },
       connect: (name: string, password: string) => {
         const Target = name.length === 0 ? 'lobby' : name
-        console.log(`name=${name} password=${password} Target=${Target}`);
-        lastSour = Target
         ws.send(
           CBOR.encode({
             Op: MessageType.Connect,
@@ -455,6 +415,19 @@ function App() {
 
         injectServers(Master)
         return
+      }
+
+      if (serverMessage.Op === MessageType.ServerConnected) {
+        const { Server, Internal, Owned } = serverMessage
+        if (Internal) {
+          clearURLState()
+        } else {
+          updateServerURL(Server, 0)
+          if (Owned) {
+            navigator.clipboard.writeText(location.href)
+          }
+        }
+        // intentional fallthrough
       }
 
       if (serverMessage.Op === MessageType.ServerResponse) {

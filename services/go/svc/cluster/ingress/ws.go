@@ -80,6 +80,15 @@ type ResponseMessage struct {
 	Id int
 }
 
+type ServerConnectedMessage struct {
+	Op     int // ServerConnectedOp
+	Server string
+	// Whether to put the server in the URL or not
+	Internal bool
+	// Whether this is the user's server
+	Owned bool
+}
+
 type ServerDisconnectedMessage struct {
 	Op      int // ServerDisconnectedOp
 	Message string
@@ -131,9 +140,12 @@ func (c *WSClient) Destroy() {
 	c.status = clients.ClientNetworkStatusDisconnected
 }
 
-func (c *WSClient) Connect() {
-	packet := GenericMessage{
-		Op: ServerConnectedOp,
+func (c *WSClient) Connect(name string, internal bool, owned bool) {
+	packet := ServerConnectedMessage{
+		Op:       ServerConnectedOp,
+		Server:   name,
+		Internal: internal,
+		Owned:    owned,
 	}
 
 	bytes, _ := cbor.Marshal(packet)

@@ -1685,11 +1685,6 @@ namespace game
                     else                    // new client
                     {
                         conoutf("connected: %s", colorname(d, text));
-#if __EMSCRIPTEN__
-                        EM_ASM({
-                            Module.onClientJoin(UTF8ToString($0));
-                        }, text);
-#endif
                         if(needclipboard >= 0) needclipboard++;
                     }
                     copystring(d->name, text, MAXNAMELEN+1);

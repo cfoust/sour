@@ -62,7 +62,7 @@ type NetworkClient interface {
 	Host() string
 	Type() ClientType
 	// Tell the client that we've connected
-	Connect()
+	Connect(name string, internal bool, owned bool)
 	// Messages going to the client
 	Send(packet game.GamePacket)
 	// Messages going to the server
@@ -154,7 +154,7 @@ func (c *Client) SendServerMessage(message string) {
 	})
 }
 
-func (c *Client) ConnectToServer(server *servers.GameServer) (<-chan bool, error) {
+func (c *Client) ConnectToServer(server *servers.GameServer, internal bool, owned bool) (<-chan bool, error) {
 	if c.Connection.NetworkStatus() == ClientNetworkStatusDisconnected {
 		log.Warn().Msgf("client not connected to cluster but attempted connect")
 		return nil, fmt.Errorf("client not connected to cluster")
@@ -198,7 +198,7 @@ func (c *Client) ConnectToServer(server *servers.GameServer) (<-chan bool, error
 	c.Mutex.Unlock()
 
 	server.SendConnect(c.Id)
-	c.Connection.Connect()
+	c.Connection.Connect(server.Reference(), internal, owned)
 
 	// Give the client one second to connect.
 	go func() {

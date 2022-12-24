@@ -38,6 +38,9 @@ export type PacketMessage = {
 
 export type ServerConnectedMessage = {
   Op: MessageType.ServerConnected
+  Server: string
+  Internal: boolean
+  Owned: boolean
 }
 
 export type ServerDisconnectedMessage = {
