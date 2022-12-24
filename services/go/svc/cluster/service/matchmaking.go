@@ -42,8 +42,14 @@ type Duel struct {
 	Mutex    sync.Mutex
 	Phase    DuelPhase
 	Type     config.DuelType
+
 	A        *clients.Client
 	B        *clients.Client
+
+	// The servers A and B were on prior to joining the duel
+	oldAServer *servers.GameServer
+	oldBServer *servers.GameServer
+
 	scoreA   int
 	scoreB   int
 	Manager  *servers.ServerManager
@@ -250,6 +256,19 @@ func (d *Duel) PollDeaths(ctx context.Context) {
 	}
 }
 
+// Free up resources and move clients back to their original servers
+func (d *Duel) Cleanup() {
+	if d.A.GetServer() == d.server && d.oldAServer != nil {
+		d.A.ConnectToServer(d.oldAServer, false, false)
+	}
+
+	if d.B.GetServer() == d.server && d.oldBServer != nil {
+		d.B.ConnectToServer(d.oldBServer, false, false)
+	}
+
+	d.Manager.RemoveServer(d.server)
+}
+
 func (d *Duel) MonitorClient(
 	ctx context.Context,
 	client *clients.Client,
@@ -260,13 +279,7 @@ func (d *Duel) MonitorClient(
 	logger := d.Logger()
 
 	select {
-	case <-d.server.Context.Done():
-		logger.Warn().Msg("match server context ended unexpectedly")
-		// If the match server dies for some reason, move clients back to their old server
-		client.ConnectToServer(oldServer, false, false)
 	case <-ctx.Done():
-		// When the match is done (regardless of result) attempt to move
-		client.ConnectToServer(oldServer, false, false)
 		return
 	case <-client.ServerSessionContext().Done():
 		logger.Info().Msgf("client %d disconnected from server, ending match", client.Id)
@@ -282,6 +295,14 @@ func (d *Duel) Run(ctx context.Context) {
 
 	matchContext, cancelMatch := context.WithCancel(ctx)
 	defer cancelMatch()
+
+	d.oldAServer = d.A.Server
+	d.oldBServer = d.B.Server
+
+	go func() {
+		<-matchContext.Done()
+		d.Cleanup()
+	}()
 
 	matchResult := make(chan DuelResult, 1)
 
@@ -308,6 +329,7 @@ func (d *Duel) Run(ctx context.Context) {
 
 	failure := func() {
 		d.broadcast(game.Red("error starting match server"))
+		cancelMatch()
 	}
 
 	d.broadcast(game.Green("Found a match!"))
@@ -330,7 +352,6 @@ func (d *Duel) Run(ctx context.Context) {
 		case <-gameServer.Context.Done():
 			cancelMatch()
 		case <-matchContext.Done():
-			d.Manager.RemoveServer(gameServer)
 			return
 		}
 	}()
