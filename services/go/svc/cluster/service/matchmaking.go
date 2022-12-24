@@ -399,6 +399,7 @@ func (d *Duel) Run(ctx context.Context) {
 
 	// Start with a warmup
 	d.broadcast(game.Blue("Warmup"))
+	d.broadcast("Leaving the match during the warmup does not count as a loss.")
 	d.runPhase(matchContext, d.Type.WarmupSeconds, game.Blue("Warmup"))
 	gameServer.SendCommand("resetplayers 1")
 	gameServer.SendCommand("forcerespawn -1")
