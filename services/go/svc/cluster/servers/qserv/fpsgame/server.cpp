@@ -3075,6 +3075,12 @@ best.add(clients[i]); \
     }
     ICOMMAND(forcerespawn, "i", (int *val), forcerespawn(*val));
 
+    void settime(int secs)
+    {
+        sendf(-1, 1, "ri2", N_TIMEUP, secs);
+    }
+    ICOMMAND(settime, "i", (int *val), settime(*val));
+
     void suicideevent::process(clientinfo *ci) { suicide(ci); }
 
     void explodeevent::process(clientinfo *ci)

@@ -114,6 +114,8 @@ func (d *Duel) runPhase(ctx context.Context, numSeconds uint, title string) {
 		announceIndex = i
 	}
 
+	d.server.SendCommand(fmt.Sprintf("settime %d", numSeconds))
+
 	for {
 		select {
 		case <-tick.C:
