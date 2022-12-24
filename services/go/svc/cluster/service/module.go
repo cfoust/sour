@@ -127,6 +127,11 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 				result.Type,
 			)
 
+			if result.IsDraw {
+				server.Clients.Mutex.Unlock()
+				continue
+			}
+
 			if result.Disconnected {
 				message = fmt.Sprintf("%s because they disconnected", message)
 			}

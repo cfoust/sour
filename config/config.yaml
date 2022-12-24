@@ -20,6 +20,7 @@ cluster:
         autosendmap 1
         enable_passflag 1
         instacoop 0
+        // Disable /setmaster
         publicserver 1
         serverflagruns 1
         serverbotbalance 1
@@ -35,8 +36,6 @@ cluster:
         teamkillkick "?capture" 10 30
         maxdemos 10
         updatemaster 0
-        # veto
-        mastermode 1
         enablemultiplemasters 0
         serverconnectmsg 1
         welcomewithname 1

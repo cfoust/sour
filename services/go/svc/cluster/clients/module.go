@@ -118,6 +118,13 @@ func (c *Client) GetClientNum() int32 {
 	return num
 }
 
+func (c *Client) GetName() string {
+	c.Mutex.Lock()
+	name := c.Name
+	c.Mutex.Unlock()
+	return name
+}
+
 func (c *Client) ServerSessionContext() context.Context {
 	c.Mutex.Lock()
 	ctx := c.serverSessionCtx

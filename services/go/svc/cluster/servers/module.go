@@ -450,10 +450,13 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 	if err != nil {
 		return nil, err
 	}
-	log.Info().Msgf("using config %s", resolvedConfig)
+
+	serverCtx, cancel := context.WithCancel(ctx)
 
 	server := GameServer{
 		Alias:         "",
+		Context:       serverCtx,
+		cancel:        cancel,
 		Connecting:    make(chan bool, 1),
 		LastEvent:     time.Now(),
 		ClientInfo:    make(map[uint16]*ClientExtInfo),
@@ -481,8 +484,8 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 
 	cmd := exec.CommandContext(
 		ctx,
-		//"valgrind",
-		//"--leak-check=full",
+		"valgrind",
+		"--leak-check=full",
 		manager.serverPath,
 		fmt.Sprintf("-S%s", identity.Path),
 		fmt.Sprintf("-C%s", server.configFile),

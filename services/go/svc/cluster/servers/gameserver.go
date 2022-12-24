@@ -33,7 +33,11 @@ type GameServer struct {
 	ClientInfo map[uint16]*ClientExtInfo
 	Uptime     ServerUptime
 
-	Mutex      sync.Mutex
+	// Valid while the server is running and healthy
+	Context context.Context
+	cancel  context.CancelFunc
+
+	Mutex sync.Mutex
 
 	// The last time a client connected
 	LastEvent time.Time
@@ -672,6 +676,7 @@ func (server *GameServer) Wait() {
 	state, err := server.command.Process.Wait()
 
 	defer func() {
+		server.cancel()
 		server.exit <- true
 	}()
 
@@ -710,7 +715,6 @@ func (server *GameServer) Start(ctx context.Context) error {
 	tick := time.NewTicker(250 * time.Millisecond)
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*10)
-
 	defer cancel()
 
 	exitChannel := make(chan bool, 1)

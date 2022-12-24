@@ -12,7 +12,17 @@ import (
 	"github.com/cfoust/sour/svc/cluster/servers"
 
 	"github.com/repeale/fp-go/option"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+)
+
+type DuelPhase byte
+
+const (
+	DuelPhaseWarmup = iota
+	DuelPhaseBattle
+	DuelPhaseOvertime
+	DuelPhaseDone
 )
 
 type DuelResult struct {
@@ -21,6 +31,428 @@ type DuelResult struct {
 	Type         string
 	IsDraw       bool
 	Disconnected bool
+}
+
+type DuelDone struct {
+	Duel   *Duel
+	Result DuelResult
+}
+
+type Duel struct {
+	Mutex    sync.Mutex
+	Phase    DuelPhase
+	Type     config.DuelType
+	A        *clients.Client
+	B        *clients.Client
+	scoreA   int
+	scoreB   int
+	Manager  *servers.ServerManager
+	Finished chan DuelDone
+	server   *servers.GameServer
+}
+
+func (d *Duel) Logger() zerolog.Logger {
+	logger := log.With().
+		Str("nameA", d.A.GetName()).
+		Uint16("idA", d.A.Id).
+		Str("nameB", d.B.GetName()).
+		Uint16("idB", d.B.Id).
+		Logger()
+
+	if d.server != nil {
+		logger = logger.With().Str("server", d.server.Reference()).Logger()
+	}
+
+	return logger
+}
+
+func (d *Duel) broadcast(message string) {
+	d.A.SendServerMessage(message)
+	d.B.SendServerMessage(message)
+}
+
+// Do a period of uninterrupted gameplay, like the warmup or main "struggle" sections.
+func (d *Duel) runPhase(ctx context.Context, numSeconds uint, title string) {
+	tick := time.NewTicker(50 * time.Millisecond)
+
+	startTime := time.Now()
+	endTime := startTime.Add(time.Duration(numSeconds) * time.Second)
+
+	sessionCtx, cancelSession := context.WithDeadline(ctx, endTime)
+	defer cancelSession()
+
+	announceThresholds := []uint{
+		120,
+		60,
+		30,
+		15,
+		10,
+		9,
+		8,
+		7,
+		6,
+		5,
+		4,
+		3,
+		2,
+		1,
+	}
+
+	announceIndex := 0
+
+	for i, announce := range announceThresholds {
+		if numSeconds > announce {
+			break
+		}
+
+		announceIndex = i
+	}
+
+	for {
+		select {
+		case <-tick.C:
+			remaining := uint(endTime.Sub(time.Now()).Round(time.Second) / time.Second)
+			if announceIndex < len(announceThresholds) && remaining <= announceThresholds[announceIndex] {
+				d.broadcast(fmt.Sprintf("%s %d seconds remaining", title, announceThresholds[announceIndex]))
+				announceIndex++
+			}
+		case <-ctx.Done():
+			cancelSession()
+			return
+		case <-sessionCtx.Done():
+			return
+		}
+	}
+}
+
+func (d *Duel) doCountdown(ctx context.Context, seconds int) {
+	logger := d.Logger()
+	tick := time.NewTicker(1 * time.Second)
+	count := seconds
+
+	for {
+		select {
+		case <-tick.C:
+			if count == 0 {
+				return
+			}
+			d.broadcast(fmt.Sprintf("%d", count))
+			count--
+		case <-ctx.Done():
+			logger.Info().Msg("countdown context canceled")
+			return
+		}
+	}
+}
+
+func (d *Duel) getLeaveWinner(client *clients.Client) DuelResult {
+	d.Mutex.Lock()
+	phase := d.Phase
+	d.Mutex.Unlock()
+
+	result := DuelResult{
+		Type:         d.Type.Name,
+		IsDraw:       false,
+		Disconnected: true,
+	}
+
+	if phase == DuelPhaseWarmup {
+		result.IsDraw = true
+	}
+
+	if client == d.A {
+		result.Winner = d.B
+		result.Loser = d.A
+		return result
+	}
+
+	result.Winner = d.A
+	result.Loser = d.B
+	return result
+}
+
+func abs(x, y int) int {
+	if x < y {
+		return y - x
+	}
+	return x - y
+}
+
+func (d *Duel) finish(result DuelResult) {
+	d.Finished <- DuelDone{
+		Duel:   d,
+		Result: result,
+	}
+}
+
+func (d *Duel) setPhase(phase DuelPhase) {
+	d.Mutex.Lock()
+	d.Phase = phase
+	d.Mutex.Unlock()
+}
+
+func (d *Duel) Respawn(ctx context.Context, client *clients.Client) {
+	if d.Type.ForceRespawn == config.RespawnTypeAll {
+		d.server.SendCommand("forcerespawn -1")
+	} else if d.Type.ForceRespawn == config.RespawnTypeDead {
+		d.server.SendCommand(fmt.Sprintf("forcerespawn %d", client.GetClientNum()))
+	}
+
+	if d.Type.PauseOnDeath {
+		d.server.SendCommand("pausegame 1")
+		d.doCountdown(ctx, 1)
+		d.server.SendCommand("pausegame 0")
+	}
+}
+
+func (d *Duel) PollDeaths(ctx context.Context) {
+	broadcasts := d.server.BroadcastSubscribe()
+	defer d.server.BroadcastUnsubscribe(broadcasts)
+
+	for {
+		select {
+		case msg := <-broadcasts:
+			if msg.Type() == game.N_DIED {
+				died := msg.Contents().(*game.Died)
+
+				var killed *clients.Client
+
+				numA := int(d.A.GetClientNum())
+				numB := int(d.B.GetClientNum())
+
+				if died.Client == numA {
+					killed = d.A
+				} else if died.Client == numB {
+					killed = d.B
+				}
+
+				d.Respawn(ctx, killed)
+
+				d.Mutex.Lock()
+				if died.Client == died.Killer {
+					if killed == d.A {
+						d.scoreA = died.KillerFrags
+					} else if killed == d.B {
+						d.scoreB = died.KillerFrags
+					}
+				} else {
+					if killed == d.A {
+						d.scoreB = died.KillerFrags
+					} else if killed == d.B {
+						d.scoreA = died.KillerFrags
+					}
+				}
+				d.Mutex.Unlock()
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (d *Duel) MonitorClient(
+	ctx context.Context,
+	client *clients.Client,
+	oldServer *servers.GameServer,
+	cancelMatch context.CancelFunc,
+	matchResult chan DuelResult,
+) {
+	logger := d.Logger()
+
+	select {
+	case <-d.server.Context.Done():
+		logger.Warn().Msg("match server context ended unexpectedly")
+		// If the match server dies for some reason, move clients back to their old server
+		client.ConnectToServer(oldServer, false, false)
+	case <-ctx.Done():
+		// When the match is done (regardless of result) attempt to move
+		client.ConnectToServer(oldServer, false, false)
+		return
+	case <-client.ServerSessionContext().Done():
+		logger.Info().Msgf("client %d disconnected from server, ending match", client.Id)
+		matchResult <- d.getLeaveWinner(client)
+		cancelMatch()
+		return
+	}
+}
+
+func (d *Duel) Run(ctx context.Context) {
+	logger := d.Logger()
+	logger.Info().Str("type", d.Type.Name).Msg("initiating duel")
+
+	matchContext, cancelMatch := context.WithCancel(ctx)
+	defer cancelMatch()
+
+	matchResult := make(chan DuelResult, 1)
+
+	// Take the first result we get (one disconnect could trigger multiple)
+	go func() {
+		result := <-matchResult
+		d.finish(result)
+	}()
+
+	// If any client disconnects from the CLUSTER, end the match
+	for _, client := range []*clients.Client{d.A, d.B} {
+		go func(client *clients.Client) {
+			select {
+			case <-matchContext.Done():
+				return
+			case <-client.Connection.SessionContext().Done():
+				logger.Info().Msgf("client %d disconnected from cluster, ending match", client.Id)
+				matchResult <- d.getLeaveWinner(client)
+				cancelMatch()
+				return
+			}
+		}(client)
+	}
+
+	failure := func() {
+		d.broadcast(game.Red("error starting match server"))
+	}
+
+	d.broadcast(game.Green("Found a match!"))
+	d.broadcast("starting match server")
+
+	gameServer, err := d.Manager.NewServer(ctx, d.Type.Preset, true)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to create server")
+		failure()
+		return
+	}
+
+	d.server = gameServer
+
+	// So we get the server in the log context
+	logger = d.Logger()
+
+	go func() {
+		select {
+		case <-gameServer.Context.Done():
+			cancelMatch()
+		case <-matchContext.Done():
+			d.Manager.RemoveServer(gameServer)
+			return
+		}
+	}()
+
+	logger = logger.With().Str("server", gameServer.Reference()).Logger()
+
+	err = gameServer.StartAndWait(ctx)
+	if err != nil {
+		logger.Error().Err(err).Msg("server failed to start")
+		failure()
+		return
+	}
+
+	gameServer.SendCommand("pausegame 1")
+	gameServer.SendCommand(fmt.Sprintf("serverdesc \"Sour %s\"", game.Red("Duel")))
+
+	if matchContext.Err() != nil {
+		return
+	}
+
+	// Move the clients to the new server
+	for _, client := range []*clients.Client{d.A, d.B} {
+		// Store previous server
+		oldServer := client.GetServer()
+
+		go d.MonitorClient(matchContext, client, oldServer, cancelMatch, matchResult)
+
+		connected, err := client.ConnectToServer(gameServer, true, false)
+		result := <-connected
+		if result == false || err != nil {
+			logger.Error().Err(err).Msg("client failed to connect")
+			failure()
+			return
+		}
+	}
+
+	if matchContext.Err() != nil {
+		return
+	}
+
+	gameServer.SendCommand("pausegame 0")
+	d.broadcast(fmt.Sprintf("Duel: You must win by at least %d frags. You are respawned automatically. Disconnecting counts as a loss.", d.Type.WinThreshold))
+
+	// Start with a warmup
+	d.broadcast(game.Blue("Warmup"))
+	d.runPhase(matchContext, d.Type.WarmupSeconds, game.Blue("Warmup"))
+	gameServer.SendCommand("resetplayers 1")
+	gameServer.SendCommand("forcerespawn -1")
+
+	if matchContext.Err() != nil {
+		return
+	}
+
+	go d.PollDeaths(matchContext)
+
+	d.setPhase(DuelPhaseBattle)
+
+	d.broadcast(game.Red("Get ready!"))
+	gameServer.SendCommand("pausegame 1")
+	d.doCountdown(matchContext, 5)
+	gameServer.SendCommand("pausegame 0")
+	d.broadcast(game.Green("GO!"))
+
+	if matchContext.Err() != nil {
+		return
+	}
+
+	d.runPhase(matchContext, d.Type.GameSeconds, game.Red("Duel"))
+
+	if matchContext.Err() != nil {
+		return
+	}
+
+	// You have to win by three points from where overtime started
+	for {
+		d.Mutex.Lock()
+		overtimeA := d.scoreA
+		overtimeB := d.scoreB
+		d.Mutex.Unlock()
+
+		if abs(overtimeA, overtimeB) >= int(d.Type.WinThreshold) {
+			break
+		}
+
+		d.setPhase(DuelPhaseOvertime)
+
+		d.broadcast(game.Red("Overtime"))
+		gameServer.SendCommand("resetplayers 0")
+
+		gameServer.SendCommand("pausegame 1")
+		d.doCountdown(matchContext, 5)
+		gameServer.SendCommand("pausegame 0")
+
+		d.broadcast(game.Red("GO!"))
+		d.runPhase(matchContext, d.Type.OvertimeSeconds, game.Red("Overtime"))
+
+		if matchContext.Err() != nil {
+			return
+		}
+	}
+
+	d.setPhase(DuelPhaseDone)
+
+	d.Mutex.Lock()
+	logger.Info().Msgf("match ended %d:%d", d.scoreA, d.scoreB)
+	d.Mutex.Unlock()
+
+	result := DuelResult{
+		Type:   d.Type.Name,
+		Winner: d.A,
+		Loser:  d.B,
+		IsDraw: false,
+	}
+
+	if d.scoreA == d.scoreB {
+		result.IsDraw = true
+	} else if d.scoreB > d.scoreA {
+		result.Winner = d.B
+		result.Loser = d.A
+	}
+
+	matchResult <- result
 }
 
 type DuelQueue struct {
@@ -41,6 +473,7 @@ type Matchmaker struct {
 	duelTypes  []config.DuelType
 	manager    *servers.ServerManager
 	clients    *clients.ClientManager
+	duels      []*Duel
 	queue      []*QueuedClient
 	queueEvent chan bool
 	results    chan DuelResult
@@ -52,6 +485,7 @@ func NewMatchmaker(manager *servers.ServerManager, clients *clients.ClientManage
 	return &Matchmaker{
 		duelTypes:  duelTypes,
 		queue:      make([]*QueuedClient, 0),
+		duels:      make([]*Duel, 0),
 		queueEvent: make(chan bool, 0),
 		results:    make(chan DuelResult, 10),
 		queues:     make(chan DuelQueue, 10),
@@ -121,7 +555,6 @@ func (m *Matchmaker) Queue(client *clients.Client, typeName string) error {
 	go m.NotifyProgress(&queued)
 	m.queue = append(m.queue, &queued)
 	m.mutex.Unlock()
-	m.queueEvent <- true
 	log.Info().Uint16("client", client.Id).Str("type", queued.Type).Msg("queued for dueling")
 	client.SendServerMessage(fmt.Sprintf("you are now in the queue for %s", queued.Type))
 
@@ -129,6 +562,8 @@ func (m *Matchmaker) Queue(client *clients.Client, typeName string) error {
 		Client: client,
 		Type:   duelType.Value.Name,
 	}
+
+	m.queueEvent <- true
 
 	return nil
 }
@@ -150,411 +585,96 @@ func (m *Matchmaker) Dequeue(client *clients.Client) {
 }
 
 func (m *Matchmaker) Poll(ctx context.Context) {
-	updateTicker := time.NewTicker(10 * time.Second)
+	finished := make(chan DuelDone)
 
 	for {
-		// Check to see if there are any matches we can arrange
-		m.mutex.Lock()
-
-		// First prune the list of any clients that are gone
-		cleaned := make([]*QueuedClient, 0)
-		for _, queued := range m.queue {
-			if queued.Client.Connection.NetworkStatus() == clients.ClientNetworkStatusDisconnected {
-				log.Info().Uint16("client", queued.Client.Id).Msg("pruning disconnected client")
-				continue
-			}
-			cleaned = append(cleaned, queued)
-		}
-		m.queue = cleaned
-
-		// Then look to see if we can make any matches
-		matched := make(map[*clients.Client]bool, 0)
-		for _, queuedA := range m.queue {
-			// We may have already matched this queued
-			// note: can this actually occur?
-			if _, ok := matched[queuedA.Client]; ok {
-				continue
-			}
-
-			for _, queuedB := range m.queue {
-				// Same here
-				if _, ok := matched[queuedB.Client]; ok {
-					continue
-				}
-				if queuedA.Client == queuedB.Client || queuedA.Type != queuedB.Type {
-					continue
-				}
-
-				queuedA.Cancel()
-				queuedB.Cancel()
-
-				matched[queuedA.Client] = true
-				matched[queuedB.Client] = true
-
-				// We have a match!
-				go m.Duel(ctx, queuedA.Client, queuedB.Client, queuedA.Type)
-			}
-		}
-
-		// Remove the matches we made from the queue
-		cleaned = make([]*QueuedClient, 0)
-		for _, queued := range m.queue {
-			if _, ok := matched[queued.Client]; ok {
-				continue
-			}
-			cleaned = append(cleaned, queued)
-		}
-		m.queue = cleaned
-
-		m.mutex.Unlock()
-
 		select {
 		case <-ctx.Done():
 			return
+		case done := <-finished:
+			m.results <- done.Result
+			m.mutex.Lock()
+			duels := make([]*Duel, 0)
+			for _, duel := range m.duels {
+				if duel == done.Duel {
+					continue
+				}
+				duels = append(duels, duel)
+			}
+			m.duels = duels
+			m.mutex.Unlock()
 		case <-m.queueEvent:
-		case <-updateTicker.C:
-		}
-	}
-}
+			// Check to see if there are any matches we can arrange
+			m.mutex.Lock()
 
-// Do a period of uninterrupted gameplay, like the warmup or main "struggle" sections.
-func (m *Matchmaker) DoSession(ctx context.Context, numSeconds uint, title string, message func(string)) {
-	tick := time.NewTicker(50 * time.Millisecond)
-
-	startTime := time.Now()
-	endTime := startTime.Add(time.Duration(numSeconds) * time.Second)
-
-	sessionCtx, cancelSession := context.WithDeadline(ctx, endTime)
-	defer cancelSession()
-
-	announceThresholds := []uint{
-		120,
-		60,
-		30,
-		15,
-		10,
-		9,
-		8,
-		7,
-		6,
-		5,
-		4,
-		3,
-		2,
-		1,
-	}
-
-	announceIndex := 0
-
-	for i, announce := range announceThresholds {
-		if numSeconds > announce {
-			break
-		}
-
-		announceIndex = i
-	}
-
-	for {
-		select {
-		case <-tick.C:
-			remaining := uint(endTime.Sub(time.Now()).Round(time.Second) / time.Second)
-			if announceIndex < len(announceThresholds) && remaining <= announceThresholds[announceIndex] {
-				message(fmt.Sprintf("%s %d seconds remaining", title, announceThresholds[announceIndex]))
-				announceIndex++
+			// First prune the list of any clients that are gone
+			cleaned := make([]*QueuedClient, 0)
+			for _, queued := range m.queue {
+				if queued.Client.Connection.NetworkStatus() == clients.ClientNetworkStatusDisconnected {
+					log.Info().Uint16("client", queued.Client.Id).Msg("pruning disconnected client")
+					continue
+				}
+				cleaned = append(cleaned, queued)
 			}
-		case <-ctx.Done():
-			cancelSession()
-			return
-		case <-sessionCtx.Done():
-			return
-		}
-	}
-}
+			m.queue = cleaned
 
-func (m *Matchmaker) DoCountdown(ctx context.Context, seconds int, message func(string)) {
-	tick := time.NewTicker(1 * time.Second)
-	count := seconds
+			// Then look to see if we can make any matches
+			matched := make(map[*clients.Client]bool, 0)
+			for _, queuedA := range m.queue {
+				// We may have already matched this queued
+				// note: can this actually occur?
+				if _, ok := matched[queuedA.Client]; ok {
+					continue
+				}
 
-	for {
-		select {
-		case <-tick.C:
-			if count == 0 {
-				return
-			}
-			message(fmt.Sprintf("%d", count))
-			count--
-		case <-ctx.Done():
-			log.Info().Msg("countdown context canceled")
-			return
-		}
-	}
-}
-
-func abs(x, y int) int {
-	if x < y {
-		return y - x
-	}
-	return x - y
-}
-
-func (m *Matchmaker) Duel(ctx context.Context, clientA *clients.Client, clientB *clients.Client, typeName string) {
-	logger := log.With().Uint16("clientA", clientA.Id).Uint16("clientB", clientB.Id).Logger()
-
-	found := m.FindDuelType(typeName)
-
-	if opt.IsNone(found) {
-		log.Fatal().Msgf("a duel was started with nonexistent duel type %s", typeName)
-		return
-	}
-
-	duelType := found.Value
-
-	logger.Info().Msg("initiating 1v1")
-
-	matchContext, cancelMatch := context.WithCancel(ctx)
-	defer cancelMatch()
-
-	// If client is client A, B is the winner, and vice versa.
-	getLeaveWinner := func(client *clients.Client) DuelResult {
-		result := DuelResult{
-			Type:         typeName,
-			IsDraw:       false,
-			Disconnected: true,
-		}
-		if client == clientA {
-			result.Winner = clientB
-			result.Loser = clientA
-			return result
-		}
-
-		result.Winner = clientA
-		result.Loser = clientB
-		return result
-	}
-
-	outResult := make(chan DuelResult, 1)
-
-	// Take the first result we get (one disconnect could trigger multiple)
-	go func() {
-		result := <-outResult
-		m.results <- result
-	}()
-
-	// If any client disconnects from the CLUSTER, end the match
-	for _, client := range []*clients.Client{clientA, clientB} {
-		go func(client *clients.Client) {
-			select {
-			case <-matchContext.Done():
-				return
-			case <-client.Connection.SessionContext().Done():
-				outResult <- getLeaveWinner(client)
-				logger.Info().Msgf("client %d disconnected from cluster, ending match", client.Id)
-				cancelMatch()
-				return
-			}
-		}(client)
-	}
-
-	broadcast := func(text string) {
-		clientA.SendServerMessage(text)
-		clientB.SendServerMessage(text)
-	}
-
-	failure := func() {
-		broadcast(game.Red("error starting match server"))
-	}
-
-	broadcast(game.Green("Found a match!"))
-	broadcast("starting match server")
-
-	gameServer, err := m.manager.NewServer(ctx, duelType.Preset, true)
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to create server")
-		failure()
-		return
-	}
-
-	go func() {
-		select {
-		case <-matchContext.Done():
-			m.manager.RemoveServer(gameServer)
-			return
-		}
-	}()
-
-	logger = logger.With().Str("server", gameServer.Reference()).Logger()
-
-	err = gameServer.StartAndWait(ctx)
-	if err != nil {
-		logger.Error().Err(err).Msg("server failed to start")
-		failure()
-		return
-	}
-
-	gameServer.SendCommand("pausegame 1")
-	gameServer.SendCommand(fmt.Sprintf("serverdesc \"Sour %s\"", game.Red("Duel")))
-
-	if matchContext.Err() != nil {
-		return
-	}
-
-	// Move the clients to the new server
-	for _, client := range []*clients.Client{clientA, clientB} {
-		// Store previous server
-		oldServer := client.GetServer()
-
-		go func(client *clients.Client, oldServer *servers.GameServer) {
-			select {
-			case <-matchContext.Done():
-				// When the match is done (regardless of result) attempt to move
-				client.ConnectToServer(oldServer, false, false)
-				return
-			case <-client.ServerSessionContext().Done():
-				outResult <- getLeaveWinner(client)
-				logger.Info().Msgf("client %d disconnected from server, ending match", client.Id)
-				// If any client disconnects from the SERVER, end the match
-				cancelMatch()
-				return
-			}
-		}(client, oldServer)
-
-		connected, err := client.ConnectToServer(gameServer, true, false)
-		result := <-connected
-		if result == false || err != nil {
-			logger.Error().Err(err).Msg("client failed to connect")
-			failure()
-			return
-		}
-	}
-
-	if matchContext.Err() != nil {
-		return
-	}
-
-	gameServer.SendCommand("pausegame 0")
-	broadcast(fmt.Sprintf("Duel: You must win by at least %d frags. You are respawned automatically. Disconnecting counts as a loss.", duelType.WinThreshold))
-
-	// Start with a warmup
-	broadcast(game.Blue("Warmup"))
-	m.DoSession(matchContext, duelType.WarmupSeconds, game.Blue("Warmup"), broadcast)
-	gameServer.SendCommand("resetplayers 1")
-	gameServer.SendCommand("forcerespawn -1")
-
-	if matchContext.Err() != nil {
-		return
-	}
-
-	broadcasts := gameServer.BroadcastSubscribe()
-	defer gameServer.BroadcastUnsubscribe(broadcasts)
-
-	scoreA := 0
-	scoreB := 0
-	var scoreMutex sync.Mutex
-
-	go func() {
-		for {
-			select {
-			case msg := <-broadcasts:
-				if msg.Type() == game.N_DIED {
-					died := msg.Contents().(*game.Died)
-
-					if died.Client == died.Killer {
+				for _, queuedB := range m.queue {
+					// Same here
+					if _, ok := matched[queuedB.Client]; ok {
+						continue
+					}
+					if queuedA.Client == queuedB.Client || queuedA.Type != queuedB.Type {
 						continue
 					}
 
-					killed := clientB
+					queuedA.Cancel()
+					queuedB.Cancel()
 
-					clientA.Mutex.Lock()
-					if int(clientB.ClientNum) == died.Killer {
-						killed = clientA
-					}
-					clientA.Mutex.Unlock()
+					matched[queuedA.Client] = true
+					matched[queuedB.Client] = true
 
-					scoreMutex.Lock()
-					// should be A?
-					if killed == clientA {
-						logger.Info().Err(err).Msg("client B killed A")
-						scoreB = died.Frags
-					} else if killed == clientB {
-						logger.Info().Err(err).Msg("client A killed B")
-						scoreA = died.Frags
-					}
-					scoreMutex.Unlock()
+					duelType := m.FindDuelType(queuedA.Type)
 
-					if duelType.ForceRespawn == config.RespawnTypeAll {
-						gameServer.SendCommand("forcerespawn -1")
-					} else if duelType.ForceRespawn == config.RespawnTypeDead {
-						gameServer.SendCommand(fmt.Sprintf("forcerespawn %d", killed.ClientNum))
+					// This should never happen; we check on queueing
+					if opt.IsNone(duelType) {
+						continue
 					}
 
-					if duelType.PauseOnDeath {
-						gameServer.SendCommand("pausegame 1")
-						m.DoCountdown(matchContext, 1, broadcast)
-						gameServer.SendCommand("pausegame 0")
+					duel := Duel{
+						Type:     duelType.Value,
+						Phase:    DuelPhaseWarmup,
+						A:        queuedA.Client,
+						B:        queuedB.Client,
+						Manager:  m.manager,
+						Finished: finished,
 					}
+
+					m.duels = append(m.duels, &duel)
+
+					go duel.Run(ctx)
 				}
-			case <-matchContext.Done():
-				return
 			}
-		}
-	}()
 
-	broadcast(game.Red("Get ready!"))
-	gameServer.SendCommand("pausegame 1")
-	m.DoCountdown(matchContext, 5, broadcast)
-	gameServer.SendCommand("pausegame 0")
-	broadcast(game.Green("GO!"))
+			// Remove the matches we made from the queue
+			cleaned = make([]*QueuedClient, 0)
+			for _, queued := range m.queue {
+				if _, ok := matched[queued.Client]; ok {
+					continue
+				}
+				cleaned = append(cleaned, queued)
+			}
+			m.queue = cleaned
 
-	if matchContext.Err() != nil {
-		return
-	}
-
-	m.DoSession(matchContext, duelType.GameSeconds, game.Red("Duel"), broadcast)
-
-	if matchContext.Err() != nil {
-		return
-	}
-
-	// You have to win by three points from where overtime started
-	for {
-		scoreMutex.Lock()
-		overtimeA := scoreA
-		overtimeB := scoreB
-		scoreMutex.Unlock()
-
-		if abs(overtimeA, overtimeB) >= 3 {
-			break
-		}
-
-		broadcast(game.Red("Overtime"))
-		gameServer.SendCommand("resetplayers 0")
-
-		gameServer.SendCommand("pausegame 1")
-		m.DoCountdown(matchContext, 5, broadcast)
-		gameServer.SendCommand("pausegame 0")
-
-		broadcast(game.Red("GO!"))
-		m.DoSession(matchContext, duelType.OvertimeSeconds, game.Red("Overtime"), broadcast)
-
-		if matchContext.Err() != nil {
-			return
+			m.mutex.Unlock()
 		}
 	}
-
-	logger.Info().Msgf("match ended %d:%d", scoreA, scoreB)
-
-	result := DuelResult{
-		Type:   typeName,
-		Winner: clientA,
-		Loser:  clientB,
-		IsDraw: false,
-	}
-	if scoreA == scoreB {
-		result.IsDraw = true
-	} else if scoreB > scoreA {
-		result.Winner = clientB
-		result.Loser = clientA
-	}
-
-	m.results <- result
 }

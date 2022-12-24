@@ -135,7 +135,7 @@ type FromAI struct {
 
 // N_GAMESPEED
 type GameSpeed struct {
-	Speed int
+	Speed  int
 	Client int
 }
 
@@ -850,7 +850,7 @@ type Damage struct {
 type Died struct {
 	Client      int
 	Killer      int
-	Frags       int
+	KillerFrags int
 	VictimFrags int
 }
 
