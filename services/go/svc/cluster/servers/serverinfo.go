@@ -344,7 +344,6 @@ func (s *ServerInfoService) UpdateMaster(port int) error {
 		if strings.HasPrefix(line, "failreg") {
 			return fmt.Errorf("master rejected registration: %s", line)
 		} else if strings.HasPrefix(line, "succreg") {
-			log.Info().Msg("registered with master")
 			return nil
 		}
 	}

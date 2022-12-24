@@ -9,6 +9,7 @@ RUN sudo apt-get update && \
     libenet-dev \
     nginx \
     unrar \
+    valgrind \
     zlib1g-dev \
     && \
   sudo rm -rf /var/lib/apt/lists/*

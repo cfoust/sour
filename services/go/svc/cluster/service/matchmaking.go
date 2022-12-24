@@ -367,6 +367,8 @@ func (d *Duel) Run(ctx context.Context) {
 
 	gameServer.SendCommand("pausegame 1")
 	gameServer.SendCommand(fmt.Sprintf("serverdesc \"Sour %s\"", game.Red("Duel")))
+	// Lock down master regardless of the user's settings
+	gameServer.SendCommand("publicserver 1")
 
 	if matchContext.Err() != nil {
 		return
