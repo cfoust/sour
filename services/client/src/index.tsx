@@ -320,7 +320,10 @@ function App() {
           const p = cube.newPacket(packet)
           const msgType = cube.getInt(p)
           if (msgType != null) {
-            console.log(`%c client -> server type=${CubeMessageType[msgType]}`, 'background-color: blue; color: white')
+            console.log(
+              `%c client -> server type=${CubeMessageType[msgType]}`,
+              'background-color: blue; color: white'
+            )
           }
         }
         ws.send(
@@ -390,6 +393,7 @@ function App() {
         return pointer
       },
       disconnect: () => {
+        clearURLState()
         ws.send(
           CBOR.encode({
             Op: MessageType.Disconnect,
@@ -461,7 +465,10 @@ function App() {
 
         if (msgType != null) {
           if (DEBUG) {
-            console.log(`%c server -> client type=${CubeMessageType[msgType]}`, 'background-color: green; color: white')
+            console.log(
+              `%c server -> client type=${CubeMessageType[msgType]}`,
+              'background-color: green; color: white'
+            )
           }
           if (loadingWorld && !DELAY_AFTER_LOAD.includes(msgType)) {
             serverEvents.push(serverMessage)

@@ -919,6 +919,7 @@ void serverslice(bool dedicated, bool enet, uint timeout)   // main server updat
                         string command;
                         getstring(command, q, sizeof(command));
                         int result = execute(command);
+                        logoutf("ran '%s' result %d", command, result);
                         break;
                     }
                 case SOCKET_EVENT_RESPOND_MAP:

@@ -162,8 +162,27 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 		server.lastCreate[client.Connection.Host()] = time.Now()
 		server.hostServers[client.Connection.Host()] = gameServer
 
-		_, err = client.ConnectToServer(gameServer, false, true)
+		connected, err := client.ConnectToServer(gameServer, false, true)
 		go server.GivePrivateMatchHelp(server.serverCtx, client, client.Server)
+
+		go func() {
+			ctx, cancel := context.WithTimeout(client.Connection.SessionContext(), time.Second*10)
+			defer cancel()
+
+			select {
+			case status := <-connected:
+				log.Info().Msgf("client connected %t", status)
+				if !status {
+					return
+				}
+
+				clientNum := client.GetClientNum()
+				gameServer.SendCommand(fmt.Sprintf("grantmaster %d", clientNum))
+			case <-ctx.Done():
+				log.Info().Msgf("context finished")
+				return
+			}
+		}()
 
 		return true, "", nil
 

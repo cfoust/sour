@@ -62,22 +62,21 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Terraform recipes for deployment
 ### Gameplay
 * [ ] Modern multiplayer
-  * [ ] Update URL correctly when web user runs commands that change server
-  * [ ] User who creates private match is automatically admin
-  * [ ] Handle failure to connect from link
-  * [ ] Stretch: Discord login with ELO
+  * [ ] Leaving during warmup does not cause a loss
+  * [ ] Discord login with ELO
 * [ ] LRU cache for cluster map fetching
 * [ ] Allow for backgrounding the tab by responding to pings
 * [ ] Simple, beautiful main menu
   * [ ] Clean loading page for slow connections
   * [ ] Add `<noscript>` with a plea to enable JavaScript
   * [ ] Ensure page load time isn't horrible
+* [ ] Support for sending arbitrary assets to desktop clients
 * [ ] Demo player with seek/play/pause
+  * [ ] Automatically save demos for every Sour game
   * [ ] Stretch: generate gifs in the browser
 * [ ] Save demos for any game played to IndexedDB and allow for download
 * [ ] Explore running Sour in a Web Worker rather than the rendering thread
 * [ ] Support all player models (right now it's just snout)
-* [ ] Stretch: ship arbitrary assets to desktop clients over the wire
 * [ ] Stretch: spectate any running Sour match
 ### Map editing
 * [ ] Repair or port shaders that were disabled in the game upgrade

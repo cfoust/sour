@@ -1604,6 +1604,17 @@ namespace server {
         return true;
     }
 
+    void grantmaster(int cn)
+    {
+        loopv(clients)
+        {
+            clientinfo *ci = clients[i];
+            if (ci->clientnum != cn) continue;
+            setmaster(ci, true, "", NULL, NULL, PRIV_MASTER, true);
+        }
+    }
+    ICOMMAND(grantmaster, "i", (int *val), grantmaster(*val));
+
     bool trykick(clientinfo *ci, int victim, const char *reason = NULL, const char *authname = NULL, const char *authdesc = NULL, int authpriv = PRIV_NONE, bool trial = false)
     {
         int priv = ci->privilege;
