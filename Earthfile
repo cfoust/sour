@@ -18,6 +18,15 @@ go:
     RUN apt-get update && apt-get install -qqy libenet-dev inotify-tools build-essential cmake zlib1g-dev inotify-tools
     SAVE IMAGE sour:go
 
+redis:
+    FROM +cpp
+    RUN cd /tmp && \
+      wget https://github.com/redis/redis/archive/7.0.7.tar.gz && \
+      tar xvf 7.0.7.tar.gz && \
+      cd redis-7.0.7 &&
+      sudo make install
+    SAVE ARTIFACT /usr/local/bin/redis-server AS LOCAL "earthly/redis-server"
+
 goexe:
     FROM +go
     COPY services/go .
@@ -60,6 +69,7 @@ image-slim:
   RUN apt-get update && apt-get install -y nginx libenet-dev jq
   COPY config/schema.cue /sour/schema.cue
   COPY config/config.yaml /sour/config.yaml
+  COPY +redis/redis-server /bin/redis-server
   COPY +goexe/cluster /bin/cluster
   COPY +proxy/wsproxy /bin/wsproxy
   COPY +game/game /app/game/

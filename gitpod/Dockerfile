@@ -14,6 +14,12 @@ RUN sudo apt-get update && \
     && \
   sudo rm -rf /var/lib/apt/lists/*
 
+RUN cd /tmp && \
+  wget https://github.com/redis/redis/archive/7.0.7.tar.gz && \
+  tar xvf 7.0.7.tar.gz && \
+  cd redis-7.0.7 &&
+  sudo make install
+
 RUN cd /home/gitpod && \
   git clone https://github.com/emscripten-core/emsdk.git && \
   cd emsdk && \
