@@ -19,6 +19,7 @@ import {
 
 import type { GameState } from './types'
 import type {
+  ClientAuthMessage,
   ServerMessage,
   SocketMessage,
   CommandMessage,
@@ -29,7 +30,7 @@ import { MessageType, ENetEventType } from './protocol'
 import StatusOverlay from './Loading'
 import NAMES from './names'
 import useAssets from './assets/hook'
-import useAuth from './discord'
+import useAuth, { DISCORD_CODE } from './discord'
 import { CubeMessageType } from './game'
 import * as cube from './game'
 
@@ -91,19 +92,26 @@ const DELAY_AFTER_LOAD: CubeMessageType[] = [
 
 const SERVER_URL_REGEX = /\/server\/([\w.]+)\/?(\d+)?/
 
-const DISCORD_AUTH_KEY = 'discord'
-
 function App() {
   const [state, setState] = React.useState<GameState>({
     type: GameStateType.PageLoading,
   })
   const { width, height, ref: containerRef } = useResizeDetector()
 
-  const [gameOk, setGameOk] = React.useState<boolean>(false)
+  const wsRef = React.useRef<WebSocket>()
+
+  const sendAuthMessage = React.useCallback((message: ClientAuthMessage) => {
+    const { current: ws } = wsRef
+    if (ws == null) return
+    ws.send(CBOR.encode(message))
+  }, [])
 
   const { loadBundle } = useAssets(setState)
-
-  const { menu: discordMenu, loginSucceeded, loginFailed } = useAuth()
+  const {
+    menu: discordMenu,
+    receiveMessage: receiveAuthMessage,
+    initialize: initializeDiscord,
+  } = useAuth(sendAuthMessage)
 
   React.useEffect(() => {
     // Load the basic required data for the game
@@ -176,6 +184,8 @@ function App() {
     )
     ws.binaryType = 'arraybuffer'
 
+    wsRef.current = ws
+
     const runCommand = async (command: string) => {
       const generate = (): number => Math.floor(Math.random() * 2048)
 
@@ -234,27 +244,6 @@ function App() {
     Module.postLoadWorld = function () {
       loadingWorld = false
       serverEvents = [...serverEvents, ...queuedEvents]
-    }
-
-    const initializeDiscord = (urlCode: Maybe<string>) => {
-      if (!CONFIG.auth.enabled) return
-
-      let code: Maybe<string> = urlCode
-      // Look in localStorage
-      if (code == null) {
-        code = localStorage.getItem(DISCORD_AUTH_KEY)
-      }
-
-      if (code == null) {
-        return
-      }
-
-      ws.send(
-        CBOR.encode({
-          Op: MessageType.DiscordCode,
-          Code: code,
-        })
-      )
     }
 
     let cachedServers: Maybe<any> = null
@@ -516,14 +505,12 @@ function App() {
       }
 
       if (serverMessage.Op === MessageType.AuthSucceeded) {
-        localStorage.setItem(DISCORD_AUTH_KEY, serverMessage.Code)
-        loginSucceeded(serverMessage.Code, serverMessage.User)
-
+        receiveAuthMessage(serverMessage)
         return
       }
 
       if (serverMessage.Op === MessageType.AuthFailed) {
-        loginFailed()
+        receiveAuthMessage(serverMessage)
         return
       }
 

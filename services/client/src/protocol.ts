@@ -96,6 +96,13 @@ export type ResponseMessage = {
   Id: number
 }
 
+export type ClientAuthMessage =
+  | DiscordCodeMessage
+
+export type ServerAuthMessage =
+  | AuthSucceededMessage
+  | AuthFailedMessage
+
 export type ServerMessage =
   | InfoMessage
   | PacketMessage

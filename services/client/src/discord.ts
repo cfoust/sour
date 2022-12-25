@@ -4,6 +4,9 @@ import { CONFIG } from './config'
 import { mountFile } from './assets/hook'
 import * as log from './logging'
 
+import { MessageType } from './protocol'
+import type { ClientAuthMessage, ServerAuthMessage } from './protocol'
+
 enum AuthStatus {
   Unauthenticated,
   Authenticated,
@@ -51,14 +54,40 @@ async function mountImage(filename: string, url: string): Promise<void> {
   await mountFile(filename, new Uint8Array(buffer))
 }
 
-export default function useAuth(): {
+export const DISCORD_CODE = 'discord'
+
+export default function useAuth(
+  sendMessage: (message: ClientAuthMessage) => void
+): {
   menu: string
-  loginSucceeded: (code: string, user: DiscordUser) => void
-  loginFailed: () => void
+  initialize: (code: Maybe<string>) => void
+  receiveMessage: (message: ServerAuthMessage) => void
 } {
   const [state, setState] = React.useState<AuthState>({
     status: AuthStatus.Unauthenticated,
   })
+
+  const initialize = React.useCallback(
+    (urlCode: Maybe<string>) => {
+      if (!CONFIG.auth.enabled) return
+
+      let code: Maybe<string> = urlCode
+      // Look in localStorage
+      if (code == null) {
+        code = localStorage.getItem(DISCORD_CODE)
+      }
+
+      if (code == null) {
+        return
+      }
+
+      sendMessage({
+        Op: MessageType.DiscordCode,
+        Code: code,
+      })
+    },
+    [sendMessage]
+  )
 
   React.useEffect(() => {
     Module.discord = {
@@ -72,11 +101,24 @@ export default function useAuth(): {
           )
         )
       },
+      copyKey: () => {
+        console.log('copyKey');
+      },
+      regenKey: () => {},
+      logout: () => {
+        console.log('logging out');
+        localStorage.removeItem(DISCORD_CODE)
+        setState({
+          status: AuthStatus.Unauthenticated,
+        })
+      },
     }
   }, [])
 
-  const loginSucceeded = React.useCallback(
-    (code: string, user: DiscordUser) => {
+  const receiveMessage = React.useCallback((message: ServerAuthMessage) => {
+    if (message.Op === MessageType.AuthSucceeded) {
+      localStorage.setItem(DISCORD_CODE, message.Code)
+      const { User: user } = message
       setState({
         status: AuthStatus.Authenticated,
         user: user,
@@ -96,26 +138,27 @@ export default function useAuth(): {
           avatarPath: path,
         })
       })()
-    },
-    []
-  )
+      return
+    }
 
-  const loginFailed = React.useCallback(() => {
-    setState({
-      status: AuthStatus.Failed,
-    })
-
-    setTimeout(() => {
+    if (message.Op === MessageType.AuthFailed) {
       setState({
-        status: AuthStatus.Unauthenticated,
+        status: AuthStatus.Failed,
       })
-    }, 4000)
+
+      setTimeout(() => {
+        setState({
+          status: AuthStatus.Unauthenticated,
+        })
+      }, 4000)
+      return
+    }
   }, [])
 
   const menu = React.useMemo<string>(() => {
     if (state.status === AuthStatus.Unauthenticated) {
       return `
-          guibutton "log in.." "js 'Module.discord.login()'"
+          guibutton "log in.." [js "Module.discord.login()"]
       `
     }
 
@@ -132,16 +175,19 @@ export default function useAuth(): {
     }
 
     if (state.status === AuthStatus.AvatarMounted) {
-      const { avatarPath, user: { Username, Discriminator } } = state
+      const {
+        avatarPath,
+        user: { Username, Discriminator },
+      } = state
 
       return `
         guilist [
           guiimage "${avatarPath}" [] 0.5
           guitext "${log.colors.blue(`${Username}#${Discriminator}`)}" 0
         ]
-        guibutton "copy auth key.." "echo copy auth"
-        guibutton "copy auth key.." "echo copy auth"
-        guibutton "log out.." "echo logout"
+        guibutton "copy addauthkey.." [js "Module.discord.copyKey()"]
+        guibutton "regenerate auth key.." [js "Module.discord.regenKey()"]
+        guibutton "log out.." [js "Module.discord.logout()"]
       `
     }
 
@@ -150,7 +196,7 @@ export default function useAuth(): {
 
   return {
     menu,
-    loginSucceeded,
-    loginFailed,
+    initialize,
+    receiveMessage,
   }
 }

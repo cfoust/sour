@@ -74,6 +74,9 @@ type ModuleType = {
 
   discord: {
     login: () => void
+    copyKey: () => void
+    regenKey: () => void
+    logout: () => void
   }
 
   cluster: {
