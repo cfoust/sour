@@ -30,7 +30,7 @@ import { MessageType, ENetEventType } from './protocol'
 import StatusOverlay from './Loading'
 import NAMES from './names'
 import useAssets from './assets/hook'
-import useAuth, { DISCORD_CODE } from './discord'
+import useAuth, { DISCORD_CODE, renderDiscordHeader } from './discord'
 import { CubeMessageType } from './game'
 import * as cube from './game'
 
@@ -108,7 +108,7 @@ function App() {
 
   const { loadBundle } = useAssets(setState)
   const {
-    menu: discordMenu,
+    state: authState,
     receiveMessage: receiveAuthMessage,
     initialize: initializeDiscord,
   } = useAuth(sendAuthMessage)
@@ -169,8 +169,51 @@ function App() {
 
   React.useEffect(() => {
     if (state.type !== GameStateType.Ready) return
-    BananaBread.execute(`discordmenu = [${discordMenu}]`)
-  }, [discordMenu, state])
+
+    const menu = `
+    newgui discord [
+        guibutton "copy addauthkey.." [js "Module.discord.copyKey()"]
+        guibutton "regenerate auth key.." [js "Module.discord.regenKey()"]
+        guibutton "log out.." [js "Module.discord.logout()"]
+    ]
+
+    injectedmenu = [
+      guilist [
+          newname = (getname)
+          guifield newname 15 [name $newname]
+          guispring
+          guiimage (getcrosshair) [showgui crosshair] 0.5
+      ]
+      ${renderDiscordHeader(authState)}
+      guibar
+      if (isconnected) [
+          if (|| $editing (m_edit (getmode))) [
+              guibutton "editing.." "showgui editing"
+          ]
+          guibutton "vote game mode / map.." "showgui gamemode"
+          guibutton "switch team" [if (strcmp (getteam) "good") [team evil] [team good]]
+          guibutton "toggle spectator" [spectator (! (isspectator (getclientnum)))] "spectator"
+          guibutton "master.." [showgui master]
+          guibutton "disconnect" "disconnect"         "exit"
+          guibar
+      ] [
+          guibutton "play" "join"
+          guibutton "create private game..." "creategame"
+      ]
+      guibutton "random map.."  "map random"
+      guibutton "server browser.."  "showgui servers"
+      if ($fullscreen) [
+          guibutton "exit fullscreen.." [fullscreen 0]
+      ] [
+          guibutton "enter fullscreen.." [fullscreen 1]
+      ]
+      guibutton "discord.."        "showgui discord"
+      guibutton "options.."        "showgui options"
+      guibutton "about.."          "showgui about"
+    ]
+    `
+    BananaBread.execute(menu)
+  }, [authState, state])
 
   React.useEffect(() => {
     // All commands in flight

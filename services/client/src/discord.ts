@@ -56,10 +56,48 @@ async function mountImage(filename: string, url: string): Promise<void> {
 
 export const DISCORD_CODE = 'discord'
 
+export function renderDiscordHeader(state: AuthState): string {
+  if (!CONFIG.auth.enabled) return ''
+
+  if (state.status === AuthStatus.Unauthenticated) {
+    return `
+          guibutton "log in.." [js "Module.discord.login()"]
+      `
+  }
+
+  if (state.status === AuthStatus.Authenticated) {
+    return `
+          guitext "logging in.." 0
+      `
+  }
+
+  if (state.status === AuthStatus.Failed) {
+    return `
+          guitext "${log.error('failed to login')}" 0
+      `
+  }
+
+  if (state.status === AuthStatus.AvatarMounted) {
+    const {
+      avatarPath,
+      user: { Username, Discriminator },
+    } = state
+
+    return `
+        guilist [
+          guiimage "${avatarPath}" [] 0.5
+          guitext "${log.colors.blue(`${Username}#${Discriminator}`)}" 0
+        ]
+      `
+  }
+
+  return ''
+}
+
 export default function useAuth(
   sendMessage: (message: ClientAuthMessage) => void
 ): {
-  menu: string
+  state: AuthState
   initialize: (code: Maybe<string>) => void
   receiveMessage: (message: ServerAuthMessage) => void
 } {
@@ -156,46 +194,12 @@ export default function useAuth(
   }, [])
 
   const menu = React.useMemo<string>(() => {
-    if (state.status === AuthStatus.Unauthenticated) {
-      return `
-          guibutton "log in.." [js "Module.discord.login()"]
-      `
-    }
-
-    if (state.status === AuthStatus.Authenticated) {
-      return `
-          guitext "logging in.." 0
-      `
-    }
-
-    if (state.status === AuthStatus.Failed) {
-      return `
-          guitext "${log.error('failed to login')}" 0
-      `
-    }
-
-    if (state.status === AuthStatus.AvatarMounted) {
-      const {
-        avatarPath,
-        user: { Username, Discriminator },
-      } = state
-
-      return `
-        guilist [
-          guiimage "${avatarPath}" [] 0.5
-          guitext "${log.colors.blue(`${Username}#${Discriminator}`)}" 0
-        ]
-        guibutton "copy addauthkey.." [js "Module.discord.copyKey()"]
-        guibutton "regenerate auth key.." [js "Module.discord.regenKey()"]
-        guibutton "log out.." [js "Module.discord.logout()"]
-      `
-    }
 
     return ''
   }, [state])
 
   return {
-    menu,
+    state,
     initialize,
     receiveMessage,
   }
