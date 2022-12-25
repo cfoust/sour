@@ -8,6 +8,12 @@
 
 discord: #Discord
 
+redis: {
+	address:  string | *"localhost:6379"
+	password: string | *""
+	DB:       int | *0
+}
+
 #Service: {
 	enabled: bool | *true
 }

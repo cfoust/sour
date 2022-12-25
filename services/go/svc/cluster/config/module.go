@@ -81,13 +81,20 @@ type ClusterSettings struct {
 }
 
 type DiscordSettings struct {
-	Enabled          bool
-	Id               string
-	Secret           string
-	RedirectURI      string
+	Enabled     bool
+	Id          string
+	Secret      string
+	RedirectURI string
+}
+
+type RedisSettings struct {
+	Address  string
+	Password string
+	DB       int
 }
 
 type Config struct {
+	Redis   RedisSettings
 	Cluster ClusterSettings
 	Discord DiscordSettings
 }
