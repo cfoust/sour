@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/svc/cluster/assets"
+	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/config"
-	//"github.com/cfoust/sour/svc/cluster/redis"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
 	"github.com/cfoust/sour/svc/cluster/service"
-	"github.com/cfoust/sour/svc/cluster/auth"
+	"github.com/cfoust/sour/svc/cluster/state"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -42,7 +42,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	//redis := redis.NewRedisService(sourConfig.Redis)
+	state := state.NewStateService(sourConfig.Redis)
 
 	maps := assets.NewMapFetcher()
 	err = maps.FetchIndices(clusterConfig.Assets)
@@ -64,9 +64,8 @@ func main() {
 	if discordSettings.Enabled {
 		log.Info().Msg("initializing Discord authentication")
 		discord = auth.NewDiscordService(
-			discordSettings.Id,
-			discordSettings.Secret,
-			discordSettings.RedirectURI,
+			discordSettings,
+			state,
 		)
 	}
 

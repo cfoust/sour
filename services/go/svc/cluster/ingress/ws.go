@@ -231,18 +231,13 @@ func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code
 		return
 	}
 
-	token, err := server.discord.GetAccessToken(code)
+	user, err := server.discord.AuthenticateCode(ctx, code)
 	if err != nil {
 		log.Info().Err(err).Msg("failed to get access token")
 		return
 	}
 
-	user, err := server.discord.GetUser(token.AccessToken)
-	if err != nil {
-		log.Info().Err(err).Msg("failed to get user")
-		return
-	}
-	log.Info().Msgf("user %v", user)
+	log.Info().Msgf("%v", user)
 }
 
 func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, host string) error {
