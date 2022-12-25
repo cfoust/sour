@@ -12,9 +12,9 @@ import (
 	"net/url"
 	"unsafe"
 
+	"github.com/cfoust/sour/svc/cluster/auth/crypto"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/state"
-	"github.com/cfoust/sour/svc/cluster/auth/crypto"
 )
 
 const (
@@ -36,26 +36,32 @@ type DiscordUser struct {
 	Avatar        string
 }
 
+type KeyPair struct {
+	Public  string
+	Private string
+}
+
 type User struct {
 	Discord DiscordUser
-	AuthKey string
+	Keys    KeyPair
 }
 
-func GenerateSauerKey() (string, string) {
+func GenerateSauerKey(seed string) (public string, private string) {
 	priv := make([]byte, 120)
 	pub := make([]byte, 120)
-	crypto.Genauthkey("test", uintptr(unsafe.Pointer(&priv[0])), uintptr(unsafe.Pointer(&pub[0])))
-	return string(priv), string(pub)
+	crypto.Genauthkey(seed, uintptr(unsafe.Pointer(&priv[0])), uintptr(unsafe.Pointer(&pub[0])))
+	return string(pub), string(priv)
 }
 
-func GenerateAuthKey() (string, error) {
+func GenerateAuthKey() (KeyPair, error) {
 	number, err := rand.Int(rand.Reader, big.NewInt(1073741824))
 	if err != nil {
-		return "", err
+		return KeyPair{}, err
 	}
 	bytes := sha256.Sum256([]byte(fmt.Sprintf("%d", number)))
 	hash := fmt.Sprintf("%x", bytes)[:24]
-	return hash, nil
+	public, private := GenerateSauerKey(hash)
+	return KeyPair{public, private}, nil
 }
 
 type DiscordService struct {
@@ -186,29 +192,34 @@ func (d *DiscordService) SaveTokenBundle(ctx context.Context, bundle *TokenRespo
 }
 
 // Get or create an auth key for a user to log in on desktop Sauerbraten.
-func (d *DiscordService) GetAuthKey(ctx context.Context, id string) (string, error) {
-	key, err := d.state.GetAuthKeyForUser(ctx, id)
+func (d *DiscordService) GetAuthKey(ctx context.Context, id string) (KeyPair, error) {
+	public, private, err := d.state.GetAuthKeyForUser(ctx, id)
+
+	pair := KeyPair{
+		Public:  public,
+		Private: private,
+	}
 
 	if err != nil && err != state.Nil {
-		return "", err
+		return pair, err
 	}
 
 	if err == nil {
-		return key, nil
+		return pair, nil
 	}
 
 	// Generate one
-	key, err = GenerateAuthKey()
+	pair, err = GenerateAuthKey()
 	if err != nil {
-		return "", err
+		return pair, err
 	}
 
-	err = d.state.SaveAuthKeyForUser(ctx, id, key)
+	err = d.state.SaveAuthKeyForUser(ctx, id, pair.Public, pair.Private)
 	if err != nil {
-		return "", err
+		return pair, err
 	}
 
-	return key, nil
+	return pair, nil
 }
 
 func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*User, error) {
@@ -294,10 +305,10 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*Us
 		return nil, err
 	}
 
-	authKey, err := d.GetAuthKey(ctx, discordUser.Id)
+	pair, err := d.GetAuthKey(ctx, discordUser.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	return &User{Discord: *discordUser, AuthKey: authKey}, err
+	return &User{Discord: *discordUser, Keys: pair}, err
 }

@@ -26,7 +26,8 @@ func NewStateService(settings config.RedisSettings) *StateService {
 
 const (
 	AUTH_PREFIX                  = "auth-"
-	KEY_ID_TO_AUTHKEY            = AUTH_PREFIX + "authkey-%s"
+	KEY_ID_TO_PUBLIC             = AUTH_PREFIX + "public-%s"
+	KEY_ID_TO_PRIVATE            = AUTH_PREFIX + "private-%s"
 	KEY_CODE_TO_TOKEN            = AUTH_PREFIX + "code-%s"
 	TOKEN_PREFIX                 = AUTH_PREFIX + "token-"
 	KEY_TOKEN_TO_REFRESH         = TOKEN_PREFIX + "refresh-%s"
@@ -40,17 +41,41 @@ func (r *StateService) GetTokenForCode(ctx context.Context, code string) (string
 	return result, err
 }
 
-func (r *StateService) GetAuthKeyForUser(ctx context.Context, id string) (string, error) {
-	return r.client.Get(ctx, fmt.Sprintf(KEY_ID_TO_AUTHKEY, id)).Result()
+func (r *StateService) GetAuthKeyForUser(ctx context.Context, id string) (public string, private string, err error) {
+	// TODO pipeline
+	public, err = r.client.Get(ctx, fmt.Sprintf(KEY_ID_TO_PUBLIC, id)).Result()
+	if err != nil {
+		return "", "", err
+	}
+	private, err = r.client.Get(ctx, fmt.Sprintf(KEY_ID_TO_PRIVATE, id)).Result()
+	if err != nil {
+		return "", "", err
+	}
+
+	return public, private, nil
 }
 
-func (r *StateService) SaveAuthKeyForUser(ctx context.Context, id string, key string) error {
-	return r.client.Set(
+func (r *StateService) SaveAuthKeyForUser(ctx context.Context, id string, public string, private string) error {
+	// TODO pipeline
+	err := r.client.Set(
 		ctx,
-		fmt.Sprintf(KEY_ID_TO_AUTHKEY, id),
-		key,
+		fmt.Sprintf(KEY_ID_TO_PUBLIC, id),
+		public,
 		0,
 	).Err()
+	if err != nil {
+		return err
+	}
+	err = r.client.Set(
+		ctx,
+		fmt.Sprintf(KEY_ID_TO_PRIVATE, id),
+		private,
+		0,
+	).Err()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *StateService) SaveTokenForCode(ctx context.Context, code string, token string, expiresIn int) error {

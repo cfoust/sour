@@ -80,7 +80,7 @@ type AuthSucceededMessage struct {
 	Op      int // AuthSucceededOp
 	Code    string
 	User    auth.DiscordUser
-	AuthKey string
+	PrivateKey string
 }
 
 type DiscordCodeMessage struct {
@@ -263,7 +263,7 @@ func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code
 		Op:      AuthSucceededOp,
 		Code:    code,
 		User:    user.Discord,
-		AuthKey: user.AuthKey,
+		PrivateKey: user.Keys.Private,
 	}
 	bytes, _ := cbor.Marshal(response)
 	client.send <- bytes

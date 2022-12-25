@@ -28,7 +28,7 @@ export type UnauthenticatedState = {
 export type AuthenticatedState = {
   status: AuthStatus.Authenticated
   user: DiscordUser
-  authKey: string
+  key: string
 }
 
 export type FailedState = {
@@ -38,7 +38,7 @@ export type FailedState = {
 export type AvatarMountedState = {
   status: AuthStatus.AvatarMounted
   user: DiscordUser
-  authKey: string
+  key: string
   avatarPath: string
 }
 
@@ -147,7 +147,7 @@ export default function useAuth(
           state.status !== AuthStatus.Authenticated
         )
           return
-        console.log(`/addauthkey sour-key ${state.authKey} sourga.me`)
+        console.log(`/addauthkey sour-key ${state.key} sourga.me`)
       },
       regenKey: () => {},
       logout: () => {
@@ -163,11 +163,11 @@ export default function useAuth(
   const receiveMessage = React.useCallback((message: ServerAuthMessage) => {
     if (message.Op === MessageType.AuthSucceeded) {
       localStorage.setItem(DISCORD_CODE, message.Code)
-      const { User: user, AuthKey: authKey } = message
+      const { User: user, PrivateKey: key } = message
       setState({
         status: AuthStatus.Authenticated,
         user,
-        authKey,
+        key,
       })
 
       const { Id, Avatar } = user
@@ -182,7 +182,7 @@ export default function useAuth(
           status: AuthStatus.AvatarMounted,
           avatarPath: path,
           user,
-          authKey,
+          key,
         })
       })()
       return

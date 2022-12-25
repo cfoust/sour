@@ -71,7 +71,7 @@ export type AuthSucceededMessage = {
     Discriminator: string
     Username: string
   }
-  AuthKey: string
+  PrivateKey: string
 }
 
 export type AuthFailedMessage = {
