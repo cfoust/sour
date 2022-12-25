@@ -6,6 +6,7 @@ export enum MessageType {
   Connect,
   Disconnect,
   Command,
+  DiscordCode,
   Packet,
 }
 
@@ -65,6 +66,11 @@ export type CommandMessage = {
   Id: number
 }
 
+export type DiscordCodeMessage = {
+  Op: MessageType.DiscordCode
+  Code: string
+}
+
 export type ResponseMessage = {
   Op: MessageType.ServerResponse
   Response: string
@@ -89,3 +95,4 @@ export type ClientMessage =
   | ConnectMessage
   | DisconnectMessage
   | CommandMessage
+  | DiscordCodeMessage

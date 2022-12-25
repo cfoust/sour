@@ -28,6 +28,7 @@ const (
 	ConnectOp
 	DisconnectOp
 	CommandOp
+	DiscordCodeOp
 	// server -> client OR client -> server
 	PacketOp
 )
@@ -70,6 +71,11 @@ type CommandMessage struct {
 	Command string
 	// Uniquely identifies the command so we can send a response
 	Id int
+}
+
+type DiscordCodeMessage struct {
+	Op   int // DiscordCodeOp
+	Code string
 }
 
 type ResponseMessage struct {
@@ -319,6 +325,12 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 					Channel: uint8(packetMessage.Channel),
 					Data:    packetMessage.Data,
 				}
+			}
+
+			var discordCode DiscordCodeMessage
+			if err := cbor.Unmarshal(msg, &discordCode); err == nil &&
+				discordCode.Op == DiscordCodeOp {
+				log.Info().Msgf("code = %s", discordCode.Code)
 			}
 
 			var commandMessage CommandMessage

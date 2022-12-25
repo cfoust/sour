@@ -4,12 +4,21 @@ export type Configuration = {
   assets: string[]
   clusters: string[]
   proxy: string
+
+  auth: {
+    enabled: boolean
+    redirectURI: string
+  }
 }
 
 export let CONFIG: Configuration = {
   assets: [],
   clusters: [],
   proxy: '',
+  auth: {
+    enabled: false,
+    redirectURI: ''
+  }
 }
 
 function fillHost(url: string): string {

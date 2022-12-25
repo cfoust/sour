@@ -179,6 +179,14 @@ void connectsour(const char *servername, const char *serverpassword)
     }, servername, serverpassword);
 }
 ICOMMAND(join, "ss", (char *name, char *pw), connectsour(name, pw));
+
+void discordlogin()
+{
+    EM_ASM({
+            Module.discord.login();
+    });
+}
+ICOMMAND(discordlogin, "", (), discordlogin());
 #endif
 
 void connectserv(const char *servername, int serverport, const char *serverpassword)

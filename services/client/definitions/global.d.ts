@@ -72,6 +72,10 @@ type ModuleType = {
     receivedMap: (map: string, oldMap: string) => void
   }
 
+  discord: {
+    login: () => void
+  }
+
   cluster: {
     createGame: (name: string) => void
     connect: (name: string, password: string) => void

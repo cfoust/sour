@@ -23,7 +23,8 @@ fi
 cd "$SCRIPT_DIR/../"
 
 export SOUR_CONFIG="$(cat $SCRIPT_DIR/../../../config/config.json | jq '.client')"
-trap 'kill $(jobs -p)' EXIT
 yarn serve:site &
 cd dist
-python ../spa.py
+python ../spa.py &
+trap 'kill $(jobs -p)' EXIT
+cat

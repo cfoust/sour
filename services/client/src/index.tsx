@@ -224,6 +224,38 @@ function App() {
       serverEvents = [...serverEvents, ...queuedEvents]
     }
 
+    const initializeDiscord = (urlCode: Maybe<string>) => {
+      console.log(CONFIG);
+      if (!CONFIG.auth.enabled) return
+
+      let code: Maybe<string> = urlCode
+      // Look in localStorage
+      if (code == null) {
+        code = localStorage.getItem('discord')
+      }
+
+      if (code == null) {
+        BananaBread.execute(`discordmenu = [
+          guibutton "log in with Discord" "discordlogin"
+        ]`)
+        return
+      }
+
+      ws.send(
+        CBOR.encode({
+          Op: MessageType.DiscordCode,
+          Code: code,
+        })
+      )
+    }
+
+    Module.discord = {
+      login: () => {
+        if (!CONFIG.auth.enabled) return
+        window.open(CONFIG.auth.redirectURI, '_blank')
+      },
+    }
+
     let cachedServers: Maybe<any> = null
     Module.onGameReady = () => {
       setState({
@@ -251,12 +283,17 @@ function App() {
         pushURLState('/')
       }
 
-      if (params.length == 0) return
       const parsedParams = new URLSearchParams(params)
-      if (!parsedParams.has('cmd')) return
-      const cmd = parsedParams.get('cmd')
-      if (cmd == null) return
-      setTimeout(() => BananaBread.execute(cmd), 0)
+
+      initializeDiscord(
+        parsedParams.has('code') ? parsedParams.get('code') : null
+      )
+
+      if (parsedParams.has('cmd')) {
+        const cmd = parsedParams.get('cmd')
+        if (cmd == null) return
+        setTimeout(() => BananaBread.execute(cmd), 0)
+      }
     }
 
     const updateServerURL = (name: string, port: number) => {
