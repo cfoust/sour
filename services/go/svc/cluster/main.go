@@ -9,7 +9,7 @@ import (
 
 	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/config"
-	"github.com/cfoust/sour/svc/cluster/redis"
+	//"github.com/cfoust/sour/svc/cluster/redis"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
 	"github.com/cfoust/sour/svc/cluster/service"
@@ -42,7 +42,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	redis := redis.NewRedisService(sourConfig.Redis)
+	//redis := redis.NewRedisService(sourConfig.Redis)
 
 	maps := assets.NewMapFetcher()
 	err = maps.FetchIndices(clusterConfig.Assets)

@@ -3,9 +3,9 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
-	"io"
 )
 
 const (
@@ -66,4 +66,46 @@ func (d *DiscordService) GetAccessToken(code string) (*TokenResponse, error) {
 	}
 
 	return &token, nil
+}
+
+type DiscordUser struct {
+	Id            string
+	Username      string
+	Discriminator string
+	Avatar        string
+}
+
+func (d *DiscordService) GetUser(token string) (*DiscordUser, error) {
+	client := http.Client{}
+	req, err := http.NewRequest(
+		"GET",
+		fmt.Sprintf("%s/users/@me", API_ENDPOINT),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header = http.Header{"Authorization": {fmt.Sprintf("Bearer %s", token)}}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	buffer, err := io.ReadAll(resp.Body)
+
+	var user DiscordUser
+	err = json.Unmarshal(buffer, &user)
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
 }
