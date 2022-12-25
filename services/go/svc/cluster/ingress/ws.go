@@ -25,6 +25,8 @@ const (
 	ServerConnectedOp
 	ServerDisconnectedOp
 	ServerResponseOp
+	AuthSucceededOp
+	AuthFailedOp
 	// Client -> server
 	ConnectOp
 	DisconnectOp
@@ -75,7 +77,7 @@ type CommandMessage struct {
 }
 
 type DiscordCodeMessage struct {
-	Op   int // DiscordCodeOp
+	Op   int // DiscordCodeOp or AuthSucceededOp or AuthFailedOp
 	Code string
 }
 
@@ -232,10 +234,18 @@ func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code
 	}
 
 	_, err := server.discord.AuthenticateCode(ctx, code)
-	if err != nil {
-		log.Info().Err(err).Msg("failed to get access token")
-		return
+
+	response := DiscordCodeMessage{
+		Op:   AuthSucceededOp,
+		Code: code,
 	}
+
+	if err != nil {
+		response.Op = AuthFailedOp
+	}
+
+	bytes, _ := cbor.Marshal(response)
+	client.send <- bytes
 }
 
 func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, host string) error {

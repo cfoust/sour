@@ -90,6 +90,8 @@ const DELAY_AFTER_LOAD: CubeMessageType[] = [
 
 const SERVER_URL_REGEX = /\/server\/([\w.]+)\/?(\d+)?/
 
+const DISCORD_AUTH_KEY = 'discord'
+
 function App() {
   const [state, setState] = React.useState<GameState>({
     type: GameStateType.PageLoading,
@@ -225,13 +227,12 @@ function App() {
     }
 
     const initializeDiscord = (urlCode: Maybe<string>) => {
-      console.log(CONFIG)
       if (!CONFIG.auth.enabled) return
 
       let code: Maybe<string> = urlCode
       // Look in localStorage
       if (code == null) {
-        code = localStorage.getItem('discord')
+        code = localStorage.getItem(DISCORD_AUTH_KEY)
       }
 
       if (code == null) {
@@ -518,6 +519,21 @@ function App() {
             return
           }
         }
+      }
+
+      if (serverMessage.Op === MessageType.AuthSucceeded) {
+        localStorage.setItem(DISCORD_AUTH_KEY, serverMessage.Code)
+        BananaBread.execute(`discordmenu = [
+          guitext "logged in!" 0
+        ]`)
+        return
+      }
+
+      if (serverMessage.Op === MessageType.AuthFailed) {
+        BananaBread.execute(`discordmenu = [
+          guitext "${log.error("failed to login")}" 0
+        ]`)
+        return
       }
 
       if (loadingWorld) {

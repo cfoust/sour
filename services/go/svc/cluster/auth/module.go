@@ -193,14 +193,6 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*Di
 		token = bundle.AccessToken
 	}
 
-	refresh, err := d.state.GetRefreshForToken(
-		ctx,
-		token,
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	needsRefresh, err := d.state.TokenNeedsRefresh(
 		ctx,
 		token,
@@ -210,6 +202,14 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*Di
 	}
 
 	if needsRefresh {
+		refresh, err := d.state.GetRefreshForToken(
+			ctx,
+			token,
+		)
+		if err != nil {
+			return nil, err
+		}
+
 		bundle, err := d.RefreshAccessToken(refresh)
 		if err != nil {
 			return nil, err

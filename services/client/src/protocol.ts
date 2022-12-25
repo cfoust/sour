@@ -3,6 +3,8 @@ export enum MessageType {
   ServerConnected,
   ServerDisconnected,
   ServerResponse,
+  AuthSucceeded,
+  AuthFailed,
   Connect,
   Disconnect,
   Command,
@@ -60,6 +62,16 @@ export type DisconnectMessage = {
   Target: string
 }
 
+export type AuthSucceededMessage = {
+  Op: MessageType.AuthSucceeded
+  Code: string
+}
+
+export type AuthFailedMessage = {
+  Op: MessageType.AuthFailed
+  Code: string
+}
+
 export type CommandMessage = {
   Op: MessageType.Command
   Command: string
@@ -84,6 +96,8 @@ export type ServerMessage =
   | ServerConnectedMessage
   | ServerDisconnectedMessage
   | ResponseMessage
+  | AuthSucceededMessage
+  | AuthFailedMessage
 
 export type SocketMessage =
   | PacketMessage
