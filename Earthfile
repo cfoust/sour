@@ -57,7 +57,7 @@ client:
 image-slim:
   FROM golang:1.18
   RUN go install cuelang.org/go/cmd/cue@latest
-  RUN apt-get update && apt-get install -y nginx libenet-dev
+  RUN apt-get update && apt-get install -y nginx libenet-dev jq
   COPY config/schema.cue /sour/schema.cue
   COPY config/config.yaml /sour/config.yaml
   COPY +goexe/cluster /bin/cluster

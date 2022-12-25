@@ -1,3 +1,12 @@
+#Discord: {
+	enabled:     bool | *false
+	id:          string | *""
+	secret:      string | *""
+	redirectURI: string | *""
+}
+
+discord: #Discord
+
 #Service: {
 	enabled: bool | *true
 }
@@ -116,6 +125,11 @@ cluster: #ClusterSettings
 
 #ClientSettings: {
 	#Service
+
+	auth: {
+		enabled:     discord.enabled
+		redirectURI: discord.redirectURI
+	}
 
 	// All client URLs can use these template variables:
 	// #host: replaced with window.location.host

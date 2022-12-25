@@ -22,7 +22,8 @@ function fillHost(url: string): string {
 function getInjected(): Maybe<Configuration> {
   try {
     const injected = INJECTED_SOUR_CONFIG
-    return injected.client
+    // This will never run if INJECTED_SOUR_CONFIG is not defined
+    return injected
   } catch (e) {
     return null
   }
@@ -39,7 +40,7 @@ function init() {
       return
     }
 
-    CONFIG = JSON.parse(configStr).client
+    CONFIG = JSON.parse(configStr)
   }
 
   CONFIG.assets = R.map((v) => fillHost(v), CONFIG.assets)

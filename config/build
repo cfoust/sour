@@ -5,4 +5,9 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cd "$SCRIPT_DIR"
-cue export -sE --strict schema.cue config.yaml > config.json
+
+paths="schema.cue config.yaml"
+if [ -f "private.cue" ]; then
+  paths+=" private.cue"
+fi
+cue export -sE --strict $paths > config.json

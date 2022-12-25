@@ -22,7 +22,7 @@ if [ -z "$IN_DOCKER" ]; then
 fi
 cd "$SCRIPT_DIR/../"
 
-export SOUR_CONFIG="$(cat $SCRIPT_DIR/../../../config/config.json)"
+export SOUR_CONFIG="$(cat $SCRIPT_DIR/../../../config/config.json | jq '.client')"
 trap 'kill $(jobs -p)' EXIT
 yarn serve:site &
 cd dist
