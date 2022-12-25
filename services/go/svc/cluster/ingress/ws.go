@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/watcher"
 
@@ -195,13 +196,15 @@ type WSIngress struct {
 	mutex         sync.Mutex
 	serverWatcher *watcher.Watcher
 	httpServer    *http.Server
+	discord       *auth.DiscordService
 }
 
-func NewWSIngress(manager *clients.ClientManager) *WSIngress {
+func NewWSIngress(manager *clients.ClientManager, discord *auth.DiscordService) *WSIngress {
 	return &WSIngress{
 		manager:       manager,
 		clients:       make(map[*WSClient]struct{}),
 		serverWatcher: watcher.NewWatcher(),
+		discord:       discord,
 	}
 }
 
@@ -221,6 +224,20 @@ func (server *WSIngress) RemoveClient(client *WSClient) {
 	server.mutex.Lock()
 	delete(server.clients, client)
 	server.mutex.Unlock()
+}
+
+func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code string) {
+	if server.discord == nil {
+		return
+	}
+
+	token, err := server.discord.GetAccessToken(code)
+	if err != nil {
+		log.Info().Err(err).Msg("failed to get access token")
+		return
+	}
+
+	log.Info().Msgf("token %s", token.AccessToken)
 }
 
 func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, host string) error {
@@ -330,7 +347,7 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 			var discordCode DiscordCodeMessage
 			if err := cbor.Unmarshal(msg, &discordCode); err == nil &&
 				discordCode.Op == DiscordCodeOp {
-				log.Info().Msgf("code = %s", discordCode.Code)
+				server.HandleLogin(ctx, client, discordCode.Code)
 			}
 
 			var commandMessage CommandMessage

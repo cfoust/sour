@@ -12,6 +12,7 @@ import (
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
 	"github.com/cfoust/sour/svc/cluster/service"
+	"github.com/cfoust/sour/svc/cluster/auth"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -55,7 +56,18 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to start server manager")
 	}
 
-	wsIngress := ingress.NewWSIngress(cluster.Clients)
+	var discord *auth.DiscordService = nil
+	discordSettings := sourConfig.Discord
+	if discordSettings.Enabled {
+		log.Info().Msg("initializing Discord authentication")
+		discord = auth.NewDiscordService(
+			discordSettings.Id,
+			discordSettings.Secret,
+			discordSettings.RedirectURI,
+		)
+	}
+
+	wsIngress := ingress.NewWSIngress(cluster.Clients, discord)
 
 	enet := make([]*ingress.ENetIngress, 0)
 	infoServices := make([]*servers.ServerInfoService, 0)

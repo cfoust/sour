@@ -225,7 +225,7 @@ function App() {
     }
 
     const initializeDiscord = (urlCode: Maybe<string>) => {
-      console.log(CONFIG);
+      console.log(CONFIG)
       if (!CONFIG.auth.enabled) return
 
       let code: Maybe<string> = urlCode
@@ -251,8 +251,14 @@ function App() {
 
     Module.discord = {
       login: () => {
-        if (!CONFIG.auth.enabled) return
-        window.open(CONFIG.auth.redirectURI, '_blank')
+        const { enabled, authorizationURL, redirectURI } = CONFIG.auth
+        if (!enabled) return
+        window.location.assign(
+          authorizationURL.replace(
+            '{{redirectURI}}',
+            encodeURIComponent(redirectURI)
+          )
+        )
       },
     }
 

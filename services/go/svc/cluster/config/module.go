@@ -80,8 +80,16 @@ type ClusterSettings struct {
 	Ingress           ClusterIngress
 }
 
+type DiscordSettings struct {
+	Enabled          bool
+	Id               string
+	Secret           string
+	RedirectURI      string
+}
+
 type Config struct {
 	Cluster ClusterSettings
+	Discord DiscordSettings
 }
 
 func GetSourConfig() (*Config, error) {

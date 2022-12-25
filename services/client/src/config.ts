@@ -8,6 +8,7 @@ export type Configuration = {
   auth: {
     enabled: boolean
     redirectURI: string
+    authorizationURL: string
   }
 }
 
@@ -17,8 +18,9 @@ export let CONFIG: Configuration = {
   proxy: '',
   auth: {
     enabled: false,
-    redirectURI: ''
-  }
+    authorizationURL: '',
+    redirectURI: '',
+  },
 }
 
 function fillHost(url: string): string {

@@ -1,8 +1,9 @@
 #Discord: {
-	enabled:     bool | *false
-	id:          string | *""
-	secret:      string | *""
-	redirectURI: string | *""
+	enabled:          bool | *false
+	id:               string | *""
+	secret:           string | *""
+	redirectURI:      string | *""
+	authorizationURL: "https://discord.com/api/oauth2/authorize?client_id=\(id)&redirect_uri={{redirectURI}}&response_type=code&scope=identify&prompt=none"
 }
 
 discord: #Discord
@@ -127,8 +128,9 @@ cluster: #ClusterSettings
 	#Service
 
 	auth: {
-		enabled:     discord.enabled
-		redirectURI: discord.redirectURI
+		enabled:          discord.enabled
+		authorizationURL: discord.authorizationURL
+		redirectURI:      discord.redirectURI
 	}
 
 	// All client URLs can use these template variables:
