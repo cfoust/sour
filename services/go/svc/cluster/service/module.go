@@ -312,6 +312,7 @@ type DestPacket struct {
 func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 	toServer := client.Connection.ReceivePackets()
 	commands := client.Connection.ReceiveCommands()
+	authentication := client.Connection.ReceiveAuthentication()
 	disconnect := client.Connection.ReceiveDisconnect()
 
 	// A context valid JUST for the lifetime of the client
@@ -326,6 +327,10 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 		case <-ctx.Done():
 			cancel()
 			return
+		case user := <-authentication:
+			client.Mutex.Lock()
+			client.User = user
+			client.Mutex.Unlock()
 		case msg := <-toServer:
 			data := msg.Data
 

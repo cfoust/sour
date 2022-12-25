@@ -2,9 +2,12 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/url"
 
@@ -29,6 +32,21 @@ type DiscordUser struct {
 	Username      string
 	Discriminator string
 	Avatar        string
+}
+
+type User struct {
+	Discord DiscordUser
+	AuthKey string
+}
+
+func GenerateAuthKey() (string, error) {
+	number, err := rand.Int(rand.Reader, big.NewInt(1073741824))
+	if err != nil {
+		return "", err
+	}
+	bytes := sha256.Sum256([]byte(fmt.Sprintf("%d", number)))
+	hash := fmt.Sprintf("%x", bytes)[:24]
+	return hash, nil
 }
 
 type DiscordService struct {
@@ -158,7 +176,33 @@ func (d *DiscordService) SaveTokenBundle(ctx context.Context, bundle *TokenRespo
 	)
 }
 
-func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*DiscordUser, error) {
+// Get or create an auth key for a user to log in on desktop Sauerbraten.
+func (d *DiscordService) GetAuthKey(ctx context.Context, id string) (string, error) {
+	key, err := d.state.GetAuthKeyForUser(ctx, id)
+
+	if err != nil && err != state.Nil {
+		return "", err
+	}
+
+	if err == nil {
+		return key, nil
+	}
+
+	// Generate one
+	key, err = GenerateAuthKey()
+	if err != nil {
+		return "", err
+	}
+
+	err = d.state.SaveAuthKeyForUser(ctx, id, key)
+	if err != nil {
+		return "", err
+	}
+
+	return key, nil
+}
+
+func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*User, error) {
 	token, err := d.state.GetTokenForCode(ctx, code)
 
 	if err != nil && err != state.Nil {
@@ -236,10 +280,15 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*Di
 		token = bundle.AccessToken
 	}
 
-	user, err := d.GetUser(token)
+	discordUser, err := d.GetUser(token)
 	if err != nil {
 		return nil, err
 	}
 
-	return user, err
+	authKey, err := d.GetAuthKey(ctx, discordUser.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &User{Discord: *discordUser, AuthKey: authKey}, err
 }

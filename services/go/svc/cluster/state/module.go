@@ -25,10 +25,11 @@ func NewStateService(settings config.RedisSettings) *StateService {
 }
 
 const (
-	AUTH_PREFIX       = "auth-"
-	KEY_CODE_TO_TOKEN = AUTH_PREFIX + "code-%s"
-	TOKEN_PREFIX = AUTH_PREFIX + "token-"
-	KEY_TOKEN_TO_REFRESH = TOKEN_PREFIX + "refresh-%s"
+	AUTH_PREFIX                  = "auth-"
+	KEY_ID_TO_AUTHKEY            = AUTH_PREFIX + "authkey-%s"
+	KEY_CODE_TO_TOKEN            = AUTH_PREFIX + "code-%s"
+	TOKEN_PREFIX                 = AUTH_PREFIX + "token-"
+	KEY_TOKEN_TO_REFRESH         = TOKEN_PREFIX + "refresh-%s"
 	KEY_TOKEN_TO_REFRESH_EXPIRED = TOKEN_PREFIX + "refresh-expired-%s"
 )
 
@@ -39,12 +40,25 @@ func (r *StateService) GetTokenForCode(ctx context.Context, code string) (string
 	return result, err
 }
 
+func (r *StateService) GetAuthKeyForUser(ctx context.Context, id string) (string, error) {
+	return r.client.Get(ctx, fmt.Sprintf(KEY_ID_TO_AUTHKEY, id)).Result()
+}
+
+func (r *StateService) SaveAuthKeyForUser(ctx context.Context, id string, key string) error {
+	return r.client.Set(
+		ctx,
+		fmt.Sprintf(KEY_ID_TO_AUTHKEY, id),
+		key,
+		0,
+	).Err()
+}
+
 func (r *StateService) SaveTokenForCode(ctx context.Context, code string, token string, expiresIn int) error {
 	return r.client.Set(
 		ctx,
 		fmt.Sprintf(KEY_CODE_TO_TOKEN, code),
 		token,
-		time.Duration(expiresIn) * time.Second,
+		time.Duration(expiresIn)*time.Second,
 	).Err()
 }
 
@@ -55,7 +69,7 @@ func (r *StateService) SaveToken(ctx context.Context, token string, expiresIn in
 		ctx,
 		fmt.Sprintf(KEY_TOKEN_TO_REFRESH, token),
 		refreshToken,
-		time.Duration(expiresIn) * time.Second,
+		time.Duration(expiresIn)*time.Second,
 	)
 
 	pipe.Set(
@@ -64,7 +78,7 @@ func (r *StateService) SaveToken(ctx context.Context, token string, expiresIn in
 		// Value does not matter
 		"1",
 		// Flag this a bit sooner so we can refresh it
-		time.Duration(expiresIn / 2) * time.Second,
+		time.Duration(expiresIn/2)*time.Second,
 	)
 
 	_, err := pipe.Exec(ctx)

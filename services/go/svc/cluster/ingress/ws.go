@@ -77,9 +77,10 @@ type CommandMessage struct {
 }
 
 type AuthSucceededMessage struct {
-	Op   int // AuthSucceededOp
-	Code string
-	User auth.DiscordUser
+	Op      int // AuthSucceededOp
+	Code    string
+	User    auth.DiscordUser
+	AuthKey string
 }
 
 type DiscordCodeMessage struct {
@@ -115,14 +116,15 @@ type GenericMessage struct {
 }
 
 type WSClient struct {
-	host       string
-	status     clients.ClientNetworkStatus
-	toClient   chan game.GamePacket
-	toServer   chan game.GamePacket
-	commands   chan clients.ClusterCommand
-	disconnect chan bool
-	send       chan []byte
-	closeSlow  func()
+	host           string
+	status         clients.ClientNetworkStatus
+	toClient       chan game.GamePacket
+	toServer       chan game.GamePacket
+	commands       chan clients.ClusterCommand
+	authentication chan *auth.User
+	disconnect     chan bool
+	send           chan []byte
+	closeSlow      func()
 
 	context context.Context
 	cancel  context.CancelFunc
@@ -130,12 +132,13 @@ type WSClient struct {
 
 func NewWSClient() *WSClient {
 	return &WSClient{
-		status:     clients.ClientNetworkStatusConnected,
-		toClient:   make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
-		toServer:   make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
-		commands:   make(chan clients.ClusterCommand, clients.CLIENT_MESSAGE_LIMIT),
-		send:       make(chan []byte, clients.CLIENT_MESSAGE_LIMIT),
-		disconnect: make(chan bool, 1),
+		status:         clients.ClientNetworkStatusConnected,
+		toClient:       make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
+		toServer:       make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
+		commands:       make(chan clients.ClusterCommand, clients.CLIENT_MESSAGE_LIMIT),
+		authentication: make(chan *auth.User),
+		send:           make(chan []byte, clients.CLIENT_MESSAGE_LIMIT),
+		disconnect:     make(chan bool, 1),
 	}
 }
 
@@ -181,6 +184,10 @@ func (c *WSClient) ReceivePackets() <-chan game.GamePacket {
 
 func (c *WSClient) ReceiveCommands() <-chan clients.ClusterCommand {
 	return c.commands
+}
+
+func (c *WSClient) ReceiveAuthentication() <-chan *auth.User {
+	return c.authentication
 }
 
 func (c *WSClient) ReceiveDisconnect() <-chan bool {
@@ -242,6 +249,7 @@ func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code
 	user, err := server.discord.AuthenticateCode(ctx, code)
 
 	if err != nil {
+		log.Error().Err(err).Msg("user failed to log in")
 		response := DiscordCodeMessage{
 			Op:   AuthFailedOp,
 			Code: code,
@@ -252,12 +260,14 @@ func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code
 	}
 
 	response := AuthSucceededMessage{
-		Op:   AuthSucceededOp,
-		Code: code,
-		User: *user,
+		Op:      AuthSucceededOp,
+		Code:    code,
+		User:    user.Discord,
+		AuthKey: user.AuthKey,
 	}
 	bytes, _ := cbor.Marshal(response)
 	client.send <- bytes
+	client.authentication <- user
 }
 
 func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, host string) error {

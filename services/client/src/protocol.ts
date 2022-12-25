@@ -71,6 +71,7 @@ export type AuthSucceededMessage = {
     Discriminator: string
     Username: string
   }
+  AuthKey: string
 }
 
 export type AuthFailedMessage = {
@@ -96,12 +97,9 @@ export type ResponseMessage = {
   Id: number
 }
 
-export type ClientAuthMessage =
-  | DiscordCodeMessage
+export type ClientAuthMessage = DiscordCodeMessage
 
-export type ServerAuthMessage =
-  | AuthSucceededMessage
-  | AuthFailedMessage
+export type ServerAuthMessage = AuthSucceededMessage | AuthFailedMessage
 
 export type ServerMessage =
   | InfoMessage

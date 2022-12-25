@@ -6,6 +6,7 @@ import (
 
 	"github.com/cfoust/sour/pkg/enet"
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/clients"
 
 	"github.com/rs/zerolog/log"
@@ -19,19 +20,21 @@ type ENetClient struct {
 	context context.Context
 	cancel  context.CancelFunc
 
-	toClient   chan game.GamePacket
-	toServer   chan game.GamePacket
-	commands   chan clients.ClusterCommand
-	disconnect chan bool
+	toClient       chan game.GamePacket
+	toServer       chan game.GamePacket
+	commands       chan clients.ClusterCommand
+	authentication chan *auth.User
+	disconnect     chan bool
 }
 
 func NewENetClient() *ENetClient {
 	return &ENetClient{
-		status:     clients.ClientNetworkStatusConnected,
-		toClient:   make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
-		toServer:   make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
-		commands:   make(chan clients.ClusterCommand, clients.CLIENT_MESSAGE_LIMIT),
-		disconnect: make(chan bool, 1),
+		status:         clients.ClientNetworkStatusConnected,
+		toClient:       make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
+		toServer:       make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
+		commands:       make(chan clients.ClusterCommand, clients.CLIENT_MESSAGE_LIMIT),
+		authentication: make(chan *auth.User),
+		disconnect:     make(chan bool, 1),
 	}
 }
 
@@ -71,6 +74,10 @@ func (c *ENetClient) ReceivePackets() <-chan game.GamePacket {
 
 func (c *ENetClient) ReceiveCommands() <-chan clients.ClusterCommand {
 	return c.commands
+}
+
+func (c *ENetClient) ReceiveAuthentication() <-chan *auth.User {
+	return c.authentication
 }
 
 func (c *ENetClient) ReceiveDisconnect() <-chan bool {
@@ -222,4 +229,3 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 func (server *ENetIngress) Shutdown() {
 	server.host.Shutdown()
 }
-

@@ -28,6 +28,7 @@ export type UnauthenticatedState = {
 export type AuthenticatedState = {
   status: AuthStatus.Authenticated
   user: DiscordUser
+  authKey: string
 }
 
 export type FailedState = {
@@ -37,6 +38,7 @@ export type FailedState = {
 export type AvatarMountedState = {
   status: AuthStatus.AvatarMounted
   user: DiscordUser
+  authKey: string
   avatarPath: string
 }
 
@@ -140,26 +142,32 @@ export default function useAuth(
         )
       },
       copyKey: () => {
-        console.log('copyKey');
+        if (
+          state.status !== AuthStatus.AvatarMounted &&
+          state.status !== AuthStatus.Authenticated
+        )
+          return
+        console.log(`/addauthkey sour-key ${state.authKey} sourga.me`)
       },
       regenKey: () => {},
       logout: () => {
-        console.log('logging out');
+        console.log('logging out')
         localStorage.removeItem(DISCORD_CODE)
         setState({
           status: AuthStatus.Unauthenticated,
         })
       },
     }
-  }, [])
+  }, [state])
 
   const receiveMessage = React.useCallback((message: ServerAuthMessage) => {
     if (message.Op === MessageType.AuthSucceeded) {
       localStorage.setItem(DISCORD_CODE, message.Code)
-      const { User: user } = message
+      const { User: user, AuthKey: authKey } = message
       setState({
         status: AuthStatus.Authenticated,
-        user: user,
+        user,
+        authKey,
       })
 
       const { Id, Avatar } = user
@@ -172,8 +180,9 @@ export default function useAuth(
 
         setState({
           status: AuthStatus.AvatarMounted,
-          user: user,
           avatarPath: path,
+          user,
+          authKey,
         })
       })()
       return
@@ -194,7 +203,6 @@ export default function useAuth(
   }, [])
 
   const menu = React.useMemo<string>(() => {
-
     return ''
   }, [state])
 

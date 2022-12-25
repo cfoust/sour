@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
 	"github.com/rs/zerolog/log"
@@ -72,6 +73,8 @@ type NetworkClient interface {
 	ReceiveCommands() <-chan ClusterCommand
 	// When the client disconnects on its own
 	ReceiveDisconnect() <-chan bool
+	// When the client authenticates
+	ReceiveAuthentication() <-chan *auth.User
 	// Forcibly disconnect this client
 	Disconnect(reason int, message string)
 	Destroy()
@@ -80,6 +83,7 @@ type NetworkClient interface {
 type Client struct {
 	Id   uint16
 	Name string
+	User *auth.User
 
 	Connection NetworkClient
 
