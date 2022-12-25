@@ -1,0 +1,6 @@
+%module crypto
+%{
+#include "crypto.h"
+%}
+%include "crypto.h"
+

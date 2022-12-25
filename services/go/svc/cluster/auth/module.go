@@ -13,6 +13,7 @@ import (
 
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/state"
+	"github.com/cfoust/sour/svc/cluster/auth/crypto"
 )
 
 const (
@@ -40,6 +41,7 @@ type User struct {
 }
 
 func GenerateAuthKey() (string, error) {
+	crypto.Genauthkey("test")
 	number, err := rand.Int(rand.Reader, big.NewInt(1073741824))
 	if err != nil {
 		return "", err
