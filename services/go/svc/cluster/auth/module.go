@@ -10,8 +10,6 @@ import (
 
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/state"
-
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -242,8 +240,6 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*Di
 	if err != nil {
 		return nil, err
 	}
-
-	log.Info().Msgf("user %v", user)
 
 	return user, err
 }
