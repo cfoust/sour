@@ -2488,6 +2488,14 @@ void writecfg(const char *name)
 COMMAND(writecfg, "s");
 #endif
 
+#if __EMSCRIPTEN__
+void js(const char *script)
+{
+    emscripten_run_script(script);
+}
+COMMAND(js, "s");
+#endif
+
 void changedvars()
 {
     vector<ident *> ids;

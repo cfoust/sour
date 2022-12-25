@@ -29,6 +29,7 @@ import { MessageType, ENetEventType } from './protocol'
 import StatusOverlay from './Loading'
 import NAMES from './names'
 import useAssets from './assets/hook'
+import useAuth from './discord'
 import { CubeMessageType } from './game'
 import * as cube from './game'
 
@@ -98,7 +99,11 @@ function App() {
   })
   const { width, height, ref: containerRef } = useResizeDetector()
 
+  const [gameOk, setGameOk] = React.useState<boolean>(false)
+
   const { loadBundle } = useAssets(setState)
+
+  const { menu: discordMenu, loginSucceeded, loginFailed } = useAuth()
 
   React.useEffect(() => {
     // Load the basic required data for the game
@@ -153,6 +158,11 @@ function App() {
     if (BananaBread == null || BananaBread.execute == null) return
     BananaBread.execute(`screenres ${width} ${height}`)
   }, [width, height])
+
+  React.useEffect(() => {
+    if (state.type !== GameStateType.Ready) return
+    BananaBread.execute(`discordmenu = [${discordMenu}]`)
+  }, [discordMenu, state])
 
   React.useEffect(() => {
     // All commands in flight
@@ -236,9 +246,6 @@ function App() {
       }
 
       if (code == null) {
-        BananaBread.execute(`discordmenu = [
-          guibutton "log in with Discord" "discordlogin"
-        ]`)
         return
       }
 
@@ -248,19 +255,6 @@ function App() {
           Code: code,
         })
       )
-    }
-
-    Module.discord = {
-      login: () => {
-        const { enabled, authorizationURL, redirectURI } = CONFIG.auth
-        if (!enabled) return
-        window.location.assign(
-          authorizationURL.replace(
-            '{{redirectURI}}',
-            encodeURIComponent(redirectURI)
-          )
-        )
-      },
     }
 
     let cachedServers: Maybe<any> = null
@@ -523,16 +517,13 @@ function App() {
 
       if (serverMessage.Op === MessageType.AuthSucceeded) {
         localStorage.setItem(DISCORD_AUTH_KEY, serverMessage.Code)
-        BananaBread.execute(`discordmenu = [
-          guitext "logged in!" 0
-        ]`)
+        loginSucceeded(serverMessage.Code, serverMessage.User)
+
         return
       }
 
       if (serverMessage.Op === MessageType.AuthFailed) {
-        BananaBread.execute(`discordmenu = [
-          guitext "${log.error("failed to login")}" 0
-        ]`)
+        loginFailed()
         return
       }
 

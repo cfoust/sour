@@ -65,6 +65,12 @@ export type DisconnectMessage = {
 export type AuthSucceededMessage = {
   Op: MessageType.AuthSucceeded
   Code: string
+  User: {
+    Avatar: string
+    Id: string
+    Discriminator: string
+    Username: string
+  }
 }
 
 export type AuthFailedMessage = {

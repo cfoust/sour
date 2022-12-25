@@ -76,8 +76,14 @@ type CommandMessage struct {
 	Id int
 }
 
+type AuthSucceededMessage struct {
+	Op   int // AuthSucceededOp
+	Code string
+	User auth.DiscordUser
+}
+
 type DiscordCodeMessage struct {
-	Op   int // DiscordCodeOp or AuthSucceededOp or AuthFailedOp
+	Op   int // DiscordCodeOp or AuthFailedOp
 	Code string
 }
 
@@ -233,17 +239,23 @@ func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code
 		return
 	}
 
-	_, err := server.discord.AuthenticateCode(ctx, code)
-
-	response := DiscordCodeMessage{
-		Op:   AuthSucceededOp,
-		Code: code,
-	}
+	user, err := server.discord.AuthenticateCode(ctx, code)
 
 	if err != nil {
-		response.Op = AuthFailedOp
+		response := DiscordCodeMessage{
+			Op:   AuthFailedOp,
+			Code: code,
+		}
+		bytes, _ := cbor.Marshal(response)
+		client.send <- bytes
+		return
 	}
 
+	response := AuthSucceededMessage{
+		Op:   AuthSucceededOp,
+		Code: code,
+		User: *user,
+	}
 	bytes, _ := cbor.Marshal(response)
 	client.send <- bytes
 }

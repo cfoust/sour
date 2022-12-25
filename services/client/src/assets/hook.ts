@@ -45,6 +45,24 @@ function getValidMaps(sources: AssetSource[]): string[] {
 const getDataName = (name: string) => `${name}.data`
 const getBaseName = (dataName: string) => dataName.split('.')[1]
 
+export async function mountFile(path: string, data: Uint8Array): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    Module.FS_createPreloadedFile(
+      path,
+      null,
+      data,
+      true,
+      true,
+      () => resolve(),
+      () => {
+        reject(new Error('Preloading file ' + path + ' failed'))
+      },
+      false,
+      true
+    )
+  })
+}
+
 async function mountBundle(target: string, bundle: Bundle): Promise<void> {
   const { directories, files, buffer, dataOffset } = bundle
 
@@ -60,7 +78,6 @@ async function mountBundle(target: string, bundle: Bundle): Promise<void> {
   await Promise.all(
     R.map(({ filename, start, end, audio }) => {
       const offset = dataOffset + start
-      const ref = `fp ${filename}`
       return new Promise<void>((resolve, reject) => {
         Module.FS_createPreloadedFile(
           filename,
