@@ -52,7 +52,7 @@ func main() {
 	}
 
 	serverManager := servers.NewServerManager(maps, clusterConfig.ServerDescription, clusterConfig.Presets)
-	cluster := service.NewCluster(ctx, serverManager, clusterConfig)
+	cluster := service.NewCluster(ctx, serverManager, clusterConfig, sourConfig.Discord.Domain)
 
 	err = serverManager.Start()
 	if err != nil {

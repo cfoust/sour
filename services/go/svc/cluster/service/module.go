@@ -40,6 +40,7 @@ type Cluster struct {
 	hostServers map[string]*servers.GameServer
 
 	startTime     time.Time
+	authDomain    string
 	settings      config.ClusterSettings
 	manager       *servers.ServerManager
 	matches       *Matchmaker
@@ -47,11 +48,12 @@ type Cluster struct {
 	serverMessage chan []byte
 }
 
-func NewCluster(ctx context.Context, serverManager *servers.ServerManager, settings config.ClusterSettings) *Cluster {
+func NewCluster(ctx context.Context, serverManager *servers.ServerManager, settings config.ClusterSettings, authDomain string) *Cluster {
 	clients := clients.NewClientManager()
 	server := &Cluster{
 		serverCtx:     ctx,
 		settings:      settings,
+		authDomain:    authDomain,
 		hostServers:   make(map[string]*servers.GameServer),
 		lastCreate:    make(map[string]time.Time),
 		Clients:       clients,
@@ -274,6 +276,19 @@ func (server *Cluster) PollServers(ctx context.Context) {
 					Str("type", message.Type().String()).
 					Uint16("client", client.Id).
 					Msg("cluster -> client")
+
+				if message.Type() == game.N_SERVINFO {
+					info := message.Contents().(*game.ServerInfo)
+					info.Domain = server.authDomain
+					p := game.Packet{}
+					p.PutInt(int32(game.N_SERVINFO))
+					game.Marshal(&p, *info)
+					client.Connection.Send(game.GamePacket{
+						Channel: channel,
+						Data:    p,
+					})
+					continue
+				}
 
 				client.Connection.Send(game.GamePacket{
 					Channel: channel,

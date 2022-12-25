@@ -82,6 +82,7 @@ type ClusterSettings struct {
 
 type DiscordSettings struct {
 	Enabled     bool
+	Domain      string
 	Id          string
 	Secret      string
 	RedirectURI string

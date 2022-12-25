@@ -1,5 +1,8 @@
 #Discord: {
-	enabled:          bool | *false
+	enabled: bool | *false
+	// The domain used for desktop client keys -- should be unique to your
+	// instance
+	domain:           string | *"sour"
 	id:               string | *""
 	secret:           string | *""
 	redirectURI:      string | *""
@@ -137,6 +140,7 @@ cluster: #ClusterSettings
 		enabled:          discord.enabled
 		authorizationURL: discord.authorizationURL
 		redirectURI:      discord.redirectURI
+		domain:           discord.domain
 	}
 
 	// All client URLs can use these template variables:

@@ -147,7 +147,7 @@ export default function useAuth(
           state.status !== AuthStatus.Authenticated
         )
           return
-        console.log(`/addauthkey sour-key ${state.key} sourga.me`)
+        console.log(`/addauthkey ${state.user.Id} ${state.key} ${CONFIG.auth.domain}`)
       },
       regenKey: () => {},
       logout: () => {
