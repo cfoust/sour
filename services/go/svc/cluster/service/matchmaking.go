@@ -115,6 +115,8 @@ func (d *Duel) runPhase(ctx context.Context, numSeconds uint, title string) {
 	}
 
 	d.server.SendCommand(fmt.Sprintf("settime %d", numSeconds))
+	d.server.SendCommand(fmt.Sprintf("serverdesc \"Sour %s\"", title))
+	d.server.SendCommand("refreshserverinfo")
 
 	for {
 		select {

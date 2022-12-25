@@ -226,7 +226,7 @@ namespace server {
         int playermodel;
         int modevote;
         int privilege;
-        bool connected, local, timesync;
+        bool connected, local, timesync, ignoreconnect;
         int gameoffset, lastevent, pushed, exceeded;
         gamestate state;
         vector<gameevent *> events;

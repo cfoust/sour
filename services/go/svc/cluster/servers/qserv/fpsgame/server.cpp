@@ -3075,6 +3075,20 @@ best.add(clients[i]); \
     }
     ICOMMAND(forcerespawn, "i", (int *val), forcerespawn(*val));
 
+    void refreshserverinfo()
+    {
+        loopv(clients)
+        {
+            clientinfo *ci = clients[i];
+            // Clients send N_CONNECT whenever they receive N_SERVINFO, so we ignore it
+            // This lets us "hack" the server description so that we can update it after
+            // they connect
+            ci->ignoreconnect = true;
+            sendf(ci->clientnum, 1, "ri5ss", N_SERVINFO, ci->clientnum, PROTOCOL_VERSION, ci->sessionid, serverpass[0] ? 1 : 0, serverdesc, serverauth);
+        }
+    }
+    ICOMMAND(refreshserverinfo, "", (), refreshserverinfo());
+
     void settime(int secs)
     {
         sendf(-1, 1, "ri2", N_TIMEUP, secs);
@@ -3761,6 +3775,7 @@ best.add(clients[i]); \
 
         ci->connectauth = 0;
         ci->connected = true;
+        ci->ignoreconnect = false;
         ci->needclipboard = totalmillis ? totalmillis : 1;
         if(mastermode>=MM_LOCKED) ci->state.state = CS_SPECTATOR;
         ci->state.lasttimeplayed = lastmillis;
@@ -3946,6 +3961,21 @@ curmsg = p.length(); \
                     flushclientposition(*cp);
                     sendf(-1, 0, "ri4x", N_TELEPORT, pcn, teleport, teledest, cp->ownernum);
                 }
+                break;
+            }
+
+            case N_CONNECT:
+            {
+                if (!ci->ignoreconnect) {
+                    disconnect_client(sender, DISC_MSGERR);
+                    return;
+                }
+                getstring(text, p);
+                getint(p);
+                string password, authdesc, authname;
+                getstring(password, p, sizeof(password));
+                getstring(authdesc, p, sizeof(authdesc));
+                getstring(authname, p, sizeof(authname));
                 break;
             }
 
