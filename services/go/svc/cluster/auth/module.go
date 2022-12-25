@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
+	"unsafe"
 
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/state"
@@ -40,8 +41,14 @@ type User struct {
 	AuthKey string
 }
 
+func GenerateSauerKey() (string, string) {
+	priv := make([]byte, 120)
+	pub := make([]byte, 120)
+	crypto.Genauthkey("test", uintptr(unsafe.Pointer(&priv[0])), uintptr(unsafe.Pointer(&pub[0])))
+	return string(priv), string(pub)
+}
+
 func GenerateAuthKey() (string, error) {
-	crypto.Genauthkey("test")
 	number, err := rand.Int(rand.Reader, big.NewInt(1073741824))
 	if err != nil {
 		return "", err

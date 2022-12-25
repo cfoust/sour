@@ -874,10 +874,12 @@ void genprivkey(const char *seed, vector<char> &privstr, vector<char> &pubstr)
     calcpubkey(privkey, pubstr);
 }
 
-void genauthkey(const char *secret)
+void genauthkey(const char *secret, void *priv, void *pub)
 {
     vector<char> privkey, pubkey;
     genprivkey(secret, privkey, pubkey);
+    memcpy(priv, privkey.getbuf(), privkey.length());
+    memcpy(pub, pubkey.getbuf(), pubkey.length());
 }
 
 bool hashstring(const char *str, char *result, int maxlen)

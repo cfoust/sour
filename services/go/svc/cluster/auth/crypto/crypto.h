@@ -16,6 +16,6 @@
 
 #include "tools.h"
 
-void genauthkey(const char *secret);
+void genauthkey(const char *secret, void *priv, void *pub);
 
 #endif
