@@ -21,6 +21,9 @@ tasks:
     init: ./config/build
     command: CONFIG=1 ./watch /workspace/sour/config cat
 
+  - name: Redis
+    command: /usr/local/bin/redis-server
+
   - name: Client
     init: cd services/client && yarn install
     command: /workspace/sour/services/client/build
