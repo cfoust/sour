@@ -449,6 +449,10 @@ func (server *Cluster) HandleChallengeAnswer(
 		Msg("logged in with Discord")
 }
 
+func (server *Cluster) GreetClient(ctx context.Context, client *clients.Client) {
+	client.AnnounceELO()
+}
+
 func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 	toServer := client.Connection.ReceivePackets()
 	commands := client.Connection.ReceiveCommands()
@@ -462,12 +466,26 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 	defer client.Connection.Destroy()
 
+	// If the user hasn't authenticated in a second, greet them normally.
+	greetCtx, cancelNormalGreet := context.WithTimeout(ctx, 1 * time.Second)
+	go func() {
+		select {
+		case <-clientCtx.Done():
+			return
+		case <-greetCtx.Done():
+			server.GreetClient(clientCtx, client)
+			client.SendServerMessage("You are not logged in. Your rating will not be saved.")
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
 			cancel()
+			cancelNormalGreet()
 			return
 		case user := <-authentication:
+			cancelNormalGreet()
 			client.Mutex.Lock()
 			client.User = user
 			client.Mutex.Unlock()
@@ -496,7 +514,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 					Str("id", user.Discord.Id).
 					Msg("failed to save elo state for user")
 			}
-			client.AnnounceELO()
+			server.GreetClient(clientCtx, client)
 		case msg := <-toServer:
 			data := msg.Data
 
