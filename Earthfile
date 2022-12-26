@@ -20,6 +20,7 @@ go:
 
 redis:
     FROM +cpp
+    RUN apt-get update && apt-get install -y wget
     RUN cd /tmp && \
       wget https://github.com/redis/redis/archive/7.0.7.tar.gz && \
       tar xvf 7.0.7.tar.gz && \
