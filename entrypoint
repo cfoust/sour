@@ -15,7 +15,7 @@ fi
 
 CLIENT_CONFIG=$(echo "$SOUR_CONFIG" | jq '.client')
 # Inject the runtime configuration into the frontend's code
-echo "const INJECTED_SOUR_CONFIG = $SOUR_CONFIG;" >> /tmp/out.js
+echo "const INJECTED_SOUR_CONFIG = $CLIENT_CONFIG;" >> /tmp/out.js
 cat /app/index.js >> /tmp/out.js
 cp /tmp/out.js /app/index.js
 
