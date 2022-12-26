@@ -8,6 +8,7 @@ RUN sudo apt-get update && \
     inotify-tools \
     libenet-dev \
     nginx \
+    swig \
     unrar \
     valgrind \
     zlib1g-dev \

@@ -426,7 +426,7 @@ func UnmarshalMessage(p *Packet, code MessageCode, message interface{}) (Message
 	return raw, err
 }
 
-func Read(b []byte) ([]Message, error) {
+func Read(b []byte, fromClient bool) ([]Message, error) {
 	messages := make([]Message, 0)
 	p := Packet(b)
 
@@ -659,8 +659,6 @@ func Read(b []byte) ([]Message, error) {
 			message, err = UnmarshalMessage(&p, N_SENDDEMO, &SendDemo{})
 		case N_CLIENT:
 			message, err = UnmarshalMessage(&p, N_CLIENT, &ClientInfo{})
-		case N_SPAWN:
-			message, err = UnmarshalMessage(&p, N_SPAWN, &Spawn{})
 		case N_SOUND:
 			message, err = UnmarshalMessage(&p, N_SOUND, &Sound{})
 		case N_CLIENTPING:
@@ -680,7 +678,15 @@ func Read(b []byte) ([]Message, error) {
 		case N_EDITMODE:
 			message, err = UnmarshalMessage(&p, N_EDITMODE, &EditMode{})
 		default:
-			return nil, fmt.Errorf("unhandled code %s", code.String())
+			if code == N_SPAWN {
+				if fromClient {
+					message, err = UnmarshalMessage(&p, N_SPAWN, &SpawnRequest{})
+				} else {
+					message, err = UnmarshalMessage(&p, N_SPAWN, &SpawnResponse{})
+				}
+			} else {
+				return nil, fmt.Errorf("unhandled code %s", code.String())
+			}
 		}
 
 		log.Debug().Msgf("read message %s", message.Type().String())

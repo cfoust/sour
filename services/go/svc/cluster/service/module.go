@@ -245,7 +245,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			}
 
 			parseData := packet.Packet.Data
-			messages, err := game.Read(parseData)
+			messages, err := game.Read(parseData, false)
 			if err != nil {
 				log.Debug().
 					Err(err).
@@ -337,6 +337,10 @@ type DestPacket struct {
 }
 
 func (server *Cluster) DoAuthChallenge(ctx context.Context, client *clients.Client, id string) {
+	if server.auth == nil {
+		return
+	}
+
 	pair, err := server.auth.GetAuthKey(ctx, id)
 
 	if err != nil || pair == nil {
@@ -398,6 +402,10 @@ func (server *Cluster) HandleChallengeAnswer(
 	client.Mutex.Unlock()
 
 	client.SendServerMessage(game.Blue(fmt.Sprintf("logged in with Discord as %s", user.Discord.Reference())))
+	log.Info().
+		Uint16("client", client.Id).
+		Str("user", user.Discord.Reference()).
+		Msg("logged in with Discord")
 }
 
 func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
@@ -425,7 +433,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 		case msg := <-toServer:
 			data := msg.Data
 
-			gameMessages, err := game.Read(data)
+			gameMessages, err := game.Read(data, true)
 			if err != nil {
 				log.Error().
 					Err(err).
@@ -532,6 +540,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 				if message.Type() == game.N_MAPCRC {
 					client.RestoreMessages()
+					log.Info().Uint16("client", client.Id).Msg("Restoring messages")
 				}
 
 				client.Mutex.Lock()

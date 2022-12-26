@@ -898,17 +898,23 @@ type ClientInfo struct {
 	Nummessages int
 }
 
-// N_SPAWN
-type Spawn struct {
+// N_SPAWN <- from server
+type SpawnResponse struct {
 	LifeSequence int
 	Health       int
 	MaxHealth    int
 	Armour       int
-	Armourtype   int
-	Gunselect    int
+	ArmourType   int
+	GunSelect    int
 	Ammo         []struct {
 		Amount int
 	} `type:"count" const:"6"`
+}
+
+// N_SPAWN <- from client
+type SpawnRequest struct {
+	LifeSequence int
+	GunSelect    int
 }
 
 // N_SOUND

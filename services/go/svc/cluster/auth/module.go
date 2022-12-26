@@ -62,9 +62,10 @@ func GenerateSeed() (string, error) {
 
 type Challenge struct {
 	// Discord Id
-	Id       string
-	Question string
-	Answer   uintptr
+	Id           string
+	Question     string
+	Answer       uintptr
+	AnswerString string
 }
 
 func (c *Challenge) Destroy() {
@@ -75,17 +76,30 @@ func (c *Challenge) Check(answer string) bool {
 	return crypto.Checkchallenge(answer, c.Answer)
 }
 
+func CleanString(data []byte) string {
+	end := bytes.IndexByte(data[:], 0)
+	return string(data[:end])
+}
+
 func GenerateChallenge(id string, publicKey string) (*Challenge, error) {
 	seed, err := GenerateSeed()
 	if err != nil {
 		return nil, err
 	}
 	challengeString := make([]byte, 120)
-	ptr := crypto.Genchallenge(publicKey, seed, len(seed), uintptr(unsafe.Pointer(&challengeString[0])))
+	answerString := make([]byte, 120)
+	ptr := crypto.Genchallenge(
+		publicKey,
+		seed,
+		len(seed),
+		uintptr(unsafe.Pointer(&challengeString[0])),
+		uintptr(unsafe.Pointer(&answerString[0])),
+	)
 	return &Challenge{
-		Id:       id,
-		Question: string(challengeString),
-		Answer:   ptr,
+		Id:           id,
+		Question:     CleanString(challengeString),
+		AnswerString: CleanString(answerString),
+		Answer:       ptr,
 	}, nil
 }
 
@@ -94,9 +108,7 @@ func GenerateSauerKey(seed string) (public string, private string) {
 	pub := make([]byte, 120)
 	crypto.Genauthkey(seed, uintptr(unsafe.Pointer(&priv[0])), uintptr(unsafe.Pointer(&pub[0])))
 
-	privEnd := bytes.IndexByte(priv[:], 0)
-
-	return string(pub), string(priv[:privEnd])
+	return CleanString(pub), CleanString(priv)
 }
 
 func GenerateAuthKey() (*KeyPair, error) {
@@ -257,6 +269,10 @@ func (d *DiscordService) GetAuthKey(ctx context.Context, id string) (*KeyPair, e
 
 func (d *DiscordService) EnsureAuthKey(ctx context.Context, id string) (*KeyPair, error) {
 	pair, err := d.GetAuthKey(ctx, id)
+
+	if err == nil {
+		return pair, nil
+	}
 
 	if err != state.Nil && err != nil {
 		return nil, err
