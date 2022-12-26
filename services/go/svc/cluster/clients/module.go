@@ -285,6 +285,8 @@ func (c *Client) ConnectToServer(server *servers.GameServer, internal bool, owne
 		return nil, fmt.Errorf("client not connected to cluster")
 	}
 
+	c.DelayMessages()
+
 	connected := make(chan bool, 1)
 
 	log.Info().Str("server", server.Reference()).
@@ -325,7 +327,6 @@ func (c *Client) ConnectToServer(server *servers.GameServer, internal bool, owne
 
 	server.SendConnect(c.Id)
 	c.Connection.Connect(server.Reference(), internal, owned)
-	c.DelayMessages()
 
 	// Give the client one second to connect.
 	go func() {

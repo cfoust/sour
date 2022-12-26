@@ -303,16 +303,14 @@ func (d *Duel) Run(ctx context.Context) {
 	d.oldAServer = d.A.Server
 	d.oldBServer = d.B.Server
 
-	go func() {
-		<-matchContext.Done()
-		d.Cleanup()
-	}()
-
 	matchResult := make(chan DuelResult, 1)
 
-	// Take the first result we get (one disconnect could trigger multiple)
 	go func() {
+		<-matchContext.Done()
+
+		// Take the first result we get (one disconnect could trigger multiple)
 		result := <-matchResult
+		d.Cleanup()
 		d.finish(result)
 	}()
 
@@ -392,7 +390,6 @@ func (d *Duel) Run(ctx context.Context) {
 		}
 
 		go d.MonitorClient(matchContext, client, oldServer, cancelMatch, matchResult)
-
 	}
 
 	if matchContext.Err() != nil {

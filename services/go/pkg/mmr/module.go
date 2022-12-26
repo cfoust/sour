@@ -53,7 +53,7 @@ func (o *Outcome) String() string {
 	if o.Delta > 0 {
 		delta = game.Green(fmt.Sprintf("+%d", o.Delta))
 	} else {
-		delta = game.Red(fmt.Sprintf("-%d", o.Delta))
+		delta = game.Red(fmt.Sprintf("%d", o.Delta))
 	}
 
 	return fmt.Sprintf("%d %s", o.Rating, delta)

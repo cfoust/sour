@@ -265,7 +265,8 @@ void delclient(client *c)
     {
         case ST_SOCKET:
             c->id = 0;
-            // intentional passthrough
+            nonlocalclients--;
+            break;
         case ST_TCPIP:
             nonlocalclients--; if(c->peer) c->peer->data = NULL; break;
         case ST_LOCAL: localclients--; break;

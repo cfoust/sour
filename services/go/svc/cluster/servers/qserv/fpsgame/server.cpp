@@ -1247,7 +1247,7 @@ namespace server {
 
     void recordpacket(int chan, void *data, int len)
     {
-        writedemo(chan, data, len);
+        return;
     }
 
     int welcomepacket(packetbuf &p, clientinfo *ci);

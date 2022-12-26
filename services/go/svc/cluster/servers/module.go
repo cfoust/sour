@@ -484,8 +484,8 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 
 	cmd := exec.CommandContext(
 		ctx,
-		"valgrind",
-		"--leak-check=full",
+		//"valgrind",
+		//"--leak-check=full",
 		manager.serverPath,
 		fmt.Sprintf("-S%s", identity.Path),
 		fmt.Sprintf("-C%s", server.configFile),
