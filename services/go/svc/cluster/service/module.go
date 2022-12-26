@@ -567,14 +567,11 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 		select {
 		case <-ctx.Done():
 			cancel()
-			log.Info().Msg("cancelGreet")
 			return
 		case user := <-authentication:
 			client.Mutex.Lock()
 			client.User = user
 			client.Mutex.Unlock()
-			log.Info().Msg("user set")
-			log.Info().Msg("cancelGreet")
 
 			err := client.HydrateELOState(ctx, user)
 			if err == nil {
