@@ -377,6 +377,7 @@ func (server *GameServer) HandleServerInfo(numClients int, data []byte) error {
 				server.ClientInfo[uint16(clientInfo.Client)] = clientInfo
 				server.Mutex.Unlock()
 			}
+		case EXT_TEAMSCORE:
 		}
 
 		return nil
@@ -442,6 +443,11 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 			request.PutInt(0)
 			request.PutInt(EXT_PLAYERSTATS)
 			request.PutInt(-1)
+			server.RequestServerInfo(request)
+
+			request = game.Packet{}
+			request.PutInt(0)
+			request.PutInt(EXT_TEAMSCORE)
 			server.RequestServerInfo(request)
 		case msg := <-socketWrites:
 			p := game.Packet(msg)

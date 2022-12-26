@@ -131,6 +131,50 @@ func DecodeServerUptime(p game.Packet) (*ServerUptime, error) {
 	return &uptime, nil
 }
 
+type TeamScore struct {
+	Team      string
+	Score     int
+	Bases     []int
+}
+
+type TeamInfo struct {
+	IsDeathmatch bool
+	GameMode     int
+	TimeLeft     int // seconds
+	Scores       []TeamScore
+}
+
+func DecodeTeamInfo(p game.Packet) (*TeamInfo, error) {
+	info := TeamInfo{}
+	err := p.Get(
+		&info.IsDeathmatch,
+		&info.GameMode,
+		&info.TimeLeft,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(p) == 0 {
+		return &info, nil
+	}
+
+
+	scores := make([]TeamScore, 0)
+	for len(p) > 0 {
+		score := TeamScore{}
+		err := p.Get(
+			&score.Team,
+			&score.Score,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &info, nil
+}
+
 type ServerInfo struct {
 	NumClients int32
 	GamePaused bool
