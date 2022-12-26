@@ -467,18 +467,19 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 	defer client.Connection.Destroy()
 
 	// If the user hasn't authenticated in a second, greet them normally.
-	greetCtx, cancelNormalGreet := context.WithTimeout(ctx, 1 * time.Second)
 	go func() {
-		select {
-		case <-clientCtx.Done():
+		time.Sleep(5 * time.Second)
+
+		if clientCtx.Err() != nil {
 			return
-		case <-greetCtx.Done():
-			client.Mutex.Lock()
-			if client.User == nil {
-				server.GreetClient(clientCtx, client)
-				client.SendServerMessage("You are not logged in. Your rating will not be saved.")
-			}
-			client.Mutex.Unlock()
+		}
+
+		client.Mutex.Lock()
+		user := client.User
+		client.Mutex.Unlock()
+		if user == nil {
+			server.GreetClient(clientCtx, client)
+			client.SendServerMessage("You are not logged in. Your rating will not be saved.")
 		}
 	}()
 
@@ -486,13 +487,14 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 		select {
 		case <-ctx.Done():
 			cancel()
-			cancelNormalGreet()
+			log.Info().Msg("cancelGreet")
 			return
 		case user := <-authentication:
-			cancelNormalGreet()
 			client.Mutex.Lock()
 			client.User = user
 			client.Mutex.Unlock()
+			log.Info().Msg("user set")
+			log.Info().Msg("cancelGreet")
 
 			err := client.HydrateELOState(ctx, user)
 			if err == nil {
@@ -629,7 +631,6 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 				if message.Type() == game.N_MAPCRC {
 					client.RestoreMessages()
-					log.Info().Uint16("client", client.Id).Msg("Restoring messages")
 				}
 
 				client.Mutex.Lock()
