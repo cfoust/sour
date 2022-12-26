@@ -159,7 +159,6 @@ func DecodeTeamInfo(p game.Packet) (*TeamInfo, error) {
 		return &info, nil
 	}
 
-
 	scores := make([]TeamScore, 0)
 	for len(p) > 0 {
 		score := TeamScore{}
@@ -170,7 +169,26 @@ func DecodeTeamInfo(p game.Packet) (*TeamInfo, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		numBases, ok := p.GetInt()
+		if !ok {
+			return nil, fmt.Errorf("failed to get number of bases in teaminfo")
+		}
+		if numBases == -1 {
+			scores = append(scores, score)
+			break
+		}
+		bases := make([]int, 0)
+		for i := 0; i < int(numBases); i++ {
+			base, ok := p.GetInt()
+			if !ok {
+				return nil, fmt.Errorf("ran out of bases")
+			}
+			bases = append(bases, int(base))
+		}
+		scores = append(scores, score)
 	}
+	info.Scores = scores
 
 	return &info, nil
 }

@@ -32,6 +32,7 @@ type GameServer struct {
 	Info       ServerInfo
 	ClientInfo map[uint16]*ClientExtInfo
 	Uptime     ServerUptime
+	Teams      TeamInfo
 
 	// Valid while the server is running and healthy
 	Context context.Context
@@ -315,7 +316,6 @@ func (server *GameServer) HandleServerInfo(numClients int, data []byte) error {
 		return fmt.Errorf("invalid info request")
 	}
 
-	// TODO implement extinfo
 	if millis == 0 {
 		extType, ok := p.GetInt()
 		if !ok {
@@ -378,6 +378,14 @@ func (server *GameServer) HandleServerInfo(numClients int, data []byte) error {
 				server.Mutex.Unlock()
 			}
 		case EXT_TEAMSCORE:
+			teamScores, err := DecodeTeamInfo(p)
+			if err != nil {
+				return err
+			}
+
+			server.Mutex.Lock()
+			server.Teams = *teamScores
+			server.Mutex.Unlock()
 		}
 
 		return nil
