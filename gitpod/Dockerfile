@@ -8,6 +8,7 @@ RUN sudo apt-get update && \
     inotify-tools \
     libenet-dev \
     nginx \
+    socat \
     swig \
     unrar \
     valgrind \

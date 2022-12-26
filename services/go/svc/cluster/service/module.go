@@ -473,8 +473,12 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 		case <-clientCtx.Done():
 			return
 		case <-greetCtx.Done():
-			server.GreetClient(clientCtx, client)
-			client.SendServerMessage("You are not logged in. Your rating will not be saved.")
+			client.Mutex.Lock()
+			if client.User == nil {
+				server.GreetClient(clientCtx, client)
+				client.SendServerMessage("You are not logged in. Your rating will not be saved.")
+			}
+			client.Mutex.Unlock()
 		}
 	}()
 
@@ -492,7 +496,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 			err := client.HydrateELOState(ctx, user)
 			if err == nil {
-				client.AnnounceELO()
+				server.GreetClient(clientCtx, client)
 				continue
 			}
 

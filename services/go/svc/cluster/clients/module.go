@@ -216,7 +216,9 @@ func (c *Client) sendMessage(message string) {
 func (c *Client) AnnounceELO() {
 	c.Mutex.Lock()
 	result := "ratings: "
-	for name, state := range c.ELO.Ratings {
+	for _, duel := range c.manager.Duels {
+		name := duel.Name
+		state := c.ELO.Ratings[name]
 		result += fmt.Sprintf(
 			"%s %d (%s-%s-%s) ",
 			name,
@@ -433,7 +435,7 @@ func (c *ClientManager) AddClient(networkClient NetworkClient) error {
 		manager:        c,
 		delayMessages:  false,
 		messageQueue:   make([]string, 0),
-		Authentication: make(chan *auth.User),
+		Authentication: make(chan *auth.User, 1),
 	}
 
 	c.Mutex.Lock()
