@@ -187,6 +187,7 @@ func (c *Client) sendQueuedMessages() {
 	for _, message := range c.messageQueue {
 		c.sendMessage(message)
 	}
+	c.messageQueue = make([]string, 0)
 	c.Mutex.Unlock()
 }
 
@@ -250,12 +251,16 @@ func (c *Client) HydrateELOState(ctx context.Context, user *auth.User) error {
 	return nil
 }
 
-func (c *Client) SaveELOState(ctx context.Context, user *auth.User) error {
+func (c *Client) SaveELOState(ctx context.Context) error {
+	if c.User == nil {
+		return nil
+	}
+
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
 	for matchType, state := range c.ELO.Ratings {
-		err := state.SaveState(ctx, c.manager.redis, user.Discord.Id, matchType)
+		err := state.SaveState(ctx, c.manager.redis, c.User.Discord.Id, matchType)
 		if err != nil {
 			return err
 		}
@@ -288,6 +293,7 @@ func (c *Client) ConnectToServer(server *servers.GameServer, internal bool, owne
 	c.Mutex.Lock()
 	if c.Server != nil {
 		c.Server.SendDisconnect(c.Id)
+		c.cancel()
 
 		// Remove all the other clients from this client's perspective
 		c.manager.Mutex.Lock()

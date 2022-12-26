@@ -383,8 +383,6 @@ func (d *Duel) Run(ctx context.Context) {
 		// Store previous server
 		oldServer := client.GetServer()
 
-		go d.MonitorClient(matchContext, client, oldServer, cancelMatch, matchResult)
-
 		connected, err := client.ConnectToServer(gameServer, true, false)
 		result := <-connected
 		if result == false || err != nil {
@@ -392,6 +390,9 @@ func (d *Duel) Run(ctx context.Context) {
 			failure()
 			return
 		}
+
+		go d.MonitorClient(matchContext, client, oldServer, cancelMatch, matchResult)
+
 	}
 
 	if matchContext.Err() != nil {

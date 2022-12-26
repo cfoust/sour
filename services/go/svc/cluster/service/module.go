@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/mmr"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
@@ -131,32 +132,71 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 	for {
 		select {
 		case result := <-results:
-			server.Clients.Mutex.Lock()
+			winner := result.Winner
+			loser := result.Loser
 
-			message := fmt.Sprintf(
-				"%s beat %s in %s",
-				result.Winner.Reference(),
-				result.Loser.Reference(),
-				result.Type,
+			winnerELO, _ := winner.ELO.Ratings[result.Type]
+			loserELO, _ := loser.ELO.Ratings[result.Type]
+
+			calc := mmr.NewElo()
+			var score float64 = 1 // winner wins
+			if result.IsDraw {
+				score = 0.5
+			}
+
+			winnerOutcome, loserOutcome := calc.Outcome(
+				winnerELO.Rating,
+				loserELO.Rating,
+				score,
 			)
 
+			winnerELO.Rating = winnerOutcome.Rating
+			loserELO.Rating = loserOutcome.Rating
+
 			if result.IsDraw {
-				server.Clients.Mutex.Unlock()
+				winnerELO.Draws++
+				loserELO.Draws++
+			} else {
+				winnerELO.Wins++
+				loserELO.Losses++
+			}
+
+			winner.SaveELOState(ctx)
+			loser.SaveELOState(ctx)
+
+			if result.IsDraw {
+				message := "the duel ended in a draw, your rating is unchanged"
+				winner.SendServerMessage(message)
+				loser.SendServerMessage(message)
 				continue
 			}
 
+			winner.SendServerMessage(
+				game.Green("you won! ") + winnerOutcome.String(),
+			)
+			loser.SendServerMessage(
+				game.Red("you lost! ") + loserOutcome.String(),
+			)
+
+			message := fmt.Sprintf(
+				"%s (%s) beat %s (%s) in %s",
+				winner.Name,
+				winnerOutcome.String(),
+				loser.Name,
+				loserOutcome.String(),
+				result.Type,
+			)
+
 			if result.Disconnected {
-				message = fmt.Sprintf("%s because they disconnected", message)
+				message += " because they disconnected"
 			}
 
+			server.Clients.Mutex.Lock()
 			for client, _ := range server.Clients.State {
-				if client == result.Winner {
-					client.SendServerMessage(game.Green("you won!"))
-				} else if client == result.Loser {
-					client.SendServerMessage(game.Red("you lost"))
-				} else {
-					client.SendServerMessage(message)
+				if client == winner || client == loser {
+					continue
 				}
+				client.SendServerMessage(message)
 			}
 			server.Clients.Mutex.Unlock()
 		case queue := <-queues:
@@ -448,7 +488,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 			}
 
 			// We save the initialized state that was there already
-			err = client.SaveELOState(ctx, user)
+			err = client.SaveELOState(ctx)
 			if err != nil {
 				log.Error().
 					Err(err).
