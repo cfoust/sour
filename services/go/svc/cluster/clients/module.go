@@ -12,8 +12,10 @@ import (
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/auth"
+	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
+	"github.com/go-redis/redis/v9"
 	"github.com/rs/zerolog/log"
 )
 
@@ -81,24 +83,25 @@ type NetworkClient interface {
 }
 
 type Client struct {
-	Id        uint16
-	Name      string
+	Id    uint16
+	Mutex sync.Mutex
+
+	Name string
+	// Whether the client is connected (or connecting) to a game server
+	Status    ClientStatus
 	User      *auth.User
 	Challenge *auth.Challenge
+	ELO       *ELOState
+	Server    *servers.GameServer
 
 	Connection NetworkClient
 
 	// The ID of the client on the Sauer server
 	ClientNum int32
-	Server    *servers.GameServer
-	// Whether the client is connected (or connecting) to a game server
-	Status ClientStatus
 
 	// True when the user is loading the map
 	delayMessages bool
 	messageQueue  []string
-
-	Mutex sync.Mutex
 
 	// Created when the user connects to a server and canceled when they
 	// leave, regardless of reason (network or being disconnected by the
@@ -108,9 +111,20 @@ type Client struct {
 	serverSessionCtx context.Context
 	cancel           context.CancelFunc
 
+	Authentication chan *auth.User
+
 	// XXX This is nasty but to make the API nice, Clients have to be able
 	// to see the list of clients. This could/should be refactored someday.
 	manager *ClientManager
+}
+
+func (c *Client) ReceiveAuthentication() <-chan *auth.User {
+	// WS clients do their own auth (for now)
+	if c.Connection.Type() == ClientTypeWS {
+		return c.Connection.ReceiveAuthentication()
+	}
+
+	return c.Authentication
 }
 
 func (c *Client) GetStatus() ClientStatus {
@@ -196,6 +210,58 @@ func (c *Client) sendMessage(message string) {
 		Channel: 1,
 		Data:    packet,
 	})
+}
+
+func (c *Client) AnnounceELO() {
+	c.Mutex.Lock()
+	result := "ratings: "
+	for name, state := range c.ELO.Ratings {
+		result += fmt.Sprintf(
+			"%s %d (%s-%s-%s) ",
+			name,
+			state.Rating,
+			game.Green(fmt.Sprint(state.Wins)),
+			game.Yellow(fmt.Sprint(state.Draws)),
+			game.Red(fmt.Sprint(state.Losses)),
+		)
+	}
+	c.Mutex.Unlock()
+
+	c.SendServerMessage(result)
+}
+
+func (c *Client) HydrateELOState(ctx context.Context, user *auth.User) error {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	elo := NewELOState(c.manager.Duels)
+
+	for _, duel := range c.manager.Duels {
+		state, err := LoadELOState(ctx, c.manager.redis, user.Discord.Id, duel.Name)
+		if err != nil {
+			return err
+		}
+
+		elo.Ratings[duel.Name] = state
+	}
+
+	c.ELO = elo
+
+	return nil
+}
+
+func (c *Client) SaveELOState(ctx context.Context, user *auth.User) error {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	for matchType, state := range c.ELO.Ratings {
+		err := state.SaveState(ctx, c.manager.redis, user.Discord.Id, matchType)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *Client) SendServerMessage(message string) {
@@ -306,13 +372,17 @@ func (c *Client) DisconnectFromServer() error {
 }
 
 type ClientManager struct {
+	Duels      []config.DuelType
 	State      map[*Client]struct{}
 	Mutex      sync.Mutex
+	redis      *redis.Client
 	newClients chan *Client
 }
 
-func NewClientManager() *ClientManager {
+func NewClientManager(redis *redis.Client, duels []config.DuelType) *ClientManager {
 	return &ClientManager{
+		Duels:      duels,
+		redis:      redis,
 		State:      make(map[*Client]struct{}),
 		newClients: make(chan *Client, 16),
 	}
@@ -348,13 +418,15 @@ func (c *ClientManager) AddClient(networkClient NetworkClient) error {
 	}
 
 	client := Client{
-		Id:            id,
-		Name:          "unnamed",
-		Connection:    networkClient,
-		Status:        ClientStatusDisconnected,
-		manager:       c,
-		delayMessages: false,
-		messageQueue:  make([]string, 0),
+		Id:             id,
+		Name:           "unnamed",
+		ELO:            NewELOState(c.Duels),
+		Connection:     networkClient,
+		Status:         ClientStatusDisconnected,
+		manager:        c,
+		delayMessages:  false,
+		messageQueue:   make([]string, 0),
+		Authentication: make(chan *auth.User),
 	}
 
 	c.Mutex.Lock()

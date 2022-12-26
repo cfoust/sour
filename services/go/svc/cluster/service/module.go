@@ -13,6 +13,7 @@ import (
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
+	"github.com/go-redis/redis/v9"
 	"github.com/rs/zerolog/log"
 )
 
@@ -56,8 +57,9 @@ func NewCluster(
 	settings config.ClusterSettings,
 	authDomain string,
 	auth *auth.DiscordService,
+	redis *redis.Client,
 ) *Cluster {
-	clients := clients.NewClientManager()
+	clients := clients.NewClientManager(redis, settings.Matchmaking.Duel)
 	server := &Cluster{
 		serverCtx:     ctx,
 		settings:      settings,
@@ -397,9 +399,8 @@ func (server *Cluster) HandleChallengeAnswer(
 		return
 	}
 
-	client.Mutex.Lock()
-	client.User = user
-	client.Mutex.Unlock()
+	// XXX we really need to move all the ENet auth to ingress/enet.go...
+	client.Authentication <- user
 
 	client.SendServerMessage(game.Blue(fmt.Sprintf("logged in with Discord as %s", user.Discord.Reference())))
 	log.Info().
@@ -411,7 +412,7 @@ func (server *Cluster) HandleChallengeAnswer(
 func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 	toServer := client.Connection.ReceivePackets()
 	commands := client.Connection.ReceiveCommands()
-	authentication := client.Connection.ReceiveAuthentication()
+	authentication := client.ReceiveAuthentication()
 	disconnect := client.Connection.ReceiveDisconnect()
 
 	// A context valid JUST for the lifetime of the client
@@ -430,6 +431,32 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 			client.Mutex.Lock()
 			client.User = user
 			client.Mutex.Unlock()
+
+			err := client.HydrateELOState(ctx, user)
+			if err == nil {
+				client.AnnounceELO()
+				continue
+			}
+
+			if err != redis.Nil {
+				log.Error().
+					Err(err).
+					Uint16("client", client.Id).
+					Str("id", user.Discord.Id).
+					Msg("failed to hydrate state for user")
+				continue
+			}
+
+			// We save the initialized state that was there already
+			err = client.SaveELOState(ctx, user)
+			if err != nil {
+				log.Error().
+					Err(err).
+					Uint16("client", client.Id).
+					Str("id", user.Discord.Id).
+					Msg("failed to save elo state for user")
+			}
+			client.AnnounceELO()
 		case msg := <-toServer:
 			data := msg.Data
 

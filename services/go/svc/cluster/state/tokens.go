@@ -19,11 +19,11 @@ const (
 )
 
 func (r *StateService) GetIdForCode(ctx context.Context, code string) (string, error) {
-	return r.client.Get(ctx, fmt.Sprintf(KEY_CODE_TO_ID, code)).Result()
+	return r.Client.Get(ctx, fmt.Sprintf(KEY_CODE_TO_ID, code)).Result()
 }
 
 func (r *StateService) SetIdForCode(ctx context.Context, code string, id string, expiresIn int) error {
-	return r.client.Set(
+	return r.Client.Set(
 		ctx,
 		fmt.Sprintf(KEY_CODE_TO_ID, code),
 		id,
@@ -32,11 +32,11 @@ func (r *StateService) SetIdForCode(ctx context.Context, code string, id string,
 }
 
 func (r *StateService) GetTokenForId(ctx context.Context, id string) (string, error) {
-	return r.client.Get(ctx, fmt.Sprintf(KEY_ID_TO_TOKEN, id)).Result()
+	return r.Client.Get(ctx, fmt.Sprintf(KEY_ID_TO_TOKEN, id)).Result()
 }
 
 func (r *StateService) SetTokenForId(ctx context.Context, id string, token string, expiresIn int) error {
-	return r.client.Set(
+	return r.Client.Set(
 		ctx,
 		fmt.Sprintf(KEY_ID_TO_TOKEN, id),
 		token,
@@ -54,11 +54,11 @@ func (r *StateService) GetTokenForCode(ctx context.Context, code string) (string
 
 func (r *StateService) GetAuthKeyForId(ctx context.Context, id string) (public string, private string, err error) {
 	// TODO pipeline
-	public, err = r.client.Get(ctx, fmt.Sprintf(KEY_ID_TO_PUBLIC, id)).Result()
+	public, err = r.Client.Get(ctx, fmt.Sprintf(KEY_ID_TO_PUBLIC, id)).Result()
 	if err != nil {
 		return "", "", err
 	}
-	private, err = r.client.Get(ctx, fmt.Sprintf(KEY_ID_TO_PRIVATE, id)).Result()
+	private, err = r.Client.Get(ctx, fmt.Sprintf(KEY_ID_TO_PRIVATE, id)).Result()
 	if err != nil {
 		return "", "", err
 	}
@@ -68,7 +68,7 @@ func (r *StateService) GetAuthKeyForId(ctx context.Context, id string) (public s
 
 func (r *StateService) SaveAuthKeyForUser(ctx context.Context, id string, public string, private string) error {
 	// TODO pipeline
-	err := r.client.Set(
+	err := r.Client.Set(
 		ctx,
 		fmt.Sprintf(KEY_ID_TO_PUBLIC, id),
 		public,
@@ -77,7 +77,7 @@ func (r *StateService) SaveAuthKeyForUser(ctx context.Context, id string, public
 	if err != nil {
 		return err
 	}
-	err = r.client.Set(
+	err = r.Client.Set(
 		ctx,
 		fmt.Sprintf(KEY_ID_TO_PRIVATE, id),
 		private,
@@ -90,7 +90,7 @@ func (r *StateService) SaveAuthKeyForUser(ctx context.Context, id string, public
 }
 
 func (r *StateService) SaveToken(ctx context.Context, token string, expiresIn int, refreshToken string) error {
-	pipe := r.client.Pipeline()
+	pipe := r.Client.Pipeline()
 
 	pipe.Set(
 		ctx,
@@ -113,11 +113,11 @@ func (r *StateService) SaveToken(ctx context.Context, token string, expiresIn in
 }
 
 func (r *StateService) GetRefreshForToken(ctx context.Context, token string) (string, error) {
-	return r.client.Get(ctx, fmt.Sprintf(KEY_TOKEN_TO_REFRESH, token)).Result()
+	return r.Client.Get(ctx, fmt.Sprintf(KEY_TOKEN_TO_REFRESH, token)).Result()
 }
 
 func (r *StateService) TokenNeedsRefresh(ctx context.Context, token string) (bool, error) {
-	_, err := r.client.Get(ctx, fmt.Sprintf(KEY_TOKEN_TO_REFRESH_EXPIRED, token)).Result()
+	_, err := r.Client.Get(ctx, fmt.Sprintf(KEY_TOKEN_TO_REFRESH_EXPIRED, token)).Result()
 
 	if err != nil && err != Nil {
 		return false, err

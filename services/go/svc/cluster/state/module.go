@@ -9,12 +9,12 @@ import (
 const Nil = redis.Nil
 
 type StateService struct {
-	client *redis.Client
+	Client *redis.Client
 }
 
 func NewStateService(settings config.RedisSettings) *StateService {
 	return &StateService{
-		client: redis.NewClient(&redis.Options{
+		Client: redis.NewClient(&redis.Options{
 			Addr:     settings.Address,
 			Password: settings.Password,
 			DB:       settings.DB,

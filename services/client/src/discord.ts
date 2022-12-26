@@ -158,10 +158,10 @@ export default function useAuth(
         )
           return
         log.info(
-          "Copied authkey command to clipboard! Put it into your client's autoexec.cfg."
+          "Copied authkey command to clipboard! Run it in desktop Sauerbraten (hit /) and then run /saveauthkeys."
         )
         navigator.clipboard.writeText(
-          `/authkey ${state.user.Id} ${state.key} ${CONFIG.auth.domain}`
+          `authkey ${state.user.Id} ${state.key} ${CONFIG.auth.domain}`
         )
       },
       regenKey: () => {},
