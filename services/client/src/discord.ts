@@ -96,6 +96,16 @@ export function renderDiscordHeader(state: AuthState): string {
   return ''
 }
 
+export function renderDiscordButton(state: AuthState): string {
+  if (state.status === AuthStatus.Authenticated || state.status === AuthStatus.AvatarMounted) {
+    return `
+          guibutton "discord.."        "showgui discord"
+      `
+  }
+
+  return ``
+}
+
 export default function useAuth(
   sendMessage: (message: ClientAuthMessage) => void
 ): {

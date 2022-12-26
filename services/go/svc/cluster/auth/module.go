@@ -37,6 +37,10 @@ type DiscordUser struct {
 	Avatar        string
 }
 
+func (u *DiscordUser) Reference() string {
+	return fmt.Sprintf("%s#%s", u.Username, u.Discriminator)
+}
+
 type KeyPair struct {
 	Public  string
 	Private string

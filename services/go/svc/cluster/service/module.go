@@ -397,8 +397,7 @@ func (server *Cluster) HandleChallengeAnswer(
 	client.User = user
 	client.Mutex.Unlock()
 
-	// TODO login message
-	client.SendServerMessage(game.Green(fmt.Sprintf("logged in as %s", user.Discord.Username)))
+	client.SendServerMessage(game.Blue(fmt.Sprintf("logged in with Discord as %s", user.Discord.Reference())))
 }
 
 func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {

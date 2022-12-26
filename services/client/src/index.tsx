@@ -30,7 +30,7 @@ import { MessageType, ENetEventType } from './protocol'
 import StatusOverlay from './Loading'
 import NAMES from './names'
 import useAssets from './assets/hook'
-import useAuth, { DISCORD_CODE, renderDiscordHeader } from './discord'
+import useAuth, { DISCORD_CODE, renderDiscordHeader, renderDiscordButton } from './discord'
 import { CubeMessageType } from './game'
 import * as cube from './game'
 
@@ -207,7 +207,7 @@ function App() {
       ] [
           guibutton "enter fullscreen.." [fullscreen 1]
       ]
-      guibutton "discord.."        "showgui discord"
+      ${renderDiscordButton(authState)}
       guibutton "options.."        "showgui options"
       guibutton "about.."          "showgui about"
     ]
