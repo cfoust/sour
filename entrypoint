@@ -21,6 +21,7 @@ cp /tmp/out.js /app/index.js
 
 wsproxy 28785 &
 nginx -g 'daemon off;' &
+redis-server &
 sleep 1
 cluster &
 
