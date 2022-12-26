@@ -190,6 +190,14 @@ func (server *GameServer) Reference() string {
 	return server.Id
 }
 
+func (server *GameServer) GetFormattedReference() string {
+	reference := server.Reference()
+	if server.Hidden {
+		reference = "???"
+	}
+	return reference
+}
+
 func Connect(path string) (*net.Conn, error) {
 	conn, err := net.Dial("unix", path)
 	if err != nil {

@@ -150,6 +150,31 @@ func (c *Client) GetName() string {
 	return name
 }
 
+func (c *Client) GetFormattedName() string {
+	name := c.GetName()
+	user := c.GetUser()
+	
+	if user != nil {
+		name = game.Blue(name)
+	}
+
+	return name
+}
+
+func (c *Client) GetServerName() string {
+	serverName := "???"
+	server := c.GetServer()
+	if server != nil {
+		serverName = server.GetFormattedReference()
+	} else {
+		if c.Connection.Type() == ClientTypeWS {
+			serverName = "main menu"
+		}
+	}
+
+	return serverName
+}
+
 func (c *Client) GetUser() *auth.User {
 	c.Mutex.Lock()
 	user := c.User

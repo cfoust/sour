@@ -61,9 +61,6 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Terraform recipes for deployment
 ### Gameplay
-* [ ] Social features
-  * [ ] Global cluster chat
-  * [ ] Broadcast joins and leaves cluster-wide
 * [ ] LRU cache for cluster map fetching
 * [ ] Allow for backgrounding the tab by responding to pings
 * [ ] Simple, beautiful main menu

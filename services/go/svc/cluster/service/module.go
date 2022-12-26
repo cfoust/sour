@@ -270,6 +270,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				Str("name", client.Name).
 				Msg("client has new name")
 			client.Mutex.Unlock()
+			server.NotifyNameChange(ctx, client, event.Name)
 
 		case event := <-forceDisconnects:
 			log.Info().Msgf("client forcibly disconnected %d %s", event.Reason, event.Text)
@@ -461,43 +462,98 @@ func (server *Cluster) HandleChallengeAnswer(
 
 func (server *Cluster) GreetClient(ctx context.Context, client *clients.Client) {
 	client.AnnounceELO()
+	server.NotifyClientChange(ctx, client, true)
+}
+
+func (server *Cluster) NotifyClientChange(ctx context.Context, client *clients.Client, joined bool) {
+	client.Mutex.Lock()
+	clientServer := client.Server
+	client.Mutex.Unlock()
+
+	name := client.GetFormattedName()
+	serverName := client.GetServerName()
+
+	event := "join"
+	if !joined {
+		event = "leave"
+	}
+
+	// To users on another server
+	message := fmt.Sprintf("%s: %s (%s)", event, name, serverName)
+
+	server.Clients.Mutex.Lock()
+	for other, _ := range server.Clients.State {
+		if other == client {
+			continue
+		}
+
+		otherServer := other.GetServer()
+
+		// On the same server, we can just use chat
+		if clientServer == otherServer {
+			continue
+		}
+		client.SendMessage(message)
+	}
+	server.Clients.Mutex.Unlock()
+}
+
+func (server *Cluster) NotifyNameChange(ctx context.Context, client *clients.Client, oldName string) {
+	newName := client.GetName()
+
+	if newName == oldName {
+		return
+	}
+
+	client.Mutex.Lock()
+	clientServer := client.Server
+	client.Mutex.Unlock()
+
+	serverName := client.GetServerName()
+	message := fmt.Sprintf("%s now known as %s [%s]", oldName, newName, serverName)
+
+	server.Clients.Mutex.Lock()
+	for other, _ := range server.Clients.State {
+		if other == client {
+			continue
+		}
+
+		otherServer := other.GetServer()
+
+		// On the same server, we can just use chat
+		if clientServer == otherServer {
+			continue
+		}
+		client.SendMessage(message)
+	}
+	server.Clients.Mutex.Unlock()
 }
 
 func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Client, message string) {
 	server.Clients.Mutex.Lock()
 
+	senderServer := sender.GetServer()
+
 	sender.Mutex.Lock()
-	senderServer := sender.Server
-
 	senderNum := sender.ClientNum
+	sender.Mutex.Unlock()
 
-	name := sender.Name
-	if sender.User != nil {
-		name = game.Blue(name)
-	}
+	name := sender.GetFormattedName()
 
 	// To users who share the same server
 	sameMessage := fmt.Sprintf("%s: %s", name, game.Green(message))
 
-	serverName := senderServer.Reference()
-	if senderServer.Hidden {
-		serverName = "???"
-	}
+	serverName := senderServer.GetFormattedReference()
 
 	// To users on another server
 	otherMessage := fmt.Sprintf("%s [%s]: %s", name, serverName, game.Green(message))
-
-	sender.Mutex.Unlock()
-
 
 	for client, _ := range server.Clients.State {
 		if client == sender {
 			continue
 		}
 
-		client.Mutex.Lock()
-		otherServer := client.Server
-		client.Mutex.Unlock()
+		otherServer := client.GetServer()
 
 		// On the same server, we can just use chat
 		if senderServer == otherServer {
@@ -508,7 +564,7 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Cl
 				m := game.Packet{}
 				m.Put(
 					game.N_TEXT,
-					sameMessage,
+					message,
 				)
 
 				p := game.Packet{}
@@ -734,6 +790,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 				}
 			}()
 		case <-disconnect:
+			server.NotifyClientChange(ctx, client, false)
 			client.DisconnectFromServer()
 		}
 	}

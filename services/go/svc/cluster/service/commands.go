@@ -171,7 +171,6 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 
 			select {
 			case status := <-connected:
-				log.Info().Msgf("client connected %t", status)
 				if !status {
 					return
 				}
