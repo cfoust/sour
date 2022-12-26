@@ -25,7 +25,7 @@ redis:
       wget https://github.com/redis/redis/archive/7.0.7.tar.gz && \
       tar xvf 7.0.7.tar.gz && \
       cd redis-7.0.7 && \
-      sudo make install
+      make install
     SAVE ARTIFACT /usr/local/bin/redis-server AS LOCAL "earthly/redis-server"
 
 goexe:
