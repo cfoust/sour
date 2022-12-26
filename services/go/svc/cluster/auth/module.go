@@ -94,10 +94,9 @@ func GenerateSauerKey(seed string) (public string, private string) {
 	pub := make([]byte, 120)
 	crypto.Genauthkey(seed, uintptr(unsafe.Pointer(&priv[0])), uintptr(unsafe.Pointer(&pub[0])))
 
-	pubEnd := bytes.IndexByte(pub[:], 0)
 	privEnd := bytes.IndexByte(priv[:], 0)
 
-	return string(pub[:pubEnd]), string(priv[:privEnd])
+	return string(pub), string(priv[:privEnd])
 }
 
 func GenerateAuthKey() (*KeyPair, error) {
