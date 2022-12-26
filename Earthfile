@@ -15,7 +15,7 @@ proxy:
 
 go:
     FROM golang:1.18
-    RUN apt-get update && apt-get install -qqy libenet-dev inotify-tools build-essential cmake zlib1g-dev inotify-tools
+    RUN apt-get update && apt-get install -qqy libenet-dev inotify-tools build-essential cmake zlib1g-dev inotify-tools swig
     SAVE IMAGE sour:go
 
 redis:
