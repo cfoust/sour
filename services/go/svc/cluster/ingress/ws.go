@@ -27,6 +27,7 @@ const (
 	ServerResponseOp
 	AuthSucceededOp
 	AuthFailedOp
+	ChatOp
 	// Client -> server
 	ConnectOp
 	DisconnectOp
@@ -86,6 +87,11 @@ type AuthSucceededMessage struct {
 type DiscordCodeMessage struct {
 	Op   int // DiscordCodeOp or AuthFailedOp
 	Code string
+}
+
+type ChatMessage struct {
+	Op      int // ChatOp
+	Message string
 }
 
 type ResponseMessage struct {
@@ -192,6 +198,15 @@ func (c *WSClient) ReceiveAuthentication() <-chan *auth.User {
 
 func (c *WSClient) ReceiveDisconnect() <-chan bool {
 	return c.disconnect
+}
+
+func (c *WSClient) SendGlobalChat(message string) {
+	chat := ChatMessage{
+		Op:      ChatOp,
+		Message: message,
+	}
+	bytes, _ := cbor.Marshal(chat)
+	c.send <- bytes
 }
 
 func (c *WSClient) Disconnect(reason int, message string) {

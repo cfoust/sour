@@ -34,6 +34,8 @@ type GameServer struct {
 	Uptime     ServerUptime
 	Teams      TeamInfo
 
+	Hidden bool
+
 	// Valid while the server is running and healthy
 	Context context.Context
 	cancel  context.CancelFunc

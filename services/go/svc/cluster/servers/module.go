@@ -470,6 +470,7 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		send:          make(chan []byte, 1),
 		subscribers:   make([]chan game.Message, 0),
 		names:         manager.names,
+		Hidden:        false,
 	}
 
 	// We don't want other servers to start while this one is being started

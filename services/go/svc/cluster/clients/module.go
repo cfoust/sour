@@ -77,6 +77,8 @@ type NetworkClient interface {
 	ReceiveDisconnect() <-chan bool
 	// When the client authenticates
 	ReceiveAuthentication() <-chan *auth.User
+	// WS clients can put chat in the chat bar; ENet clients cannot
+	SendGlobalChat(message string)
 	// Forcibly disconnect this client
 	Disconnect(reason int, message string)
 	Destroy()
@@ -205,7 +207,6 @@ func (c *Client) Reference() string {
 func (c *Client) sendMessage(message string) {
 	packet := game.Packet{}
 	packet.PutInt(int32(game.N_SERVMSG))
-	message = fmt.Sprintf("%s %s", game.Yellow("sour"), message)
 	packet.PutString(message)
 	c.Connection.Send(game.GamePacket{
 		Channel: 1,
@@ -271,7 +272,7 @@ func (c *Client) SaveELOState(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) SendServerMessage(message string) {
+func (c *Client) SendMessage(message string) {
 	c.Mutex.Lock()
 	if c.delayMessages {
 		c.messageQueue = append(c.messageQueue, message)
@@ -279,6 +280,10 @@ func (c *Client) SendServerMessage(message string) {
 		c.sendMessage(message)
 	}
 	c.Mutex.Unlock()
+}
+
+func (c *Client) SendServerMessage(message string) {
+	c.SendMessage(fmt.Sprintf("%s %s", game.Yellow("sour"), message))
 }
 
 func (c *Client) ConnectToServer(server *servers.GameServer, internal bool, owned bool) (<-chan bool, error) {

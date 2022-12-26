@@ -5,6 +5,12 @@ export enum LogLevel {
   Debug = 1 << 3,
   Init = 1 << 4,
   Echo = 1 << 5,
+  Chat = 1 << 8,
+  TeamChat = 1 << 9,
+  Gameinfo = 1 << 10,
+  FragSelf = 1 << 11,
+  FragOther = 1 << 12,
+  Teamkill = 1 << 13,
 }
 
 export enum Color {
@@ -41,6 +47,8 @@ export const colors = {
 export const sour = (message: string) => `${colors.yellow('sour')} ${message}`
 export const info = (message: string) =>
   BananaBread.conoutf(LogLevel.Info, sour(message))
+export const chat = (message: string) =>
+  BananaBread.conoutf(LogLevel.Chat, message)
 export const success = (message: string) =>
   BananaBread.conoutf(LogLevel.Info, sour(colors.success(message)))
 export const warn = (message: string) =>

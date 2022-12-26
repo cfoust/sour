@@ -5,6 +5,7 @@ export enum MessageType {
   ServerResponse,
   AuthSucceeded,
   AuthFailed,
+  Chat,
   Connect,
   Disconnect,
   Command,
@@ -50,6 +51,11 @@ export type ServerDisconnectedMessage = {
   Op: MessageType.ServerDisconnected
   Message: string
   Reason: number
+}
+
+export type ChatMessage = {
+  Op: MessageType.Chat
+  Message: string
 }
 
 export type ConnectMessage = {
@@ -109,6 +115,7 @@ export type ServerMessage =
   | ResponseMessage
   | AuthSucceededMessage
   | AuthFailedMessage
+  | ChatMessage
 
 export type SocketMessage =
   | PacketMessage

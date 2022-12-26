@@ -552,6 +552,11 @@ function App() {
         return
       }
 
+      if (serverMessage.Op === MessageType.Chat) {
+        log.chat(serverMessage.Message)
+        return
+      }
+
       if (serverMessage.Op === MessageType.AuthFailed) {
         receiveAuthMessage(serverMessage)
         return

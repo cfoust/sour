@@ -68,6 +68,16 @@ func (c *ENetClient) Send(packet game.GamePacket) {
 	c.toClient <- packet
 }
 
+func (c *ENetClient) SendGlobalChat(message string) {
+	packet := game.Packet{}
+	packet.PutInt(int32(game.N_SERVMSG))
+	packet.PutString(message)
+	c.Send(game.GamePacket{
+		Channel: 1,
+		Data:    packet,
+	})
+}
+
 func (c *ENetClient) ReceivePackets() <-chan game.GamePacket {
 	return c.toServer
 }

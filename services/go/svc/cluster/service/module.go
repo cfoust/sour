@@ -463,6 +463,76 @@ func (server *Cluster) GreetClient(ctx context.Context, client *clients.Client) 
 	client.AnnounceELO()
 }
 
+func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Client, message string) {
+	server.Clients.Mutex.Lock()
+
+	sender.Mutex.Lock()
+	senderServer := sender.Server
+
+	senderNum := sender.ClientNum
+
+	name := sender.Name
+	if sender.User != nil {
+		name = game.Blue(name)
+	}
+
+	// To users who share the same server
+	sameMessage := fmt.Sprintf("%s: %s", name, game.Green(message))
+
+	serverName := senderServer.Reference()
+	if senderServer.Hidden {
+		serverName = "???"
+	}
+
+	// To users on another server
+	otherMessage := fmt.Sprintf("%s [%s]: %s", name, serverName, game.Green(message))
+
+	sender.Mutex.Unlock()
+
+
+	for client, _ := range server.Clients.State {
+		if client == sender {
+			continue
+		}
+
+		client.Mutex.Lock()
+		otherServer := client.Server
+		client.Mutex.Unlock()
+
+		// On the same server, we can just use chat
+		if senderServer == otherServer {
+			if client.Connection.Type() == clients.ClientTypeWS {
+				client.Connection.SendGlobalChat(sameMessage)
+			} else {
+				// We lose the formatting, but that's OK
+				m := game.Packet{}
+				m.Put(
+					game.N_TEXT,
+					sameMessage,
+				)
+
+				p := game.Packet{}
+				p.Put(
+					game.N_CLIENT,
+					senderNum,
+					len(m),
+				)
+
+				p = append(p, m...)
+
+				client.Connection.Send(game.GamePacket{
+					Channel: 1,
+					Data:    p,
+				})
+			}
+			continue
+		}
+
+		client.Connection.SendGlobalChat(otherMessage)
+	}
+	server.Clients.Mutex.Unlock()
+}
+
 func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 	toServer := client.Connection.ReceivePackets()
 	commands := client.Connection.ReceiveCommands()
@@ -588,6 +658,10 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 								passthrough(message)
 							}
 						}()
+						continue
+					} else {
+						// We do our own chat, don't pass on to the server
+						server.ForwardGlobalChat(clientCtx, client, text)
 						continue
 					}
 				}

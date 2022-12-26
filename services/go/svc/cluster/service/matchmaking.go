@@ -344,6 +344,8 @@ func (d *Duel) Run(ctx context.Context) {
 		return
 	}
 
+	gameServer.Hidden = true
+
 	d.server = gameServer
 
 	// So we get the server in the log context
