@@ -17,7 +17,7 @@ RUN sudo apt-get update && \
 RUN cd /tmp && \
   wget https://github.com/redis/redis/archive/7.0.7.tar.gz && \
   tar xvf 7.0.7.tar.gz && \
-  cd redis-7.0.7 &&
+  cd redis-7.0.7 && \
   sudo make install
 
 RUN cd /home/gitpod && \
