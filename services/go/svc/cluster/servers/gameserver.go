@@ -291,6 +291,13 @@ func (server *GameServer) GetServerInfo() *ServerInfo {
 	return &info
 }
 
+func (server *GameServer) GetTeamInfo() *TeamInfo {
+	server.Mutex.Lock()
+	info := server.Teams
+	server.Mutex.Unlock()
+	return &info
+}
+
 func (server *GameServer) GetClientInfo() []*ClientExtInfo {
 	info := make([]*ClientExtInfo, 0)
 	server.Mutex.Lock()

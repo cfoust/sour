@@ -92,6 +92,16 @@ func (server *Cluster) GetServerInfo() *servers.ServerInfo {
 	return info
 }
 
+func (server *Cluster) GetTeamInfo() *servers.TeamInfo {
+	info := servers.TeamInfo{
+		IsDeathmatch: true,
+		GameMode:     0,
+		TimeLeft:     9999,
+		Scores:       make([]servers.TeamScore, 0),
+	}
+	return &info
+}
+
 // We need client information, so this is not on the ServerManager like GetServerInfo is
 func (server *Cluster) GetClientInfo() []*servers.ClientExtInfo {
 	info := make([]*servers.ClientExtInfo, 0)

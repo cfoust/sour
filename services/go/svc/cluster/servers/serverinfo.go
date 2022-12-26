@@ -248,6 +248,7 @@ func DecodeServerInfo(p game.Packet) (*ServerInfo, error) {
 type InfoProvider interface {
 	GetServerInfo() *ServerInfo
 	GetClientInfo() []*ClientExtInfo
+	GetTeamInfo() *TeamInfo
 	GetUptime() int // seconds
 }
 
@@ -336,6 +337,35 @@ func (s *ServerInfoService) Handle(request *game.Packet, out chan []byte) error 
 				q.Put(client)
 				out <- q
 			}
+		case EXT_TEAMSCORE:
+			teamInfo := s.provider.GetTeamInfo()
+			err := response.Put(
+				teamInfo.IsDeathmatch,
+				teamInfo.GameMode,
+				teamInfo.TimeLeft,
+			)
+			if err != nil {
+				return err
+			}
+
+			for _, score := range teamInfo.Scores {
+				response.Put(
+					score.Team,
+					score.Score,
+				)
+
+				if len(score.Bases) == 0 {
+					response.Put(-1)
+					continue
+				}
+
+				for _, base := range score.Bases {
+					response.Put(base)
+				}
+			}
+
+			out <- response
+			return nil
 		default:
 			return fmt.Errorf("unsupported extinfo command: %d", extCmd)
 		}
