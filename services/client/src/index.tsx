@@ -172,8 +172,8 @@ function App() {
 
     const menu = `
     newgui discord [
-        guibutton "copy addauthkey.." [js "Module.discord.copyKey()"]
-        guibutton "regenerate auth key.." [js "Module.discord.regenKey()"]
+        guibutton "copy authkey command.." [js "Module.discord.copyKey()"]
+        //guibutton "regenerate auth key.." [js "Module.discord.regenKey()"]
         guibutton "log out.." [js "Module.discord.logout()"]
     ]
 

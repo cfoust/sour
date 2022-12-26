@@ -188,9 +188,6 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 
 				go client.Poll(ctx)
 
-				// TODO
-				//client.server = server.manager.Servers[0]
-				//client.server.SendConnect(client.id)
 				break
 
 			case enet.EventTypeReceive:

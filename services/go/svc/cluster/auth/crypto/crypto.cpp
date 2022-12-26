@@ -922,8 +922,11 @@ void freepubkey(void *pubkey)
     delete (ecjacobian *)pubkey;
 }
 
-void *genchallenge(void *pubkey, const void *seed, int seedlen, vector<char> &challengestr)
+void *genchallenge(const char *pubstr, const char *seed, int seedlen, void * challengeout)
 {
+    void * pubkey = parsepubkey(pubstr);
+    vector<char> challengestr;
+
     tiger::hashval hash;
     tiger::hash((const uchar *)seed, seedlen, hash);
     gfint challenge;
@@ -941,6 +944,8 @@ void *genchallenge(void *pubkey, const void *seed, int seedlen, vector<char> &ch
 
     secret.print(challengestr);
     challengestr.add('\0');
+
+    memcpy(challengeout, challengestr.getbuf(), challengestr.length());
    
     return new gfield(answer.x);
 }

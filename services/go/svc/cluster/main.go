@@ -51,14 +51,6 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to load assets")
 	}
 
-	serverManager := servers.NewServerManager(maps, clusterConfig.ServerDescription, clusterConfig.Presets)
-	cluster := service.NewCluster(ctx, serverManager, clusterConfig, sourConfig.Discord.Domain)
-
-	err = serverManager.Start()
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to start server manager")
-	}
-
 	var discord *auth.DiscordService = nil
 	discordSettings := sourConfig.Discord
 	if discordSettings.Enabled {
@@ -67,6 +59,14 @@ func main() {
 			discordSettings,
 			state,
 		)
+	}
+
+	serverManager := servers.NewServerManager(maps, clusterConfig.ServerDescription, clusterConfig.Presets)
+	cluster := service.NewCluster(ctx, serverManager, clusterConfig, sourConfig.Discord.Domain, discord)
+
+	err = serverManager.Start()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to start server manager")
 	}
 
 	wsIngress := ingress.NewWSIngress(cluster.Clients, discord)

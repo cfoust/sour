@@ -8,6 +8,7 @@ type AddBot struct {
 // N_AUTHANS
 type AuthAns struct {
 	Description string
+	Id          int
 	Answer      string
 }
 
@@ -263,7 +264,7 @@ type Welcome struct {
 // N_AUTHCHAL
 type AuthChallenge struct {
 	Desc      string
-	Auth_id   int
+	Id        int
 	Challenge string
 }
 

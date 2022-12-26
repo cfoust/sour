@@ -46,6 +46,44 @@ type User struct {
 	Keys    KeyPair
 }
 
+func GenerateSeed() (string, error) {
+	number, err := rand.Int(rand.Reader, big.NewInt(1073741824))
+	if err != nil {
+		return "", err
+	}
+	bytes := sha256.Sum256([]byte(fmt.Sprintf("%d", number)))
+	return fmt.Sprintf("%x", bytes)[:24], nil
+}
+
+type Challenge struct {
+	// Discord Id
+	Id       string
+	Question string
+	Answer   uintptr
+}
+
+func (c *Challenge) Destroy() {
+	crypto.Freechallenge(c.Answer)
+}
+
+func (c *Challenge) Check(answer string) bool {
+	return crypto.Checkchallenge(answer, c.Answer)
+}
+
+func GenerateChallenge(id string, publicKey string) (*Challenge, error) {
+	seed, err := GenerateSeed()
+	if err != nil {
+		return nil, err
+	}
+	challengeString := make([]byte, 120)
+	ptr := crypto.Genchallenge(publicKey, seed, len(seed), uintptr(unsafe.Pointer(&challengeString[0])))
+	return &Challenge{
+		Id: id,
+		Question: string(challengeString),
+		Answer:   ptr,
+	}, nil
+}
+
 func GenerateSauerKey(seed string) (public string, private string) {
 	priv := make([]byte, 120)
 	pub := make([]byte, 120)
@@ -53,22 +91,20 @@ func GenerateSauerKey(seed string) (public string, private string) {
 	return string(pub), string(priv)
 }
 
-func GenerateAuthKey() (KeyPair, error) {
-	number, err := rand.Int(rand.Reader, big.NewInt(1073741824))
+func GenerateAuthKey() (*KeyPair, error) {
+	seed, err := GenerateSeed()
 	if err != nil {
-		return KeyPair{}, err
+		return nil, err
 	}
-	bytes := sha256.Sum256([]byte(fmt.Sprintf("%d", number)))
-	hash := fmt.Sprintf("%x", bytes)[:24]
-	public, private := GenerateSauerKey(hash)
-	return KeyPair{public, private}, nil
+	public, private := GenerateSauerKey(seed)
+	return &KeyPair{public, private}, nil
 }
 
 type DiscordService struct {
 	clientId    string
 	secret      string
 	redirectURI string
-	state       *state.StateService
+	State       *state.StateService
 }
 
 func NewDiscordService(config config.DiscordSettings, state *state.StateService) *DiscordService {
@@ -76,7 +112,7 @@ func NewDiscordService(config config.DiscordSettings, state *state.StateService)
 		clientId:    config.Id,
 		secret:      config.Secret,
 		redirectURI: config.RedirectURI,
-		state:       state,
+		State:       state,
 	}
 }
 
@@ -183,7 +219,7 @@ func (d *DiscordService) GetUser(token string) (*DiscordUser, error) {
 }
 
 func (d *DiscordService) SaveTokenBundle(ctx context.Context, bundle *TokenResponse) error {
-	return d.state.SaveToken(
+	return d.State.SaveToken(
 		ctx,
 		bundle.AccessToken,
 		bundle.ExpiresIn,
@@ -192,20 +228,30 @@ func (d *DiscordService) SaveTokenBundle(ctx context.Context, bundle *TokenRespo
 }
 
 // Get or create an auth key for a user to log in on desktop Sauerbraten.
-func (d *DiscordService) GetAuthKey(ctx context.Context, id string) (KeyPair, error) {
-	public, private, err := d.state.GetAuthKeyForUser(ctx, id)
+func (d *DiscordService) GetAuthKey(ctx context.Context, id string) (*KeyPair, error) {
+	public, private, err := d.State.GetAuthKeyForId(ctx, id)
 
-	pair := KeyPair{
+	existing := KeyPair{
 		Public:  public,
 		Private: private,
 	}
 
 	if err != nil && err != state.Nil {
-		return pair, err
+		return &existing, err
 	}
 
 	if err == nil {
-		return pair, nil
+		return &existing, nil
+	}
+
+	return nil, state.Nil
+}
+
+func (d *DiscordService) EnsureAuthKey(ctx context.Context, id string) (*KeyPair, error) {
+	pair, err := d.GetAuthKey(ctx, id)
+
+	if err != state.Nil && err != nil {
+		return nil, err
 	}
 
 	// Generate one
@@ -214,7 +260,7 @@ func (d *DiscordService) GetAuthKey(ctx context.Context, id string) (KeyPair, er
 		return pair, err
 	}
 
-	err = d.state.SaveAuthKeyForUser(ctx, id, pair.Public, pair.Private)
+	err = d.State.SaveAuthKeyForUser(ctx, id, pair.Public, pair.Private)
 	if err != nil {
 		return pair, err
 	}
@@ -222,93 +268,144 @@ func (d *DiscordService) GetAuthKey(ctx context.Context, id string) (KeyPair, er
 	return pair, nil
 }
 
-func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*User, error) {
-	token, err := d.state.GetTokenForCode(ctx, code)
-
-	if err != nil && err != state.Nil {
-		return nil, err
-	}
-
-	// Attempt to fetch
-	if err == state.Nil {
-		bundle, err := d.FetchAccessToken(code)
-		if err != nil {
-			return nil, err
-		}
-
-		err = d.state.SaveTokenForCode(
-			ctx,
-			code,
-			bundle.AccessToken,
-			bundle.ExpiresIn,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		err = d.SaveTokenBundle(
-			ctx,
-			bundle,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		token = bundle.AccessToken
-	}
-
-	needsRefresh, err := d.state.TokenNeedsRefresh(
+func (d *DiscordService) CheckRefreshToken(ctx context.Context, token string) error {
+	needsRefresh, err := d.State.TokenNeedsRefresh(
 		ctx,
 		token,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if needsRefresh {
-		refresh, err := d.state.GetRefreshForToken(
-			ctx,
-			token,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		bundle, err := d.RefreshAccessToken(refresh)
-		if err != nil {
-			return nil, err
-		}
-
-		err = d.state.SaveTokenForCode(
-			ctx,
-			code,
-			bundle.AccessToken,
-			bundle.ExpiresIn,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		err = d.SaveTokenBundle(
-			ctx,
-			bundle,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		token = bundle.AccessToken
+	if !needsRefresh {
+		return nil
 	}
 
+	refresh, err := d.State.GetRefreshForToken(
+		ctx,
+		token,
+	)
+	if err != nil {
+		return err
+	}
+
+	bundle, err := d.RefreshAccessToken(refresh)
+	if err != nil {
+		return err
+	}
+
+	user, err := d.GetUser(bundle.AccessToken)
+	if err != nil {
+		return err
+	}
+
+	err = d.State.SetTokenForId(
+		ctx,
+		user.Id,
+		bundle.AccessToken,
+		bundle.ExpiresIn,
+	)
+	if err != nil {
+		return err
+	}
+
+	err = d.SaveTokenBundle(
+		ctx,
+		bundle,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *DiscordService) FetchUser(ctx context.Context, token string) (*User, error) {
 	discordUser, err := d.GetUser(token)
 	if err != nil {
 		return nil, err
 	}
 
-	pair, err := d.GetAuthKey(ctx, discordUser.Id)
+	pair, err := d.EnsureAuthKey(ctx, discordUser.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	return &User{Discord: *discordUser, Keys: pair}, err
+	return &User{Discord: *discordUser, Keys: *pair}, err
+}
+
+func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*User, error) {
+	token, err := d.State.GetTokenForCode(ctx, code)
+
+	if err == nil {
+		err = d.CheckRefreshToken(ctx, token)
+		if err != nil {
+			return nil, err
+		}
+
+		return d.FetchUser(ctx, token)
+	}
+
+	if err != nil && err != state.Nil {
+		return nil, err
+	}
+
+	// Can only be state.Nil, fetch the token for this
+	bundle, err := d.FetchAccessToken(code)
+	if err != nil {
+		return nil, err
+	}
+
+	// Need to fetch the user to get their ID
+	discordUser, err := d.GetUser(bundle.AccessToken)
+	if err != nil {
+		return nil, err
+	}
+
+	err = d.State.SetIdForCode(
+		ctx,
+		code,
+		discordUser.Id,
+		bundle.ExpiresIn,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	err = d.State.SetTokenForId(
+		ctx,
+		discordUser.Id,
+		bundle.AccessToken,
+		bundle.ExpiresIn,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	err = d.SaveTokenBundle(
+		ctx,
+		bundle,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return d.FetchUser(ctx, bundle.AccessToken)
+}
+
+func (d *DiscordService) AuthenticateId(ctx context.Context, id string) (*User, error) {
+	token, err := d.State.GetTokenForId(
+		ctx,
+		id,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	err = d.CheckRefreshToken(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+
+	return d.FetchUser(ctx, token)
 }

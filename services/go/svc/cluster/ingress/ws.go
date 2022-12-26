@@ -77,9 +77,9 @@ type CommandMessage struct {
 }
 
 type AuthSucceededMessage struct {
-	Op      int // AuthSucceededOp
-	Code    string
-	User    auth.DiscordUser
+	Op         int // AuthSucceededOp
+	Code       string
+	User       auth.DiscordUser
 	PrivateKey string
 }
 
@@ -211,15 +211,15 @@ type WSIngress struct {
 	mutex         sync.Mutex
 	serverWatcher *watcher.Watcher
 	httpServer    *http.Server
-	discord       *auth.DiscordService
+	auth          *auth.DiscordService
 }
 
-func NewWSIngress(manager *clients.ClientManager, discord *auth.DiscordService) *WSIngress {
+func NewWSIngress(manager *clients.ClientManager, auth *auth.DiscordService) *WSIngress {
 	return &WSIngress{
 		manager:       manager,
 		clients:       make(map[*WSClient]struct{}),
 		serverWatcher: watcher.NewWatcher(),
-		discord:       discord,
+		auth:          auth,
 	}
 }
 
@@ -242,11 +242,11 @@ func (server *WSIngress) RemoveClient(client *WSClient) {
 }
 
 func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code string) {
-	if server.discord == nil {
+	if server.auth == nil {
 		return
 	}
 
-	user, err := server.discord.AuthenticateCode(ctx, code)
+	user, err := server.auth.AuthenticateCode(ctx, code)
 
 	if err != nil {
 		log.Error().Err(err).Msg("user failed to log in")
@@ -260,9 +260,9 @@ func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code
 	}
 
 	response := AuthSucceededMessage{
-		Op:      AuthSucceededOp,
-		Code:    code,
-		User:    user.Discord,
+		Op:         AuthSucceededOp,
+		Code:       code,
+		User:       user.Discord,
 		PrivateKey: user.Keys.Private,
 	}
 	bytes, _ := cbor.Marshal(response)

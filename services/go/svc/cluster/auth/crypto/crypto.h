@@ -17,5 +17,8 @@
 #include "tools.h"
 
 void genauthkey(const char *secret, void *priv, void *pub);
+void *genchallenge(const char *pubstr, const char *seed, int seedlen, void * challengeout);
+void freechallenge(void *answer);
+bool checkchallenge(const char *answerstr, void *correct);
 
 #endif

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/servers"
@@ -42,13 +43,20 @@ type Cluster struct {
 	startTime     time.Time
 	authDomain    string
 	settings      config.ClusterSettings
+	auth          *auth.DiscordService
 	manager       *servers.ServerManager
 	matches       *Matchmaker
 	serverCtx     context.Context
 	serverMessage chan []byte
 }
 
-func NewCluster(ctx context.Context, serverManager *servers.ServerManager, settings config.ClusterSettings, authDomain string) *Cluster {
+func NewCluster(
+	ctx context.Context,
+	serverManager *servers.ServerManager,
+	settings config.ClusterSettings,
+	authDomain string,
+	auth *auth.DiscordService,
+) *Cluster {
 	clients := clients.NewClientManager()
 	server := &Cluster{
 		serverCtx:     ctx,
@@ -61,6 +69,7 @@ func NewCluster(ctx context.Context, serverManager *servers.ServerManager, setti
 		serverMessage: make(chan []byte, 1),
 		manager:       serverManager,
 		startTime:     time.Now(),
+		auth:          auth,
 	}
 
 	return server
@@ -194,6 +203,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				client.ClientNum = join.ClientNum
 			}
 			client.Mutex.Unlock()
+			//if client.User == nil && client.Connection.Type() == ClientTypeENet {
 
 		case event := <-names:
 			client := server.Clients.FindClient(uint16(event.Client))
@@ -277,6 +287,9 @@ func (server *Cluster) PollServers(ctx context.Context) {
 					Uint16("client", client.Id).
 					Msg("cluster -> client")
 
+				// Inject the auth domain to N_SERVINFO so the
+				// client sends us N_CONNECT with their name
+				// field filled
 				if message.Type() == game.N_SERVINFO {
 					info := message.Contents().(*game.ServerInfo)
 					info.Domain = server.authDomain
@@ -322,6 +335,71 @@ type DestPacket struct {
 	Data    []byte
 	Channel uint8
 	Dest    *servers.GameServer
+}
+
+func (server *Cluster) DoAuthChallenge(ctx context.Context, client *clients.Client, id string) {
+	pair, err := server.auth.GetAuthKey(ctx, id)
+
+	if err != nil || pair == nil {
+		log.Warn().
+			Uint16("client", client.Id).
+			Err(err).
+			Msg("no key for client to do auth challenge")
+		return
+	}
+
+	challenge, err := auth.GenerateChallenge(id, pair.Public)
+	if err != nil {
+		log.Warn().
+			Uint16("client", client.Id).
+			Err(err).
+			Msg("failed to generate auth challenge")
+		return
+	}
+
+	client.Mutex.Lock()
+	client.Challenge = challenge
+	client.Mutex.Unlock()
+
+	p := game.Packet{}
+	p.PutInt(int32(game.N_AUTHCHAL))
+	challengeMessage := game.AuthChallenge{
+		Desc:      server.authDomain,
+		Id:        0,
+		Challenge: challenge.Question,
+	}
+	game.Marshal(&p, challengeMessage)
+	client.Connection.Send(game.GamePacket{
+		Channel: 1,
+		Data:    p,
+	})
+}
+
+func (server *Cluster) HandleChallengeAnswer(
+	ctx context.Context,
+	client *clients.Client,
+	challenge *auth.Challenge,
+	answer string,
+) {
+	if !challenge.Check(answer) {
+		log.Warn().Uint16("client", client.Id).Msg("client failed auth challenge")
+		client.SendServerMessage(game.Red("failed to login, please regenerate your key"))
+		return
+	}
+
+	user, err := server.auth.AuthenticateId(ctx, challenge.Id)
+	if err != nil {
+		log.Warn().Uint16("client", client.Id).Err(err).Msg("could not authenticate by id")
+		client.SendServerMessage(game.Red("failed to login, please regenerate your key"))
+		return
+	}
+
+	client.Mutex.Lock()
+	client.User = user
+	client.Mutex.Unlock()
+
+	// TODO login message
+	client.SendServerMessage(game.Green(fmt.Sprintf("logged in as %s", user.Discord.Username)))
 }
 
 func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
@@ -420,6 +498,39 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 				client.Mutex.Unlock()
 
 				logger.Debug().Str("code", message.Type().String()).Msg("client -> server")
+
+				if message.Type() == game.N_CONNECT {
+					connect := message.Contents().(*game.Connect)
+
+					description := connect.AuthDescription
+					name := connect.AuthName
+
+					connect.AuthDescription = ""
+					connect.AuthName = ""
+					p := game.Packet{}
+					p.PutInt(int32(game.N_CONNECT))
+					game.Marshal(&p, *connect)
+					client.Server.SendData(client.Id, uint32(msg.Channel), p)
+
+					if description == server.authDomain && client.User == nil {
+						server.DoAuthChallenge(ctx, client, name)
+					}
+					continue
+				}
+
+				if message.Type() == game.N_AUTHANS {
+					answerMessage := message.Contents().(*game.AuthAns)
+
+					if answerMessage.Description == server.authDomain && client.Challenge != nil {
+						server.HandleChallengeAnswer(
+							ctx,
+							client,
+							client.Challenge,
+							answerMessage.Answer,
+						)
+						continue
+					}
+				}
 
 				client.Mutex.Lock()
 				if client.Server != nil {

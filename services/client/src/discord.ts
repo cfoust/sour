@@ -75,7 +75,7 @@ export function renderDiscordHeader(state: AuthState): string {
 
   if (state.status === AuthStatus.Failed) {
     return `
-          guitext "${log.error('failed to login')}" 0
+          guitext "${log.colors.error('failed to login')}" 0
       `
   }
 
@@ -147,11 +147,15 @@ export default function useAuth(
           state.status !== AuthStatus.Authenticated
         )
           return
-        console.log(`/addauthkey ${state.user.Id} ${state.key} ${CONFIG.auth.domain}`)
+        log.info(
+          "Copied authkey command to clipboard! Put it into your client's autoexec.cfg."
+        )
+        navigator.clipboard.writeText(
+          `/authkey ${state.user.Id} ${state.key} ${CONFIG.auth.domain}`
+        )
       },
       regenKey: () => {},
       logout: () => {
-        console.log('logging out')
         localStorage.removeItem(DISCORD_CODE)
         setState({
           status: AuthStatus.Unauthenticated,

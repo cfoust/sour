@@ -81,9 +81,10 @@ type NetworkClient interface {
 }
 
 type Client struct {
-	Id   uint16
-	Name string
-	User *auth.User
+	Id        uint16
+	Name      string
+	User      *auth.User
+	Challenge *auth.Challenge
 
 	Connection NetworkClient
 
