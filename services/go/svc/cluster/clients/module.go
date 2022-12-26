@@ -94,6 +94,10 @@ type Client struct {
 	// Whether the client is connected (or connecting) to a game server
 	Status ClientStatus
 
+	// True when the user is loading the map
+	delayMessages bool
+	messageQueue  []string
+
 	Mutex sync.Mutex
 
 	// Created when the user connects to a server and canceled when they
@@ -130,6 +134,13 @@ func (c *Client) GetName() string {
 	return name
 }
 
+func (c *Client) GetUser() *auth.User {
+	c.Mutex.Lock()
+	user := c.User
+	c.Mutex.Unlock()
+	return user
+}
+
 func (c *Client) ServerSessionContext() context.Context {
 	c.Mutex.Lock()
 	ctx := c.serverSessionCtx
@@ -144,6 +155,27 @@ func (c *Client) GetServer() *servers.GameServer {
 	return server
 }
 
+func (c *Client) DelayMessages() {
+	c.Mutex.Lock()
+	c.delayMessages = true
+	c.Mutex.Unlock()
+}
+
+func (c *Client) RestoreMessages() {
+	c.Mutex.Lock()
+	c.delayMessages = false
+	c.Mutex.Unlock()
+	c.sendQueuedMessages()
+}
+
+func (c *Client) sendQueuedMessages() {
+	c.Mutex.Lock()
+	for _, message := range c.messageQueue {
+		c.sendMessage(message)
+	}
+	c.Mutex.Unlock()
+}
+
 func (c *Client) Reference() string {
 	c.Mutex.Lock()
 	server := c.Server
@@ -155,7 +187,7 @@ func (c *Client) Reference() string {
 	return reference
 }
 
-func (c *Client) SendServerMessage(message string) {
+func (c *Client) sendMessage(message string) {
 	packet := game.Packet{}
 	packet.PutInt(int32(game.N_SERVMSG))
 	message = fmt.Sprintf("%s %s", game.Yellow("sour"), message)
@@ -164,6 +196,16 @@ func (c *Client) SendServerMessage(message string) {
 		Channel: 1,
 		Data:    packet,
 	})
+}
+
+func (c *Client) SendServerMessage(message string) {
+	c.Mutex.Lock()
+	if c.delayMessages {
+		c.messageQueue = append(c.messageQueue, message)
+	} else {
+		c.sendMessage(message)
+	}
+	c.Mutex.Unlock()
 }
 
 func (c *Client) ConnectToServer(server *servers.GameServer, internal bool, owned bool) (<-chan bool, error) {
@@ -211,6 +253,7 @@ func (c *Client) ConnectToServer(server *servers.GameServer, internal bool, owne
 
 	server.SendConnect(c.Id)
 	c.Connection.Connect(server.Reference(), internal, owned)
+	c.DelayMessages()
 
 	// Give the client one second to connect.
 	go func() {
@@ -235,6 +278,7 @@ func (c *Client) ConnectToServer(server *servers.GameServer, internal bool, owne
 				connected <- false
 				return
 			case <-connectCtx.Done():
+				c.RestoreMessages()
 				connected <- false
 				return
 			}
@@ -304,11 +348,13 @@ func (c *ClientManager) AddClient(networkClient NetworkClient) error {
 	}
 
 	client := Client{
-		Id:         id,
-		Name:       "unnamed",
-		Connection: networkClient,
-		Status:     ClientStatusDisconnected,
-		manager:    c,
+		Id:            id,
+		Name:          "unnamed",
+		Connection:    networkClient,
+		Status:        ClientStatusDisconnected,
+		manager:       c,
+		delayMessages: false,
+		messageQueue:  make([]string, 0),
 	}
 
 	c.Mutex.Lock()

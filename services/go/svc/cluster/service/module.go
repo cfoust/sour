@@ -203,7 +203,6 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				client.ClientNum = join.ClientNum
 			}
 			client.Mutex.Unlock()
-			//if client.User == nil && client.Connection.Type() == ClientTypeENet {
 
 		case event := <-names:
 			client := server.Clients.FindClient(uint16(event.Client))
@@ -512,7 +511,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 					game.Marshal(&p, *connect)
 					client.Server.SendData(client.Id, uint32(msg.Channel), p)
 
-					if description == server.authDomain && client.User == nil {
+					if description == server.authDomain && client.GetUser() == nil {
 						server.DoAuthChallenge(ctx, client, name)
 					}
 					continue
@@ -530,6 +529,10 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 						)
 						continue
 					}
+				}
+
+				if message.Type() == game.N_MAPCRC {
+					client.RestoreMessages()
 				}
 
 				client.Mutex.Lock()
