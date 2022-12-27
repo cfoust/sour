@@ -116,11 +116,24 @@ def search_file(file: str, roots: List[str]) -> Optional[Mapping]:
 
     return None
 
+# https://stackoverflow.com/a/1094933
+def sizeof_fmt(num, suffix="B"):
+    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
+        if abs(num) < 1024.0:
+            return f"{num:3.1f}{unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f}Yi{suffix}"
 
-def build_bundle(files: List[Mapping], outdir: str, compress_images: bool = True) -> str:
+def build_bundle(
+    files: List[Mapping],
+    outdir: str,
+    compress_images: bool = True,
+    print_summary: bool = False
+) -> str:
     """
     Given a list of files and a destination, build a Sour-compatible bundle.
-    Images are compressed by default, but you can disable this with `compress_images`.
+    Images are compressed by default, but you can disable this with
+    `compress_images`.
     """
 
     bundle_hash = hash_files(list(map(lambda a: a[0], files)))
@@ -130,18 +143,24 @@ def build_bundle(files: List[Mapping], outdir: str, compress_images: bool = True
 
     sour_target = path.join(outdir, "%s.sour" % bundle_hash)
 
-    if path.exists(sour_target): return bundle_hash
+    if path.exists(sour_target):
+        return bundle_hash
+
+    sizes: List[Tuple[str, int]] = []
 
     for _in, out in files:
         _, extension = path.splitext(_in)
 
-        if not path.exists(_in): continue
+        if not path.exists(_in):
+            continue
 
         size = path.getsize(_in)
 
+        sizes.append((_in, size))
+
         # We can only compress certain file types
         if (
-            not extension in [".dds", ".jpg", ".png"] or
+            extension not in [".dds", ".jpg", ".png"] or
             size < 128000 or
             not compress_images
         ):
@@ -150,8 +169,8 @@ def build_bundle(files: List[Mapping], outdir: str, compress_images: bool = True
 
         os.makedirs("working/", exist_ok=True)
 
-        # If multiple bundles rely on the same converted image, we don't want to
-        # redo the calculation.
+        # If multiple bundles rely on the same converted image, we don't want
+        # to redo the calculation.
         compressed = path.join(
             "working/",
             "%s%s" % (
@@ -181,6 +200,12 @@ def build_bundle(files: List[Mapping], outdir: str, compress_images: bool = True
             )
 
         cleaned.append((compressed, out))
+
+    if print_summary:
+        sizes = list(reversed(sorted(sizes, key=lambda a: a[1])))
+
+        for _in, size in sizes:
+            print(f"{_in} {sizeof_fmt(size)}")
 
     js_file = "/tmp/preload_%s.js" % bundle_hash
     data_file = "/tmp/%s.data" % bundle_hash
