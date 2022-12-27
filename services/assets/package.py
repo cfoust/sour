@@ -10,7 +10,8 @@ import re
 import shutil
 import subprocess
 import sys
-from typing import NamedTuple, Optional, Tuple, List
+import zipfile
+from typing import NamedTuple, Optional, Tuple, List, Set
 
 # A mapping from a file on the filesystem to its target in Sour's filesystem.
 # Example: ("/home/cfoust/Downloads/blah.ogz", "packages/base/blah.ogz")
@@ -271,12 +272,17 @@ class BuiltMap(NamedTuple):
     image: Optional[str]
 
 
-def build_map_bundle(map_file: str, roots: List[str], outdir: str) -> BuiltMap:
+def build_map_bundle(map_file: str, roots: List[str], outdir: str, skip_root: str) -> BuiltMap:
     """
     Given a map file, roots, and an output directory, create a Sour bundle for
     the map and return its hash.
+
+    `skip_root` is one of the roots from `roots`. If a file from the map's
+    files exists in that root, it will be skipped when creating the vanilla zip
+    file.
     """
-    bundle = build_bundle(get_map_files(map_file, roots), outdir)
+    map_files = get_map_files(map_file, roots)
+    bundle = build_bundle(map_files, outdir)
     image = None
 
     # Look for an image file adjacent to the map
@@ -290,6 +296,24 @@ def build_map_bundle(map_file: str, roots: List[str], outdir: str) -> BuiltMap:
 
     # Copy the map file as well
     shutil.copy(map_file, path.join(outdir, "%s.ogz" % bundle))
+
+    skip_root = path.abspath(skip_root)
+    added: Set[str] = set()
+    with zipfile.ZipFile(
+        path.join(outdir, "%s.desktop" % bundle),
+        'w',
+        compression=zipfile.ZIP_DEFLATED,
+        compresslevel=9
+    ) as desktop:
+        for _in, _out in map_files:
+            if _in.startswith(skip_root) or _out in added:
+                continue
+
+            with desktop.open(_out, 'w') as outfile:
+                with open(_in, 'rb') as infile:
+                    outfile.write(infile.read())
+
+            added.add(_out)
 
     return BuiltMap(bundle=bundle, image=image)
 

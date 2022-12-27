@@ -35,7 +35,12 @@ if __name__ == "__main__":
             if not mapping or path.isdir(mapping[0]): continue
             mappings.append(mapping)
 
-        _hash = package.build_bundle(mappings, outdir, compress_images=False)
+        _hash = package.build_bundle(
+            mappings,
+            outdir,
+            compress_images=False,
+            print_summary=True
+        )
         mods.append(
             package.Mod(
                 name="base",
@@ -48,7 +53,12 @@ if __name__ == "__main__":
     for _map in maps:
         base, _ = path.splitext(path.basename(_map))
         print("Building %s" % base)
-        map_bundle = package.build_map_bundle(_map, roots, outdir)
+        map_bundle = package.build_map_bundle(
+            _map,
+            roots,
+            outdir,
+            roots[1]
+        )
         game_maps.append(
             package.GameMap(
                 name=base,
