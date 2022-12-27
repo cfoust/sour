@@ -493,7 +493,7 @@ func (server *Cluster) NotifyClientChange(ctx context.Context, client *clients.C
 		if clientServer == otherServer {
 			continue
 		}
-		client.SendMessage(message)
+		other.SendMessage(message)
 	}
 	server.Clients.Mutex.Unlock()
 }

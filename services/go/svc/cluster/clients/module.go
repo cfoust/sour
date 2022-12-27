@@ -168,7 +168,7 @@ func (c *Client) GetServerName() string {
 		serverName = server.GetFormattedReference()
 	} else {
 		if c.Connection.Type() == ClientTypeWS {
-			serverName = "main menu"
+			serverName = "web"
 		}
 	}
 
