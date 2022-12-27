@@ -56,18 +56,21 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Better documentation
   * [ ] Configuration
 * [ ] Fix Sour in browsers other than Chrome
-  * [ ] Safari
+  * [ ] (Mobile) Safari
   * [ ] Firefox
 * [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Terraform recipes for deployment
 ### Gameplay
+* [ ] Fix nasty asset base asset sizes for web clients
 * [ ] LRU cache for cluster map fetching
-* [ ] Allow for backgrounding the tab by responding to pings
+* [ ] Leaderboard for ELO rankings
+* [ ] Support for sending arbitrary assets to desktop clients
 * [ ] Simple, beautiful main menu
   * [ ] Clean loading page for slow connections
   * [ ] Add `<noscript>` with a plea to enable JavaScript
   * [ ] Ensure page load time isn't horrible
-* [ ] Support for sending arbitrary assets to desktop clients
+* [ ] Save demos for every duel
+* [ ] Allow for backgrounding the tab by responding to pings
 * [ ] Demo player with seek/play/pause
   * [ ] Automatically save demos for every Sour game
   * [ ] Stretch: generate gifs in the browser
