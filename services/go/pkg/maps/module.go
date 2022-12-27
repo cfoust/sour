@@ -16,8 +16,6 @@ type Header struct {
 	Version    int32
 	HeaderSize int32
 	WorldSize  int32
-	NumEnts    int32
-	NumPVs     int32
 	LightMaps  int32
 	BlendMap   int32
 	NumVars    int32
@@ -127,41 +125,14 @@ type MergeCompat struct {
 
 const CUBE_FACTOR = 8
 
-type Cube struct {
-	Children    *[]Cube
-	SurfaceInfo [6]SurfaceInfo
-	Edges       [12]byte
-	Texture     [6]uint16
-	Material    uint16
-	Merged      byte
-	Escaped     byte
-}
+const MAP_VERSION = 33
 
-type VSlot struct {
-	Index   int32
-	Changed int32
-	Layer   int32
-}
-
-type VSlotData struct {
-	Slots    []*VSlot
-	Previous []int32
-}
-
-type GameMap struct {
-	Header   Header
-	Entities []Entity
-	Vars     map[string]int32
-	FVars    map[string]float32
-	SVars    map[string]string
-	Cubes    []Cube
-	VSlots   VSlotData
-}
+type VariableType byte
 
 const (
-	ID_VAR  byte = iota
-	ID_FVAR      = iota
-	ID_SVAR      = iota
+	VariableTypeInt    VariableType = iota
+	VariableTypeFloat               = iota
+	VariableTypeString              = iota
 )
 
 const (
@@ -195,6 +166,287 @@ const (
 	VSLOT_COLOR         = iota
 	VSLOT_NUM           = iota
 )
+
+type Cube struct {
+	Children    *[]Cube
+	SurfaceInfo [6]SurfaceInfo
+	Edges       [12]byte
+	Texture     [6]uint16
+	Material    uint16
+	Merged      byte
+	Escaped     byte
+}
+
+type VSlot struct {
+	Index   int32
+	Changed int32
+	Layer   int32
+}
+
+type VSlotData struct {
+	Slots    []*VSlot
+	Previous []int32
+}
+
+type IntVariable int32
+
+func (v IntVariable) Type() VariableType {
+	return VariableTypeInt
+}
+
+type FloatVariable float32
+
+func (v FloatVariable) Type() VariableType {
+	return VariableTypeFloat
+}
+
+type StringVariable string
+
+func (v StringVariable) Type() VariableType {
+	return VariableTypeString
+}
+
+type Variable interface {
+	Type() VariableType
+}
+
+func GetDefaultVariables() map[string]Variable {
+	return map[string]Variable{
+		"ambient":           IntVariable(0x191919), // 1 -> 0xFFFFFF
+		"atmo":              IntVariable(0),        // 0 -> 1
+		"atmoalpha":         FloatVariable(1),      // 0 -> 1
+		"atmobright":        FloatVariable(1),      // 0 -> 16
+		"atmodensity":       FloatVariable(1),      // 0 -> 16
+		"atmohaze":          FloatVariable(0.1),    // 0 -> 16
+		"atmoheight":        FloatVariable(1),      // 1e-3f -> 1e3f
+		"atmoozone":         FloatVariable(1),      // 0 -> 16
+		"atmoplanetsize":    FloatVariable(1),      // 1e-3f -> 1e3f
+		"atmosundisk":       IntVariable(0),        // 0 -> 0xFFFFFF
+		"atmosundiskbright": FloatVariable(1),      // 0 -> 16
+		"atmosundiskcorona": FloatVariable(0.4),    // 0 -> 1
+		"atmosundisksize":   FloatVariable(12),     // 0 -> 90
+		"atmosunlight":      IntVariable(0),        // 0 -> 0xFFFFFF
+		"atmosunlightscale": FloatVariable(1),      // 0 -> 16
+		"blurlms":           IntVariable(0),        // 0 -> 2
+		"blurskylight":      IntVariable(0),        // 0 -> 2
+		"bumperror":         IntVariable(3),        // 1 -> 16
+		"causticcontrast":   FloatVariable(0.6),    // 0 -> 1
+		"causticmillis":     IntVariable(75),       // 0 -> 1000
+		"causticscale":      IntVariable(50),       // 0 -> 10000
+		"cloudalpha":        FloatVariable(1),      // 0 -> 1
+		"cloudbox":          StringVariable(""),
+		"cloudboxalpha":     FloatVariable(1),      // 0 -> 1
+		"cloudboxcolour":    IntVariable(0xFFFFFF), // 0 -> 0xFFFFFF
+		"cloudclip":         FloatVariable(0.5),    // 0 -> 1
+		"cloudcolour":       IntVariable(0xFFFFFF), // 0 -> 0xFFFFFF
+		"cloudfade":         FloatVariable(0.2),    // 0 -> 1
+		"cloudheight":       FloatVariable(0.2),    // -1 -> 1
+		"cloudlayer":        StringVariable(""),
+		"cloudoffsetx":      FloatVariable(0),      // 0 -> 1
+		"cloudoffsety":      FloatVariable(0),      // 0 -> 1
+		"cloudscale":        FloatVariable(1),      // 0.001 -> 64
+		"cloudscrollx":      FloatVariable(0),      // -16 -> 16
+		"cloudscrolly":      FloatVariable(0),      // -16 -> 16
+		"cloudsubdiv":       IntVariable(16),       // 4 -> 64
+		"envmapbb":          IntVariable(0),        // 0 -> 1
+		"envmapradius":      IntVariable(128),      // 0 -> 10000
+		"fog":               IntVariable(4000),     // 16 -> 1000024
+		"fogcolour":         IntVariable(0x8099B3), // 0 -> 0xFFFFFF
+		"fogdomecap":        IntVariable(1),        // 0 -> 1
+		"fogdomeclip":       FloatVariable(1),      // 0 -> 1
+		"fogdomeclouds":     IntVariable(1),        // 0 -> 1
+		"fogdomecolour":     IntVariable(0),        // 0 -> 0xFFFFFF
+		"fogdomeheight":     FloatVariable(-0.5),   // -1 -> 1
+		"fogdomemax":        FloatVariable(0),      // 0 -> 1
+		"fogdomemin":        FloatVariable(0),      // 0 -> 1
+		"glass2colour":      IntVariable(0x2080C0), // 0 -> 0xFFFFFF
+		"glass3colour":      IntVariable(0x2080C0), // 0 -> 0xFFFFFF
+		"glass4colour":      IntVariable(0x2080C0), // 0 -> 0xFFFFFF
+		"glasscolour":       IntVariable(0x2080C0), // 0 -> 0xFFFFFF
+		"grassalpha":        FloatVariable(1),      // 0 -> 1
+		"grassanimmillis":   IntVariable(3000),     // 0 -> 60000
+		"grassanimscale":    FloatVariable(0.03),   // 0 -> 1
+		"grasscolour":       IntVariable(0xFFFFFF), // 0 -> 0xFFFFFF
+		"grassscale":        IntVariable(2),        // 1 -> 64
+		"lava2colour":       IntVariable(0xFF4000), // 0 -> 0xFFFFFF
+		"lava2fog":          IntVariable(50),       // 0 -> 10000
+		"lava3colour":       IntVariable(0xFF4000), // 0 -> 0xFFFFFF
+		"lava3fog":          IntVariable(50),       // 0 -> 10000
+		"lava4colour":       IntVariable(0xFF4000), // 0 -> 0xFFFFFF
+		"lava4fog":          IntVariable(50),       // 0 -> 10000
+		"lavacolour":        IntVariable(0xFF4000), // 0 -> 0xFFFFFF
+		"lavafog":           IntVariable(50),       // 0 -> 10000
+		"lerpangle":         IntVariable(44),       // 0 -> 180
+		"lerpsubdiv":        IntVariable(2),        // 0 -> 4
+		"lerpsubdivsize":    IntVariable(4),        // 4 -> 128
+		"lighterror":        IntVariable(8),        // 1 -> 16
+		"lightlod":          IntVariable(0),        // 0 -> 10
+		"lightprecision":    IntVariable(32),       // 1 -> 1024
+		"maptitle":          StringVariable("Untitled Map by Unknown"),
+		"mapversion":        IntVariable(MAP_VERSION), // 1 -> 0
+		"minimapclip":       IntVariable(0),           // 0 -> 1
+		"minimapcolour":     IntVariable(0),           // 0 -> 0xFFFFFF
+		"minimapheight":     IntVariable(0),           // 0 -> 2<<16
+		"refractclear":      IntVariable(0),           // 0 -> 1
+		"refractsky":        IntVariable(0),           // 0 -> 1
+		"shadowmapambient":  IntVariable(0),           // 0 -> 0xFFFFFF
+		"shadowmapangle":    IntVariable(0),           // 0 -> 360
+		"skybox":            StringVariable(""),
+		"skyboxcolour":      IntVariable(0xFFFFFF), // 0 -> 0xFFFFFF
+		"skylight":          IntVariable(0),        // 0 -> 0xFFFFFF
+		"skytexturelight":   IntVariable(1),        // 0 -> 1
+		"spincloudlayer":    FloatVariable(0),      // -720 -> 720
+		"spinclouds":        FloatVariable(0),      // -720 -> 720
+		"spinsky":           FloatVariable(0),      // -720 -> 720
+		"sunlight":          IntVariable(0),        // 0 -> 0xFFFFFF
+		"sunlightpitch":     IntVariable(90),       // -90 -> 90
+		"sunlightscale":     FloatVariable(1),      // 0 -> 16
+		"sunlightyaw":       IntVariable(0),        // 0 -> 360
+		"water2colour":      IntVariable(0x144650), // 0 -> 0xFFFFFF
+		"water2fallcolour":  IntVariable(0),        // 0 -> 0xFFFFFF
+		"water2fog":         IntVariable(150),      // 0 -> 10000
+		"water2spec":        IntVariable(150),      // 0 -> 1000
+		"water3colour":      IntVariable(0x144650), // 0 -> 0xFFFFFF
+		"water3fallcolour":  IntVariable(0),        // 0 -> 0xFFFFFF
+		"water3fog":         IntVariable(150),      // 0 -> 10000
+		"water3spec":        IntVariable(150),      // 0 -> 1000
+		"water4colour":      IntVariable(0x144650), // 0 -> 0xFFFFFF
+		"water4fallcolour":  IntVariable(0),        // 0 -> 0xFFFFFF
+		"water4fog":         IntVariable(150),      // 0 -> 10000
+		"water4spec":        IntVariable(150),      // 0 -> 1000
+		"watercolour":       IntVariable(0x144650), // 0 -> 0xFFFFFF
+		"waterfallcolour":   IntVariable(0),        // 0 -> 0xFFFFFF
+		"waterfog":          IntVariable(150),      // 0 -> 10000
+		"waterspec":         IntVariable(150),      // 0 -> 1000
+		"yawcloudlayer":     IntVariable(0),        // 0 -> 360
+		"yawclouds":         IntVariable(0),        // 0 -> 360
+		"yawsky":            IntVariable(0),        // 0 -> 360
+	}
+}
+
+type GameMap struct {
+	Header   Header
+	Entities []Entity
+	Vars     map[string]Variable
+	Cubes    []Cube
+	VSlots   VSlotData
+}
+
+func NewMap() *GameMap {
+	return &GameMap{
+		Entities: make([]Entity, 0),
+		Cubes:    make([]Cube, 8),
+		VSlots: VSlotData{
+			Slots:    make([]*VSlot, 0),
+			Previous: make([]int32, 0),
+		},
+	}
+}
+
+func (m *GameMap) Encode() ([]byte, error) {
+	p := game.Packet{}
+
+	err := p.PutRaw(
+		FileHeader{
+			Magic:      [4]byte{byte('O'), byte('C'), byte('T'), byte('A')},
+			Version:    MAP_VERSION,
+			HeaderSize: 40,
+			WorldSize:  m.Header.WorldSize,
+			NumEnts:    int32(len(m.Entities)),
+			// TODO
+			NumPVs:    0,
+			LightMaps: 0,
+		},
+		NewFooter{
+			BlendMap: 0,
+			NumVars:  int32(len(m.Vars)),
+			// TODO
+			NumVSlots: 0,
+		},
+	)
+	if err != nil {
+		return p, err
+	}
+
+	for key, variable := range m.Vars {
+		err = p.PutRaw(
+			byte(variable.Type()),
+			uint16(len(key)),
+			[]byte(key),
+		)
+		if err != nil {
+			return p, err
+		}
+
+		switch variable.Type() {
+		case VariableTypeInt:
+			err = p.PutRaw(variable.(IntVariable))
+		case VariableTypeFloat:
+			err = p.PutRaw(variable.(FloatVariable))
+		case VariableTypeString:
+			value := variable.(StringVariable)
+			err = p.PutRaw(
+				uint16(len(value)),
+				[]byte(value),
+			)
+		}
+		if err != nil {
+			return p, err
+		}
+	}
+
+	return p, nil
+}
+
+func MakeMap(mapTitle string) ([]byte, error) {
+	p := game.Packet{}
+
+	fileHeader := FileHeader{
+		Magic:      [4]byte{byte('O'), byte('C'), byte('T'), byte('A')},
+		Version:    33,
+		HeaderSize: 40,
+		WorldSize:  1024,
+		NumEnts:    0,
+		NumPVs:     0,
+		LightMaps:  0,
+	}
+	footer := NewFooter{
+		BlendMap:  0,
+		NumVars:   1,
+		NumVSlots: 0,
+	}
+	err := p.PutRaw(
+		fileHeader,
+		footer,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Now write var
+	key := "maptitle"
+	value := mapTitle
+	err = p.PutRaw(
+		byte(VariableTypeString),
+		uint16(len(key)),
+		[]byte(key),
+		uint16(len(value)),
+		[]byte(value),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var buffer bytes.Buffer
+	gz := gzip.NewWriter(&buffer)
+	_, err = gz.Write(p)
+	if err != nil {
+		return nil, err
+	}
+	gz.Close()
+
+	return buffer.Bytes(), nil
+}
 
 type Unpacker struct {
 	Reader *bytes.Reader
@@ -635,40 +887,37 @@ func LoadMap(filename string) (*GameMap, error) {
 	}
 
 	mapHeader := Header{}
-	gameMap.Header = mapHeader
 
 	mapHeader.Version = header.Version
 	mapHeader.HeaderSize = header.HeaderSize
 	mapHeader.WorldSize = header.WorldSize
-	mapHeader.NumEnts = header.NumEnts
-	mapHeader.NumPVs = header.NumPVs
 	mapHeader.LightMaps = header.LightMaps
 	mapHeader.BlendMap = newFooter.BlendMap
 	mapHeader.NumVars = newFooter.NumVars
 	mapHeader.NumVSlots = newFooter.NumVSlots
 
+	gameMap.Header = mapHeader
+
 	log.Printf("Version %d", header.Version)
-	gameMap.Vars = make(map[string]int32)
-	gameMap.FVars = make(map[string]float32)
-	gameMap.SVars = make(map[string]string)
+	gameMap.Vars = make(map[string]Variable)
 
 	// These are apparently arbitrary Sauerbraten variables a map can set
 	for i := 0; i < int(newFooter.NumVars); i++ {
 		_type := unpack.Char()
 		name := unpack.String()
 
-		switch _type {
-		case ID_VAR:
+		switch VariableType(_type) {
+		case VariableTypeInt:
 			value := unpack.Int()
-			gameMap.Vars[name] = value
+			gameMap.Vars[name] = IntVariable(value)
 			//log.Printf("%s=%d", name, value)
-		case ID_FVAR:
+		case VariableTypeFloat:
 			value := unpack.Float()
-			gameMap.FVars[name] = value
+			gameMap.Vars[name] = FloatVariable(value)
 			//log.Printf("%s=%f", name, value)
-		case ID_SVAR:
+		case VariableTypeString:
 			value := unpack.String()
-			gameMap.SVars[name] = value
+			gameMap.Vars[name] = StringVariable(value)
 			//log.Printf("%s=%s", name, value)
 		}
 	}
@@ -744,54 +993,4 @@ func LoadMap(filename string) (*GameMap, error) {
 	gameMap.Cubes = cube
 
 	return &gameMap, nil
-}
-
-func MakeMap(mapTitle string) ([]byte, error) {
-	p := game.Packet{}
-
-	fileHeader := FileHeader{
-		Magic:      [4]byte{byte('O'), byte('C'), byte('T'), byte('A')},
-		Version:    33,
-		HeaderSize: 40,
-		WorldSize:  1024,
-		NumEnts:    0,
-		NumPVs:     0,
-		LightMaps:  0,
-	}
-	footer := NewFooter{
-		BlendMap:  0,
-		NumVars:   1,
-		NumVSlots: 0,
-	}
-	err := p.PutRaw(
-		fileHeader,
-		footer,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Now write var
-	key := "maptitle"
-	value := mapTitle
-	err = p.PutRaw(
-		byte(ID_SVAR),
-		uint16(len(key)),
-		[]byte(key),
-		uint16(len(value)),
-		[]byte(value),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	var buffer bytes.Buffer
-	gz := gzip.NewWriter(&buffer)
-	_, err = gz.Write(p)
-	if err != nil {
-		return nil, err
-	}
-	gz.Close()
-
-	return buffer.Bytes(), nil
 }
