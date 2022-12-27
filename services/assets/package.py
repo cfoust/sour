@@ -299,8 +299,9 @@ def build_map_bundle(map_file: str, roots: List[str], outdir: str, skip_root: st
 
     skip_root = path.abspath(skip_root)
     added: Set[str] = set()
+    zip_path = path.join(outdir, "%s.desktop" % bundle)
     with zipfile.ZipFile(
-        path.join(outdir, "%s.desktop" % bundle),
+        zip_path,
         'w',
         compression=zipfile.ZIP_DEFLATED,
         compresslevel=9
@@ -314,6 +315,8 @@ def build_map_bundle(map_file: str, roots: List[str], outdir: str, skip_root: st
                     outfile.write(infile.read())
 
             added.add(_out)
+
+    # shutil.move(zip_path + ".zip", zip_path)
 
     return BuiltMap(bundle=bundle, image=image)
 

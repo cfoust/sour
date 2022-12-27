@@ -746,7 +746,7 @@ func LoadMap(filename string) (*GameMap, error) {
 	return &gameMap, nil
 }
 
-func MakeMap() ([]byte, error) {
+func MakeMap(mapTitle string) ([]byte, error) {
 	p := game.Packet{}
 
 	fileHeader := FileHeader{
@@ -773,7 +773,7 @@ func MakeMap() ([]byte, error) {
 
 	// Now write var
 	key := "maptitle"
-	value := "echo test"
+	value := mapTitle
 	err = p.PutRaw(
 		byte(ID_SVAR),
 		uint16(len(key)),

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -12,7 +13,7 @@ import (
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/clients"
-	//"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/log"
 
 	"github.com/repeale/fp-go/option"
 )
@@ -31,6 +32,7 @@ type SendState struct {
 	Client *clients.Client
 	Maps   *assets.MapFetcher
 	Sender *MapSender
+	Path   string
 	Map    string
 }
 
@@ -45,6 +47,28 @@ func (s *SendState) SendClient(data []byte, channel int) {
 		Channel: uint8(channel),
 		Data:    data,
 	})
+}
+
+func (s *SendState) SendDemo() error {
+	file, err := os.Open(s.Path)
+	defer file.Close()
+	if err != nil {
+		return err
+	}
+
+	buffer, err := io.ReadAll(file)
+	if err != nil {
+		return err
+	}
+
+	p := game.Packet{}
+	p.Put(
+		game.N_SENDDEMO,
+		int(0),
+	)
+	p = append(p, buffer...)
+	s.SendClient(p, 2)
+	return nil
 }
 
 func (s *SendState) Send() error {
@@ -81,7 +105,11 @@ func (s *SendState) Send() error {
 		return fmt.Errorf("could not find map URL")
 	}
 
+	log.Info().Msg(desktopURL.Value)
+
 	mapPath := filepath.Join(s.Sender.workingDir, assets.GetURLBase(desktopURL.Value))
+
+	s.Path = mapPath
 
 	err := assets.DownloadFile(
 		desktopURL.Value,
@@ -99,7 +127,7 @@ func (s *SendState) Send() error {
 
 	client.SendServerMessage("downloaded map")
 
-	fakeMap, err := maps.MakeMap()
+	fakeMap, err := maps.MakeMap("getdemo 0")
 	if err != nil {
 		logger.Info().Err(err).Msgf("failed to make map")
 		return err
@@ -108,7 +136,6 @@ func (s *SendState) Send() error {
 	p = game.Packet{}
 	p.Put(game.N_SENDMAP)
 	p = append(p, fakeMap...)
-	logger.Info().Msgf("%v", p)
 	s.SendClient(p, 2)
 
 	return nil
@@ -150,6 +177,21 @@ func (m *MapSender) IsHandling(client *clients.Client) bool {
 	_, handling := m.Clients[client]
 	m.Mutex.Unlock()
 	return handling
+}
+
+func (m *MapSender) SendDemo(ctx context.Context, client *clients.Client) {
+	m.Mutex.Lock()
+	state, handling := m.Clients[client]
+	m.Mutex.Unlock()
+
+	if !handling {
+		return
+	}
+
+	err := state.SendDemo()
+	if err != nil {
+		log.Info().Err(err).Msg("error sending demo")
+	}
 }
 
 func (m *MapSender) SendMap(ctx context.Context, client *clients.Client, mapName string) {

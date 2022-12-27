@@ -803,6 +803,11 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 					}
 				}
 
+				if message.Type() == game.N_GETDEMO && server.MapSender.IsHandling(client) {
+					server.MapSender.SendDemo(ctx, client)
+					continue
+				}
+
 				client.Mutex.Lock()
 				if client.Server != nil {
 					client.Server.SendData(client.Id, uint32(msg.Channel), message.Data())
