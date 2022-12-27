@@ -22,7 +22,7 @@ tasks:
     command: CONFIG=1 ./watch /workspace/sour/config cat
 
   - name: Redis
-    command: /usr/local/bin/redis-server
+    command: /usr/local/bin/redis-server /workspace/sour/services/redis/redis.conf
 
   - name: Client
     init: cd services/client && yarn install

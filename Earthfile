@@ -70,6 +70,7 @@ image-slim:
   RUN apt-get update && apt-get install -y nginx libenet-dev jq
   COPY config/schema.cue /sour/schema.cue
   COPY config/config.yaml /sour/config.yaml
+  COPY services/redis/redis.conf /sour/redis.conf
   COPY +redis/redis-server /bin/redis-server
   COPY +goexe/cluster /bin/cluster
   COPY +proxy/wsproxy /bin/wsproxy
