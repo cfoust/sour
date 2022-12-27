@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/repeale/fp-go/option"
@@ -44,6 +45,33 @@ func NewMapFetcher() *MapFetcher {
 	}
 }
 
+func DownloadFile(url string, path string) error {
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Check server response
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	//Writer the body to file
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func FetchIndex(url string) (*Index, error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -74,6 +102,15 @@ func CleanSourcePath(indexURL string) string {
 	}
 
 	return indexURL[:lastSlash+1]
+}
+
+func GetURLBase(url string) string {
+	lastSlash := strings.LastIndex(url, "/")
+	if lastSlash == -1 {
+		return ""
+	}
+
+	return url[lastSlash+1:]
 }
 
 func (m *MapFetcher) FetchIndices(assetSources []string) error {

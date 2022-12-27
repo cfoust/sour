@@ -58,6 +58,7 @@ func NewCluster(
 	ctx context.Context,
 	serverManager *servers.ServerManager,
 	maps *assets.MapFetcher,
+	sender *MapSender,
 	settings config.ClusterSettings,
 	authDomain string,
 	auth *auth.DiscordService,
@@ -65,7 +66,7 @@ func NewCluster(
 ) *Cluster {
 	clients := clients.NewClientManager(redis, settings.Matchmaking.Duel)
 	server := &Cluster{
-		MapSender:     NewMapSender(maps),
+		MapSender:     sender,
 		serverCtx:     ctx,
 		settings:      settings,
 		authDomain:    authDomain,
@@ -843,4 +844,5 @@ func (server *Cluster) PollClients(ctx context.Context) {
 
 func (server *Cluster) Shutdown() {
 	server.manager.Shutdown()
+	server.MapSender.Shutdown()
 }

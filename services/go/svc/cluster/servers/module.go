@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -330,33 +329,6 @@ func (manager *ServerManager) PruneServers(ctx context.Context) {
 	}
 }
 
-func DownloadMap(url string, path string) error {
-	out, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	// Check server response
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
-	}
-
-	//Writer the body to file
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameServer) {
 	requests := server.ReceiveMapRequests()
 
@@ -375,7 +347,7 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 
 			logger.Info().Str("url", url.Value).Msg("downloading map")
 			path := filepath.Join(manager.workingDir, fmt.Sprintf("packages/base/%s.ogz", request.Map))
-			err := DownloadMap(url.Value, path)
+			err := assets.DownloadFile(url.Value, path)
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to download map")
 				server.SendMapResponse(request.Map, request.Mode, 0)
