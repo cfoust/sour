@@ -9,6 +9,7 @@ import (
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/mmr"
+	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
@@ -32,7 +33,8 @@ const (
 )
 
 type Cluster struct {
-	Clients *clients.ClientManager
+	Clients   *clients.ClientManager
+	MapSender *MapSender
 
 	createMutex sync.Mutex
 	// host -> time a client from that host last created a server. We
@@ -55,6 +57,7 @@ type Cluster struct {
 func NewCluster(
 	ctx context.Context,
 	serverManager *servers.ServerManager,
+	maps *assets.MapFetcher,
 	settings config.ClusterSettings,
 	authDomain string,
 	auth *auth.DiscordService,
@@ -62,6 +65,7 @@ func NewCluster(
 ) *Cluster {
 	clients := clients.NewClientManager(redis, settings.Matchmaking.Duel)
 	server := &Cluster{
+		MapSender:     NewMapSender(maps),
 		serverCtx:     ctx,
 		settings:      settings,
 		authDomain:    authDomain,
@@ -589,6 +593,28 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Cl
 	server.Clients.Mutex.Unlock()
 }
 
+func (server *Cluster) SendDesktopMap(ctx context.Context, client *clients.Client) {
+	if server.MapSender.IsHandling(client) {
+		return
+	}
+
+	gameServer := client.GetServer()
+	if gameServer == nil {
+		return
+	}
+
+	gameServer.Mutex.Lock()
+	mapName := gameServer.Map
+	isBuilt := gameServer.IsBuiltMap
+	gameServer.Mutex.Unlock()
+
+	if !isBuilt {
+		return
+	}
+
+	server.MapSender.SendMap(ctx, client, mapName)
+}
+
 func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 	toServer := client.Connection.ReceivePackets()
 	commands := client.Connection.ReceiveCommands()
@@ -768,6 +794,12 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 				if message.Type() == game.N_MAPCRC {
 					client.RestoreMessages()
+
+					crc := message.Contents().(*game.MapCRC)
+					// The client does not have the map
+					if client.Connection.Type() == clients.ClientTypeENet && crc.Crc == 0 {
+						go server.SendDesktopMap(ctx, client)
+					}
 				}
 
 				client.Mutex.Lock()

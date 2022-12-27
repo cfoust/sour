@@ -391,3 +391,51 @@ const (
 	GUN_BARREL
 	NUMGUNS
 )
+
+const (
+	M_TEAM       int = 1 << 0
+	M_NOITEMS        = 1 << 1
+	M_NOAMMO         = 1 << 2
+	M_INSTA          = 1 << 3
+	M_EFFICIENCY     = 1 << 4
+	M_TACTICS        = 1 << 5
+	M_CAPTURE        = 1 << 6
+	M_REGEN          = 1 << 7
+	M_CTF            = 1 << 8
+	M_PROTECT        = 1 << 9
+	M_HOLD           = 1 << 10
+	M_EDIT           = 1 << 12
+	M_DEMO           = 1 << 13
+	M_LOCAL          = 1 << 14
+	M_LOBBY          = 1 << 15
+	M_DMSP           = 1 << 16
+	M_CLASSICSP      = 1 << 17
+	M_SLOWMO         = 1 << 18
+	M_COLLECT        = 1 << 19
+)
+
+const (
+	MODE_FFA int = iota
+	MODE_COOP
+	MODE_TEAMPLAY
+	MODE_INSTA
+	MODE_INSTATEAM
+	MODE_EFFIC
+	MODE_EFFICTEAM
+	MODE_TAC
+	MODE_TACTEAM
+	MODE_CAPTURE
+	MODE_REGENCAPTURE
+	MODE_CTF
+	MODE_INSTACTF
+	MODE_PROTECT
+	MODE_INSTAPROTECT
+	MODE_HOLD
+	MODE_INSTAHOLD
+	MODE_EFFICCTF
+	MODE_EFFICPROTECT
+	MODE_EFFICHOLD
+	MODE_COLLECT
+	MODE_INSTACOLLECT
+	MODE_EFFICCOLLECT
+)

@@ -16,6 +16,7 @@ import (
 	"github.com/cfoust/sour/svc/cluster/servers"
 
 	"github.com/go-redis/redis/v9"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -120,6 +121,28 @@ type Client struct {
 	manager *ClientManager
 }
 
+func (c *Client) Logger() zerolog.Logger {
+	c.Mutex.Lock()
+	logger := log.With().Uint16("client", c.Id).Str("name", c.Name).Logger()
+
+	if c.User != nil {
+		discord := c.User.Discord
+		logger = logger.With().
+			Str("discord", fmt.Sprintf(
+				"%s#%s",
+				discord.Username,
+				discord.Discriminator,
+			)).Logger()
+	}
+
+	if c.Server != nil {
+		logger = logger.With().Str("server", c.Server.Reference()).Logger()
+	}
+	c.Mutex.Unlock()
+
+	return logger
+}
+
 func (c *Client) ReceiveAuthentication() <-chan *auth.User {
 	// WS clients do their own auth (for now)
 	if c.Connection.Type() == ClientTypeWS {
@@ -153,7 +176,7 @@ func (c *Client) GetName() string {
 func (c *Client) GetFormattedName() string {
 	name := c.GetName()
 	user := c.GetUser()
-	
+
 	if user != nil {
 		name = game.Blue(name)
 	}

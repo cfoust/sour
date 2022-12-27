@@ -31,7 +31,7 @@ type Index struct {
 
 type AssetSource struct {
 	Index *Index
-	Base string
+	Base  string
 }
 
 type MapFetcher struct {
@@ -73,7 +73,7 @@ func CleanSourcePath(indexURL string) string {
 		return ""
 	}
 
-	return indexURL[:lastSlash + 1]
+	return indexURL[:lastSlash+1]
 }
 
 func (m *MapFetcher) FetchIndices(assetSources []string) error {
@@ -88,7 +88,7 @@ func (m *MapFetcher) FetchIndices(assetSources []string) error {
 		log.Info().Str("source", url).Msg("fetched asset index")
 		sources = append(sources, &AssetSource{
 			Index: index,
-			Base: CleanSourcePath(url),
+			Base:  CleanSourcePath(url),
 		})
 	}
 
@@ -97,19 +97,38 @@ func (m *MapFetcher) FetchIndices(assetSources []string) error {
 	return nil
 }
 
-// Attempt to resolve a map name
-func (m *MapFetcher) FindMapURL(mapName string) opt.Option[string] {
+func (m *MapFetcher) FindMapBase(mapName string) opt.Option[string] {
 	for _, source := range m.Sources {
 		for _, gameMap := range source.Index.Maps {
 			if gameMap.Name != mapName {
 				continue
 			}
 
-			url := fmt.Sprintf("%s%s.ogz", source.Base, gameMap.Bundle)
+			url := fmt.Sprintf("%s%s", source.Base, gameMap.Bundle)
 
 			return opt.Some[string](url)
 		}
 	}
 
 	return opt.None[string]()
+}
+
+func (m *MapFetcher) FindMapURL(mapName string) opt.Option[string] {
+	base := m.FindMapBase(mapName)
+
+	if opt.IsNone(base) {
+		return opt.None[string]()
+	}
+
+	return opt.Some[string](base.Value + ".ogz")
+}
+
+func (m *MapFetcher) FindDesktopURL(mapName string) opt.Option[string] {
+	base := m.FindMapBase(mapName)
+
+	if opt.IsNone(base) {
+		return opt.None[string]()
+	}
+
+	return opt.Some[string](base.Value + ".desktop")
 }

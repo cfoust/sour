@@ -33,6 +33,9 @@ type GameServer struct {
 	ClientInfo map[uint16]*ClientExtInfo
 	Uptime     ServerUptime
 	Teams      TeamInfo
+	Map        string
+	// Whether this map was in our assets (ie can we send it to the client)
+	IsBuiltMap bool
 
 	Hidden bool
 
@@ -150,6 +153,14 @@ func (server *GameServer) RequestServerInfo(request []byte) {
 }
 
 func (server *GameServer) SendMapResponse(mapName string, mode int32, succeeded int32) {
+	server.Mutex.Lock()
+	server.Map = mapName
+	server.IsBuiltMap = true
+	if succeeded == 0 {
+		server.IsBuiltMap = false
+	}
+	server.Mutex.Unlock()
+
 	p := game.Packet{}
 	p.PutUint(SOCKET_EVENT_RESPOND_MAP)
 	p.PutString(mapName)
