@@ -352,7 +352,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 					info.Domain = server.authDomain
 					p := game.Packet{}
 					p.PutInt(int32(game.N_SERVINFO))
-					game.Marshal(&p, *info)
+					p.Put(*info)
 					client.Connection.Send(game.GamePacket{
 						Channel: channel,
 						Data:    p,
@@ -429,7 +429,7 @@ func (server *Cluster) DoAuthChallenge(ctx context.Context, client *clients.Clie
 		Id:        0,
 		Challenge: challenge.Question,
 	}
-	game.Marshal(&p, challengeMessage)
+	p.Put(challengeMessage)
 	client.Connection.Send(game.GamePacket{
 		Channel: 1,
 		Data:    p,
@@ -770,7 +770,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 					connect.AuthName = ""
 					p := game.Packet{}
 					p.PutInt(int32(game.N_CONNECT))
-					game.Marshal(&p, *connect)
+					p.Put(*connect)
 					client.Server.SendData(client.Id, uint32(msg.Channel), p)
 
 					if description == server.authDomain && client.GetUser() == nil {

@@ -82,7 +82,11 @@ func (p *Packet) Get(pieces ...interface{}) error {
 }
 
 func (p *Packet) Put(pieces ...interface{}) error {
-	return Marshal(p, pieces...)
+	return Marshal(p, true, pieces...)
+}
+
+func (p *Packet) PutRaw(pieces ...interface{}) error {
+	return Marshal(p, false, pieces...)
 }
 
 // GetInt returns the integer value encoded in the next byte(s) of the packet.

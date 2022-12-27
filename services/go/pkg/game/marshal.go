@@ -1,6 +1,8 @@
 package game
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"reflect"
@@ -385,12 +387,35 @@ func marshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	return nil
 }
 
-func Marshal(p *Packet, pieces ...interface{}) error {
+func marshalFullValue(p *Packet, type_ reflect.Type, value interface{}) error {
+	var buffer bytes.Buffer
+
+	var err error
+	switch v := value.(type) {
+	default:
+		err = binary.Write(&buffer, binary.LittleEndian, v)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	*p = append(*p, buffer.Bytes()...)
+
+	return nil
+}
+
+func Marshal(p *Packet, compressed bool, pieces ...interface{}) error {
 	for _, piece := range pieces {
 		type_ := reflect.TypeOf(piece)
 		value := reflect.ValueOf(piece)
 
-		err := marshalValue(p, type_, value)
+		var err error
+		if compressed {
+			err = marshalValue(p, type_, value)
+		} else {
+			err = marshalFullValue(p, type_, piece)
+		}
 		if err != nil {
 			return err
 		}

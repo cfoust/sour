@@ -8,6 +8,8 @@ import (
 	"io"
 	"log"
 	"os"
+
+	"github.com/cfoust/sour/pkg/game"
 )
 
 type Header struct {
@@ -742,4 +744,54 @@ func LoadMap(filename string) (*GameMap, error) {
 	gameMap.Cubes = cube
 
 	return &gameMap, nil
+}
+
+func MakeMap() ([]byte, error) {
+	p := game.Packet{}
+
+	fileHeader := FileHeader{
+		Magic:      [4]byte{byte('O'), byte('C'), byte('T'), byte('A')},
+		Version:    33,
+		HeaderSize: 40,
+		WorldSize:  1024,
+		NumEnts:    0,
+		NumPVs:     0,
+		LightMaps:  0,
+	}
+	footer := NewFooter{
+		BlendMap:  0,
+		NumVars:   1,
+		NumVSlots: 0,
+	}
+	err := p.PutRaw(
+		fileHeader,
+		footer,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Now write var
+	key := "maptitle"
+	value := "echo test"
+	err = p.PutRaw(
+		byte(ID_SVAR),
+		uint16(len(key)),
+		[]byte(key),
+		uint16(len(value)),
+		[]byte(value),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var buffer bytes.Buffer
+	gz := gzip.NewWriter(&buffer)
+	_, err = gz.Write(p)
+	if err != nil {
+		return nil, err
+	}
+	gz.Close()
+
+	return buffer.Bytes(), nil
 }

@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	//"github.com/rs/zerolog/log"
@@ -39,9 +40,9 @@ func (s *SendState) SetStatus(status SendStatus) {
 	s.Mutex.Unlock()
 }
 
-func (s *SendState) SendClient(data []byte) {
+func (s *SendState) SendClient(data []byte, channel int) {
 	s.Client.Connection.Send(game.GamePacket{
-		Channel: 1,
+		Channel: uint8(channel),
 		Data:    data,
 	})
 }
@@ -68,7 +69,7 @@ func (s *SendState) Send() error {
 			HasItems: 0,
 		},
 	)
-	s.SendClient(p)
+	s.SendClient(p, 1)
 
 	if ctx.Err() != nil {
 		return ctx.Err()
@@ -97,6 +98,18 @@ func (s *SendState) Send() error {
 	logger.Info().Msgf("downloaded desktop map to %s", mapPath)
 
 	client.SendServerMessage("downloaded map")
+
+	fakeMap, err := maps.MakeMap()
+	if err != nil {
+		logger.Info().Err(err).Msgf("failed to make map")
+		return err
+	}
+
+	p = game.Packet{}
+	p.Put(game.N_SENDMAP)
+	p = append(p, fakeMap...)
+	logger.Info().Msgf("%v", p)
+	s.SendClient(p, 2)
 
 	return nil
 }
