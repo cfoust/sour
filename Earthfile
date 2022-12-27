@@ -27,6 +27,7 @@ redis:
       cd redis-7.0.7 && \
       make install
     SAVE ARTIFACT /usr/local/bin/redis-server AS LOCAL "earthly/redis-server"
+    SAVE ARTIFACT /usr/local/bin/redis-cli AS LOCAL "earthly/redis-cli"
 
 goexe:
     FROM +go
@@ -72,6 +73,7 @@ image-slim:
   COPY config/config.yaml /sour/config.yaml
   COPY services/redis/redis.conf /sour/redis.conf
   COPY +redis/redis-server /bin/redis-server
+  COPY +redis/redis-cli /bin/redis-cli
   COPY +goexe/cluster /bin/cluster
   COPY +proxy/wsproxy /bin/wsproxy
   COPY +game/game /app/game/
