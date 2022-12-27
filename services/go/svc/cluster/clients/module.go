@@ -489,6 +489,7 @@ func (c *ClientManager) AddClient(networkClient NetworkClient) error {
 		delayMessages:  false,
 		messageQueue:   make([]string, 0),
 		Authentication: make(chan *auth.User, 1),
+		serverSessionCtx: context.Background(),
 	}
 
 	c.Mutex.Lock()

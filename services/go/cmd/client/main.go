@@ -29,6 +29,10 @@ outer:
 			break outer
 		case event := <-events:
 			log.Info().Msgf("event %v", event)
+			if event.Type == enet.EventTypeReceive {
+				log.Info().Msgf("packet %d", len(event.Packet.Data))
+
+			}
 		}
 	}
 
