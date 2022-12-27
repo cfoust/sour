@@ -58,7 +58,7 @@ func (p *Peer) Send(channel uint8, payload []byte) {
 	}
 
 	flags := ^uint32(PacketFlagNoAllocate) // always allocate (safer with CGO usage below)
-	if channel == 1 {
+	if channel == 1 || channel == 2 {
 		flags = flags & PacketFlagReliable
 	}
 
