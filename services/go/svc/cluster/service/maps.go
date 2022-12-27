@@ -65,6 +65,7 @@ func (s *SendState) SendDemo() error {
 	p.Put(
 		game.N_SENDDEMO,
 		int(0),
+		len(buffer),
 	)
 	p = append(p, buffer...)
 	s.SendClient(p, 2)
