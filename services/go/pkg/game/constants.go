@@ -439,3 +439,39 @@ const (
 	MODE_INSTACOLLECT
 	MODE_EFFICCOLLECT
 )
+
+type EntityType byte
+
+const (
+	EntityTypeEmpty        EntityType = iota // ET_EMPTY
+	EntityTypeLight                          // ET_LIGHT
+	EntityTypeMapModel                       // ET_MAPMODEL
+	EntityTypePlayerStart                    // ET_PLAYERSTART
+	EntityTypeEnvMap                         // ET_ENVMAP
+	EntityTypeParticles                      // ET_PARTICLES
+	EntityTypeSound                          // ET_SOUND
+	EntityTypeSpotlight                      // ET_SPOTLIGHT
+	EntityTypeShells                         // I_SHELLS
+	EntityTypeBullets                        // I_BULLETS
+	EntityTypeRockets                        // I_ROCKETS
+	EntityTypeRounds                         // I_ROUNDS
+	EntityTypeGrenades                       // I_GRENADES
+	EntityTypeCartridges                     // I_CARTRIDGES
+	EntityTypeHealth                         // I_HEALTH
+	EntityTypeBoost                          // I_BOOST
+	EntityTypeGreenArmour                    // I_GREENARMOUR
+	EntityTypeYellowArmour                   // I_YELLOWARMOUR
+	EntityTypeQuad                           // I_QUAD
+	EntityTypeTeleport                       // TELEPORT attr1 = idx, attr2 = model, attr3 = tag
+	EntityTypeTeledest                       // TELEDEST attr1 = angle, attr2 = idx
+	EntityTypeMonster                        // MONSTER attr1 = angle, attr2 = monstertype
+	EntityTypeCarrot                         // CARROT attr1 = tag, attr2 = type
+	EntityTypeJumpPad                        // JUMPPAD attr1 = zpush, attr2 = ypush, attr3 = xpush
+	EntityTypeBase                           // BASE
+	EntityTypeRespawnPoint                   // RESPAWNPOINT
+	EntityTypeBox                            // BOX attr1 = angle, attr2 = idx, attr3 = weight
+	EntityTypeBarrel                         // BARREL attr1 = angle, attr2 = idx, attr3 = weight, attr4 = health
+	EntityTypePlatform                       // PLATFORM attr1 = angle, attr2 = idx, attr3 = tag, attr4 = speed
+	EntityTypeElevator                       // ELEVATOR attr1 = angle, attr2 = idx, attr3 = tag, attr4 = speed
+	EntityTypeFlag                           // FLAG attr1 = angle, attr2 = team
+)

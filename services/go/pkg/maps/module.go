@@ -77,7 +77,7 @@ type Entity struct {
 	Attr3    int16
 	Attr4    int16
 	Attr5    int16
-	Type     byte
+	Type     game.EntityType
 	Reserved byte
 }
 
@@ -342,6 +342,7 @@ func NewMap() *GameMap {
 	return &GameMap{
 		Header: Header{
 			Version: MAP_VERSION,
+			GameType: "fps",
 			HeaderSize: 40,
 			WorldSize: 1024,
 		},

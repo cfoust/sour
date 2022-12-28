@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/maps"
+	"github.com/cfoust/sour/pkg/game"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -26,12 +27,17 @@ func main() {
 	defer out.Close()
 
 	gameMap := maps.NewMap()
-	gameMap.Vars["maptitle"] = maps.StringVariable("getdemo 0")
-	rawBytes, err := gameMap.Encode()
-	if err != nil {
-		log.Fatal().Err(err).Msg("could not envode map")
-	}
-	log.Info().Msgf("map %v", rawBytes)
+	gameMap.Vars["cloudlayer"] = maps.StringVariable("")
+	gameMap.Vars["skyboxcolour"] = maps.IntVariable(0)
+	gameMap.Vars["maptitle"] = maps.StringVariable("can_teleport_1 = [ echo test ]")
+	gameMap.Header.WorldSize = 64
+
+	gameMap.Entities = append(gameMap.Entities, maps.Entity{
+		Type: game.EntityTypeTeleport,
+		Attr3: 1,
+	})
+
+	log.Info().Msgf("%v", gameMap.Entities)
 
 	mapBytes, err := gameMap.EncodeOGZ()
 	if err != nil {
