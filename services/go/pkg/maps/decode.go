@@ -66,6 +66,10 @@ func GetStringByte(p *game.Packet) (string, bool) {
 	return string(value), true
 }
 
+func convertOldMaterial(mat uint16) uint16 {
+	return ((mat&7)<<MATF_VOLUME_SHIFT) | (((mat>>3)&3)<<MATF_CLIP_SHIFT) | (((mat>>5)&7)<<MATF_FLAG_SHIFT);
+}
+
 func LoadCube(p *game.Packet, cube *Cube, mapVersion int32) error {
 	//log.Printf("pos=%d", unpack.Tell())
 
@@ -118,7 +122,25 @@ func LoadCube(p *game.Packet, cube *Cube, mapVersion int32) error {
 		mask, _ := p.GetByte()
 
 		if (mask & 0x80) > 0 {
-			p.Skip(1)
+			mat, _ := p.GetByte()
+			if mapVersion < 27 {
+				matConv := []uint16{
+					MAT_AIR,
+					MAT_WATER,
+					MAT_CLIP,
+					MAT_GLASS | MAT_CLIP,
+					MAT_NOCLIP,
+					MAT_LAVA | MAT_DEATH,
+					MAT_GAMECLIP,
+					MAT_DEATH,
+				}
+				cube.Material = MAT_AIR
+				if int(mat) < len(matConv) {
+					cube.Material = matConv[mat]
+				}
+			} else {
+				cube.Material = convertOldMaterial(uint16(mat))
+			}
 		}
 
 		surfaces := make([]SurfaceCompat, 12)
