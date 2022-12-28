@@ -187,11 +187,7 @@ type VSlot struct {
 	Index   int32
 	Changed int32
 	Layer   int32
-}
-
-type VSlotData struct {
-	Slots    []*VSlot
-	Previous []int32
+	Next    *VSlot
 }
 
 type IntVariable int32
@@ -335,25 +331,95 @@ type GameMap struct {
 	Entities []Entity
 	Vars     map[string]Variable
 	Cubes    []Cube
-	VSlots   VSlotData
+	VSlots   []*VSlot
 }
 
 func NewMap() *GameMap {
 	return &GameMap{
 		Header: Header{
-			Version: MAP_VERSION,
-			GameType: "fps",
+			Version:    MAP_VERSION,
+			GameType:   "fps",
 			HeaderSize: 40,
-			WorldSize: 1024,
+			WorldSize:  1024,
 		},
 		Entities: make([]Entity, 0),
 		Cubes:    make([]Cube, 8),
 		Vars:     make(map[string]Variable),
-		VSlots: VSlotData{
-			Slots:    make([]*VSlot, 0),
-			Previous: make([]int32, 0),
-		},
+		VSlots:   make([]*VSlot, 0),
 	}
+}
+
+func saveVSlot(p *game.Packet, vs *VSlot, prev int32) error {
+	err := p.PutRaw(
+		vs.Changed,
+		prev,
+	)
+	if err != nil {
+		return err
+	}
+
+	if (vs.Changed & (1<<VSLOT_SHPARAM)) > 0 {
+		err := p.PutRaw(
+			//uint16(len(vs.Params)),
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func saveVSlots(p *game.Packet, slots []*VSlot) error {
+	numVSlots := len(slots)
+	if numVSlots == 0 {
+		return nil
+	}
+
+	// worldio.cpp:785
+
+	prev := make([]int32, numVSlots)
+
+	for i := 0; i < numVSlots; i++ {
+		prev[i] = -1
+	}
+
+	for _, slot := range slots {
+		vs := slot
+		if vs.Changed == 1 {
+			continue
+		}
+
+		for {
+			cur := vs
+			for vs != nil && int(vs.Index) > numVSlots {
+				vs = vs.Next
+			}
+			if vs == nil {
+				break
+			}
+			prev[vs.Index] = cur.Index
+		}
+	}
+
+	lastRoot := 0
+	for i, slot := range slots {
+		vs := slot
+		if vs.Changed == 0 {
+			continue
+		}
+		if lastRoot < i {
+			p.PutRaw(int32(-(i - lastRoot)))
+		}
+		saveVSlot(p, vs, prev[i])
+		lastRoot = i + 1
+	}
+
+	if lastRoot < numVSlots {
+		p.PutRaw(int32(-(numVSlots - lastRoot)))
+	}
+
+	return nil
 }
 
 func (m *GameMap) Encode() ([]byte, error) {
@@ -374,7 +440,7 @@ func (m *GameMap) Encode() ([]byte, error) {
 			BlendMap: 0,
 			NumVars:  int32(len(m.Vars)),
 			// TODO
-			NumVSlots: 0,
+			NumVSlots: int32(len(m.VSlots)),
 		},
 	)
 	if err != nil {
@@ -436,6 +502,11 @@ func (m *GameMap) Encode() ([]byte, error) {
 		if err != nil {
 			return p, err
 		}
+	}
+
+	err = saveVSlots(&p, m.VSlots)
+	if err != nil {
+		return p, err
 	}
 
 	return p, nil
@@ -796,7 +867,7 @@ func LoadVSlot(unpack *Unpacker, slot *VSlot, changed int32) error {
 	return nil
 }
 
-func LoadVSlots(unpack *Unpacker, numVSlots int32) (VSlotData, error) {
+func LoadVSlots(unpack *Unpacker, numVSlots int32) ([]*VSlot, error) {
 	leftToRead := numVSlots
 
 	vslots := make([]*VSlot, 0)
@@ -824,10 +895,9 @@ func LoadVSlots(unpack *Unpacker, numVSlots int32) (VSlotData, error) {
 		}
 	}
 
-	return VSlotData{
-		Slots:    vslots,
-		Previous: prev,
-	}, nil
+	//loopv(vslots) if(vslots.inrange(prev[i])) vslots[prev[i]]->next = vslots[i];
+
+	return vslots, nil
 }
 
 func InsideWorld(size int32, vector Vector) bool {

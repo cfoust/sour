@@ -24,6 +24,10 @@
 /*OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 package game
 
+import (
+	"fmt"
+)
+
 type GamePacket struct {
 	Channel uint8
 	Data    []byte
@@ -68,6 +72,19 @@ func (p *Packet) PutString(s string) {
 	(*p) = append(*p, 0x00)
 }
 
+func (p *Packet) Read(n []byte) (int, error) {
+	read := (*p)[:len(n)]
+
+	if len(read) < len(n) {
+		return len(read), fmt.Errorf("ran out of bytes")
+	}
+
+	copy(n, read)
+
+	(*p) = (*p)[len(n):]
+	return len(n), nil
+}
+
 func (p *Packet) GetByte() (byte, bool) {
 	if len(*p) < 1 {
 		return 0, false
@@ -78,7 +95,11 @@ func (p *Packet) GetByte() (byte, bool) {
 }
 
 func (p *Packet) Get(pieces ...interface{}) error {
-	return Unmarshal(p, pieces...)
+	return Unmarshal(p, true, pieces...)
+}
+
+func (p *Packet) GetRaw(pieces ...interface{}) error {
+	return Unmarshal(p, false, pieces...)
 }
 
 func (p *Packet) Put(pieces ...interface{}) error {

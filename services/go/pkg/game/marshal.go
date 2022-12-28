@@ -300,55 +300,83 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	return nil
 }
 
-func Unmarshal(p *Packet, pieces ...interface{}) error {
-	for i, piece := range pieces {
+func unmarshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
+	switch type_.Kind() {
+	case reflect.Int32:
+		fallthrough
+	case reflect.Int:
+		readValue, ok := p.GetInt()
+		if !ok {
+			return fmt.Errorf("error reading int")
+		}
+		value.SetInt(int64(readValue))
+	case reflect.Uint8:
+		readValue, ok := p.GetByte()
+		if !ok {
+			return fmt.Errorf("error reading byte")
+		}
+		value.SetUint(uint64(readValue))
+	case reflect.Bool:
+		readValue, ok := p.GetInt()
+		if !ok {
+			return fmt.Errorf("error reading bool")
+		}
+		if readValue == 1 {
+			value.SetBool(true)
+		} else {
+			value.SetBool(false)
+		}
+	case reflect.Uint:
+		readValue, ok := p.GetUint()
+		if !ok {
+			return fmt.Errorf("error reading uint")
+		}
+		value.SetUint(uint64(readValue))
+	case reflect.String:
+		readValue, ok := p.GetString()
+		if !ok {
+			return fmt.Errorf("error reading string")
+		}
+		value.SetString(readValue)
+	case reflect.Struct:
+		err := unmarshalStruct(p, type_, value)
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unimplemented type: %s", type_.String())
+	}
+
+	return nil
+}
+
+func unmarshalRawValue(p *Packet, type_ reflect.Type, value interface{}) error {
+	var err error
+	switch v := value.(type) {
+	default:
+		err = binary.Read(p, binary.LittleEndian, v)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func Unmarshal(p *Packet, compressed bool, pieces ...interface{}) error {
+	for _, piece := range pieces {
 		type_ := reflect.TypeOf(piece).Elem()
 		value := reflect.ValueOf(piece).Elem()
 
-		switch type_.Kind() {
-		case reflect.Int32:
-			fallthrough
-		case reflect.Int:
-			readValue, ok := p.GetInt()
-			if !ok {
-				return fmt.Errorf("error reading int")
-			}
-			value.SetInt(int64(readValue))
-		case reflect.Uint8:
-			readValue, ok := p.GetByte()
-			if !ok {
-				return fmt.Errorf("error reading byte")
-			}
-			value.SetUint(uint64(readValue))
-		case reflect.Bool:
-			readValue, ok := p.GetInt()
-			if !ok {
-				return fmt.Errorf("error reading bool")
-			}
-			if readValue == 1 {
-				value.SetBool(true)
-			} else {
-				value.SetBool(false)
-			}
-		case reflect.Uint:
-			readValue, ok := p.GetUint()
-			if !ok {
-				return fmt.Errorf("error reading uint")
-			}
-			value.SetUint(uint64(readValue))
-		case reflect.String:
-			readValue, ok := p.GetString()
-			if !ok {
-				return fmt.Errorf("error reading string")
-			}
-			value.SetString(readValue)
-		case reflect.Struct:
-			err := unmarshalStruct(p, type_, value)
-			if err != nil {
-				return err
-			}
-		default:
-			return fmt.Errorf("unimplemented type: %s (index %d/%d)", type_.String(), i, len(pieces))
+		var err error
+		if compressed {
+			err = unmarshalValue(p, type_, value)
+		} else {
+			err = unmarshalRawValue(p, type_, piece)
+		}
+		if err != nil {
+			return err
 		}
 	}
 
@@ -387,7 +415,7 @@ func marshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	return nil
 }
 
-func marshalFullValue(p *Packet, type_ reflect.Type, value interface{}) error {
+func marshalRawValue(p *Packet, type_ reflect.Type, value interface{}) error {
 	var buffer bytes.Buffer
 
 	var err error
@@ -414,7 +442,7 @@ func Marshal(p *Packet, compressed bool, pieces ...interface{}) error {
 		if compressed {
 			err = marshalValue(p, type_, value)
 		} else {
-			err = marshalFullValue(p, type_, piece)
+			err = marshalRawValue(p, type_, piece)
 		}
 		if err != nil {
 			return err

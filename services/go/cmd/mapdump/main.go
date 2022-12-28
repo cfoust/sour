@@ -265,7 +265,7 @@ type Processor struct {
 	Files []string
 }
 
-func NewProcessor(roots RootFlags, slots maps.VSlotData) *Processor {
+func NewProcessor(roots RootFlags, slots []*maps.VSlot) *Processor {
 	processor := Processor{}
 
 	processor.Roots = roots
@@ -275,15 +275,7 @@ func NewProcessor(roots RootFlags, slots maps.VSlotData) *Processor {
 		vslot.Changed = old.Changed
 		vslot.Layer = old.Layer
 		return vslot
-	})(slots.Slots)
-
-	// Relink linked list
-	for i, vslot := range vslots {
-		prev := slots.Previous[i]
-		if prev >= 0 && prev < int32(len(vslots)) {
-			vslots[prev].Next = vslot
-		}
-	}
+	})(slots)
 
 	processor.VSlots = vslots
 
@@ -1292,14 +1284,16 @@ func main() {
 	addMapFile(filename)
 
 	// Some variables contain textures
-	if skybox, ok := _map.SVars["skybox"]; ok {
-		for _, path := range processor.FindCubemap(NormalizeTexture(skybox)) {
+	if skybox, ok := _map.Vars["skybox"]; ok {
+		value := string(skybox.(maps.StringVariable))
+		for _, path := range processor.FindCubemap(NormalizeTexture(value)) {
 			addFile(path)
 		}
 	}
 
-	if cloudlayer, ok := _map.SVars["cloudlayer"]; ok {
-		resolved := processor.FindTexture(NormalizeTexture(cloudlayer))
+	if cloudlayer, ok := _map.Vars["cloudlayer"]; ok {
+		value := string(cloudlayer.(maps.StringVariable))
+		resolved := processor.FindTexture(NormalizeTexture(value))
 
 		if opt.IsSome(resolved) {
 			addFile(resolved.Value)
