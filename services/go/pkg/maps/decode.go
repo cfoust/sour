@@ -3,7 +3,6 @@ package maps
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/binary"
 	"errors"
 	"io"
 	"os"
@@ -59,74 +58,12 @@ func GetStringByte(p *game.Packet) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	value := make([]byte, length + 1)
+	value := make([]byte, length+1)
 	err = p.GetRaw(&value)
 	if err != nil {
 		return "", false
 	}
 	return string(value), true
-}
-
-type Unpacker struct {
-	Reader *bytes.Reader
-}
-
-func NewUnpacker(reader *bytes.Reader) *Unpacker {
-	unpacker := Unpacker{}
-	unpacker.Reader = reader
-	return &unpacker
-}
-
-func (unpack *Unpacker) Read(data any) error {
-	return binary.Read(unpack.Reader, binary.LittleEndian, data)
-}
-
-func (unpack *Unpacker) Float() float32 {
-	var value float32
-	unpack.Read(&value)
-	return value
-}
-
-func (unpack *Unpacker) Int() int32 {
-	var value int32
-	unpack.Read(&value)
-	return value
-}
-
-func (unpack *Unpacker) Char() byte {
-	var value byte
-	unpack.Read(&value)
-	return value
-}
-
-func (unpack *Unpacker) Short() uint16 {
-	var value uint16
-	unpack.Read(&value)
-	return value
-}
-
-func (unpack *Unpacker) String() string {
-	bytes := unpack.Short()
-	value := make([]byte, bytes)
-	unpack.Read(value)
-	return string(value)
-}
-
-func (unpack *Unpacker) StringByte() string {
-	var bytes byte
-	unpack.Read(&bytes)
-	value := make([]byte, bytes+1)
-	unpack.Read(value)
-	return string(value)
-}
-
-func (unpack *Unpacker) Skip(bytes int64) {
-	unpack.Reader.Seek(bytes, io.SeekCurrent)
-}
-
-func (unpack *Unpacker) Tell() int64 {
-	pos, _ := unpack.Reader.Seek(0, io.SeekCurrent)
-	return pos
 }
 
 func LoadCube(p *game.Packet, cube *Cube, mapVersion int32) error {
@@ -500,17 +437,18 @@ func Decode(data []byte) (*GameMap, error) {
 
 	gameMap.Header = mapHeader
 
+	//log.Debug().Msgf("header %+v", mapHeader)
+
 	log.Printf("Version %d", header.Version)
 	gameMap.Vars = make(map[string]Variable)
 
-	// These are apparently arbitrary Sauerbraten variables a map can set
 	for i := 0; i < int(newFooter.NumVars); i++ {
 		_type, _ := p.GetByte()
 		name, _ := GetString(&p)
 
 		switch VariableType(_type) {
 		case VariableTypeInt:
-			value, _ := p.GetInt()
+			value, _ := GetInt(&p)
 			gameMap.Vars[name] = IntVariable(value)
 			//log.Printf("%s=%d", name, value)
 		case VariableTypeFloat:
@@ -523,6 +461,8 @@ func Decode(data []byte) (*GameMap, error) {
 			//log.Printf("%s=%s", name, value)
 		}
 	}
+
+	//log.Info().Msgf("%v", gameMap.Vars)
 
 	gameType := "fps"
 	if header.Version >= 16 {
