@@ -340,7 +340,11 @@ type GameMap struct {
 
 func NewMap() *GameMap {
 	return &GameMap{
-		// TODO Header
+		Header: Header{
+			Version: MAP_VERSION,
+			HeaderSize: 40,
+			WorldSize: 1024,
+		},
 		Entities: make([]Entity, 0),
 		Cubes:    make([]Cube, 8),
 		Vars:     make(map[string]Variable),

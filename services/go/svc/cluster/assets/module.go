@@ -63,7 +63,6 @@ func DownloadFile(url string, path string) error {
 		return fmt.Errorf("bad status: %s", resp.Status)
 	}
 
-	//Writer the body to file
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
 		return err
