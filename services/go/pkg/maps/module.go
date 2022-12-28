@@ -23,6 +23,12 @@ type Header struct {
 	GameType   string
 }
 
+func NewHeader() *Header {
+	return &Header{
+		GameType: "fps",
+	}
+}
+
 type FileHeader struct {
 	Magic      [4]byte
 	Version    int32
@@ -334,6 +340,7 @@ type GameMap struct {
 
 func NewMap() *GameMap {
 	return &GameMap{
+		// TODO Header
 		Entities: make([]Entity, 0),
 		Cubes:    make([]Cube, 8),
 		Vars:     make(map[string]Variable),
@@ -399,6 +406,28 @@ func (m *GameMap) Encode() ([]byte, error) {
 				[]byte(value),
 			)
 		}
+		if err != nil {
+			return p, err
+		}
+	}
+
+	err = p.PutRaw(
+		// game type (almost always FPS)
+		byte(len(m.Header.GameType)),
+		[]byte(m.Header.GameType),
+		byte(0), // null terminated
+
+		uint16(0), // eif
+		uint16(0), // extras
+
+		uint16(0), // texture MRU
+	)
+	if err != nil {
+		return p, err
+	}
+
+	for _, entity := range m.Entities {
+		err = p.PutRaw(entity)
 		if err != nil {
 			return p, err
 		}
