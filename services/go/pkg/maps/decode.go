@@ -8,9 +8,64 @@ import (
 	"io"
 	"os"
 
-	//"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game"
 	"github.com/rs/zerolog/log"
 )
+
+func GetString(p *game.Packet) (string, bool) {
+	var length uint16
+	err := p.GetRaw(&length)
+	if err != nil {
+		return "", false
+	}
+	value := make([]byte, length)
+	err = p.GetRaw(&value)
+	if err != nil {
+		return "", false
+	}
+	return string(value), true
+}
+
+func GetFloat(p *game.Packet) (float32, bool) {
+	var value float32
+	err := p.GetRaw(&value)
+	if err != nil {
+		return 0, false
+	}
+	return value, true
+}
+
+func GetShort(p *game.Packet) (uint16, bool) {
+	var value uint16
+	err := p.GetRaw(&value)
+	if err != nil {
+		return 0, false
+	}
+	return value, true
+}
+
+func GetInt(p *game.Packet) (int32, bool) {
+	var value int32
+	err := p.GetRaw(&value)
+	if err != nil {
+		return 0, false
+	}
+	return value, true
+}
+
+func GetStringByte(p *game.Packet) (string, bool) {
+	var length byte
+	err := p.GetRaw(&length)
+	if err != nil {
+		return "", false
+	}
+	value := make([]byte, length + 1)
+	err = p.GetRaw(&value)
+	if err != nil {
+		return "", false
+	}
+	return string(value), true
+}
 
 type Unpacker struct {
 	Reader *bytes.Reader
@@ -300,57 +355,70 @@ func LoadChildren(unpack *Unpacker, mapVersion int32) ([]Cube, error) {
 	return children, nil
 }
 
-func LoadVSlot(unpack *Unpacker, slot *VSlot, changed int32) error {
+func LoadVSlot(p *game.Packet, slot *VSlot, changed int32) error {
 	slot.Changed = changed
 	if (changed & (1 << VSLOT_SHPARAM)) > 0 {
-		numParams := unpack.Short()
+		numParams, _ := GetShort(p)
 
 		for i := 0; i < int(numParams); i++ {
-			_ = unpack.StringByte()
-			// TODO vslots
+			param := SlotShaderParam{}
+			name, _ := GetStringByte(p)
+
+			// TODO getshaderparamname
+			param.Name = name
 			for k := 0; k < 4; k++ {
-				unpack.Float()
+				value, _ := GetFloat(p)
+				param.Val[k] = value
 			}
+			slot.Params = append(slot.Params, param)
 		}
 	}
 
 	if (changed & (1 << VSLOT_SCALE)) > 0 {
-		unpack.Float()
+		p.GetRaw(&slot.Scale)
 	}
 
 	if (changed & (1 << VSLOT_ROTATION)) > 0 {
-		unpack.Int()
+		p.GetRaw(&slot.Rotation)
 	}
 
 	if (changed & (1 << VSLOT_OFFSET)) > 0 {
-		unpack.Int()
-		unpack.Int()
+		p.GetRaw(
+			&slot.Offset.X,
+			&slot.Offset.Y,
+		)
 	}
 
 	if (changed & (1 << VSLOT_SCROLL)) > 0 {
-		unpack.Float()
-		unpack.Float()
+		p.GetRaw(
+			&slot.Scroll.X,
+			&slot.Scroll.Y,
+		)
 	}
 
 	if (changed & (1 << VSLOT_LAYER)) > 0 {
-		slot.Layer = unpack.Int()
+		p.GetRaw(&slot.Layer)
 	}
 
 	if (changed & (1 << VSLOT_ALPHA)) > 0 {
-		unpack.Float()
-		unpack.Float()
+		p.GetRaw(
+			&slot.AlphaFront,
+			&slot.AlphaBack,
+		)
 	}
 
 	if (changed & (1 << VSLOT_COLOR)) > 0 {
-		for k := 0; k < 3; k++ {
-			unpack.Float()
-		}
+		p.GetRaw(
+			&slot.ColorScale.X,
+			&slot.ColorScale.Y,
+			&slot.ColorScale.Z,
+		)
 	}
 
 	return nil
 }
 
-func LoadVSlots(unpack *Unpacker, numVSlots int32) ([]*VSlot, error) {
+func LoadVSlots(p *game.Packet, numVSlots int32) ([]*VSlot, error) {
 	leftToRead := numVSlots
 
 	vslots := make([]*VSlot, 0)
@@ -364,16 +432,17 @@ func LoadVSlots(unpack *Unpacker, numVSlots int32) ([]*VSlot, error) {
 	}
 
 	for leftToRead > 0 {
-		changed := unpack.Int()
+		changed, _ := GetInt(p)
 		if changed < 0 {
 			for i := 0; i < int(-1*changed); i++ {
 				addSlot()
 			}
 			leftToRead += changed
 		} else {
-			prev[len(vslots)] = unpack.Int()
+			prevValue, _ := GetInt(p)
+			prev[len(vslots)] = prevValue
 			slot := addSlot()
-			LoadVSlot(unpack, slot, changed)
+			LoadVSlot(p, slot, changed)
 			leftToRead--
 		}
 	}
@@ -384,12 +453,12 @@ func LoadVSlots(unpack *Unpacker, numVSlots int32) ([]*VSlot, error) {
 }
 
 func Decode(data []byte) (*GameMap, error) {
+	p := game.Packet(data)
+
 	gameMap := GameMap{}
-	reader := bytes.NewReader(data)
-	unpack := NewUnpacker(reader)
 
 	header := FileHeader{}
-	err := unpack.Read(&header)
+	err := p.GetRaw(&header)
 	if err != nil {
 		return nil, err
 	}
@@ -397,8 +466,8 @@ func Decode(data []byte) (*GameMap, error) {
 	newFooter := NewFooter{}
 	oldFooter := OldFooter{}
 	if header.Version <= 28 {
-		reader.Seek(28, io.SeekStart) // 7 * 4, like in worldio.cpp
-		err = unpack.Read(&oldFooter)
+		p.Skip(28) // 7 * 4, like in worldio.cpp
+		err = p.GetRaw(&oldFooter)
 		if err != nil {
 			return nil, err
 		}
@@ -407,7 +476,8 @@ func Decode(data []byte) (*GameMap, error) {
 		newFooter.NumVars = 0
 		newFooter.NumVSlots = 0
 	} else {
-		unpack.Read(&newFooter)
+		q := p
+		p.GetRaw(&newFooter)
 
 		if header.Version <= 29 {
 			newFooter.NumVSlots = 0
@@ -415,12 +485,11 @@ func Decode(data []byte) (*GameMap, error) {
 
 		// v29 had one fewer field
 		if header.Version == 29 {
-			reader.Seek(-4, io.SeekCurrent)
+			p = q[len(q)-len(p)-4:]
 		}
 	}
 
 	mapHeader := Header{}
-
 	mapHeader.Version = header.Version
 	mapHeader.HeaderSize = header.HeaderSize
 	mapHeader.WorldSize = header.WorldSize
@@ -436,20 +505,20 @@ func Decode(data []byte) (*GameMap, error) {
 
 	// These are apparently arbitrary Sauerbraten variables a map can set
 	for i := 0; i < int(newFooter.NumVars); i++ {
-		_type := unpack.Char()
-		name := unpack.String()
+		_type, _ := p.GetByte()
+		name, _ := GetString(&p)
 
 		switch VariableType(_type) {
 		case VariableTypeInt:
-			value := unpack.Int()
+			value, _ := p.GetInt()
 			gameMap.Vars[name] = IntVariable(value)
 			//log.Printf("%s=%d", name, value)
 		case VariableTypeFloat:
-			value := unpack.Float()
+			value, _ := GetFloat(&p)
 			gameMap.Vars[name] = FloatVariable(value)
 			//log.Printf("%s=%f", name, value)
 		case VariableTypeString:
-			value := unpack.String()
+			value, _ := GetString(&p)
 			gameMap.Vars[name] = StringVariable(value)
 			//log.Printf("%s=%s", name, value)
 		}
@@ -457,7 +526,7 @@ func Decode(data []byte) (*GameMap, error) {
 
 	gameType := "fps"
 	if header.Version >= 16 {
-		gameType = unpack.StringByte()
+		gameType, _ = GetStringByte(&p)
 	}
 	//log.Printf("GameType %s", gameType)
 
@@ -466,17 +535,24 @@ func Decode(data []byte) (*GameMap, error) {
 	// We just skip extras
 	var eif uint16 = 0
 	if header.Version >= 16 {
-		eif = unpack.Short()
-		extraBytes := unpack.Short()
-		unpack.Skip(int64(extraBytes))
+		var extraBytes uint16
+		err = p.GetRaw(
+			&eif,
+			&extraBytes,
+		)
+		if err != nil {
+			return nil, err
+		}
+		p.Skip(int(extraBytes))
 	}
 
 	// Also skip the texture MRU
 	if header.Version < 14 {
-		unpack.Skip(256)
+		p.Skip(256)
 	} else {
-		numMRUBytes := unpack.Short()
-		unpack.Skip(int64(numMRUBytes * 2))
+		var extraBytes uint16
+		numMRUBytes, _ := GetShort(&p)
+		p.Skip(int(numMRUBytes * 2))
 	}
 
 	entities := make([]Entity, header.NumEnts)
@@ -484,12 +560,11 @@ func Decode(data []byte) (*GameMap, error) {
 	// Load entities
 	for i := 0; i < int(header.NumEnts); i++ {
 		entity := Entity{}
-
-		unpack.Read(&entity)
+		p.GetRaw(&entity)
 
 		if gameType != "fps" {
 			if eif > 0 {
-				unpack.Skip(int64(eif))
+				p.Skip(int(eif))
 			}
 		}
 
@@ -515,7 +590,7 @@ func Decode(data []byte) (*GameMap, error) {
 
 	gameMap.Entities = entities
 
-	vSlotData, err := LoadVSlots(unpack, newFooter.NumVSlots)
+	vSlotData, err := LoadVSlots(&p, newFooter.NumVSlots)
 	gameMap.VSlots = vSlotData
 
 	cube, err := LoadChildren(unpack, header.Version)
@@ -526,7 +601,6 @@ func Decode(data []byte) (*GameMap, error) {
 	gameMap.Cubes = cube
 
 	return &gameMap, nil
-	return nil, nil
 }
 
 func FromGZ(data []byte) (*GameMap, error) {

@@ -179,11 +179,38 @@ type Cube struct {
 	Escaped     byte
 }
 
+type SlotShaderParam struct {
+	Name string
+	Loc  int32
+	Val  [4]float32
+}
+
+type Vec2 struct {
+	X float32
+	Y float32
+}
+
+type IVec2 struct {
+	X int32
+	Y int32
+}
+
 type VSlot struct {
 	Index   int32
 	Changed int32
 	Layer   int32
 	Next    *VSlot
+
+	Params []SlotShaderParam
+	Linked bool
+	Scale float32
+	Rotation int32
+	Offset IVec2
+	Scroll Vec2
+	AlphaFront float32
+	AlphaBack float32
+	ColorScale Vector
+	GlowColor Vector
 }
 
 type IntVariable int32
