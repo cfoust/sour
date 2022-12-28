@@ -73,6 +73,16 @@ type Entity struct {
 	Reserved byte
 }
 
+const (
+	LMID_AMBIENT byte = 0
+	LMID_AMBIENT1
+	LMID_BRIGHT
+	LMID_BRIGHT1
+	LMID_DARK
+	LMID_DARK1
+	LMID_RESERVED
+)
+
 type SurfaceInfo struct {
 	Lmid     [2]byte
 	Verts    byte

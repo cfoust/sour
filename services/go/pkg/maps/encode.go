@@ -19,11 +19,67 @@ func saveVSlot(p *game.Packet, vs *VSlot, prev int32) error {
 
 	if (vs.Changed & (1 << VSLOT_SHPARAM)) > 0 {
 		err := p.PutRaw(
-		//uint16(len(vs.Params)),
+			uint16(len(vs.Params)),
 		)
 		if err != nil {
 			return err
 		}
+
+		for _, param := range vs.Params {
+			err := p.PutRaw(
+				uint16(len(param.Name)),
+				[]byte(param.Name),
+				param.Val[0],
+				param.Val[1],
+				param.Val[2],
+				param.Val[3],
+			)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	changed := vs.Changed
+	if (changed & (1 << VSLOT_SCALE)) > 0 {
+		p.PutRaw(&vs.Scale)
+	}
+
+	if (changed & (1 << VSLOT_ROTATION)) > 0 {
+		p.PutRaw(&vs.Rotation)
+	}
+
+	if (changed & (1 << VSLOT_OFFSET)) > 0 {
+		p.PutRaw(
+			&vs.Offset.X,
+			&vs.Offset.Y,
+		)
+	}
+
+	if (changed & (1 << VSLOT_SCROLL)) > 0 {
+		p.PutRaw(
+			&vs.Scroll.X,
+			&vs.Scroll.Y,
+		)
+	}
+
+	if (changed & (1 << VSLOT_LAYER)) > 0 {
+		p.PutRaw(&vs.Layer)
+	}
+
+	if (changed & (1 << VSLOT_ALPHA)) > 0 {
+		p.PutRaw(
+			&vs.AlphaFront,
+			&vs.AlphaBack,
+		)
+	}
+
+	if (changed & (1 << VSLOT_COLOR)) > 0 {
+		p.PutRaw(
+			&vs.ColorScale.X,
+			&vs.ColorScale.Y,
+			&vs.ColorScale.Z,
+		)
 	}
 
 	return nil
@@ -38,7 +94,6 @@ func saveVSlots(p *game.Packet, slots []*VSlot) error {
 	// worldio.cpp:785
 
 	prev := make([]int32, numVSlots)
-
 	for i := 0; i < numVSlots; i++ {
 		prev[i] = -1
 	}

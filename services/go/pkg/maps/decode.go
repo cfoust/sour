@@ -67,7 +67,7 @@ func GetStringByte(p *game.Packet) (string, bool) {
 }
 
 func convertOldMaterial(mat uint16) uint16 {
-	return ((mat&7)<<MATF_VOLUME_SHIFT) | (((mat>>3)&3)<<MATF_CLIP_SHIFT) | (((mat>>5)&7)<<MATF_FLAG_SHIFT);
+	return ((mat & 7) << MATF_VOLUME_SHIFT) | (((mat >> 3) & 3) << MATF_CLIP_SHIFT) | (((mat >> 5) & 7) << MATF_FLAG_SHIFT)
 }
 
 func LoadCube(p *game.Packet, cube *Cube, mapVersion int32) error {
@@ -148,13 +148,37 @@ func LoadCube(p *game.Packet, cube *Cube, mapVersion int32) error {
 		merges := make([]MergeCompat, 6)
 
 		var numSurfaces = 6
+		var hasSurfs uint32
+		var hasNorms uint32
+		//var hasMerges uint32
 		if (mask & 0x3F) > 0 {
 			for i := 0; i < numSurfaces; i++ {
 				if i >= 6 || mask&(1<<i) > 0 {
-					p.GetRaw(&surfaces[i])
+					surface := &surfaces[i]
+					p.GetRaw(surface)
+					if mapVersion < 10 {
+						surface.Lmid++
+					}
+					if mapVersion < 18 {
+						if surface.Lmid >= LMID_AMBIENT1 {
+							surface.Lmid++
+						}
+						if surface.Lmid >= LMID_BRIGHT1 {
+							surface.Lmid++
+						}
+					}
+					if mapVersion < 19 {
+						if surface.Lmid >= LMID_DARK {
+							surface.Lmid += 2
+						}
+					}
 					if i < 6 {
 						if (mask & 0x40) > 0 {
+							hasNorms |= 1 << i
 							p.GetRaw(&normals[i])
+						}
+						if surface.Layer != 0 || surface.Lmid != LMID_AMBIENT {
+							hasSurfs |= 1 << i
 						}
 						if (surfaces[i].Layer & 2) > 0 {
 							numSurfaces++
@@ -162,6 +186,10 @@ func LoadCube(p *game.Packet, cube *Cube, mapVersion int32) error {
 					}
 				}
 			}
+		}
+
+		if mapVersion <= 8 {
+			// TODO edgespan2vectorcube
 		}
 
 		if mapVersion >= 20 && (octsav&0x80) > 0 {
@@ -380,13 +408,13 @@ func LoadVSlot(p *game.Packet, slot *VSlot, changed int32) error {
 func LoadVSlots(p *game.Packet, numVSlots int32) ([]*VSlot, error) {
 	leftToRead := numVSlots
 
-	vslots := make([]*VSlot, 0)
+	vSlots := make([]*VSlot, 0)
 	prev := make([]int32, numVSlots)
 
 	addSlot := func() *VSlot {
 		vslot := VSlot{}
-		vslot.Index = int32(len(vslots))
-		vslots = append(vslots, &vslot)
+		vslot.Index = int32(len(vSlots))
+		vSlots = append(vSlots, &vslot)
 		return &vslot
 	}
 
@@ -399,16 +427,21 @@ func LoadVSlots(p *game.Packet, numVSlots int32) ([]*VSlot, error) {
 			leftToRead += changed
 		} else {
 			prevValue, _ := GetInt(p)
-			prev[len(vslots)] = prevValue
+			prev[len(vSlots)] = prevValue
 			slot := addSlot()
 			LoadVSlot(p, slot, changed)
 			leftToRead--
 		}
 	}
 
-	//loopv(vslots) if(vslots.inrange(prev[i])) vslots[prev[i]]->next = vslots[i];
+	for i, slot := range vSlots {
+		other := prev[i]
+		if other >= 0 && int(other) < len(prev) {
+			 vSlots[other].Next = slot
+		}
+	}
 
-	return vslots, nil
+	return vSlots, nil
 }
 
 func Decode(data []byte) (*GameMap, error) {
@@ -553,6 +586,9 @@ func Decode(data []byte) (*GameMap, error) {
 
 	vSlotData, err := LoadVSlots(&p, newFooter.NumVSlots)
 	gameMap.VSlots = vSlotData
+	for _, slot := range vSlotData {
+		log.Info().Msgf("%+v", slot)
+	}
 
 	cube, err := LoadChildren(&p, header.Version)
 	if err != nil {
