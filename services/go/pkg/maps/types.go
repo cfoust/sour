@@ -169,6 +169,11 @@ const (
 	VSLOT_NUM           = iota
 )
 
+const (
+	F_EMPTY uint32 = 0
+	F_SOLID        = 0x80808080
+)
+
 type Cube struct {
 	Children    *[]Cube
 	SurfaceInfo [6]SurfaceInfo
@@ -177,6 +182,46 @@ type Cube struct {
 	Material    uint16
 	Merged      byte
 	Escaped     byte
+}
+
+func (c *Cube) GetFace(n int) uint32 {
+	i := n * 4
+	return uint32(c.Edges[i])<<3 +
+		uint32(c.Edges[i+1])<<2 +
+		uint32(c.Edges[i+2])<<1 +
+		uint32(c.Edges[i+3])
+}
+
+func (c *Cube) SetFace(n int, val uint32) {
+	i := n * 4
+	c.Edges[i] = byte(val >> 3)
+	c.Edges[i+1] = byte(val >> 2)
+	c.Edges[i+2] = byte(val >> 1)
+	c.Edges[i+3] = byte(val)
+}
+
+func (c *Cube) IsEmpty() bool {
+	return c.GetFace(0) == F_EMPTY
+}
+
+func (c *Cube) IsEntirelySolid() bool {
+	return c.GetFace(0) == F_SOLID &&
+		c.GetFace(1) == F_SOLID &&
+		c.GetFace(2) == F_SOLID
+}
+
+func (c *Cube) SetFaces(val uint32) {
+	c.SetFace(0, val)
+	c.SetFace(1, val)
+	c.SetFace(2, val)
+}
+
+func (c *Cube) SolidFaces() {
+	c.SetFaces(F_SOLID)
+}
+
+func (c *Cube) EmptyFaces() {
+	c.SetFaces(F_EMPTY)
 }
 
 type SlotShaderParam struct {
@@ -201,16 +246,16 @@ type VSlot struct {
 	Layer   int32
 	Next    *VSlot
 
-	Params []SlotShaderParam
-	Linked bool
-	Scale float32
-	Rotation int32
-	Offset IVec2
-	Scroll Vec2
+	Params     []SlotShaderParam
+	Linked     bool
+	Scale      float32
+	Rotation   int32
+	Offset     IVec2
+	Scroll     Vec2
 	AlphaFront float32
-	AlphaBack float32
+	AlphaBack  float32
 	ColorScale Vector
-	GlowColor Vector
+	GlowColor  Vector
 }
 
 type IntVariable int32

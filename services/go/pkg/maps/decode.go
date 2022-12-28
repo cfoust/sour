@@ -86,10 +86,10 @@ func LoadCube(p *game.Packet, cube *Cube, mapVersion int32) error {
 		hasChildren = true
 		break
 	case OCTSAV_EMPTY:
-		// TODO emptyfaces
+		cube.EmptyFaces()
 		break
 	case OCTSAV_SOLID:
-		// TODO solidfaces
+		cube.SolidFaces()
 		break
 	case OCTSAV_NORMAL:
 		p.GetRaw(&cube.Edges)
