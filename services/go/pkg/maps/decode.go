@@ -129,17 +129,17 @@ func (unpack *Unpacker) Tell() int64 {
 	return pos
 }
 
-func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
+func LoadCube(p *game.Packet, cube *Cube, mapVersion int32) error {
 	//log.Printf("pos=%d", unpack.Tell())
 
 	var hasChildren = false
-	octsav := unpack.Char()
+	octsav, _ := p.GetByte()
 
 	//fmt.Printf("pos %d octsav %d\n", unpack.Tell(), octsav&0x7)
 
 	switch octsav & 0x7 {
 	case OCTSAV_CHILDREN:
-		children, err := LoadChildren(unpack, mapVersion)
+		children, err := LoadChildren(p, mapVersion)
 		if err != nil {
 			return err
 		}
@@ -155,7 +155,7 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 		// TODO solidfaces
 		break
 	case OCTSAV_NORMAL:
-		unpack.Read(&cube.Edges)
+		p.GetRaw(&cube.Edges)
 		break
 	}
 
@@ -166,22 +166,22 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 
 	for i := 0; i < 6; i++ {
 		if mapVersion < 14 {
-			texture := unpack.Char()
+			texture, _ := p.GetByte()
 			cube.Texture[i] = uint16(texture)
 		} else {
-			texture := unpack.Short()
+			texture, _ := GetShort(p)
 			cube.Texture[i] = texture
 		}
 		//log.Printf("Texture[%d]=%d", i, cube.Texture[i])
 	}
 
 	if mapVersion < 7 {
-		unpack.Skip(3)
+		p.Skip(3)
 	} else if mapVersion <= 31 {
-		mask := unpack.Char()
+		mask, _ := p.GetByte()
 
 		if (mask & 0x80) > 0 {
-			unpack.Skip(1)
+			p.Skip(1)
 		}
 
 		surfaces := make([]SurfaceCompat, 12)
@@ -192,10 +192,10 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 		if (mask & 0x3F) > 0 {
 			for i := 0; i < numSurfaces; i++ {
 				if i >= 6 || mask&(1<<i) > 0 {
-					unpack.Read(&surfaces[i])
+					p.GetRaw(&surfaces[i])
 					if i < 6 {
 						if (mask & 0x40) > 0 {
-							unpack.Read(&normals[i])
+							p.GetRaw(&normals[i])
 						}
 						if (surfaces[i].Layer & 2) > 0 {
 							numSurfaces++
@@ -206,14 +206,14 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 		}
 
 		if mapVersion >= 20 && (octsav&0x80) > 0 {
-			merged := unpack.Char()
+			merged, _ := p.GetByte()
 			cube.Merged = merged & 0x3F
 			if (merged & 0x80) > 0 {
-				mask := unpack.Char()
+				mask, _ := p.GetByte()
 				if mask > 0 {
 					for i := 0; i < 6; i++ {
 						if (mask & (1 << i)) > 0 {
-							unpack.Read(&merges[i])
+							p.GetRaw(&merges[i])
 						}
 					}
 				}
@@ -223,9 +223,9 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 		// TODO material
 		if (octsav & 0x40) > 0 {
 			if mapVersion <= 32 {
-				unpack.Char()
+				p.GetByte()
 			} else {
-				unpack.Short()
+				GetShort(p)
 			}
 		}
 
@@ -233,12 +233,12 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 
 		// TODO merged
 		if (octsav & 0x80) > 0 {
-			unpack.Char()
+			p.GetByte()
 		}
 
 		if (octsav & 0x20) > 0 {
-			surfMask := unpack.Char()
-			unpack.Char() // totalVerts
+			surfMask, _ := p.GetByte()
+			p.GetByte() // totalVerts
 
 			surfaces := make([]SurfaceInfo, 6)
 			var offset byte
@@ -248,7 +248,7 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 					continue
 				}
 
-				unpack.Read(&surfaces[i])
+				p.GetRaw(&surfaces[i])
 				//fmt.Printf("%d %d %d %d\n", surfaces[i].Lmid[0], surfaces[i].Lmid[1], surfaces[i].Verts, surfaces[i].NumVerts)
 				vertMask := surfaces[i].Verts
 				numVerts := surfaces[i].TotalVerts()
@@ -271,25 +271,25 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 
 				if layerVerts == 4 {
 					if hasXYZ && (vertMask&0x01) > 0 {
-						unpack.Short()
-						unpack.Short()
-						unpack.Short()
-						unpack.Short()
+						GetShort(p)
+						GetShort(p)
+						GetShort(p)
+						GetShort(p)
 						hasXYZ = false
 					}
 
 					//fmt.Printf("b-1 %d\n", unpack.Tell())
 					if hasUV && (vertMask&0x02) > 0 {
-						unpack.Short()
-						unpack.Short()
-						unpack.Short()
-						unpack.Short()
+						GetShort(p)
+						GetShort(p)
+						GetShort(p)
+						GetShort(p)
 
 						if (surfaces[i].NumVerts & LAYER_DUP) > 0 {
-							unpack.Short()
-							unpack.Short()
-							unpack.Short()
-							unpack.Short()
+							GetShort(p)
+							GetShort(p)
+							GetShort(p)
+							GetShort(p)
 						}
 
 						hasUV = false
@@ -300,24 +300,24 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 				//fmt.Printf("c %d\n", unpack.Tell())
 
 				if hasNorm && (vertMask&0x08) > 0 {
-					unpack.Short()
+					GetShort(p)
 					hasNorm = false
 				}
 
 				if hasXYZ || hasUV || hasNorm {
 					for k := 0; k < int(layerVerts); k++ {
 						if hasXYZ {
-							unpack.Short()
-							unpack.Short()
+							GetShort(p)
+							GetShort(p)
 						}
 
 						if hasUV {
-							unpack.Short()
-							unpack.Short()
+							GetShort(p)
+							GetShort(p)
 						}
 
 						if hasNorm {
-							unpack.Short()
+							GetShort(p)
 						}
 					}
 				}
@@ -325,8 +325,8 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 				if (surfaces[i].NumVerts & LAYER_DUP) > 0 {
 					for k := 0; k < int(layerVerts); k++ {
 						if hasUV {
-							unpack.Short()
-							unpack.Short()
+							GetShort(p)
+							GetShort(p)
 						}
 					}
 				}
@@ -335,18 +335,18 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 	}
 
 	if hasChildren {
-		children, _ := LoadChildren(unpack, mapVersion)
+		children, _ := LoadChildren(p, mapVersion)
 		cube.Children = &children
 	}
 
 	return nil
 }
 
-func LoadChildren(unpack *Unpacker, mapVersion int32) ([]Cube, error) {
+func LoadChildren(p *game.Packet, mapVersion int32) ([]Cube, error) {
 	children := make([]Cube, CUBE_FACTOR)
 
 	for i := 0; i < CUBE_FACTOR; i++ {
-		err := LoadCube(unpack, &children[i], mapVersion)
+		err := LoadCube(p, &children[i], mapVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -550,7 +550,6 @@ func Decode(data []byte) (*GameMap, error) {
 	if header.Version < 14 {
 		p.Skip(256)
 	} else {
-		var extraBytes uint16
 		numMRUBytes, _ := GetShort(&p)
 		p.Skip(int(numMRUBytes * 2))
 	}
@@ -593,7 +592,7 @@ func Decode(data []byte) (*GameMap, error) {
 	vSlotData, err := LoadVSlots(&p, newFooter.NumVSlots)
 	gameMap.VSlots = vSlotData
 
-	cube, err := LoadChildren(unpack, header.Version)
+	cube, err := LoadChildren(&p, header.Version)
 	if err != nil {
 		return nil, err
 	}
