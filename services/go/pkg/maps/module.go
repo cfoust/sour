@@ -6,10 +6,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"log"
 	"os"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/rs/zerolog/log"
 )
 
 type Header struct {
@@ -336,6 +336,7 @@ func NewMap() *GameMap {
 	return &GameMap{
 		Entities: make([]Entity, 0),
 		Cubes:    make([]Cube, 8),
+		Vars:     make(map[string]Variable),
 		VSlots: VSlotData{
 			Slots:    make([]*VSlot, 0),
 			Previous: make([]int32, 0),
@@ -368,7 +369,15 @@ func (m *GameMap) Encode() ([]byte, error) {
 		return p, err
 	}
 
+	defaults := GetDefaultVariables()
+
 	for key, variable := range m.Vars {
+		defaultValue, defaultExists := defaults[key]
+		if !defaultExists || defaultValue.Type() != variable.Type() {
+			log.
+				Warn().
+				Msgf("variable %s is not a valid map variable or invalid type", key)
+		}
 		err = p.PutRaw(
 			byte(variable.Type()),
 			uint16(len(key)),
@@ -398,48 +407,15 @@ func (m *GameMap) Encode() ([]byte, error) {
 	return p, nil
 }
 
-func MakeMap(mapTitle string) ([]byte, error) {
-	p := game.Packet{}
-
-	fileHeader := FileHeader{
-		Magic:      [4]byte{byte('O'), byte('C'), byte('T'), byte('A')},
-		Version:    33,
-		HeaderSize: 40,
-		WorldSize:  1024,
-		NumEnts:    0,
-		NumPVs:     0,
-		LightMaps:  0,
-	}
-	footer := NewFooter{
-		BlendMap:  0,
-		NumVars:   1,
-		NumVSlots: 0,
-	}
-	err := p.PutRaw(
-		fileHeader,
-		footer,
-	)
+func (m *GameMap) EncodeOGZ() ([]byte, error) {
+	data, err := m.Encode()
 	if err != nil {
-		return nil, err
-	}
-
-	// Now write var
-	key := "maptitle"
-	value := mapTitle
-	err = p.PutRaw(
-		byte(VariableTypeString),
-		uint16(len(key)),
-		[]byte(key),
-		uint16(len(value)),
-		[]byte(value),
-	)
-	if err != nil {
-		return nil, err
+		return data, err
 	}
 
 	var buffer bytes.Buffer
 	gz := gzip.NewWriter(&buffer)
-	_, err = gz.Write(p)
+	_, err = gz.Write(data)
 	if err != nil {
 		return nil, err
 	}
@@ -541,7 +517,7 @@ func LoadCube(unpack *Unpacker, cube *Cube, mapVersion int32) error {
 	}
 
 	if (octsav & 0x7) > 4 {
-		log.Fatal("Map had invalid octsav")
+		log.Fatal().Msg("Map had invalid octsav")
 		return errors.New("Map had invalid octsav")
 	}
 
@@ -828,13 +804,13 @@ func LoadMap(filename string) (*GameMap, error) {
 	file, err := os.Open(filename)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("could not open file")
 	}
 
 	gz, err := gzip.NewReader(file)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("could not read gzip")
 	}
 
 	defer file.Close()
