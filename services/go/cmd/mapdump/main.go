@@ -1192,7 +1192,7 @@ func main() {
 		log.Fatal("Map must end in .ogz")
 	}
 
-	_map, err := maps.LoadMap(filename)
+	_map, err := maps.FromFile(filename)
 
 	if err != nil {
 		log.Fatal("Failed to parse map file")

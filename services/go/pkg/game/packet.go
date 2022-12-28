@@ -85,6 +85,14 @@ func (p *Packet) Read(n []byte) (int, error) {
 	return len(n), nil
 }
 
+func (p *Packet) Skip(n int) bool {
+	if n > len(*p) {
+		return false
+	}
+	(*p) = (*p)[n:]
+	return true
+}
+
 func (p *Packet) GetByte() (byte, bool) {
 	if len(*p) < 1 {
 		return 0, false
