@@ -11,18 +11,9 @@ struct cube
 {
     cube *children;          // points to 8 cube structures which are its children, or NULL. -Z first, then -Y, -X
     cubeext *ext;            // extended info for the cube
-    union
-    {
-        uchar edges[12];     // edges of the cube, each uchar is 2 4bit values denoting the range.
-                             // see documentation jpgs for more info.
-        uint faces[3];       // 4 edges of each dimension together representing 2 perpendicular faces
-    };
+    uchar edges[12];     // edges of the cube, each uchar is 2 4bit values denoting the range.
     ushort texture[6];       // one for each face. same order as orient.
     ushort material;         // empty-space material
     uchar merged;            // merged faces of the cube
-    union
-    {
-        uchar escaped;       // mask of which children have escaped merges
-        uchar visible;       // visibility info for faces
-    };
+    uchar escaped;       // mask of which children have escaped merges
 };
