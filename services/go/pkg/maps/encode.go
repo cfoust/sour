@@ -136,6 +136,28 @@ func saveVSlots(p *game.Packet, slots []*VSlot) error {
 	return nil
 }
 
+func saveCube(p *game.Packet, cubes []*Cube) error {
+	for _, c := range cubes {
+		if len(c.Children) > 0 {
+			p.PutRaw(byte(OCTSAV_CHILDREN))
+			err := saveCube(p, c.Children)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		var oFlags int32 = 0
+		//var surfMask int32 = 0
+		if (c.Material == MAT_AIR) {
+			oFlags |= 0x40
+		}
+		if (c.IsEmpty()) {
+			p.PutRaw(byte(oFlags | OCTSAV_EMPTY))
+		}
+	}
+	return nil
+}
+
 func (m *GameMap) Encode() ([]byte, error) {
 	p := game.Packet{}
 

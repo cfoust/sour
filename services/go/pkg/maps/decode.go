@@ -80,11 +80,11 @@ func LoadCube(p *game.Packet, cube *Cube, mapVersion int32) error {
 
 	switch octsav & 0x7 {
 	case OCTSAV_CHILDREN:
-		children, err := LoadChildren(p, mapVersion)
+		parent, err := LoadChildren(p, mapVersion)
 		if err != nil {
 			return err
 		}
-		cube.Children = &children
+		cube.Children = parent.Children
 		return nil
 	case OCTSAV_LODCUB:
 		hasChildren = true
@@ -322,24 +322,27 @@ func LoadCube(p *game.Packet, cube *Cube, mapVersion int32) error {
 	}
 
 	if hasChildren {
-		children, _ := LoadChildren(p, mapVersion)
-		cube.Children = &children
+		parent, err := LoadChildren(p, mapVersion)
+		if err != nil {
+			return err
+		}
+		cube.Children = parent.Children
 	}
 
 	return nil
 }
 
-func LoadChildren(p *game.Packet, mapVersion int32) ([]Cube, error) {
-	children := make([]Cube, CUBE_FACTOR)
+func LoadChildren(p *game.Packet, mapVersion int32) (*Cube, error) {
+	cube := NewCubes(F_EMPTY, MAT_AIR)
 
 	for i := 0; i < CUBE_FACTOR; i++ {
-		err := LoadCube(p, &children[i], mapVersion)
+		err := LoadCube(p, cube.Children[i], mapVersion)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return children, nil
+	return cube, nil
 }
 
 func LoadVSlot(p *game.Packet, slot *VSlot, changed int32) error {
@@ -437,7 +440,7 @@ func LoadVSlots(p *game.Packet, numVSlots int32) ([]*VSlot, error) {
 	for i, slot := range vSlots {
 		other := prev[i]
 		if other >= 0 && int(other) < len(prev) {
-			 vSlots[other].Next = slot
+			vSlots[other].Next = slot
 		}
 	}
 
@@ -595,7 +598,7 @@ func Decode(data []byte) (*GameMap, error) {
 		return nil, err
 	}
 
-	gameMap.Cubes = cube
+	gameMap.WorldRoot = cube
 
 	return &gameMap, nil
 }

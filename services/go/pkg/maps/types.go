@@ -207,14 +207,39 @@ const (
 	F_SOLID        = 0x80808080
 )
 
+// hardcoded texture numbers
+const (
+	DEFAULT_SKY = 0
+	DEFAULT_GEOM
+)
+
 type Cube struct {
-	Children    *[]Cube
+	Children    []*Cube
 	SurfaceInfo [6]SurfaceInfo
 	Edges       [12]byte
 	Texture     [6]uint16
 	Material    uint16
 	Merged      byte
 	Escaped     byte
+}
+
+func NewCubes(face uint32, mat uint16) *Cube {
+	cubes := make([]*Cube, CUBE_FACTOR)
+	for i, _ := range cubes {
+		cube := Cube{
+			Children: make([]*Cube, 0),
+		}
+		cube.SetFaces(face)
+		for i, _ := range cube.Texture {
+			cube.Texture[i] = DEFAULT_GEOM
+		}
+		cube.Material = mat
+		cubes[i] = &cube
+	}
+
+	return &Cube{
+		Children: &cubes,
+	}
 }
 
 func (c *Cube) GetFace(n int) uint32 {
@@ -428,11 +453,11 @@ func GetDefaultVariables() map[string]Variable {
 }
 
 type GameMap struct {
-	Header   Header
-	Entities []Entity
-	Vars     map[string]Variable
-	Cubes    []Cube
-	VSlots   []*VSlot
+	Header    Header
+	Entities  []Entity
+	Vars      map[string]Variable
+	WorldRoot *Cube
+	VSlots    []*VSlot
 }
 
 func NewMap() *GameMap {
