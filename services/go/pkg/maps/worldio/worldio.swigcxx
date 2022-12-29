@@ -1,0 +1,6 @@
+%module worldio
+%{
+#include "worldio.h"
+%}
+%include "worldio.h"
+

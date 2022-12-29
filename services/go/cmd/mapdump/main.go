@@ -30,9 +30,9 @@ func Find[T any](handler func(x T) bool) func(list []T) opt.Option[T] {
 	}
 }
 
-func CountTextures(cube maps.Cube, target map[int32]int) {
+func CountTextures(cube *maps.Cube, target map[int32]int) {
 	if cube.Children != nil {
-		CountChildTextures(*cube.Children, target)
+		CountChildTextures(cube.Children, target)
 		return
 	}
 
@@ -42,13 +42,13 @@ func CountTextures(cube maps.Cube, target map[int32]int) {
 	}
 }
 
-func CountChildTextures(cubes []maps.Cube, target map[int32]int) {
+func CountChildTextures(cubes []*maps.Cube, target map[int32]int) {
 	for i := 0; i < 8; i++ {
 		CountTextures(cubes[i], target)
 	}
 }
 
-func GetChildTextures(cubes []maps.Cube, vslots []*VSlot) map[int32]int {
+func GetChildTextures(cubes []*maps.Cube, vslots []*VSlot) map[int32]int {
 	vSlotRefs := make(map[int32]int)
 	CountChildTextures(cubes, vSlotRefs)
 
@@ -1358,7 +1358,7 @@ func main() {
 		}
 	}
 
-	textureRefs := GetChildTextures(_map.Cubes, processor.VSlots)
+	textureRefs := GetChildTextures(_map.WorldRoot.Children, processor.VSlots)
 
 	for i, slot := range processor.Slots {
 		if _, ok := textureRefs[int32(i)]; ok {

@@ -238,7 +238,7 @@ func NewCubes(face uint32, mat uint16) *Cube {
 	}
 
 	return &Cube{
-		Children: &cubes,
+		Children: cubes,
 	}
 }
 
@@ -468,9 +468,9 @@ func NewMap() *GameMap {
 			HeaderSize: 40,
 			WorldSize:  1024,
 		},
-		Entities: make([]Entity, 0),
-		Cubes:    make([]Cube, 8),
-		Vars:     make(map[string]Variable),
-		VSlots:   make([]*VSlot, 0),
+		Entities:  make([]Entity, 0),
+		WorldRoot: NewCubes(F_EMPTY, MAT_AIR),
+		Vars:      make(map[string]Variable),
+		VSlots:    make([]*VSlot, 0),
 	}
 }

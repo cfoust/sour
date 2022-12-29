@@ -6,8 +6,11 @@ import (
 	"errors"
 	"io"
 	"os"
+	"unsafe"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/maps/worldio"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -592,6 +595,9 @@ func Decode(data []byte) (*GameMap, error) {
 	for _, slot := range vSlotData {
 		log.Info().Msgf("%+v", slot)
 	}
+
+	inbuf := make([]byte, 120)
+	worldio.Loadchildren_buf(uintptr(unsafe.Pointer(&inbuf[0])), int64(len(inbuf)))
 
 	cube, err := LoadChildren(&p, header.Version)
 	if err != nil {
