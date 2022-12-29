@@ -351,8 +351,42 @@ func LoadChildren(p *game.Packet, mapVersion int32) (*Cube, error) {
 func PrintCube(c *worldio.Cube) {
 }
 
+//type Cube interface {
+	//Swigcptr() uintptr
+	//SwigIsCube()
+	//SetChildren(arg2 Cube)
+	//GetChildren() (_swig_ret Cube)
+	//SetExt(arg2 Cubeext)
+	//GetExt() (_swig_ret Cubeext)
+	//SetEdges(arg2 *byte)
+	//GetEdges() (_swig_ret *byte)
+	//SetFaces(arg2 *uint)
+	//GetFaces() (_swig_ret *uint)
+	//SetTexture(arg2 *uint16)
+	//GetTexture() (_swig_ret *uint16)
+	//SetMaterial(arg2 uint16)
+	//GetMaterial() (_swig_ret uint16)
+	//SetMerged(arg2 byte)
+	//GetMerged() (_swig_ret byte)
+	//SetEscaped(arg2 byte)
+	//GetEscaped() (_swig_ret byte)
+	//SetVisible(arg2 byte)
+	//GetVisible() (_swig_ret byte)
+//}
+
+func ConvertToGo(cCube worldio.Cube) *Cube {
+	cube := Cube{}
+
+	if cCube.GetChildren().Swigcptr() != 0 {
+		log.Info().Msg("has children")
+	}
+
+	return &cube
+}
+
 func LoadChildrenCube(p *game.Packet, mapVersion int32) (*Cube, error) {
 	out := worldio.Loadchildren_buf(uintptr(unsafe.Pointer(&(*p)[0])), int64(len(*p)))
+	ConvertToGo(out)
 	log.Info().Msgf("%+v %d", out, *out.GetTexture())
 	return nil, nil
 }
