@@ -592,12 +592,9 @@ func Decode(data []byte) (*GameMap, error) {
 
 	vSlotData, err := LoadVSlots(&p, newFooter.NumVSlots)
 	gameMap.VSlots = vSlotData
-	for _, slot := range vSlotData {
-		log.Info().Msgf("%+v", slot)
-	}
 
-	inbuf := make([]byte, 120)
-	worldio.Loadchildren_buf(uintptr(unsafe.Pointer(&inbuf[0])), int64(len(inbuf)))
+	out := worldio.Loadchildren_buf(uintptr(unsafe.Pointer(&p[0])), int64(len(p)))
+	log.Info().Msgf("%+v", out)
 
 	cube, err := LoadChildren(&p, header.Version)
 	if err != nil {
