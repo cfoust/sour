@@ -348,6 +348,15 @@ func LoadChildren(p *game.Packet, mapVersion int32) (*Cube, error) {
 	return cube, nil
 }
 
+func PrintCube(c *worldio.Cube) {
+}
+
+func LoadChildrenCube(p *game.Packet, mapVersion int32) (*Cube, error) {
+	out := worldio.Loadchildren_buf(uintptr(unsafe.Pointer(&(*p)[0])), int64(len(*p)))
+	log.Info().Msgf("%+v %d", out, *out.GetTexture())
+	return nil, nil
+}
+
 func LoadVSlot(p *game.Packet, slot *VSlot, changed int32) error {
 	slot.Changed = changed
 	if (changed & (1 << VSLOT_SHPARAM)) > 0 {
@@ -593,10 +602,7 @@ func Decode(data []byte) (*GameMap, error) {
 	vSlotData, err := LoadVSlots(&p, newFooter.NumVSlots)
 	gameMap.VSlots = vSlotData
 
-	out := worldio.Loadchildren_buf(uintptr(unsafe.Pointer(&p[0])), int64(len(p)))
-	log.Info().Msgf("%+v", out)
-
-	cube, err := LoadChildren(&p, header.Version)
+	cube, err := LoadChildrenCube(&p, header.Version)
 	if err != nil {
 		return nil, err
 	}
