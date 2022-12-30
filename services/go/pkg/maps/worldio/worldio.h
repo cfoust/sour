@@ -8,5 +8,6 @@
 
 void freeocta(cube *c);
 cube *loadchildren_buf(void *p, size_t len, int size);
+size_t savec_buf(void *p, size_t len, cube *c, int size);
 
 #endif

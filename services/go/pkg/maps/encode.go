@@ -3,6 +3,9 @@ package maps
 import (
 	"bytes"
 	"compress/gzip"
+	"unsafe"
+
+	"github.com/cfoust/sour/pkg/maps/worldio"
 
 	"github.com/rs/zerolog/log"
 )
@@ -83,7 +86,6 @@ func saveVSlot(p *Buffer, vs *VSlot, prev int32) error {
 
 	return nil
 }
-
 func saveVSlots(p *Buffer, slots []*VSlot) error {
 	numVSlots := len(slots)
 	if numVSlots == 0 {
@@ -132,6 +134,68 @@ func saveVSlots(p *Buffer, slots []*VSlot) error {
 		p.Put(int32(-(numVSlots - lastRoot)))
 	}
 
+	return nil
+}
+
+func MapToCXX(cube *Cube) worldio.Cube {
+	parent := worldio.New_CubeArray(CUBE_FACTOR)
+	for i := 0; i < CUBE_FACTOR; i++ {
+		child := cube.Children[i]
+		cxx := worldio.NewCube()
+
+		if child.Children != nil && len(child.Children) > 0 {
+			mapped := MapToCXX(child)
+			cxx.SetChildren(mapped)
+		}
+
+		ext := worldio.NewCubeext()
+		surfaces := worldio.New_SurfaceInfoArray(6)
+		for j := 0; j < 6; j++ {
+			surface := worldio.NewSurfaceinfo()
+			surface.SetVerts(child.SurfaceInfo[j].Verts)
+			surface.SetNumverts(child.SurfaceInfo[j].NumVerts)
+
+			lmid := worldio.New_UcharArray(2)
+			worldio.UcharArray_setitem(lmid, 0, child.SurfaceInfo[j].Lmid[0])
+			worldio.UcharArray_setitem(lmid, 1, child.SurfaceInfo[j].Lmid[1])
+			surface.SetLmid(lmid)
+		}
+		ext.SetSurfaces(surfaces)
+		cxx.SetExt(ext)
+
+		// edges
+		edges := worldio.New_UcharArray(12)
+		for j := 0; j < 12; j++ {
+			worldio.UcharArray_setitem(edges, j, cube.Edges[j])
+		}
+		cxx.SetEdges(edges)
+
+		textures := worldio.New_Uint16Array(12)
+		for j := 0; j < 6; j++ {
+			worldio.Uint16Array_setitem(textures, j, cube.Texture[j])
+		}
+		cxx.SetTexture(textures)
+
+		cxx.SetMaterial(cube.Material)
+		cxx.SetMerged(cube.Merged)
+		cxx.SetEscaped(cube.Escaped)
+
+		worldio.CubeArray_setitem(parent, i, cxx)
+	}
+
+	return parent
+}
+
+func SaveChildren(p *Buffer, cube *Cube, size int32) error {
+	buf := make([]byte, 1024 * 1024 * 1024 * 20) // 20 MiB
+	root := MapToCXX(cube)
+	numBytes := worldio.Savec_buf(
+		uintptr(unsafe.Pointer(&(buf)[0])),
+		int64(len(buf)),
+		root,
+		int(size),
+	)
+	(*p) = append(*p, buf[:numBytes]...)
 	return nil
 }
 

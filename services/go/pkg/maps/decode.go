@@ -13,14 +13,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func ConvertChildren(parent worldio.Cube) *Cube {
+func MapToGo(parent worldio.Cube) *Cube {
 	children := make([]*Cube, 0)
 	for i := 0; i < CUBE_FACTOR; i++ {
 		cube := Cube{}
 		member := worldio.CubeArray_getitem(parent, i)
 
 		if member.GetChildren().Swigcptr() != 0 {
-			cube.Children = ConvertChildren(member.GetChildren()).Children
+			cube.Children = MapToGo(member.GetChildren()).Children
 		}
 
 		if member.GetExt().Swigcptr() != 0 {
@@ -35,15 +35,15 @@ func ConvertChildren(parent worldio.Cube) *Cube {
 		}
 
 		// edges
-		for i := 0; i < 12; i++ {
-			value := worldio.UcharArray_getitem(member.GetEdges(), i)
-			cube.Edges[i] = value
+		for j := 0; j < 12; j++ {
+			value := worldio.UcharArray_getitem(member.GetEdges(), j)
+			cube.Edges[j] = value
 		}
 
 		// texture
-		for i := 0; i < 6; i++ {
-			value := worldio.Uint16Array_getitem(member.GetTexture(), i)
-			cube.Texture[i] = value
+		for j := 0; j < 6; j++ {
+			value := worldio.Uint16Array_getitem(member.GetTexture(), j)
+			cube.Texture[j] = value
 		}
 
 		cube.Material = member.GetMaterial()
@@ -59,12 +59,12 @@ func ConvertChildren(parent worldio.Cube) *Cube {
 	return &cube
 }
 
-func LoadChildren(p *Buffer, size int32, mapVersion int32) (*Cube, error) {
+func LoadChildren(p *Buffer, size int32) (*Cube, error) {
 	root := worldio.Loadchildren_buf(uintptr(unsafe.Pointer(&(*p)[0])), int64(len(*p)), int(size))
 	if root.Swigcptr() == 0 {
 		return nil, fmt.Errorf("failed to load cubes")
 	}
-	cube := ConvertChildren(root)
+	cube := MapToGo(root)
 	worldio.Freeocta(root)
 	return cube, nil
 }
@@ -305,7 +305,7 @@ func Decode(data []byte) (*GameMap, error) {
 	vSlotData, err := LoadVSlots(&p, newFooter.NumVSlots)
 	gameMap.VSlots = vSlotData
 
-	cube, err := LoadChildren(&p, header.WorldSize, header.Version)
+	cube, err := LoadChildren(&p, header.WorldSize)
 	if err != nil {
 		return nil, err
 	}

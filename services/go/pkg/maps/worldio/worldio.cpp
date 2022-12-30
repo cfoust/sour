@@ -605,6 +605,13 @@ cube *loadchildren_buf(void *p, size_t len, int size)
     return c;
 }
 
+size_t savec_buf(void *p, size_t len, cube *c, int size)
+{
+    bufstream buf(p, len);
+    savec(c, ivec(0, 0, 0), size>>1, &buf, false);
+    return buf.buf.len;
+}
+
 int dbgvars = 0;
 
 #endif
