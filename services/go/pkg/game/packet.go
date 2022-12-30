@@ -85,14 +85,6 @@ func (p *Packet) Read(n []byte) (int, error) {
 	return len(n), nil
 }
 
-func (p *Packet) Skip(n int) bool {
-	if n > len(*p) {
-		return false
-	}
-	(*p) = (*p)[n:]
-	return true
-}
-
 func (p *Packet) GetByte() (byte, bool) {
 	if len(*p) < 1 {
 		return 0, false
@@ -103,19 +95,11 @@ func (p *Packet) GetByte() (byte, bool) {
 }
 
 func (p *Packet) Get(pieces ...interface{}) error {
-	return Unmarshal(p, true, pieces...)
-}
-
-func (p *Packet) GetRaw(pieces ...interface{}) error {
-	return Unmarshal(p, false, pieces...)
+	return Unmarshal(p, pieces...)
 }
 
 func (p *Packet) Put(pieces ...interface{}) error {
-	return Marshal(p, true, pieces...)
-}
-
-func (p *Packet) PutRaw(pieces ...interface{}) error {
-	return Marshal(p, false, pieces...)
+	return Marshal(p, pieces...)
 }
 
 // GetInt returns the integer value encoded in the next byte(s) of the packet.

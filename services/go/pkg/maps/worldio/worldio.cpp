@@ -597,7 +597,7 @@ cube *loadchildren_buf(void *p, size_t len, int size)
     bool failed = false;
     bufstream buf(p, len);
 
-    cube *c = loadchildren(&buf, ivec(0, 0, 0), size, failed);
+    cube *c = loadchildren(&buf, ivec(0, 0, 0), size>>1, failed);
     if (failed) {
         return NULL;
     }

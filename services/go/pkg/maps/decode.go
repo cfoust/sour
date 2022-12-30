@@ -3,351 +3,15 @@ package maps
 import (
 	"bytes"
 	"compress/gzip"
-	"errors"
+	"fmt"
 	"io"
 	"os"
 	"unsafe"
-	"fmt"
 
-	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps/worldio"
 
 	"github.com/rs/zerolog/log"
 )
-
-func GetString(p *game.Packet) (string, bool) {
-	var length uint16
-	err := p.GetRaw(&length)
-	if err != nil {
-		return "", false
-	}
-	value := make([]byte, length)
-	err = p.GetRaw(&value)
-	if err != nil {
-		return "", false
-	}
-	return string(value), true
-}
-
-func GetFloat(p *game.Packet) (float32, bool) {
-	var value float32
-	err := p.GetRaw(&value)
-	if err != nil {
-		return 0, false
-	}
-	return value, true
-}
-
-func GetShort(p *game.Packet) (uint16, bool) {
-	var value uint16
-	err := p.GetRaw(&value)
-	if err != nil {
-		return 0, false
-	}
-	return value, true
-}
-
-func GetInt(p *game.Packet) (int32, bool) {
-	var value int32
-	err := p.GetRaw(&value)
-	if err != nil {
-		return 0, false
-	}
-	return value, true
-}
-
-func GetStringByte(p *game.Packet) (string, bool) {
-	var length byte
-	err := p.GetRaw(&length)
-	if err != nil {
-		return "", false
-	}
-	value := make([]byte, length+1)
-	err = p.GetRaw(&value)
-	if err != nil {
-		return "", false
-	}
-	return string(value), true
-}
-
-func convertOldMaterial(mat uint16) uint16 {
-	return ((mat & 7) << MATF_VOLUME_SHIFT) | (((mat >> 3) & 3) << MATF_CLIP_SHIFT) | (((mat >> 5) & 7) << MATF_FLAG_SHIFT)
-}
-
-func LoadCube(p *game.Packet, cube *Cube, size int32, mapVersion int32) error {
-	var hasChildren = false
-	octsav, _ := p.GetByte()
-
-	//log.Info().Msgf("octsav = %d", octsav & 0x7)
-
-	//fmt.Printf("pos %d octsav %d\n", unpack.Tell(), octsav&0x7)
-
-	switch octsav & 0x7 {
-	case OCTSAV_CHILDREN:
-		parent, err := LoadChildren(p, size>>1, mapVersion)
-		if err != nil {
-			return err
-		}
-		cube.Children = parent.Children
-		return nil
-	case OCTSAV_LODCUB:
-		hasChildren = true
-		break
-	case OCTSAV_EMPTY:
-		cube.EmptyFaces()
-		break
-	case OCTSAV_SOLID:
-		cube.SolidFaces()
-		break
-	case OCTSAV_NORMAL:
-		p.GetRaw(&cube.Edges)
-		break
-	}
-
-	if (octsav & 0x7) > 4 {
-		log.Fatal().Msg("Map had invalid octsav")
-		return errors.New("Map had invalid octsav")
-	}
-
-	for i := 0; i < 6; i++ {
-		if mapVersion < 14 {
-			texture, _ := p.GetByte()
-			cube.Texture[i] = uint16(texture)
-		} else {
-			texture, _ := GetShort(p)
-			cube.Texture[i] = texture
-		}
-		//log.Printf("Texture[%d]=%d", i, cube.Texture[i])
-	}
-
-	if mapVersion < 7 {
-		p.Skip(3)
-	} else if mapVersion <= 31 {
-		mask, _ := p.GetByte()
-
-		if (mask & 0x80) > 0 {
-			mat, _ := p.GetByte()
-			if mapVersion < 27 {
-				matConv := []uint16{
-					MAT_AIR,
-					MAT_WATER,
-					MAT_CLIP,
-					MAT_GLASS | MAT_CLIP,
-					MAT_NOCLIP,
-					MAT_LAVA | MAT_DEATH,
-					MAT_GAMECLIP,
-					MAT_DEATH,
-				}
-				cube.Material = MAT_AIR
-				if int(mat) < len(matConv) {
-					cube.Material = matConv[mat]
-				}
-			} else {
-				cube.Material = convertOldMaterial(uint16(mat))
-			}
-		}
-
-		surfaces := make([]SurfaceCompat, 12)
-		normals := make([]NormalsCompat, 6)
-		merges := make([]MergeCompat, 6)
-
-		var numSurfaces = 6
-		var hasSurfs uint32
-		var hasNorms uint32
-		//var hasMerges uint32
-		if (mask & 0x3F) > 0 {
-			for i := 0; i < numSurfaces; i++ {
-				if i >= 6 || mask&(1<<i) > 0 {
-					surface := &surfaces[i]
-					p.GetRaw(surface)
-					if mapVersion < 10 {
-						surface.Lmid++
-					}
-					if mapVersion < 18 {
-						if surface.Lmid >= LMID_AMBIENT1 {
-							surface.Lmid++
-						}
-						if surface.Lmid >= LMID_BRIGHT1 {
-							surface.Lmid++
-						}
-					}
-					if mapVersion < 19 {
-						if surface.Lmid >= LMID_DARK {
-							surface.Lmid += 2
-						}
-					}
-					if i < 6 {
-						if (mask & 0x40) > 0 {
-							hasNorms |= 1 << i
-							p.GetRaw(&normals[i])
-						}
-						if surface.Layer != 0 || surface.Lmid != LMID_AMBIENT {
-							hasSurfs |= 1 << i
-						}
-						if (surfaces[i].Layer & 2) > 0 {
-							numSurfaces++
-						}
-					}
-				}
-			}
-		}
-
-		if mapVersion <= 8 {
-			// TODO edgespan2vectorcube
-		}
-
-		if mapVersion >= 20 && (octsav&0x80) > 0 {
-			merged, _ := p.GetByte()
-			cube.Merged = merged & 0x3F
-			if (merged & 0x80) > 0 {
-				mask, _ := p.GetByte()
-				if mask > 0 {
-					for i := 0; i < 6; i++ {
-						if (mask & (1 << i)) > 0 {
-							p.GetRaw(&merges[i])
-						}
-					}
-				}
-			}
-		}
-	} else {
-		// TODO material
-		if (octsav & 0x40) > 0 {
-			if mapVersion <= 32 {
-				p.GetByte()
-			} else {
-				GetShort(p)
-			}
-		}
-
-		//fmt.Printf("a %d\n", unpack.Tell())
-
-		// TODO merged
-		if (octsav & 0x80) > 0 {
-			p.GetByte()
-		}
-
-		if (octsav & 0x20) > 0 {
-			surfMask, _ := p.GetByte()
-			p.GetByte() // totalVerts
-
-			surfaces := make([]SurfaceInfo, 6)
-			var offset byte
-			offset = 0
-			for i := 0; i < 6; i++ {
-				if surfMask&(1<<i) == 0 {
-					continue
-				}
-
-				p.GetRaw(&surfaces[i])
-				//fmt.Printf("%d %d %d %d\n", surfaces[i].Lmid[0], surfaces[i].Lmid[1], surfaces[i].Verts, surfaces[i].NumVerts)
-				vertMask := surfaces[i].Verts
-				numVerts := surfaces[i].TotalVerts()
-
-				if numVerts == 0 {
-					surfaces[i].Verts = 0
-					continue
-				}
-
-				surfaces[i].Verts = offset
-				offset += numVerts
-
-				layerVerts := surfaces[i].NumVerts & MAXFACEVERTS
-				hasXYZ := (vertMask & 0x04) != 0
-				hasUV := (vertMask & 0x40) != 0
-				hasNorm := (vertMask & 0x80) != 0
-
-				//fmt.Printf("%d %t %t %t\n", vertMask, hasXYZ, hasUV, hasNorm)
-				//fmt.Printf("b %d\n", unpack.Tell())
-
-				if layerVerts == 4 {
-					if hasXYZ && (vertMask&0x01) > 0 {
-						GetShort(p)
-						GetShort(p)
-						GetShort(p)
-						GetShort(p)
-						hasXYZ = false
-					}
-
-					//fmt.Printf("b-1 %d\n", unpack.Tell())
-					if hasUV && (vertMask&0x02) > 0 {
-						GetShort(p)
-						GetShort(p)
-						GetShort(p)
-						GetShort(p)
-
-						if (surfaces[i].NumVerts & LAYER_DUP) > 0 {
-							GetShort(p)
-							GetShort(p)
-							GetShort(p)
-							GetShort(p)
-						}
-
-						hasUV = false
-					}
-					//fmt.Printf("c-2 %d\n", unpack.Tell())
-				}
-
-				//fmt.Printf("c %d\n", unpack.Tell())
-
-				if hasNorm && (vertMask&0x08) > 0 {
-					GetShort(p)
-					hasNorm = false
-				}
-
-				if hasXYZ || hasUV || hasNorm {
-					for k := 0; k < int(layerVerts); k++ {
-						if hasXYZ {
-							GetShort(p)
-							GetShort(p)
-						}
-
-						if hasUV {
-							GetShort(p)
-							GetShort(p)
-						}
-
-						if hasNorm {
-							GetShort(p)
-						}
-					}
-				}
-
-				if (surfaces[i].NumVerts & LAYER_DUP) > 0 {
-					for k := 0; k < int(layerVerts); k++ {
-						if hasUV {
-							GetShort(p)
-							GetShort(p)
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if hasChildren {
-		parent, err := LoadChildren(p, size>>1, mapVersion)
-		if err != nil {
-			return err
-		}
-		cube.Children = parent.Children
-	}
-
-	return nil
-}
-
-func LoadChildren(p *game.Packet, size int32, mapVersion int32) (*Cube, error) {
-	cube := NewCubes(F_EMPTY, MAT_AIR)
-
-	for i := 0; i < CUBE_FACTOR; i++ {
-		err := LoadCube(p, cube.Children[i], size, mapVersion)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return cube, nil
-}
 
 func ConvertChildren(parent worldio.Cube) *Cube {
 	children := make([]*Cube, 0)
@@ -359,7 +23,16 @@ func ConvertChildren(parent worldio.Cube) *Cube {
 			cube.Children = ConvertChildren(member.GetChildren()).Children
 		}
 
-		// TODO surfaceinfo
+		if member.GetExt().Swigcptr() != 0 {
+			ext := member.GetExt()
+			for j := 0; j < 6; j++ {
+				surface := worldio.SurfaceInfoArray_getitem(ext.GetSurfaces(), j)
+				cube.SurfaceInfo[j].Lmid[0] = worldio.UcharArray_getitem(surface.GetLmid(), 0)
+				cube.SurfaceInfo[j].Lmid[1] = worldio.UcharArray_getitem(surface.GetLmid(), 1)
+				cube.SurfaceInfo[j].Verts = surface.GetVerts()
+				cube.SurfaceInfo[j].NumVerts = surface.GetNumverts()
+			}
+		}
 
 		// edges
 		for i := 0; i < 12; i++ {
@@ -386,22 +59,7 @@ func ConvertChildren(parent worldio.Cube) *Cube {
 	return &cube
 }
 
-func PrintCube(cube *Cube) {
-	log.Info().Msgf("%+v", cube)
-	for _, child := range cube.Children {
-		PrintCube(child)
-	}
-}
-
-func CountCubes(cube *Cube) int {
-	children := 0
-	for _, child := range cube.Children {
-		children += CountCubes(child)
-	}
-	return 1 + children
-}
-
-func LoadChildrenCube(p *game.Packet, size int32, mapVersion int32) (*Cube, error) {
+func LoadChildren(p *Buffer, size int32, mapVersion int32) (*Cube, error) {
 	root := worldio.Loadchildren_buf(uintptr(unsafe.Pointer(&(*p)[0])), int64(len(*p)), int(size))
 	if root.Swigcptr() == 0 {
 		return nil, fmt.Errorf("failed to load cubes")
@@ -409,19 +67,19 @@ func LoadChildrenCube(p *game.Packet, size int32, mapVersion int32) (*Cube, erro
 	return ConvertChildren(root), nil
 }
 
-func LoadVSlot(p *game.Packet, slot *VSlot, changed int32) error {
+func LoadVSlot(p *Buffer, slot *VSlot, changed int32) error {
 	slot.Changed = changed
 	if (changed & (1 << VSLOT_SHPARAM)) > 0 {
-		numParams, _ := GetShort(p)
+		numParams, _ := p.GetShort()
 
 		for i := 0; i < int(numParams); i++ {
 			param := SlotShaderParam{}
-			name, _ := GetStringByte(p)
+			name, _ := p.GetStringByte()
 
 			// TODO getshaderparamname
 			param.Name = name
 			for k := 0; k < 4; k++ {
-				value, _ := GetFloat(p)
+				value, _ := p.GetFloat()
 				param.Val[k] = value
 			}
 			slot.Params = append(slot.Params, param)
@@ -429,40 +87,40 @@ func LoadVSlot(p *game.Packet, slot *VSlot, changed int32) error {
 	}
 
 	if (changed & (1 << VSLOT_SCALE)) > 0 {
-		p.GetRaw(&slot.Scale)
+		p.Get(&slot.Scale)
 	}
 
 	if (changed & (1 << VSLOT_ROTATION)) > 0 {
-		p.GetRaw(&slot.Rotation)
+		p.Get(&slot.Rotation)
 	}
 
 	if (changed & (1 << VSLOT_OFFSET)) > 0 {
-		p.GetRaw(
+		p.Get(
 			&slot.Offset.X,
 			&slot.Offset.Y,
 		)
 	}
 
 	if (changed & (1 << VSLOT_SCROLL)) > 0 {
-		p.GetRaw(
+		p.Get(
 			&slot.Scroll.X,
 			&slot.Scroll.Y,
 		)
 	}
 
 	if (changed & (1 << VSLOT_LAYER)) > 0 {
-		p.GetRaw(&slot.Layer)
+		p.Get(&slot.Layer)
 	}
 
 	if (changed & (1 << VSLOT_ALPHA)) > 0 {
-		p.GetRaw(
+		p.Get(
 			&slot.AlphaFront,
 			&slot.AlphaBack,
 		)
 	}
 
 	if (changed & (1 << VSLOT_COLOR)) > 0 {
-		p.GetRaw(
+		p.Get(
 			&slot.ColorScale.X,
 			&slot.ColorScale.Y,
 			&slot.ColorScale.Z,
@@ -472,7 +130,7 @@ func LoadVSlot(p *game.Packet, slot *VSlot, changed int32) error {
 	return nil
 }
 
-func LoadVSlots(p *game.Packet, numVSlots int32) ([]*VSlot, error) {
+func LoadVSlots(p *Buffer, numVSlots int32) ([]*VSlot, error) {
 	leftToRead := numVSlots
 
 	vSlots := make([]*VSlot, 0)
@@ -486,14 +144,14 @@ func LoadVSlots(p *game.Packet, numVSlots int32) ([]*VSlot, error) {
 	}
 
 	for leftToRead > 0 {
-		changed, _ := GetInt(p)
+		changed, _ := p.GetInt()
 		if changed < 0 {
 			for i := 0; i < int(-1*changed); i++ {
 				addSlot()
 			}
 			leftToRead += changed
 		} else {
-			prevValue, _ := GetInt(p)
+			prevValue, _ := p.GetInt()
 			prev[len(vSlots)] = prevValue
 			slot := addSlot()
 			LoadVSlot(p, slot, changed)
@@ -512,12 +170,12 @@ func LoadVSlots(p *game.Packet, numVSlots int32) ([]*VSlot, error) {
 }
 
 func Decode(data []byte) (*GameMap, error) {
-	p := game.Packet(data)
+	p := Buffer(data)
 
 	gameMap := GameMap{}
 
 	header := FileHeader{}
-	err := p.GetRaw(&header)
+	err := p.Get(&header)
 	if err != nil {
 		return nil, err
 	}
@@ -526,7 +184,7 @@ func Decode(data []byte) (*GameMap, error) {
 	oldFooter := OldFooter{}
 	if header.Version <= 28 {
 		p.Skip(28) // 7 * 4, like in worldio.cpp
-		err = p.GetRaw(&oldFooter)
+		err = p.Get(&oldFooter)
 		if err != nil {
 			return nil, err
 		}
@@ -536,7 +194,7 @@ func Decode(data []byte) (*GameMap, error) {
 		newFooter.NumVSlots = 0
 	} else {
 		q := p
-		p.GetRaw(&newFooter)
+		p.Get(&newFooter)
 
 		if header.Version <= 29 {
 			newFooter.NumVSlots = 0
@@ -559,46 +217,37 @@ func Decode(data []byte) (*GameMap, error) {
 
 	gameMap.Header = mapHeader
 
-	//log.Debug().Msgf("header %+v", mapHeader)
-
 	log.Printf("Version %d", header.Version)
 	gameMap.Vars = make(map[string]Variable)
 
 	for i := 0; i < int(newFooter.NumVars); i++ {
 		_type, _ := p.GetByte()
-		name, _ := GetString(&p)
+		name, _ := p.GetString()
 
 		switch VariableType(_type) {
 		case VariableTypeInt:
-			value, _ := GetInt(&p)
+			value, _ := p.GetInt()
 			gameMap.Vars[name] = IntVariable(value)
-			//log.Printf("%s=%d", name, value)
 		case VariableTypeFloat:
-			value, _ := GetFloat(&p)
+			value, _ := p.GetFloat()
 			gameMap.Vars[name] = FloatVariable(value)
-			//log.Printf("%s=%f", name, value)
 		case VariableTypeString:
-			value, _ := GetString(&p)
+			value, _ := p.GetString()
 			gameMap.Vars[name] = StringVariable(value)
-			//log.Printf("%s=%s", name, value)
 		}
 	}
 
-	//log.Info().Msgf("%v", gameMap.Vars)
-
 	gameType := "fps"
 	if header.Version >= 16 {
-		gameType, _ = GetStringByte(&p)
+		gameType, _ = p.GetStringByte()
 	}
-	//log.Printf("GameType %s", gameType)
-
 	mapHeader.GameType = gameType
 
 	// We just skip extras
 	var eif uint16 = 0
 	if header.Version >= 16 {
 		var extraBytes uint16
-		err = p.GetRaw(
+		err = p.Get(
 			&eif,
 			&extraBytes,
 		)
@@ -612,7 +261,7 @@ func Decode(data []byte) (*GameMap, error) {
 	if header.Version < 14 {
 		p.Skip(256)
 	} else {
-		numMRUBytes, _ := GetShort(&p)
+		numMRUBytes, _ := p.GetShort()
 		p.Skip(int(numMRUBytes * 2))
 	}
 
@@ -621,7 +270,7 @@ func Decode(data []byte) (*GameMap, error) {
 	// Load entities
 	for i := 0; i < int(header.NumEnts); i++ {
 		entity := Entity{}
-		p.GetRaw(&entity)
+		p.Get(&entity)
 
 		if gameType != "fps" {
 			if eif > 0 {
@@ -654,7 +303,7 @@ func Decode(data []byte) (*GameMap, error) {
 	vSlotData, err := LoadVSlots(&p, newFooter.NumVSlots)
 	gameMap.VSlots = vSlotData
 
-	cube, err := LoadChildrenCube(&p, header.WorldSize, header.Version)
+	cube, err := LoadChildren(&p, header.WorldSize, header.Version)
 	if err != nil {
 		return nil, err
 	}

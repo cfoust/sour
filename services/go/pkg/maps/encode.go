@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"compress/gzip"
 
-	"github.com/cfoust/sour/pkg/game"
 	"github.com/rs/zerolog/log"
 )
 
-func saveVSlot(p *game.Packet, vs *VSlot, prev int32) error {
-	err := p.PutRaw(
+func saveVSlot(p *Buffer, vs *VSlot, prev int32) error {
+	err := p.Put(
 		vs.Changed,
 		prev,
 	)
@@ -18,7 +17,7 @@ func saveVSlot(p *game.Packet, vs *VSlot, prev int32) error {
 	}
 
 	if (vs.Changed & (1 << VSLOT_SHPARAM)) > 0 {
-		err := p.PutRaw(
+		err := p.Put(
 			uint16(len(vs.Params)),
 		)
 		if err != nil {
@@ -26,7 +25,7 @@ func saveVSlot(p *game.Packet, vs *VSlot, prev int32) error {
 		}
 
 		for _, param := range vs.Params {
-			err := p.PutRaw(
+			err := p.Put(
 				uint16(len(param.Name)),
 				[]byte(param.Name),
 				param.Val[0],
@@ -42,40 +41,40 @@ func saveVSlot(p *game.Packet, vs *VSlot, prev int32) error {
 
 	changed := vs.Changed
 	if (changed & (1 << VSLOT_SCALE)) > 0 {
-		p.PutRaw(&vs.Scale)
+		p.Put(&vs.Scale)
 	}
 
 	if (changed & (1 << VSLOT_ROTATION)) > 0 {
-		p.PutRaw(&vs.Rotation)
+		p.Put(&vs.Rotation)
 	}
 
 	if (changed & (1 << VSLOT_OFFSET)) > 0 {
-		p.PutRaw(
+		p.Put(
 			&vs.Offset.X,
 			&vs.Offset.Y,
 		)
 	}
 
 	if (changed & (1 << VSLOT_SCROLL)) > 0 {
-		p.PutRaw(
+		p.Put(
 			&vs.Scroll.X,
 			&vs.Scroll.Y,
 		)
 	}
 
 	if (changed & (1 << VSLOT_LAYER)) > 0 {
-		p.PutRaw(&vs.Layer)
+		p.Put(&vs.Layer)
 	}
 
 	if (changed & (1 << VSLOT_ALPHA)) > 0 {
-		p.PutRaw(
+		p.Put(
 			&vs.AlphaFront,
 			&vs.AlphaBack,
 		)
 	}
 
 	if (changed & (1 << VSLOT_COLOR)) > 0 {
-		p.PutRaw(
+		p.Put(
 			&vs.ColorScale.X,
 			&vs.ColorScale.Y,
 			&vs.ColorScale.Z,
@@ -85,7 +84,7 @@ func saveVSlot(p *game.Packet, vs *VSlot, prev int32) error {
 	return nil
 }
 
-func saveVSlots(p *game.Packet, slots []*VSlot) error {
+func saveVSlots(p *Buffer, slots []*VSlot) error {
 	numVSlots := len(slots)
 	if numVSlots == 0 {
 		return nil
@@ -123,23 +122,23 @@ func saveVSlots(p *game.Packet, slots []*VSlot) error {
 			continue
 		}
 		if lastRoot < i {
-			p.PutRaw(int32(-(i - lastRoot)))
+			p.Put(int32(-(i - lastRoot)))
 		}
 		saveVSlot(p, vs, prev[i])
 		lastRoot = i + 1
 	}
 
 	if lastRoot < numVSlots {
-		p.PutRaw(int32(-(numVSlots - lastRoot)))
+		p.Put(int32(-(numVSlots - lastRoot)))
 	}
 
 	return nil
 }
 
-func saveCube(p *game.Packet, cubes []*Cube) error {
+func saveCube(p *Buffer, cubes []*Cube) error {
 	for _, c := range cubes {
 		if len(c.Children) > 0 {
-			p.PutRaw(byte(OCTSAV_CHILDREN))
+			p.Put(byte(OCTSAV_CHILDREN))
 			err := saveCube(p, c.Children)
 			if err != nil {
 				return err
@@ -148,20 +147,20 @@ func saveCube(p *game.Packet, cubes []*Cube) error {
 		}
 		var oFlags int32 = 0
 		//var surfMask int32 = 0
-		if (c.Material == MAT_AIR) {
+		if c.Material == MAT_AIR {
 			oFlags |= 0x40
 		}
-		if (c.IsEmpty()) {
-			p.PutRaw(byte(oFlags | OCTSAV_EMPTY))
+		if c.IsEmpty() {
+			p.Put(byte(oFlags | OCTSAV_EMPTY))
 		}
 	}
 	return nil
 }
 
 func (m *GameMap) Encode() ([]byte, error) {
-	p := game.Packet{}
+	p := Buffer{}
 
-	err := p.PutRaw(
+	err := p.Put(
 		FileHeader{
 			Magic:      [4]byte{byte('O'), byte('C'), byte('T'), byte('A')},
 			Version:    MAP_VERSION,
@@ -192,7 +191,7 @@ func (m *GameMap) Encode() ([]byte, error) {
 				Warn().
 				Msgf("variable %s is not a valid map variable or invalid type", key)
 		}
-		err = p.PutRaw(
+		err = p.Put(
 			byte(variable.Type()),
 			uint16(len(key)),
 			[]byte(key),
@@ -203,12 +202,12 @@ func (m *GameMap) Encode() ([]byte, error) {
 
 		switch variable.Type() {
 		case VariableTypeInt:
-			err = p.PutRaw(variable.(IntVariable))
+			err = p.Put(variable.(IntVariable))
 		case VariableTypeFloat:
-			err = p.PutRaw(variable.(FloatVariable))
+			err = p.Put(variable.(FloatVariable))
 		case VariableTypeString:
 			value := variable.(StringVariable)
-			err = p.PutRaw(
+			err = p.Put(
 				uint16(len(value)),
 				[]byte(value),
 			)
@@ -218,7 +217,7 @@ func (m *GameMap) Encode() ([]byte, error) {
 		}
 	}
 
-	err = p.PutRaw(
+	err = p.Put(
 		// game type (almost always FPS)
 		byte(len(m.Header.GameType)),
 		[]byte(m.Header.GameType),
@@ -234,7 +233,7 @@ func (m *GameMap) Encode() ([]byte, error) {
 	}
 
 	for _, entity := range m.Entities {
-		err = p.PutRaw(entity)
+		err = p.Put(entity)
 		if err != nil {
 			return p, err
 		}
