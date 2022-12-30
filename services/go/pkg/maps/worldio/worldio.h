@@ -6,6 +6,6 @@
 #include "tools.h"
 #include "engine.h"
 
-cube *loadchildren_buf(void *p, size_t len);
+cube *loadchildren_buf(void *p, size_t len, int size);
 
 #endif

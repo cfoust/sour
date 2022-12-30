@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"unsafe"
+	"fmt"
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps/worldio"
@@ -73,17 +74,17 @@ func convertOldMaterial(mat uint16) uint16 {
 	return ((mat & 7) << MATF_VOLUME_SHIFT) | (((mat >> 3) & 3) << MATF_CLIP_SHIFT) | (((mat >> 5) & 7) << MATF_FLAG_SHIFT)
 }
 
-func LoadCube(p *game.Packet, cube *Cube, mapVersion int32) error {
-	//log.Printf("pos=%d", unpack.Tell())
-
+func LoadCube(p *game.Packet, cube *Cube, size int32, mapVersion int32) error {
 	var hasChildren = false
 	octsav, _ := p.GetByte()
+
+	//log.Info().Msgf("octsav = %d", octsav & 0x7)
 
 	//fmt.Printf("pos %d octsav %d\n", unpack.Tell(), octsav&0x7)
 
 	switch octsav & 0x7 {
 	case OCTSAV_CHILDREN:
-		parent, err := LoadChildren(p, mapVersion)
+		parent, err := LoadChildren(p, size>>1, mapVersion)
 		if err != nil {
 			return err
 		}
@@ -325,7 +326,7 @@ func LoadCube(p *game.Packet, cube *Cube, mapVersion int32) error {
 	}
 
 	if hasChildren {
-		parent, err := LoadChildren(p, mapVersion)
+		parent, err := LoadChildren(p, size>>1, mapVersion)
 		if err != nil {
 			return err
 		}
@@ -335,11 +336,11 @@ func LoadCube(p *game.Packet, cube *Cube, mapVersion int32) error {
 	return nil
 }
 
-func LoadChildren(p *game.Packet, mapVersion int32) (*Cube, error) {
+func LoadChildren(p *game.Packet, size int32, mapVersion int32) (*Cube, error) {
 	cube := NewCubes(F_EMPTY, MAT_AIR)
 
 	for i := 0; i < CUBE_FACTOR; i++ {
-		err := LoadCube(p, cube.Children[i], mapVersion)
+		err := LoadCube(p, cube.Children[i], size, mapVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -348,46 +349,64 @@ func LoadChildren(p *game.Packet, mapVersion int32) (*Cube, error) {
 	return cube, nil
 }
 
-func ConvertToGo(cCube worldio.Cube) *Cube {
-	cube := Cube{
-		raw: cCube,
-	}
+func ConvertChildren(parent worldio.Cube) *Cube {
+	children := make([]*Cube, 0)
+	for i := 0; i < CUBE_FACTOR; i++ {
+		cube := Cube{}
+		member := worldio.CubeArray_getitem(parent, i)
 
-	children := cCube.GetChildren()
-	if children.Swigcptr() != 0 {
-		newChildren := make([]*Cube, 0)
-		for i := 0; i < CUBE_FACTOR; i++ {
-			member := worldio.CubeArray_getitem(children, i)
-			newChildren = append(newChildren, ConvertToGo(member))
+		if member.GetChildren().Swigcptr() != 0 {
+			cube.Children = ConvertChildren(member.GetChildren()).Children
 		}
-		cube.Children = newChildren
+
+		// TODO surfaceinfo
+
+		// edges
+		for i := 0; i < 12; i++ {
+			value := worldio.UcharArray_getitem(member.GetEdges(), i)
+			cube.Edges[i] = value
+		}
+
+		// texture
+		for i := 0; i < 6; i++ {
+			value := worldio.Uint16Array_getitem(member.GetTexture(), i)
+			cube.Texture[i] = value
+		}
+
+		cube.Material = member.GetMaterial()
+		cube.Merged = member.GetMerged()
+		cube.Escaped = member.GetEscaped()
+		children = append(children, &cube)
 	}
 
-	// TODO surfaceinfo
-
-	// edges
-	for i := 0; i < 12; i++ {
-		value := worldio.UcharArray_getitem(cCube.GetEdges(), i)
-		cube.Edges[i] = value
+	cube := Cube{
+		Children: children,
 	}
-
-	// texture
-	for i := 0; i < 6; i++ {
-		value := worldio.Uint16Array_getitem(cCube.GetTexture(), i)
-		cube.Texture[i] = value
-	}
-
-	cube.Material = cCube.GetMaterial()
-	cube.Merged = cCube.GetMerged()
-	cube.Escaped = cCube.GetEscaped()
 
 	return &cube
 }
 
-func LoadChildrenCube(p *game.Packet, mapVersion int32) (*Cube, error) {
-	out := worldio.Loadchildren_buf(uintptr(unsafe.Pointer(&(*p)[0])), int64(len(*p)))
-	converted := ConvertToGo(out)
-	return converted, nil
+func PrintCube(cube *Cube) {
+	log.Info().Msgf("%+v", cube)
+	for _, child := range cube.Children {
+		PrintCube(child)
+	}
+}
+
+func CountCubes(cube *Cube) int {
+	children := 0
+	for _, child := range cube.Children {
+		children += CountCubes(child)
+	}
+	return 1 + children
+}
+
+func LoadChildrenCube(p *game.Packet, size int32, mapVersion int32) (*Cube, error) {
+	root := worldio.Loadchildren_buf(uintptr(unsafe.Pointer(&(*p)[0])), int64(len(*p)), int(size))
+	if root.Swigcptr() == 0 {
+		return nil, fmt.Errorf("failed to load cubes")
+	}
+	return ConvertChildren(root), nil
 }
 
 func LoadVSlot(p *game.Packet, slot *VSlot, changed int32) error {
@@ -635,7 +654,7 @@ func Decode(data []byte) (*GameMap, error) {
 	vSlotData, err := LoadVSlots(&p, newFooter.NumVSlots)
 	gameMap.VSlots = vSlotData
 
-	cube, err := LoadChildrenCube(&p, header.Version)
+	cube, err := LoadChildrenCube(&p, header.WorldSize, header.Version)
 	if err != nil {
 		return nil, err
 	}
