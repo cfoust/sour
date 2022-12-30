@@ -2,7 +2,6 @@ package maps
 
 import (
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/maps/worldio"
 )
 
 type Header struct {
@@ -222,8 +221,6 @@ type Cube struct {
 	Material    uint16
 	Merged      byte
 	Escaped     byte
-
-	raw worldio.Cube
 }
 
 func NewCubes(face uint32, mat uint16) *Cube {

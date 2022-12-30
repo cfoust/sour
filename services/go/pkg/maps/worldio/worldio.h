@@ -6,6 +6,7 @@
 #include "tools.h"
 #include "engine.h"
 
+void freeocta(cube *c);
 cube *loadchildren_buf(void *p, size_t len, int size);
 
 #endif

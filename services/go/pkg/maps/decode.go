@@ -64,7 +64,9 @@ func LoadChildren(p *Buffer, size int32, mapVersion int32) (*Cube, error) {
 	if root.Swigcptr() == 0 {
 		return nil, fmt.Errorf("failed to load cubes")
 	}
-	return ConvertChildren(root), nil
+	cube := ConvertChildren(root)
+	worldio.Freeocta(root)
+	return cube, nil
 }
 
 func LoadVSlot(p *Buffer, slot *VSlot, changed int32) error {

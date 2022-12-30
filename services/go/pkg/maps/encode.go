@@ -135,28 +135,6 @@ func saveVSlots(p *Buffer, slots []*VSlot) error {
 	return nil
 }
 
-func saveCube(p *Buffer, cubes []*Cube) error {
-	for _, c := range cubes {
-		if len(c.Children) > 0 {
-			p.Put(byte(OCTSAV_CHILDREN))
-			err := saveCube(p, c.Children)
-			if err != nil {
-				return err
-			}
-			continue
-		}
-		var oFlags int32 = 0
-		//var surfMask int32 = 0
-		if c.Material == MAT_AIR {
-			oFlags |= 0x40
-		}
-		if c.IsEmpty() {
-			p.Put(byte(oFlags | OCTSAV_EMPTY))
-		}
-	}
-	return nil
-}
-
 func (m *GameMap) Encode() ([]byte, error) {
 	p := Buffer{}
 

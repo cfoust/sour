@@ -83,6 +83,43 @@ void freecubeext(cube &c)
     }
 }
 
+void freeocta(cube *c)
+{
+    if(!c) return;
+    loopi(8) discardchildren(c[i]);
+    delete[] c;
+    allocnodes--;
+}
+
+void discardchildren(cube &c, bool fixtex, int depth)
+{
+    c.material = MAT_AIR;
+    c.visible = 0;
+    c.merged = 0;
+    if(c.ext)
+    {
+        c.ext->va = NULL;
+        c.ext->tjoints = -1;
+        freecubeext(c);
+    }
+    if(c.children)
+    {
+        uint filled = F_EMPTY;
+        loopi(8) 
+        {
+            discardchildren(c.children[i], fixtex, depth+1);
+            filled |= c.children[i].faces[0];
+        }
+        if(fixtex) 
+        {
+            loopi(6) c.texture[i] = getmippedtexture(c, i);
+            if(depth > 0 && filled != F_EMPTY) c.faces[0] = F_SOLID;
+        }
+        DELETEA(c.children);
+        allocnodes--;
+    }
+}
+
 void getcubevector(cube &c, int d, int x, int y, int z, ivec &p)
 {
     ivec v(d, x, y, z);
