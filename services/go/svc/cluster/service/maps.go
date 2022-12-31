@@ -80,13 +80,11 @@ func MakeDownloadMap(demoName string) ([]byte, error) {
 	// First, request the "demo" in its entirety.
 	script := fmt.Sprintf(`
 can_teleport_1 = [
-demodir "sour"
 getdemo 0 %s
 can_teleport_1 = []
 ]
 can_teleport_2 = [
-addzip "sour/%s.dmo"
-demodir "demo"
+addzip demo/%s.dmo
 can_teleport_2 = []
 ]
 say a
