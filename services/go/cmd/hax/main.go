@@ -34,6 +34,11 @@ func main() {
 	gameMap.Entities = append(gameMap.Entities, maps.Entity{
 		Type: game.EntityTypeTeleport,
 		Attr3: 1,
+		Position: maps.Vector{
+			X: 512,
+			Y: 512,
+			Z: 512,
+		},
 	})
 
 	mapBytes, err := gameMap.EncodeOGZ()

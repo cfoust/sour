@@ -87,6 +87,7 @@ func saveVSlot(p *Buffer, vs *VSlot, prev int32) error {
 
 	return nil
 }
+
 func saveVSlots(p *Buffer, slots []*VSlot) error {
 	numVSlots := len(slots)
 	if numVSlots == 0 {
