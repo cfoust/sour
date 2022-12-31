@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"unsafe"
+	"fmt"
 
 	"github.com/cfoust/sour/pkg/maps/worldio"
 
@@ -141,7 +142,7 @@ func MapToCXX(cube *Cube) worldio.Cube {
 	parent := worldio.New_CubeArray(CUBE_FACTOR)
 	for i := 0; i < CUBE_FACTOR; i++ {
 		child := cube.Children[i]
-		cxx := worldio.NewCube()
+		cxx := worldio.Getcubeindex(parent, i)
 
 		if child.Children != nil && len(child.Children) > 0 {
 			mapped := MapToCXX(child)
@@ -164,18 +165,15 @@ func MapToCXX(cube *Cube) worldio.Cube {
 		cxx.SetExt(ext)
 
 		// edges
-		edges := worldio.New_UcharArray(12)
 		for j := 0; j < 12; j++ {
-			worldio.UcharArray_setitem(edges, j, cube.Edges[j])
+			worldio.Cube_setedge(cxx, j, child.Edges[j])
 		}
-		cxx.SetEdges(edges)
 
-		textures := worldio.New_Uint16Array(12)
 		for j := 0; j < 6; j++ {
-			worldio.Uint16Array_setitem(textures, j, cube.Texture[j])
+			worldio.Cube_settexture(cxx, j, child.Texture[j])
 		}
-		cxx.SetTexture(textures)
 
+		cxx.SetMaterial(cube.Material)
 		cxx.SetMaterial(cube.Material)
 		cxx.SetMerged(cube.Merged)
 		cxx.SetEscaped(cube.Escaped)
@@ -187,15 +185,19 @@ func MapToCXX(cube *Cube) worldio.Cube {
 }
 
 func SaveChildren(p *Buffer, cube *Cube, size int32) error {
-	buf := make([]byte, 1024 * 1024 * 1024 * 20) // 20 MiB
+	buf := make([]byte, 20000000) // 20 MiB
 	root := MapToCXX(cube)
 	numBytes := worldio.Savec_buf(
 		uintptr(unsafe.Pointer(&(buf)[0])),
-		int64(len(buf)),
+		uint(len(buf)),
 		root,
 		int(size),
 	)
+	if numBytes == 0 {
+		return fmt.Errorf("failed to write cubes")
+	}
 	(*p) = append(*p, buf[:numBytes]...)
+	worldio.Freeocta(root)
 	return nil
 }
 
@@ -282,6 +284,11 @@ func (m *GameMap) Encode() ([]byte, error) {
 	}
 
 	err = saveVSlots(&p, m.VSlots)
+	if err != nil {
+		return p, err
+	}
+
+	err = SaveChildren(&p, m.WorldRoot, m.Header.WorldSize)
 	if err != nil {
 		return p, err
 	}

@@ -30,14 +30,11 @@ func main() {
 	gameMap.Vars["cloudlayer"] = maps.StringVariable("")
 	gameMap.Vars["skyboxcolour"] = maps.IntVariable(0)
 	gameMap.Vars["maptitle"] = maps.StringVariable("can_teleport_1 = [ echo test ]")
-	gameMap.Header.WorldSize = 64
 
 	gameMap.Entities = append(gameMap.Entities, maps.Entity{
 		Type: game.EntityTypeTeleport,
 		Attr3: 1,
 	})
-
-	log.Info().Msgf("%v", gameMap.Entities)
 
 	mapBytes, err := gameMap.EncodeOGZ()
 	if err != nil {

@@ -605,11 +605,26 @@ cube *loadchildren_buf(void *p, size_t len, int size)
     return c;
 }
 
-size_t savec_buf(void *p, size_t len, cube *c, int size)
+size_t savec_buf(void *p, unsigned int len, cube *c, int size)
 {
     bufstream buf(p, len);
     savec(c, ivec(0, 0, 0), size>>1, &buf, false);
     return buf.buf.len;
+}
+
+cube *getcubeindex(cube *c, int i)
+{
+    return &c[i];
+}
+
+void cube_setedge(cube *c, int i, uchar value)
+{
+    c->edges[i] = value;
+}
+
+void cube_settexture(cube *c, int i, ushort value)
+{
+    c->texture[i] = value;
 }
 
 int dbgvars = 0;

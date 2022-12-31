@@ -1,7 +1,11 @@
 package maps
 
 import (
+	"encoding/binary"
+
 	"github.com/cfoust/sour/pkg/game"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Header struct {
@@ -209,7 +213,7 @@ const (
 
 // hardcoded texture numbers
 const (
-	DEFAULT_SKY = 0
+	DEFAULT_SKY = iota
 	DEFAULT_GEOM
 )
 
@@ -221,6 +225,21 @@ type Cube struct {
 	Material    uint16
 	Merged      byte
 	Escaped     byte
+}
+
+func (c *Cube) Print() {
+	log.Debug().Msgf("%+v", c)
+	for _, child := range c.Children {
+		child.Print()
+	}
+}
+
+func (c *Cube) Count() uint {
+	var children uint = 0
+	for _, child := range c.Children {
+		children += child.Count()
+	}
+	return 1 + children
 }
 
 func NewCubes(face uint32, mat uint16) *Cube {
@@ -251,11 +270,13 @@ func (c *Cube) GetFace(n int) uint32 {
 }
 
 func (c *Cube) SetFace(n int, val uint32) {
+	a := make([]byte, 4)
+	binary.BigEndian.PutUint32(a, val)
+
 	i := n * 4
-	c.Edges[i] = byte(val >> 3)
-	c.Edges[i+1] = byte(val >> 2)
-	c.Edges[i+2] = byte(val >> 1)
-	c.Edges[i+3] = byte(val)
+	for j := 0; j < 4; j++ {
+		c.Edges[i+j] = a[j]
+	}
 }
 
 func (c *Cube) IsEmpty() bool {
@@ -469,7 +490,7 @@ func NewMap() *GameMap {
 			WorldSize:  1024,
 		},
 		Entities:  make([]Entity, 0),
-		WorldRoot: NewCubes(F_EMPTY, MAT_AIR),
+		WorldRoot: EmptyMap(1024),
 		Vars:      make(map[string]Variable),
 		VSlots:    make([]*VSlot, 0),
 	}
