@@ -122,6 +122,25 @@ say a
 	return mapBytes, nil
 }
 
+func (s *SendState) TriggerSend() {
+	p := game.Packet{}
+	p.Put(
+		game.N_POS,
+		game.Pos{
+			Client: int(s.Client.ClientNum),
+			State: game.PhysicsState{
+				O: game.Vec{
+					X: 512 + 20,
+					Y: 512 + 20,
+					Z: 512,
+				},
+			},
+		},
+	)
+	s.SendClient(p, 0)
+	log.Info().Msg("sent position")
+}
+
 func (s *SendState) Send() error {
 	client := s.Client
 	logger := client.Logger()
@@ -245,6 +264,18 @@ func (m *MapSender) SendDemo(ctx context.Context, client *clients.Client, tag in
 	if err != nil {
 		log.Info().Err(err).Msg("error sending demo")
 	}
+}
+
+func (m *MapSender) TriggerSend(ctx context.Context, client *clients.Client) {
+	m.Mutex.Lock()
+	state, handling := m.Clients[client]
+	m.Mutex.Unlock()
+
+	if !handling {
+		return
+	}
+
+	state.TriggerSend()
 }
 
 func (m *MapSender) SendMap(ctx context.Context, client *clients.Client, mapName string) {

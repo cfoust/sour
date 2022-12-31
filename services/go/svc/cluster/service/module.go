@@ -712,6 +712,11 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 				if message.Type() == game.N_TEXT {
 					text := message.Contents().(*game.Text).Text
 
+					if text == "a" && server.MapSender.IsHandling(client) {
+						server.MapSender.TriggerSend(ctx, client)
+						continue
+					}
+
 					if strings.HasPrefix(text, "#") {
 						command := text[1:]
 						logger.Info().Str("command", command).Msg("intercepted command")
