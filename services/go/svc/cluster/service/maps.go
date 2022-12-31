@@ -72,6 +72,44 @@ func (s *SendState) SendDemo() error {
 	return nil
 }
 
+func MakeDownloadMap(demoName string) ([]byte, error) {
+	gameMap := maps.NewMap()
+	gameMap.Vars["cloudlayer"] = maps.StringVariable("")
+	gameMap.Vars["skyboxcolour"] = maps.IntVariable(0)
+
+	// First, request the "demo" in its entirety.
+	script := fmt.Sprintf(`
+can_teleport_1 = [
+demodir "sour"
+getdemo 0 %s
+]
+can_teleport_2 = [
+addzip "sour/%s.dmo"
+demodir "demo"
+]
+say "done"
+`, demoName, demoName)
+
+	gameMap.Vars["maptitle"] = maps.StringVariable(script)
+
+	gameMap.Entities = append(gameMap.Entities, maps.Entity{
+		Type:  game.EntityTypeTeleport,
+		Attr3: 1,
+		Position: maps.Vector{
+			X: 512,
+			Y: 512,
+			Z: 512,
+		},
+	})
+
+	mapBytes, err := gameMap.EncodeOGZ()
+	if err != nil {
+		return mapBytes, err
+	}
+
+	return mapBytes, nil
+}
+
 func (s *SendState) Send() error {
 	client := s.Client
 	logger := client.Logger()
@@ -100,20 +138,22 @@ func (s *SendState) Send() error {
 		return ctx.Err()
 	}
 
-	desktopURL := s.Maps.FindDesktopURL(s.Map)
-	if opt.IsNone(desktopURL) {
+	map_ := s.Maps.FindMap(s.Map)
+	if opt.IsNone(map_) {
 		// How?
-		return fmt.Errorf("could not find map URL")
+		return fmt.Errorf("could not find map")
 	}
 
-	log.Info().Msg(desktopURL.Value)
+	desktopURL := map_.Value.GetDesktopURL()
 
-	mapPath := filepath.Join(s.Sender.workingDir, assets.GetURLBase(desktopURL.Value))
+	log.Info().Msg(desktopURL)
+
+	mapPath := filepath.Join(s.Sender.workingDir, assets.GetURLBase(desktopURL))
 
 	s.Path = mapPath
 
 	err := assets.DownloadFile(
-		desktopURL.Value,
+		desktopURL,
 		mapPath,
 	)
 	if err != nil {
@@ -128,7 +168,7 @@ func (s *SendState) Send() error {
 
 	client.SendServerMessage("downloaded map")
 
-	fakeMap, err := maps.MakeMap("getdemo 0")
+	fakeMap, err := MakeDownloadMap(map_.Value.Map.Bundle)
 	if err != nil {
 		logger.Info().Err(err).Msgf("failed to make map")
 		return err

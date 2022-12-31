@@ -3,12 +3,10 @@ package maps
 import (
 	"bytes"
 	"compress/gzip"
-	"unsafe"
 	"fmt"
+	"unsafe"
 
 	"github.com/cfoust/sour/pkg/maps/worldio"
-
-	"github.com/rs/zerolog/log"
 )
 
 func saveVSlot(p *Buffer, vs *VSlot, prev int32) error {
@@ -232,9 +230,7 @@ func (m *GameMap) Encode() ([]byte, error) {
 	for key, variable := range m.Vars {
 		defaultValue, defaultExists := defaults[key]
 		if !defaultExists || defaultValue.Type() != variable.Type() {
-			log.
-				Warn().
-				Msgf("variable %s is not a valid map variable or invalid type", key)
+			return p, fmt.Errorf("variable %s is not a valid map variable or invalid type", key)
 		}
 		err = p.Put(
 			byte(variable.Type()),
@@ -252,6 +248,14 @@ func (m *GameMap) Encode() ([]byte, error) {
 			err = p.Put(variable.(FloatVariable))
 		case VariableTypeString:
 			value := variable.(StringVariable)
+			if len(value) >= MAXSTRLEN {
+				return p, fmt.Errorf(
+					"svar value %s is too long (%d > %d)",
+					key,
+					len(value),
+					MAXSTRLEN,
+				)
+			}
 			err = p.Put(
 				uint16(len(value)),
 				[]byte(value),

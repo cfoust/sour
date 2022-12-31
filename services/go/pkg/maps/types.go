@@ -355,6 +355,8 @@ func (v StringVariable) Type() VariableType {
 	return VariableTypeString
 }
 
+const MAXSTRLEN = 260
+
 type Variable interface {
 	Type() VariableType
 }

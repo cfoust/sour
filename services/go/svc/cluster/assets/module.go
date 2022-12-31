@@ -133,38 +133,36 @@ func (m *MapFetcher) FetchIndices(assetSources []string) error {
 	return nil
 }
 
-func (m *MapFetcher) FindMapBase(mapName string) opt.Option[string] {
+type FoundMap struct {
+	Map    *GameMap
+	Source *AssetSource
+}
+
+func (f *FoundMap) GetBaseURL() string {
+	return fmt.Sprintf("%s%s", f.Source.Base, f.Map.Bundle)
+}
+
+func (f *FoundMap) GetOGZURL() string {
+	return f.GetBaseURL() + ".ogz"
+}
+
+func (f *FoundMap) GetDesktopURL() string {
+	return f.GetBaseURL() + ".desktop"
+}
+
+func (m *MapFetcher) FindMap(mapName string) opt.Option[FoundMap] {
 	for _, source := range m.Sources {
 		for _, gameMap := range source.Index.Maps {
 			if gameMap.Name != mapName {
 				continue
 			}
 
-			url := fmt.Sprintf("%s%s", source.Base, gameMap.Bundle)
-
-			return opt.Some[string](url)
+			return opt.Some[FoundMap](FoundMap{
+				Map:    &gameMap,
+				Source: source,
+			})
 		}
 	}
 
-	return opt.None[string]()
-}
-
-func (m *MapFetcher) FindMapURL(mapName string) opt.Option[string] {
-	base := m.FindMapBase(mapName)
-
-	if opt.IsNone(base) {
-		return opt.None[string]()
-	}
-
-	return opt.Some[string](base.Value + ".ogz")
-}
-
-func (m *MapFetcher) FindDesktopURL(mapName string) opt.Option[string] {
-	base := m.FindMapBase(mapName)
-
-	if opt.IsNone(base) {
-		return opt.None[string]()
-	}
-
-	return opt.Some[string](base.Value + ".desktop")
+	return opt.None[FoundMap]()
 }

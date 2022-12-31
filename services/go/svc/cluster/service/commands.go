@@ -79,7 +79,7 @@ func (server *Cluster) inferCreateParams(args []string) (*CreateParams, error) {
 			continue
 		}
 
-		map_ := server.manager.Maps.FindMapURL(arg)
+		map_ := server.manager.Maps.FindMap(arg)
 		if opt.IsSome(map_) {
 			params.Map = opt.Some[string](arg)
 			continue
