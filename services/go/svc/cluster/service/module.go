@@ -804,7 +804,8 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 				}
 
 				if message.Type() == game.N_GETDEMO && server.MapSender.IsHandling(client) {
-					server.MapSender.SendDemo(ctx, client)
+					demo := message.Contents().(*game.GetDemo)
+					server.MapSender.SendDemo(ctx, client, demo.Tag)
 					continue
 				}
 

@@ -49,7 +49,7 @@ func (s *SendState) SendClient(data []byte, channel int) {
 	})
 }
 
-func (s *SendState) SendDemo() error {
+func (s *SendState) SendDemo(tag int) error {
 	file, err := os.Open(s.Path)
 	defer file.Close()
 	if err != nil {
@@ -64,7 +64,7 @@ func (s *SendState) SendDemo() error {
 	p := game.Packet{}
 	p.Put(
 		game.N_SENDDEMO,
-		int(0),
+		tag,
 		len(buffer),
 	)
 	p = append(p, buffer...)
@@ -82,25 +82,39 @@ func MakeDownloadMap(demoName string) ([]byte, error) {
 can_teleport_1 = [
 demodir "sour"
 getdemo 0 %s
+can_teleport_1 = []
 ]
 can_teleport_2 = [
 addzip "sour/%s.dmo"
 demodir "demo"
+can_teleport_2 = []
 ]
-say "done"
+say a
 `, demoName, demoName)
 
+	log.Warn().Msgf("maptitle len=%d", len(script))
 	gameMap.Vars["maptitle"] = maps.StringVariable(script)
 
-	gameMap.Entities = append(gameMap.Entities, maps.Entity{
-		Type:  game.EntityTypeTeleport,
-		Attr3: 1,
-		Position: maps.Vector{
-			X: 512,
-			Y: 512,
-			Z: 512,
+	gameMap.Entities = append(gameMap.Entities,
+		maps.Entity{
+			Type:  game.EntityTypeTeleport,
+			Attr3: 1,
+			Position: maps.Vector{
+				X: 512 + 20,
+				Y: 512 + 20,
+				Z: 512,
+			},
 		},
-	})
+		maps.Entity{
+			Type:  game.EntityTypeTeleport,
+			Attr3: 2,
+			Position: maps.Vector{
+				X: 512 - 20,
+				Y: 512 - 20,
+				Z: 512,
+			},
+		},
+	)
 
 	mapBytes, err := gameMap.EncodeOGZ()
 	if err != nil {
@@ -220,7 +234,7 @@ func (m *MapSender) IsHandling(client *clients.Client) bool {
 	return handling
 }
 
-func (m *MapSender) SendDemo(ctx context.Context, client *clients.Client) {
+func (m *MapSender) SendDemo(ctx context.Context, client *clients.Client, tag int) {
 	m.Mutex.Lock()
 	state, handling := m.Clients[client]
 	m.Mutex.Unlock()
@@ -229,7 +243,7 @@ func (m *MapSender) SendDemo(ctx context.Context, client *clients.Client) {
 		return
 	}
 
-	err := state.SendDemo()
+	err := state.SendDemo(tag)
 	if err != nil {
 		log.Info().Err(err).Msg("error sending demo")
 	}
