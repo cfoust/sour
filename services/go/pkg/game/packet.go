@@ -94,6 +94,10 @@ func (p *Packet) GetByte() (byte, bool) {
 	return b, true
 }
 
+func (p *Packet) PutByte(s byte) {
+	(*p) = append(*p, s)
+}
+
 func (p *Packet) Get(pieces ...interface{}) error {
 	return Unmarshal(p, pieces...)
 }

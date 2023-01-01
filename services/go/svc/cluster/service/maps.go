@@ -13,9 +13,9 @@ import (
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/clients"
-	"github.com/rs/zerolog/log"
 
 	"github.com/repeale/fp-go/option"
+	"github.com/rs/zerolog/log"
 )
 
 type SendStatus byte
@@ -78,6 +78,7 @@ func MakeDownloadMap(demoName string) ([]byte, error) {
 	gameMap.Vars["skyboxcolour"] = maps.IntVariable(0)
 
 	// First, request the "demo" in its entirety.
+	fileName := demoName[:20]
 	script := fmt.Sprintf(`
 can_teleport_1 = [
 getdemo 0 %s
@@ -88,7 +89,7 @@ addzip demo/%s.dmo
 can_teleport_2 = []
 ]
 say a
-`, demoName, demoName)
+`, fileName, fileName)
 
 	log.Warn().Msgf("maptitle len=%d", len(script))
 	gameMap.Vars["maptitle"] = maps.StringVariable(script)
@@ -122,23 +123,26 @@ say a
 	return mapBytes, nil
 }
 
-func (s *SendState) TriggerSend() {
+func (s *SendState) TriggerSend() error {
 	p := game.Packet{}
-	p.Put(
+	err := p.Put(
 		game.N_POS,
-		game.Pos{
-			Client: int(s.Client.ClientNum),
-			State: game.PhysicsState{
-				O: game.Vec{
-					X: 512 + 20,
-					Y: 512 + 20,
-					Z: 512,
-				},
+		uint(s.Client.ClientNum),
+		game.PhysicsState{
+			LifeSequence: 1,
+			O: game.Vec{
+				X: 512 + 20,
+				Y: 512 + 20,
+				Z: 512,
 			},
 		},
 	)
+	if err != nil {
+		return err
+	}
 	s.SendClient(p, 0)
 	log.Info().Msg("sent position")
+	return nil
 }
 
 func (s *SendState) Send() error {
@@ -275,7 +279,10 @@ func (m *MapSender) TriggerSend(ctx context.Context, client *clients.Client) {
 		return
 	}
 
-	state.TriggerSend()
+	err := state.TriggerSend()
+	if err != nil {
+		log.Error().Err(err).Msg("could not move the user")
+	}
 }
 
 func (m *MapSender) SendMap(ctx context.Context, client *clients.Client, mapName string) {

@@ -230,8 +230,7 @@ func Unmarshal(p *Packet, pieces ...interface{}) error {
 
 func marshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	if type_ == reflect.TypeOf(PhysicsState{}) {
-		writePhysics(p, value.Interface().(PhysicsState))
-		return nil
+		return writePhysics(p, value.Interface().(PhysicsState))
 	}
 
 	switch type_.Kind() {
@@ -248,6 +247,8 @@ func marshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 		} else {
 			p.PutInt(0)
 		}
+	case reflect.Uint32:
+		fallthrough
 	case reflect.Uint:
 		p.PutUint(uint32(value.Uint()))
 	case reflect.String:

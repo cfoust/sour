@@ -228,12 +228,15 @@ func writeDirection(p *Packet, pitch float64, yaw float64) {
 	)
 }
 
-func writePhysics(p *Packet, state PhysicsState) {
+func writePhysics(p *Packet, state PhysicsState) error {
 	var physState byte = state.State |
 		byte((state.LifeSequence&1)<<3) |
 		byte((state.Move&3)<<4) |
 		byte((state.Strafe&3)<<6)
-	p.Put(physState)
+	err := p.Put(physState)
+	if err != nil {
+		return err
+	}
 
 	o := IVecFromVec(
 		Vec{
@@ -270,15 +273,18 @@ func writePhysics(p *Packet, state PhysicsState) {
 
 	// TODO
 	//if((lookupmaterial(d->feetpos())&MATF_CLIP) == MAT_GAMECLIP) flags |= 1<<7;
-	p.Put(flags)
+	err = p.Put(flags)
+	if err != nil {
+		return err
+	}
 
 	for _, val := range []int32{o.X, o.Y, o.Z} {
 		p.Put(
-			val&0xFF,
-			(val>>8)&0xFF,
+			byte(val&0xFF),
+			byte((val>>8)&0xFF),
 		)
 		if val < 0 || val > 0xFFFF {
-			p.Put((val >> 16) & 0xFF)
+			p.Put(byte((val >> 16) & 0xFF))
 		}
 	}
 
@@ -308,4 +314,6 @@ func writePhysics(p *Packet, state PhysicsState) {
 			writeDirection(p, fallpitch, fallyaw)
 		}
 	}
+
+	return nil
 }
