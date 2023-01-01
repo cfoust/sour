@@ -19,97 +19,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type SendStatus byte
-
-type SendState struct {
-	Mutex  sync.Mutex
-	Client *clients.Client
-	Maps   *assets.MapFetcher
-	Sender *MapSender
-	Path   string
-	Map    string
-}
-
-func (s *SendState) SendClient(data []byte, channel int) <-chan bool {
-	return s.Client.Connection.Send(game.GamePacket{
-		Channel: uint8(channel),
-		Data:    data,
-	})
-}
-
-func (s *SendState) SendClientSync(data []byte, channel int) error {
-	if !<-s.SendClient(data, channel) {
-		return fmt.Errorf("client never acknowledged message")
-	}
-	return nil
-}
-
-func (s *SendState) MoveClient(x float64, y float64) error {
-	p := game.Packet{}
-	err := p.Put(
-		game.N_POS,
-		uint(s.Client.GetClientNum()),
-		game.PhysicsState{
-			LifeSequence: s.Client.GetLifeSequence(),
-			O: game.Vec{
-				X: x,
-				Y: y,
-				Z: 512 + 14,
-			},
-		},
-	)
-	if err != nil {
-		return err
-	}
-	s.SendClient(p, 0)
-	return nil
-}
-
-func (s *SendState) SendPause(state bool) error {
-	p := game.Packet{}
-	p.Put(
-		game.N_PAUSEGAME,
-		state,
-		s.Client.GetClientNum(),
-	)
-	s.SendClient(p, 1)
-	return nil
-}
-
-func (s *SendState) SendDemo(tag int) error {
-	file, err := os.Open(s.Path)
-	defer file.Close()
-	if err != nil {
-		return err
-	}
-
-	buffer, err := io.ReadAll(file)
-	if err != nil {
-		return err
-	}
-
-	p := game.Packet{}
-	p.Put(
-		game.N_SENDDEMO,
-		tag,
-		len(buffer),
-	)
-	p = append(p, buffer...)
-	err = s.SendClientSync(p, 2)
-	if err != nil {
-		return err
-	}
-	time.Sleep(500 * time.Millisecond)
-
-	// Then load the demo
-	log.Info().Msg("moving to load demo")
-	s.SendPause(true)
-	s.MoveClient(512-10, 512-10)
-	time.Sleep(500 * time.Millisecond)
-	s.SendPause(false)
-	return nil
-}
-
 func MakeDownloadMap(demoName string) ([]byte, error) {
 	gameMap := maps.NewMap()
 	gameMap.Vars["cloudlayer"] = maps.StringVariable("")
@@ -163,26 +72,86 @@ say a
 	return mapBytes, nil
 }
 
-func (s *SendState) TriggerSend() error {
-	s.MoveClient(512+10, 512+10)
-	time.Sleep(1 * time.Second)
-	// so physics runs
-	s.SendPause(false)
+type SendState struct {
+	Mutex  sync.Mutex
+	Client *clients.Client
+	Maps   *assets.MapFetcher
+	Sender *MapSender
+	Path   string
+	Map    string
+
+	userAccepted  chan bool
+	demoRequested chan int
+}
+
+func (s *SendState) SendClient(data []byte, channel int) <-chan bool {
+	return s.Client.Connection.Send(game.GamePacket{
+		Channel: uint8(channel),
+		Data:    data,
+	})
+}
+
+func (s *SendState) SendClientSync(data []byte, channel int) error {
+	if !<-s.SendClient(data, channel) {
+		return fmt.Errorf("client never acknowledged message")
+	}
 	return nil
+}
+
+func (s *SendState) MoveClient(x float64, y float64) error {
+	p := game.Packet{}
+	err := p.Put(
+		game.N_POS,
+		uint(s.Client.GetClientNum()),
+		game.PhysicsState{
+			LifeSequence: s.Client.GetLifeSequence(),
+			O: game.Vec{
+				X: x,
+				Y: y,
+				Z: 512 + 14,
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
+	s.SendClient(p, 0)
+	return nil
+}
+
+func (s *SendState) SendPause(state bool) error {
+	p := game.Packet{}
+	p.Put(
+		game.N_PAUSEGAME,
+		state,
+		s.Client.GetClientNum(),
+	)
+	s.SendClient(p, 1)
+	return nil
+}
+
+func (s *SendState) SendDemo(tag int) {
+	s.demoRequested <- tag
+}
+
+func (s *SendState) TriggerSend() {
+	s.userAccepted <- true
 }
 
 func (s *SendState) Send() error {
 	client := s.Client
-	ctx, cancelSend := context.WithCancel(client.ServerSessionContext())
+
+	sendCtx, cancelSend := context.WithCancel(client.ServerSessionContext())
 	defer cancelSend()
 
 	logger := client.Logger()
 
-	if ctx.Err() != nil {
-		return ctx.Err()
+	if sendCtx.Err() != nil {
+		return sendCtx.Err()
 	}
 
-	client.SendServerMessage("downloading map")
+	s.SendPause(true)
+
 	p := game.Packet{}
 	p.Put(
 		game.N_MAPCHANGE,
@@ -194,8 +163,8 @@ func (s *SendState) Send() error {
 	)
 	s.SendClient(p, 1)
 
-	if ctx.Err() != nil {
-		return ctx.Err()
+	if sendCtx.Err() != nil {
+		return sendCtx.Err()
 	}
 
 	map_ := s.Maps.FindMap(s.Map)
@@ -210,6 +179,7 @@ func (s *SendState) Send() error {
 		return err
 	}
 
+	time.Sleep(1 * time.Second)
 	p = game.Packet{}
 	p.Put(game.N_SENDMAP)
 	p = append(p, fakeMap...)
@@ -218,16 +188,9 @@ func (s *SendState) Send() error {
 		return err
 	}
 
-	s.SendPause(true)
-
 	desktopURL := map_.Value.GetDesktopURL()
-
-	log.Info().Msg(desktopURL)
-
 	mapPath := filepath.Join(s.Sender.workingDir, assets.GetURLBase(desktopURL))
-
 	s.Path = mapPath
-
 	err = assets.DownloadFile(
 		desktopURL,
 		mapPath,
@@ -236,16 +199,76 @@ func (s *SendState) Send() error {
 		return err
 	}
 
-	if ctx.Err() != nil {
-		return ctx.Err()
+	if sendCtx.Err() != nil {
+		return sendCtx.Err()
 	}
 
 	logger.Info().Msgf("downloaded desktop map to %s", mapPath)
 
-	client.SendServerMessage("downloaded map")
+	client.SendServerMessage("You are missing this map. Please run '/do $maptitle' to download it.")
+
+	doCtx, cancelDo := context.WithTimeout(sendCtx, 30*time.Second)
+	defer cancelDo()
+
+	select {
+	case <-s.userAccepted:
+	case <-doCtx.Done():
+		return doCtx.Err()
+	}
 
 	s.Client.GetServer().SendCommand(fmt.Sprintf("forcerespawn %d", s.Client.GetClientNum()))
+	time.Sleep(1 * time.Second)
+	s.MoveClient(512+10, 512+10)
+	time.Sleep(1 * time.Second)
+	// so physics runs
+	s.SendPause(false)
 
+	var tag int
+	select {
+	case request := <-s.demoRequested:
+		tag = request
+	case <-sendCtx.Done():
+		return sendCtx.Err()
+	}
+
+	file, err := os.Open(s.Path)
+	defer file.Close()
+	if err != nil {
+		return err
+	}
+
+	buffer, err := io.ReadAll(file)
+	if err != nil {
+		return err
+	}
+
+	p = game.Packet{}
+	p.Put(
+		game.N_SENDDEMO,
+		tag,
+		len(buffer),
+	)
+	p = append(p, buffer...)
+	err = s.SendClientSync(p, 2)
+	if err != nil {
+		return err
+	}
+	time.Sleep(500 * time.Millisecond)
+
+	if sendCtx.Err() != nil {
+		return sendCtx.Err()
+	}
+
+	// Then load the demo
+	s.SendPause(true)
+	s.MoveClient(512-10, 512-10)
+	time.Sleep(500 * time.Millisecond)
+
+	if sendCtx.Err() != nil {
+		return sendCtx.Err()
+	}
+
+	s.SendPause(false)
 	return nil
 }
 
@@ -296,10 +319,7 @@ func (m *MapSender) SendDemo(ctx context.Context, client *clients.Client, tag in
 		return
 	}
 
-	err := state.SendDemo(tag)
-	if err != nil {
-		log.Info().Err(err).Msg("error sending demo")
-	}
+	state.SendDemo(tag)
 }
 
 func (m *MapSender) TriggerSend(ctx context.Context, client *clients.Client) {
@@ -311,27 +331,49 @@ func (m *MapSender) TriggerSend(ctx context.Context, client *clients.Client) {
 		return
 	}
 
-	err := state.TriggerSend()
-	if err != nil {
-		log.Error().Err(err).Msg("could not move the user")
-	}
+	state.TriggerSend()
 }
 
 func (m *MapSender) SendMap(ctx context.Context, client *clients.Client, mapName string) {
 	logger := client.Logger()
 	logger.Info().Str("map", mapName).Msg("sending map")
 	state := &SendState{
-		Client: client,
-		Map:    mapName,
-		Maps:   m.Maps,
-		Sender: m,
+		Client:        client,
+		Map:           mapName,
+		Maps:          m.Maps,
+		Sender:        m,
+		userAccepted:  make(chan bool, 1),
+		demoRequested: make(chan int, 1),
 	}
 
 	m.Mutex.Lock()
 	m.Clients[client] = state
 	m.Mutex.Unlock()
+	server := client.GetServer()
 
-	go state.Send()
+	out := make(chan error)
+	go func() {
+		out <- state.Send()
+	}()
+	go func() {
+		select {
+		case <-client.ServerSessionContext().Done():
+			return
+		case err := <-out:
+			if err != nil {
+				logger.Error().Err(err).Msg("failed to download map")
+				return
+			}
+
+			m.Mutex.Lock()
+			delete(m.Clients, client)
+			m.Mutex.Unlock()
+
+			// Now we can reconnect the user to their server
+			client.DisconnectFromServer()
+			client.ConnectToServer(server, false, false)
+		}
+	}()
 }
 
 func (m *MapSender) Shutdown() {
