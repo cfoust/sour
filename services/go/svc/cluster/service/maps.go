@@ -112,8 +112,7 @@ func (s *SendState) SendDemo(tag int) error {
 	if err != nil {
 		return err
 	}
-
-	time.Sleep(1 * time.Second)
+	time.Sleep(500 * time.Millisecond)
 
 	// Then load the demo
 	log.Info().Msg("moving to load demo")
@@ -133,11 +132,13 @@ func MakeDownloadMap(demoName string) ([]byte, error) {
 	fileName := demoName[:20]
 	script := fmt.Sprintf(`
 can_teleport_1 = [
+demodir sour
 getdemo 0 %s
 can_teleport_1 = []
 ]
 can_teleport_2 = [
-addzip demo/%s.dmo
+addzip sour/%s.dmo
+demodir demo
 can_teleport_2 = []
 ]
 say a
