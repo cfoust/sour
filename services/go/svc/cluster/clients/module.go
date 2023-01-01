@@ -68,7 +68,7 @@ type NetworkClient interface {
 	// Tell the client that we've connected
 	Connect(name string, internal bool, owned bool)
 	// Messages going to the client
-	Send(packet game.GamePacket)
+	Send(packet game.GamePacket) <-chan bool
 	// Messages going to the server
 	ReceivePackets() <-chan game.GamePacket
 	// Clients can issue commands out-of-band

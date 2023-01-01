@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
@@ -42,11 +43,18 @@ func (s *SendState) SetStatus(status SendStatus) {
 	s.Mutex.Unlock()
 }
 
-func (s *SendState) SendClient(data []byte, channel int) {
-	s.Client.Connection.Send(game.GamePacket{
+func (s *SendState) SendClient(data []byte, channel int) <-chan bool {
+	return s.Client.Connection.Send(game.GamePacket{
 		Channel: uint8(channel),
 		Data:    data,
 	})
+}
+
+func (s *SendState) SendClientSync(data []byte, channel int) error {
+	if !<-s.SendClient(data, channel) {
+		return fmt.Errorf("client never acknowledged message")
+	}
+	return nil
 }
 
 func (s *SendState) SendDemo(tag int) error {
@@ -68,7 +76,31 @@ func (s *SendState) SendDemo(tag int) error {
 		len(buffer),
 	)
 	p = append(p, buffer...)
-	s.SendClient(p, 2)
+	err = s.SendClientSync(p, 2)
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(1 * time.Second)
+
+	// Then load the demo
+	p = game.Packet{}
+	err = p.Put(
+		game.N_POS,
+		uint(s.Client.GetClientNum()),
+		game.PhysicsState{
+			LifeSequence: s.Client.GetLifeSequence(),
+			O: game.Vec{
+				X: 512 - 20,
+				Y: 512 - 20,
+				Z: 512 + 14,
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
+	s.SendClient(p, 0)
 	return nil
 }
 
@@ -149,7 +181,6 @@ func (s *SendState) TriggerSend() error {
 		return err
 	}
 	s.SendClient(p, 0)
-	log.Info().Msg("sent position")
 	return nil
 }
 
@@ -191,14 +222,17 @@ func (s *SendState) Send() error {
 
 	fakeMap, err := MakeDownloadMap(map_.Value.Map.Bundle)
 	if err != nil {
-		logger.Info().Err(err).Msgf("failed to make map")
+		logger.Error().Err(err).Msgf("failed to make map")
 		return err
 	}
 
 	p = game.Packet{}
 	p.Put(game.N_SENDMAP)
 	p = append(p, fakeMap...)
-	s.SendClient(p, 2)
+	err = s.SendClientSync(p, 2)
+	if err != nil {
+		return err
+	}
 
 	p = game.Packet{}
 	p.Put(
