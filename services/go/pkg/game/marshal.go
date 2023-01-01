@@ -239,7 +239,7 @@ func marshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	case reflect.Int:
 		p.PutInt(int32(value.Int()))
 	case reflect.Uint8:
-		p.PutInt(int32(value.Uint()))
+		p.PutByte(byte(value.Uint()))
 	case reflect.Bool:
 		boolean := value.Bool()
 		if boolean {

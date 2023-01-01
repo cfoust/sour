@@ -210,7 +210,7 @@ func readPhysics(p *Packet) PhysicsState {
 	return d
 }
 
-func writeDirection(p *Packet, pitch float64, yaw float64) {
+func writeDirection(p *Packet, pitch float64, yaw float64) error {
 	var dir uint32 = uint32(clamp(
 		int(pitch+90),
 		0,
@@ -222,9 +222,9 @@ func writeDirection(p *Packet, pitch float64, yaw float64) {
 		dir += uint32(yaw) % 360
 	}
 
-	p.Put(
-		dir&0xFF,
-		(dir>>8)&0xFF,
+	return p.Put(
+		byte(dir&0xFF),
+		byte((dir>>8)&0xFF),
 	)
 }
 
@@ -289,19 +289,28 @@ func writePhysics(p *Packet, state PhysicsState) error {
 	}
 
 	//uint dir = (d->yaw < 0 ? 360 + int(d->yaw)%360 : int(d->yaw)%360) + clamp(int(d->pitch+90), 0, 180)*360;
-	writeDirection(p, state.Pitch, state.Yaw)
+	err = writeDirection(p, state.Pitch, state.Yaw)
+	if err != nil {
+		return err
+	}
 
-	p.Put(
+	err = p.Put(
 		clamp(int(state.Roll+90), 0, 180),
 		vel&0xFF,
 	)
+	if err != nil {
+		return err
+	}
 
 	if vel > 0xFF {
 		p.Put((vel >> 8) & 0xFF)
 	}
 
 	velyaw, velpitch := vecToYawPitch(state.Velocity)
-	writeDirection(p, velpitch, velyaw)
+	err = writeDirection(p, velpitch, velyaw)
+	if err != nil {
+		return err
+	}
 
 	if fall > 0 {
 		p.Put(fall & 0xFF)
