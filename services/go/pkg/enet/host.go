@@ -112,6 +112,10 @@ func (h *Host) Service() <-chan Event {
 		for {
 			cEvent := C.serviceHost(h.cHost)
 			events <- h.eventFromCEvent(&cEvent)
+
+			for _, peer := range h.peers {
+				peer.CheckACKs()
+			}
 		}
 	}()
 	return events
