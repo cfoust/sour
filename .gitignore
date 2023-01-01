@@ -1,3 +1,4 @@
+/appendonlydir
 build/**
 *CMakeFiles*
 earthly/**
