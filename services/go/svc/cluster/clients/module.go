@@ -101,6 +101,9 @@ type Client struct {
 
 	// The ID of the client on the Sauer server
 	ClientNum int32
+	// Each time a player dies, they're given a number (probably for
+	// anti-hacking?)
+	LifeSequence int
 
 	// True when the user is loading the map
 	delayMessages bool
@@ -162,6 +165,13 @@ func (c *Client) GetStatus() ClientStatus {
 func (c *Client) GetClientNum() int32 {
 	c.Mutex.Lock()
 	num := c.ClientNum
+	c.Mutex.Unlock()
+	return num
+}
+
+func (c *Client) GetLifeSequence() int {
+	c.Mutex.Lock()
+	num := c.LifeSequence
 	c.Mutex.Unlock()
 	return num
 }
@@ -480,15 +490,15 @@ func (c *ClientManager) AddClient(networkClient NetworkClient) error {
 	}
 
 	client := Client{
-		Id:             id,
-		Name:           "unnamed",
-		ELO:            NewELOState(c.Duels),
-		Connection:     networkClient,
-		Status:         ClientStatusDisconnected,
-		manager:        c,
-		delayMessages:  false,
-		messageQueue:   make([]string, 0),
-		Authentication: make(chan *auth.User, 1),
+		Id:               id,
+		Name:             "unnamed",
+		ELO:              NewELOState(c.Duels),
+		Connection:       networkClient,
+		Status:           ClientStatusDisconnected,
+		manager:          c,
+		delayMessages:    false,
+		messageQueue:     make([]string, 0),
+		Authentication:   make(chan *auth.User, 1),
 		serverSessionCtx: context.Background(),
 	}
 

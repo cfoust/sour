@@ -360,6 +360,13 @@ func (server *Cluster) PollServers(ctx context.Context) {
 					continue
 				}
 
+				if message.Type() == game.N_SPAWNSTATE {
+					state := message.Contents().(*game.SpawnState)
+					client.Mutex.Lock()
+					client.LifeSequence = state.LifeSequence
+					client.Mutex.Unlock()
+				}
+
 				client.Connection.Send(game.GamePacket{
 					Channel: channel,
 					Data:    message.Data(),

@@ -124,13 +124,20 @@ say a
 }
 
 func (s *SendState) TriggerSend() error {
-	s.Client.GetServer().SendCommand(fmt.Sprintf("forcerespawn %d", s.Client.GetClientNum()))
 	p := game.Packet{}
+	p.Put(
+		game.N_PAUSEGAME,
+		false,
+		s.Client.GetClientNum(),
+	)
+	s.SendClient(p, 1)
+
+	p = game.Packet{}
 	err := p.Put(
 		game.N_POS,
 		uint(s.Client.GetClientNum()),
 		game.PhysicsState{
-			LifeSequence: 1,
+			LifeSequence: s.Client.GetLifeSequence(),
 			O: game.Vec{
 				X: 512 + 20,
 				Y: 512 + 20,
@@ -148,8 +155,10 @@ func (s *SendState) TriggerSend() error {
 
 func (s *SendState) Send() error {
 	client := s.Client
+	ctx, cancelSend := context.WithCancel(client.ServerSessionContext())
+	defer cancelSend()
+
 	logger := client.Logger()
-	ctx := client.ServerSessionContext()
 
 	if ctx.Err() != nil {
 		return ctx.Err()
@@ -180,6 +189,25 @@ func (s *SendState) Send() error {
 		return fmt.Errorf("could not find map")
 	}
 
+	fakeMap, err := MakeDownloadMap(map_.Value.Map.Bundle)
+	if err != nil {
+		logger.Info().Err(err).Msgf("failed to make map")
+		return err
+	}
+
+	p = game.Packet{}
+	p.Put(game.N_SENDMAP)
+	p = append(p, fakeMap...)
+	s.SendClient(p, 2)
+
+	p = game.Packet{}
+	p.Put(
+		game.N_PAUSEGAME,
+		true,
+		client.GetClientNum(),
+	)
+	s.SendClient(p, 1)
+
 	desktopURL := map_.Value.GetDesktopURL()
 
 	log.Info().Msg(desktopURL)
@@ -188,7 +216,7 @@ func (s *SendState) Send() error {
 
 	s.Path = mapPath
 
-	err := assets.DownloadFile(
+	err = assets.DownloadFile(
 		desktopURL,
 		mapPath,
 	)
@@ -204,16 +232,7 @@ func (s *SendState) Send() error {
 
 	client.SendServerMessage("downloaded map")
 
-	fakeMap, err := MakeDownloadMap(map_.Value.Map.Bundle)
-	if err != nil {
-		logger.Info().Err(err).Msgf("failed to make map")
-		return err
-	}
-
-	p = game.Packet{}
-	p.Put(game.N_SENDMAP)
-	p = append(p, fakeMap...)
-	s.SendClient(p, 2)
+	s.Client.GetServer().SendCommand(fmt.Sprintf("forcerespawn %d", s.Client.GetClientNum()))
 
 	return nil
 }
