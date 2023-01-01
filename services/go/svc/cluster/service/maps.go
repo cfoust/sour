@@ -57,6 +57,38 @@ func (s *SendState) SendClientSync(data []byte, channel int) error {
 	return nil
 }
 
+func (s *SendState) MoveClient(x float64, y float64) error {
+	p := game.Packet{}
+	err := p.Put(
+		game.N_POS,
+		uint(s.Client.GetClientNum()),
+		game.PhysicsState{
+			LifeSequence: s.Client.GetLifeSequence(),
+			O: game.Vec{
+				X: x,
+				Y: y,
+				Z: 512 + 14,
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
+	s.SendClient(p, 0)
+	return nil
+}
+
+func (s *SendState) SendPause(state bool) error {
+	p := game.Packet{}
+	p.Put(
+		game.N_PAUSEGAME,
+		state,
+		s.Client.GetClientNum(),
+	)
+	s.SendClient(p, 1)
+	return nil
+}
+
 func (s *SendState) SendDemo(tag int) error {
 	file, err := os.Open(s.Path)
 	defer file.Close()
@@ -84,23 +116,11 @@ func (s *SendState) SendDemo(tag int) error {
 	time.Sleep(1 * time.Second)
 
 	// Then load the demo
-	p = game.Packet{}
-	err = p.Put(
-		game.N_POS,
-		uint(s.Client.GetClientNum()),
-		game.PhysicsState{
-			LifeSequence: s.Client.GetLifeSequence(),
-			O: game.Vec{
-				X: 512 - 20,
-				Y: 512 - 20,
-				Z: 512 + 14,
-			},
-		},
-	)
-	if err != nil {
-		return err
-	}
-	s.SendClient(p, 0)
+	log.Info().Msg("moving to load demo")
+	s.SendPause(true)
+	s.MoveClient(512-10, 512-10)
+	time.Sleep(500 * time.Millisecond)
+	s.SendPause(false)
 	return nil
 }
 
@@ -131,8 +151,8 @@ say a
 			Type:  game.EntityTypeTeleport,
 			Attr3: 1,
 			Position: maps.Vector{
-				X: 512 + 20,
-				Y: 512 + 20,
+				X: 512 + 10,
+				Y: 512 + 10,
 				Z: 512,
 			},
 		},
@@ -140,8 +160,8 @@ say a
 			Type:  game.EntityTypeTeleport,
 			Attr3: 2,
 			Position: maps.Vector{
-				X: 512 - 20,
-				Y: 512 - 20,
+				X: 512 - 10,
+				Y: 512 - 10,
 				Z: 512,
 			},
 		},
@@ -156,31 +176,10 @@ say a
 }
 
 func (s *SendState) TriggerSend() error {
-	p := game.Packet{}
-	p.Put(
-		game.N_PAUSEGAME,
-		false,
-		s.Client.GetClientNum(),
-	)
-	s.SendClient(p, 1)
-
-	p = game.Packet{}
-	err := p.Put(
-		game.N_POS,
-		uint(s.Client.GetClientNum()),
-		game.PhysicsState{
-			LifeSequence: s.Client.GetLifeSequence(),
-			O: game.Vec{
-				X: 512 + 20,
-				Y: 512 + 20,
-				Z: 512 + 14,
-			},
-		},
-	)
-	if err != nil {
-		return err
-	}
-	s.SendClient(p, 0)
+	s.MoveClient(512+10, 512+10)
+	time.Sleep(1 * time.Second)
+	// so physics runs
+	s.SendPause(false)
 	return nil
 }
 
@@ -234,13 +233,7 @@ func (s *SendState) Send() error {
 		return err
 	}
 
-	p = game.Packet{}
-	p.Put(
-		game.N_PAUSEGAME,
-		true,
-		client.GetClientNum(),
-	)
-	s.SendClient(p, 1)
+	s.SendPause(true)
 
 	desktopURL := map_.Value.GetDesktopURL()
 
