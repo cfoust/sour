@@ -124,10 +124,11 @@ say a
 }
 
 func (s *SendState) TriggerSend() error {
+	s.Client.GetServer().SendCommand(fmt.Sprintf("forcerespawn %d", s.Client.GetClientNum()))
 	p := game.Packet{}
 	err := p.Put(
 		game.N_POS,
-		uint(s.Client.ClientNum),
+		uint(s.Client.GetClientNum()),
 		game.PhysicsState{
 			LifeSequence: 1,
 			O: game.Vec{
