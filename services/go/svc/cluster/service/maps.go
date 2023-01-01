@@ -21,26 +21,13 @@ import (
 
 type SendStatus byte
 
-const (
-	SendStatusInitialized SendStatus = iota
-	SendStatusDownloading
-	SendStatusMoved
-)
-
 type SendState struct {
-	Status SendStatus
 	Mutex  sync.Mutex
 	Client *clients.Client
 	Maps   *assets.MapFetcher
 	Sender *MapSender
 	Path   string
 	Map    string
-}
-
-func (s *SendState) SetStatus(status SendStatus) {
-	s.Mutex.Lock()
-	s.Status = status
-	s.Mutex.Unlock()
 }
 
 func (s *SendState) SendClient(data []byte, channel int) <-chan bool {
@@ -195,9 +182,6 @@ func (s *SendState) Send() error {
 		return ctx.Err()
 	}
 
-	// First we send a dummy map
-	s.SetStatus(SendStatusDownloading)
-
 	client.SendServerMessage("downloading map")
 	p := game.Packet{}
 	p.Put(
@@ -337,7 +321,6 @@ func (m *MapSender) SendMap(ctx context.Context, client *clients.Client, mapName
 	logger := client.Logger()
 	logger.Info().Str("map", mapName).Msg("sending map")
 	state := &SendState{
-		Status: SendStatusInitialized,
 		Client: client,
 		Map:    mapName,
 		Maps:   m.Maps,
