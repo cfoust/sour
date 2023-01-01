@@ -133,7 +133,7 @@ func (s *SendState) TriggerSend() error {
 			O: game.Vec{
 				X: 512 + 20,
 				Y: 512 + 20,
-				Z: 512,
+				Z: 512 + 14,
 			},
 		},
 	)
