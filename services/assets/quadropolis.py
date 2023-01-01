@@ -199,7 +199,8 @@ if __name__ == "__main__":
                 # The file itself is a map
                 if not map_path:
                     print("%d: %s" % (_id, job.file_name))
-                    target = tmp("%s.ogz" % file_hash)
+                    map_name = path.basename(job.file_name)
+                    target = tmp("%s.ogz" % map_name)
                     shutil.copy(db(file_hash), target)
 
                     map_bundle = build_map_bundle(
@@ -214,7 +215,7 @@ if __name__ == "__main__":
                     map_image = map_bundle.image if map_bundle.image else image
 
                     game_map = base_map._replace(
-                        name=job.file_name,
+                        name=map_name,
                         bundle=map_bundle.bundle,
                         image=map_image,
                     )
