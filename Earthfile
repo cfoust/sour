@@ -48,6 +48,7 @@ assets:
     COPY services/assets assets
     COPY +goexe/mapdump assets/mapdump
     RUN --mount=type=cache,target=/tmp/assets/working /tmp/assets/build
+    RUN cd assets/output && gzip -k --best $(find .)
     SAVE ARTIFACT assets/output AS LOCAL "earthly/assets"
 
 game:
@@ -55,6 +56,7 @@ game:
     WORKDIR /cube2
     COPY services/game /game
     RUN --mount=type=cache,target=/emsdk/upstream/emscripten/cache/ /game/build
+    RUN cd /game/dist/game && gzip -k --best $(find .)
     SAVE ARTIFACT /game/dist/game AS LOCAL "earthly/game"
 
 client:
