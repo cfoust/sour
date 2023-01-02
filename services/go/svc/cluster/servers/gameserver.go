@@ -293,6 +293,7 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 			decoded, err := game.Read(bundle.Data, false)
 			if err != nil {
 				logger.Warn().Err(err).Msg("failed to decode broadcast")
+				continue
 			}
 
 			for _, message := range decoded {
