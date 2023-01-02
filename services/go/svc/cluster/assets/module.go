@@ -151,9 +151,10 @@ func (f *FoundMap) GetDesktopURL() string {
 }
 
 func (m *MapFetcher) FindMap(mapName string) opt.Option[FoundMap] {
+	otherTarget := mapName + ".ogz"
 	for _, source := range m.Sources {
 		for _, gameMap := range source.Index.Maps {
-			if gameMap.Name != mapName {
+			if gameMap.Name != mapName && gameMap.Name != otherTarget {
 				continue
 			}
 

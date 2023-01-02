@@ -64,7 +64,6 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Fix nasty asset base asset sizes for web clients
 * [ ] LRU cache for cluster map fetching
 * [ ] Leaderboard for ELO rankings
-* [ ] Support for sending arbitrary assets to desktop clients
 * [ ] Simple, beautiful main menu
   * [ ] Clean loading page for slow connections
   * [ ] Add `<noscript>` with a plea to enable JavaScript
