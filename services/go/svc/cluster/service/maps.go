@@ -246,7 +246,6 @@ func (s *SendState) Send() error {
 	p.Put(
 		game.N_SENDDEMO,
 		tag,
-		len(buffer),
 	)
 	p = append(p, buffer...)
 	err = s.SendClientSync(p, 2)
