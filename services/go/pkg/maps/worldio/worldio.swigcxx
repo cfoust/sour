@@ -1,0 +1,23 @@
+%module worldio
+%{
+#include <math.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <stdarg.h>
+#include <limits.h>
+#include <assert.h>
+#include <time.h>
+
+#include "worldio.h"
+%}
+%include "worldio.h"
+%include "wrap.h"
+
+%include "carrays.i"
+%array_functions(cube, CubeArray);
+%array_functions(ushort, Uint16Array);
+%array_functions(uchar, UcharArray);
+%array_functions(surfaceinfo, SurfaceInfoArray);
+

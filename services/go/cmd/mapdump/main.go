@@ -5,17 +5,20 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/repeale/fp-go"
 	"github.com/repeale/fp-go/option"
 
 	"github.com/cfoust/sour/pkg/maps"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func Find[T any](handler func(x T) bool) func(list []T) opt.Option[T] {
@@ -30,9 +33,9 @@ func Find[T any](handler func(x T) bool) func(list []T) opt.Option[T] {
 	}
 }
 
-func CountTextures(cube maps.Cube, target map[int32]int) {
-	if cube.Children != nil {
-		CountChildTextures(*cube.Children, target)
+func CountTextures(cube *maps.Cube, target map[int32]int) {
+	if cube.Children != nil && len(cube.Children) > 0 {
+		CountChildTextures(cube.Children, target)
 		return
 	}
 
@@ -42,13 +45,13 @@ func CountTextures(cube maps.Cube, target map[int32]int) {
 	}
 }
 
-func CountChildTextures(cubes []maps.Cube, target map[int32]int) {
+func CountChildTextures(cubes []*maps.Cube, target map[int32]int) {
 	for i := 0; i < 8; i++ {
 		CountTextures(cubes[i], target)
 	}
 }
 
-func GetChildTextures(cubes []maps.Cube, vslots []*VSlot) map[int32]int {
+func GetChildTextures(cubes []*maps.Cube, vslots []*VSlot) map[int32]int {
 	vSlotRefs := make(map[int32]int)
 	CountChildTextures(cubes, vSlotRefs)
 
@@ -265,7 +268,7 @@ type Processor struct {
 	Files []string
 }
 
-func NewProcessor(roots RootFlags, slots maps.VSlotData) *Processor {
+func NewProcessor(roots RootFlags, slots []*maps.VSlot) *Processor {
 	processor := Processor{}
 
 	processor.Roots = roots
@@ -275,15 +278,7 @@ func NewProcessor(roots RootFlags, slots maps.VSlotData) *Processor {
 		vslot.Changed = old.Changed
 		vslot.Layer = old.Layer
 		return vslot
-	})(slots.Slots)
-
-	// Relink linked list
-	for i, vslot := range vslots {
-		prev := slots.Previous[i]
-		if prev >= 0 && prev < int32(len(vslots)) {
-			vslots[prev].Next = vslot
-		}
-	}
+	})(slots)
 
 	processor.VSlots = vslots
 
@@ -324,7 +319,7 @@ func (processor *Processor) GetRootRelative(path string) opt.Option[string] {
 		relative, err := filepath.Rel(root, path)
 
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal().Err(err)
 		}
 
 		if strings.Contains(relative, "..") {
@@ -937,7 +932,7 @@ func (processor *Processor) ProcessFile(file string) error {
 		shim := filepath.Join("shims/", hash)
 
 		if strings.HasPrefix(file, "shims/") {
-			log.Fatalf("Shim %s contained dynamic code; please fill it in", file)
+			log.Fatal().Msgf("Shim %s contained dynamic code; please fill it in", file)
 		}
 
 		if !FileExists(shim) {
@@ -1170,6 +1165,8 @@ type Reference struct {
 }
 
 func main() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
+
 	var roots RootFlags
 
 	flag.Var(&roots, "root", "Specify an explicit asset root directory. Roots are searched in order of appearance.")
@@ -1178,7 +1175,7 @@ func main() {
 	absoluteRoots := fp.Map[string, string](func(root string) string {
 		absolute, err := filepath.Abs(root)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal().Err(err)
 		}
 		return absolute
 	})(roots)
@@ -1186,24 +1183,24 @@ func main() {
 	args := flag.Args()
 
 	if len(args) != 1 {
-		log.Fatal("You must provide only a single argument.")
+		log.Fatal().Msg("You must provide only a single argument.")
 	}
 
 	filename, err := filepath.Abs(args[0])
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err)
 	}
 
 	extension := filepath.Ext(filename)
 
 	if extension != ".ogz" {
-		log.Fatal("Map must end in .ogz")
+		log.Fatal().Msg("Map must end in .ogz")
 	}
 
-	_map, err := maps.LoadMap(filename)
+	_map, err := maps.FromFile(filename)
 
 	if err != nil {
-		log.Fatal("Failed to parse map file")
+		log.Fatal().Msg("Failed to parse map file")
 	}
 
 	processor := NewProcessor(absoluteRoots, _map.VSlots)
@@ -1238,7 +1235,7 @@ func main() {
 		// This might just be a file (like a config) that was specified with a relative path
 		absolute, err := filepath.Abs(file)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal().Err(err)
 		}
 
 		if FileExists(absolute) {
@@ -1267,7 +1264,7 @@ func main() {
 			absolute, err := filepath.Abs(file)
 
 			if err != nil {
-				log.Fatal(err)
+				log.Fatal().Err(err)
 			}
 			target = absolute
 		}
@@ -1292,14 +1289,16 @@ func main() {
 	addMapFile(filename)
 
 	// Some variables contain textures
-	if skybox, ok := _map.SVars["skybox"]; ok {
-		for _, path := range processor.FindCubemap(NormalizeTexture(skybox)) {
+	if skybox, ok := _map.Vars["skybox"]; ok {
+		value := string(skybox.(maps.StringVariable))
+		for _, path := range processor.FindCubemap(NormalizeTexture(value)) {
 			addFile(path)
 		}
 	}
 
-	if cloudlayer, ok := _map.SVars["cloudlayer"]; ok {
-		resolved := processor.FindTexture(NormalizeTexture(cloudlayer))
+	if cloudlayer, ok := _map.Vars["cloudlayer"]; ok {
+		value := string(cloudlayer.(maps.StringVariable))
+		resolved := processor.FindTexture(NormalizeTexture(value))
 
 		if opt.IsSome(resolved) {
 			addFile(resolved.Value)
@@ -1319,19 +1318,19 @@ func main() {
 	defaultPath := processor.SearchFile("data/default_map_settings.cfg")
 
 	if opt.IsNone(defaultPath) {
-		log.Fatal("Root with data/default_map_settings.cfg not provided")
+		log.Fatal().Msg("Root with data/default_map_settings.cfg not provided")
 	}
 
 	err = processor.ProcessFile(defaultPath.Value)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err)
 	}
 
 	cfgName := ReplaceExtension(filename, "cfg")
 	if FileExists(cfgName) {
 		err = processor.ProcessFile(cfgName)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal().Err(err)
 		}
 
 		addMapFile(cfgName)
@@ -1364,7 +1363,7 @@ func main() {
 		}
 	}
 
-	textureRefs := GetChildTextures(_map.Cubes, processor.VSlots)
+	textureRefs := GetChildTextures(_map.WorldRoot.Children, processor.VSlots)
 
 	for i, slot := range processor.Slots {
 		if _, ok := textureRefs[int32(i)]; ok {

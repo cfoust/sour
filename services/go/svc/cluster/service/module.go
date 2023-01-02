@@ -9,6 +9,7 @@ import (
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/mmr"
+	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
@@ -32,7 +33,8 @@ const (
 )
 
 type Cluster struct {
-	Clients *clients.ClientManager
+	Clients   *clients.ClientManager
+	MapSender *MapSender
 
 	createMutex sync.Mutex
 	// host -> time a client from that host last created a server. We
@@ -55,6 +57,8 @@ type Cluster struct {
 func NewCluster(
 	ctx context.Context,
 	serverManager *servers.ServerManager,
+	maps *assets.MapFetcher,
+	sender *MapSender,
 	settings config.ClusterSettings,
 	authDomain string,
 	auth *auth.DiscordService,
@@ -62,6 +66,7 @@ func NewCluster(
 ) *Cluster {
 	clients := clients.NewClientManager(redis, settings.Matchmaking.Duel)
 	server := &Cluster{
+		MapSender:     sender,
 		serverCtx:     ctx,
 		settings:      settings,
 		authDomain:    authDomain,
@@ -347,12 +352,19 @@ func (server *Cluster) PollServers(ctx context.Context) {
 					info.Domain = server.authDomain
 					p := game.Packet{}
 					p.PutInt(int32(game.N_SERVINFO))
-					game.Marshal(&p, *info)
+					p.Put(*info)
 					client.Connection.Send(game.GamePacket{
 						Channel: channel,
 						Data:    p,
 					})
 					continue
+				}
+
+				if message.Type() == game.N_SPAWNSTATE {
+					state := message.Contents().(*game.SpawnState)
+					client.Mutex.Lock()
+					client.LifeSequence = state.LifeSequence
+					client.Mutex.Unlock()
 				}
 
 				client.Connection.Send(game.GamePacket{
@@ -424,7 +436,7 @@ func (server *Cluster) DoAuthChallenge(ctx context.Context, client *clients.Clie
 		Id:        0,
 		Challenge: challenge.Question,
 	}
-	game.Marshal(&p, challengeMessage)
+	p.Put(challengeMessage)
 	client.Connection.Send(game.GamePacket{
 		Channel: 1,
 		Data:    p,
@@ -589,6 +601,28 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Cl
 	server.Clients.Mutex.Unlock()
 }
 
+func (server *Cluster) SendDesktopMap(ctx context.Context, client *clients.Client) {
+	if server.MapSender.IsHandling(client) {
+		return
+	}
+
+	gameServer := client.GetServer()
+	if gameServer == nil {
+		return
+	}
+
+	gameServer.Mutex.Lock()
+	mapName := gameServer.Map
+	isBuilt := gameServer.IsBuiltMap
+	gameServer.Mutex.Unlock()
+
+	if !isBuilt {
+		return
+	}
+
+	server.MapSender.SendMap(ctx, client, mapName)
+}
+
 func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 	toServer := client.Connection.ReceivePackets()
 	commands := client.Connection.ReceiveCommands()
@@ -685,6 +719,11 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 				if message.Type() == game.N_TEXT {
 					text := message.Contents().(*game.Text).Text
 
+					if text == "a" && server.MapSender.IsHandling(client) {
+						server.MapSender.TriggerSend(ctx, client)
+						continue
+					}
+
 					if strings.HasPrefix(text, "#") {
 						command := text[1:]
 						logger.Info().Str("command", command).Msg("intercepted command")
@@ -743,7 +782,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 					connect.AuthName = ""
 					p := game.Packet{}
 					p.PutInt(int32(game.N_CONNECT))
-					game.Marshal(&p, *connect)
+					p.Put(*connect)
 					client.Server.SendData(client.Id, uint32(msg.Channel), p)
 
 					if description == server.authDomain && client.GetUser() == nil {
@@ -768,6 +807,18 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 				if message.Type() == game.N_MAPCRC {
 					client.RestoreMessages()
+
+					crc := message.Contents().(*game.MapCRC)
+					// The client does not have the map
+					if client.Connection.Type() == clients.ClientTypeENet && crc.Crc == 0 {
+						go server.SendDesktopMap(ctx, client)
+					}
+				}
+
+				if message.Type() == game.N_GETDEMO && server.MapSender.IsHandling(client) {
+					demo := message.Contents().(*game.GetDemo)
+					server.MapSender.SendDemo(ctx, client, demo.Tag)
+					continue
 				}
 
 				client.Mutex.Lock()
@@ -811,4 +862,5 @@ func (server *Cluster) PollClients(ctx context.Context) {
 
 func (server *Cluster) Shutdown() {
 	server.manager.Shutdown()
+	server.MapSender.Shutdown()
 }

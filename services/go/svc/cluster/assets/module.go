@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/repeale/fp-go/option"
@@ -31,7 +32,7 @@ type Index struct {
 
 type AssetSource struct {
 	Index *Index
-	Base string
+	Base  string
 }
 
 type MapFetcher struct {
@@ -42,6 +43,32 @@ func NewMapFetcher() *MapFetcher {
 	return &MapFetcher{
 		Sources: make([]*AssetSource, 0),
 	}
+}
+
+func DownloadFile(url string, path string) error {
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Check server response
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func FetchIndex(url string) (*Index, error) {
@@ -73,7 +100,16 @@ func CleanSourcePath(indexURL string) string {
 		return ""
 	}
 
-	return indexURL[:lastSlash + 1]
+	return indexURL[:lastSlash+1]
+}
+
+func GetURLBase(url string) string {
+	lastSlash := strings.LastIndex(url, "/")
+	if lastSlash == -1 {
+		return ""
+	}
+
+	return url[lastSlash+1:]
 }
 
 func (m *MapFetcher) FetchIndices(assetSources []string) error {
@@ -88,7 +124,7 @@ func (m *MapFetcher) FetchIndices(assetSources []string) error {
 		log.Info().Str("source", url).Msg("fetched asset index")
 		sources = append(sources, &AssetSource{
 			Index: index,
-			Base: CleanSourcePath(url),
+			Base:  CleanSourcePath(url),
 		})
 	}
 
@@ -97,19 +133,36 @@ func (m *MapFetcher) FetchIndices(assetSources []string) error {
 	return nil
 }
 
-// Attempt to resolve a map name
-func (m *MapFetcher) FindMapURL(mapName string) opt.Option[string] {
+type FoundMap struct {
+	Map    *GameMap
+	Source *AssetSource
+}
+
+func (f *FoundMap) GetBaseURL() string {
+	return fmt.Sprintf("%s%s", f.Source.Base, f.Map.Bundle)
+}
+
+func (f *FoundMap) GetOGZURL() string {
+	return f.GetBaseURL() + ".ogz"
+}
+
+func (f *FoundMap) GetDesktopURL() string {
+	return f.GetBaseURL() + ".desktop"
+}
+
+func (m *MapFetcher) FindMap(mapName string) opt.Option[FoundMap] {
 	for _, source := range m.Sources {
 		for _, gameMap := range source.Index.Maps {
 			if gameMap.Name != mapName {
 				continue
 			}
 
-			url := fmt.Sprintf("%s%s.ogz", source.Base, gameMap.Bundle)
-
-			return opt.Some[string](url)
+			return opt.Some[FoundMap](FoundMap{
+				Map:    &gameMap,
+				Source: source,
+			})
 		}
 	}
 
-	return opt.None[string]()
+	return opt.None[FoundMap]()
 }

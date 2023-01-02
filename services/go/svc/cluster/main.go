@@ -45,10 +45,15 @@ func main() {
 	state := state.NewStateService(sourConfig.Redis)
 
 	maps := assets.NewMapFetcher()
+	sender := service.NewMapSender(maps)
 	err = maps.FetchIndices(clusterConfig.Assets)
-
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to load assets")
+	}
+
+	err = sender.Start()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to start map sender")
 	}
 
 	var discord *auth.DiscordService = nil
@@ -62,7 +67,16 @@ func main() {
 	}
 
 	serverManager := servers.NewServerManager(maps, clusterConfig.ServerDescription, clusterConfig.Presets)
-	cluster := service.NewCluster(ctx, serverManager, clusterConfig, sourConfig.Discord.Domain, discord, state.Client)
+	cluster := service.NewCluster(
+		ctx,
+		serverManager,
+		maps,
+		sender,
+		clusterConfig,
+		sourConfig.Discord.Domain,
+		discord,
+		state.Client,
+	)
 
 	err = serverManager.Start()
 	if err != nil {

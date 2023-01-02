@@ -10,7 +10,8 @@ import re
 import shutil
 import subprocess
 import sys
-from typing import NamedTuple, Optional, Tuple, List
+import zipfile
+from typing import NamedTuple, Optional, Tuple, List, Set
 
 # A mapping from a file on the filesystem to its target in Sour's filesystem.
 # Example: ("/home/cfoust/Downloads/blah.ogz", "packages/base/blah.ogz")
@@ -116,11 +117,24 @@ def search_file(file: str, roots: List[str]) -> Optional[Mapping]:
 
     return None
 
+# https://stackoverflow.com/a/1094933
+def sizeof_fmt(num, suffix="B"):
+    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
+        if abs(num) < 1024.0:
+            return f"{num:3.1f}{unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f}Yi{suffix}"
 
-def build_bundle(files: List[Mapping], outdir: str, compress_images: bool = True) -> str:
+def build_bundle(
+    files: List[Mapping],
+    outdir: str,
+    compress_images: bool = True,
+    print_summary: bool = False
+) -> str:
     """
     Given a list of files and a destination, build a Sour-compatible bundle.
-    Images are compressed by default, but you can disable this with `compress_images`.
+    Images are compressed by default, but you can disable this with
+    `compress_images`.
     """
 
     bundle_hash = hash_files(list(map(lambda a: a[0], files)))
@@ -130,18 +144,24 @@ def build_bundle(files: List[Mapping], outdir: str, compress_images: bool = True
 
     sour_target = path.join(outdir, "%s.sour" % bundle_hash)
 
-    if path.exists(sour_target): return bundle_hash
+    if path.exists(sour_target):
+        return bundle_hash
+
+    sizes: List[Tuple[str, int]] = []
 
     for _in, out in files:
         _, extension = path.splitext(_in)
 
-        if not path.exists(_in): continue
+        if not path.exists(_in):
+            continue
 
         size = path.getsize(_in)
 
+        sizes.append((_in, size))
+
         # We can only compress certain file types
         if (
-            not extension in [".dds", ".jpg", ".png"] or
+            extension not in [".dds", ".jpg", ".png"] or
             size < 128000 or
             not compress_images
         ):
@@ -150,8 +170,8 @@ def build_bundle(files: List[Mapping], outdir: str, compress_images: bool = True
 
         os.makedirs("working/", exist_ok=True)
 
-        # If multiple bundles rely on the same converted image, we don't want to
-        # redo the calculation.
+        # If multiple bundles rely on the same converted image, we don't want
+        # to redo the calculation.
         compressed = path.join(
             "working/",
             "%s%s" % (
@@ -181,6 +201,12 @@ def build_bundle(files: List[Mapping], outdir: str, compress_images: bool = True
             )
 
         cleaned.append((compressed, out))
+
+    if print_summary:
+        sizes = list(reversed(sorted(sizes, key=lambda a: a[1])))
+
+        for _in, size in sizes:
+            print(f"{_in} {sizeof_fmt(size)}")
 
     js_file = "/tmp/preload_%s.js" % bundle_hash
     data_file = "/tmp/%s.data" % bundle_hash
@@ -246,12 +272,17 @@ class BuiltMap(NamedTuple):
     image: Optional[str]
 
 
-def build_map_bundle(map_file: str, roots: List[str], outdir: str) -> BuiltMap:
+def build_map_bundle(map_file: str, roots: List[str], outdir: str, skip_root: str) -> BuiltMap:
     """
     Given a map file, roots, and an output directory, create a Sour bundle for
     the map and return its hash.
+
+    `skip_root` is one of the roots from `roots`. If a file from the map's
+    files exists in that root, it will be skipped when creating the vanilla zip
+    file.
     """
-    bundle = build_bundle(get_map_files(map_file, roots), outdir)
+    map_files = get_map_files(map_file, roots)
+    bundle = build_bundle(map_files, outdir)
     image = None
 
     # Look for an image file adjacent to the map
@@ -265,6 +296,27 @@ def build_map_bundle(map_file: str, roots: List[str], outdir: str) -> BuiltMap:
 
     # Copy the map file as well
     shutil.copy(map_file, path.join(outdir, "%s.ogz" % bundle))
+
+    skip_root = path.abspath(skip_root)
+    added: Set[str] = set()
+    zip_path = path.join(outdir, "%s.desktop" % bundle)
+    with zipfile.ZipFile(
+        zip_path,
+        'w',
+        compression=zipfile.ZIP_DEFLATED,
+        compresslevel=9
+    ) as desktop:
+        for _in, _out in map_files:
+            if _in.startswith(skip_root) or _out in added:
+                continue
+
+            with desktop.open(_out, 'w') as outfile:
+                with open(_in, 'rb') as infile:
+                    outfile.write(infile.read())
+
+            added.add(_out)
+
+    # shutil.move(zip_path + ".zip", zip_path)
 
     return BuiltMap(bundle=bundle, image=image)
 

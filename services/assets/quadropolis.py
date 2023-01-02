@@ -52,7 +52,8 @@ def get_jobs(file: File) -> List[BuildJob]:
 
     contents = list(filter(lambda a: not a.startswith('__MACOSX'), contents))
 
-    if not contents or not file.name: return []
+    if not contents or not file.name:
+        return []
 
     roots: List[str] = []
 
@@ -60,7 +61,8 @@ def get_jobs(file: File) -> List[BuildJob]:
         parts = entry.split(path.sep)
 
         for i, part in enumerate(parts):
-            if part != "data" and part != "packages": continue
+            if part != "data" and part != "packages":
+                continue
 
             root_slice = parts[:i]
             root = ""
@@ -92,13 +94,15 @@ def build_map_bundle(
     map_file: str,
     roots: List[str],
     outdir: str,
+    skip_root: str,
 ) -> Optional[package.BuiltMap]:
 
     try:
         map_bundle = package.build_map_bundle(
             map_file,
             roots,
-            outdir
+            outdir,
+            skip_root,
         )
     except Exception as e:
         if 'shims' in str(e):
@@ -141,6 +145,8 @@ if __name__ == "__main__":
 
     nodes = json.loads(open(path.join(quaddir, 'nodes.json'), 'r').read())
 
+    nodes = reversed(nodes)
+
     def tmp(file): return path.join("/tmp", file)
     def out(file): return path.join(outdir, file)
     def db(file): return path.join(quaddir, "db", file)
@@ -148,7 +154,8 @@ if __name__ == "__main__":
     jobs: List[BuildJob] = []
     for node in nodes:
         _id = node['id']
-        if node_targets and not _id in node_targets: continue
+        if node_targets and not _id in node_targets:
+            continue
         files = node['files']
 
         image = None
@@ -159,7 +166,7 @@ if __name__ == "__main__":
                 (not name.endswith('.jpg') and not name.endswith('.png'))
             ): continue
             _, extension = path.splitext(file['name'])
-            image = '%d%s' % (_id, extension)
+            image = '%s%s' % (file['hash'], extension)
             shutil.copy(db(file['hash']), out(image))
 
         base_map = package.GameMap(
@@ -192,13 +199,15 @@ if __name__ == "__main__":
                 # The file itself is a map
                 if not map_path:
                     print("%d: %s" % (_id, job.file_name))
-                    target = tmp("%s.ogz" % file_hash)
+                    map_name = path.basename(job.file_name)
+                    target = tmp("%s.ogz" % map_name)
                     shutil.copy(db(file_hash), target)
 
                     map_bundle = build_map_bundle(
                         target,
                         roots,
                         outdir,
+                        roots[1],
                     )
 
                     if not map_bundle: continue
@@ -206,7 +215,7 @@ if __name__ == "__main__":
                     map_image = map_bundle.image if map_bundle.image else image
 
                     game_map = base_map._replace(
-                        name=job.file_name,
+                        name=map_name,
                         bundle=map_bundle.bundle,
                         image=map_image,
                     )
@@ -280,6 +289,7 @@ if __name__ == "__main__":
                     target_map,
                     map_roots,
                     outdir,
+                    roots[1],
                 )
 
                 if not map_bundle: continue

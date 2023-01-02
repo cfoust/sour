@@ -291,7 +291,7 @@ type ServerMessage struct {
 
 // N_PAUSEGAME
 type PauseGame struct {
-	Value  int
+	Paused bool
 	Client int
 }
 
@@ -376,7 +376,7 @@ type InitClient struct {
 // N_SPAWNSTATE
 type SpawnState struct {
 	Client       int
-	Lifesequence int
+	LifeSequence int
 	Health       int
 	MaxHealth    int
 	Armour       int

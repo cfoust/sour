@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/cfoust/sour/pkg/enet"
 	"github.com/cfoust/sour/pkg/game"
@@ -12,6 +13,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type PacketACK struct {
+	Packet game.GamePacket
+	Done   chan bool
+}
+
 type ENetClient struct {
 	peer   *enet.Peer
 	host   *enet.Host
@@ -20,7 +26,7 @@ type ENetClient struct {
 	context context.Context
 	cancel  context.CancelFunc
 
-	toClient       chan game.GamePacket
+	toClient       chan PacketACK
 	toServer       chan game.GamePacket
 	commands       chan clients.ClusterCommand
 	authentication chan *auth.User
@@ -30,7 +36,7 @@ type ENetClient struct {
 func NewENetClient() *ENetClient {
 	return &ENetClient{
 		status:         clients.ClientNetworkStatusConnected,
-		toClient:       make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
+		toClient:       make(chan PacketACK, clients.CLIENT_MESSAGE_LIMIT),
 		toServer:       make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
 		commands:       make(chan clients.ClusterCommand, clients.CLIENT_MESSAGE_LIMIT),
 		authentication: make(chan *auth.User),
@@ -64,8 +70,13 @@ func (c *ENetClient) Type() clients.ClientType {
 	return clients.ClientTypeENet
 }
 
-func (c *ENetClient) Send(packet game.GamePacket) {
-	c.toClient <- packet
+func (c *ENetClient) Send(packet game.GamePacket) <-chan bool {
+	done := make(chan bool, 1)
+	c.toClient <- PacketACK{
+		Packet: packet,
+		Done:   done,
+	}
+	return done
 }
 
 func (c *ENetClient) SendGlobalChat(message string) {
@@ -97,8 +108,23 @@ func (c *ENetClient) ReceiveDisconnect() <-chan bool {
 func (c *ENetClient) Poll(ctx context.Context) {
 	for {
 		select {
-		case packet := <-c.toClient:
-			c.peer.Send(packet.Channel, packet.Data)
+		case packetACK := <-c.toClient:
+			packet := packetACK.Packet
+			done := c.peer.Send(packet.Channel, packet.Data)
+
+			// Go wait for the ACK and pass it on
+			go func() {
+				timeout, cancel := context.WithTimeout(ctx, 10*time.Second)
+				defer cancel()
+				select {
+				case result := <-done:
+					packetACK.Done <- result
+					return
+				case <-timeout.Done():
+					packetACK.Done <- false
+					return
+				}
+			}()
 			continue
 		case <-ctx.Done():
 			return

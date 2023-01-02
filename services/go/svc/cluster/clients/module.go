@@ -16,6 +16,7 @@ import (
 	"github.com/cfoust/sour/svc/cluster/servers"
 
 	"github.com/go-redis/redis/v9"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -67,7 +68,7 @@ type NetworkClient interface {
 	// Tell the client that we've connected
 	Connect(name string, internal bool, owned bool)
 	// Messages going to the client
-	Send(packet game.GamePacket)
+	Send(packet game.GamePacket) <-chan bool
 	// Messages going to the server
 	ReceivePackets() <-chan game.GamePacket
 	// Clients can issue commands out-of-band
@@ -100,6 +101,9 @@ type Client struct {
 
 	// The ID of the client on the Sauer server
 	ClientNum int32
+	// Each time a player dies, they're given a number (probably for
+	// anti-hacking?)
+	LifeSequence int
 
 	// True when the user is loading the map
 	delayMessages bool
@@ -118,6 +122,28 @@ type Client struct {
 	// XXX This is nasty but to make the API nice, Clients have to be able
 	// to see the list of clients. This could/should be refactored someday.
 	manager *ClientManager
+}
+
+func (c *Client) Logger() zerolog.Logger {
+	c.Mutex.Lock()
+	logger := log.With().Uint16("client", c.Id).Str("name", c.Name).Logger()
+
+	if c.User != nil {
+		discord := c.User.Discord
+		logger = logger.With().
+			Str("discord", fmt.Sprintf(
+				"%s#%s",
+				discord.Username,
+				discord.Discriminator,
+			)).Logger()
+	}
+
+	if c.Server != nil {
+		logger = logger.With().Str("server", c.Server.Reference()).Logger()
+	}
+	c.Mutex.Unlock()
+
+	return logger
 }
 
 func (c *Client) ReceiveAuthentication() <-chan *auth.User {
@@ -143,6 +169,13 @@ func (c *Client) GetClientNum() int32 {
 	return num
 }
 
+func (c *Client) GetLifeSequence() int {
+	c.Mutex.Lock()
+	num := c.LifeSequence
+	c.Mutex.Unlock()
+	return num
+}
+
 func (c *Client) GetName() string {
 	c.Mutex.Lock()
 	name := c.Name
@@ -153,7 +186,7 @@ func (c *Client) GetName() string {
 func (c *Client) GetFormattedName() string {
 	name := c.GetName()
 	user := c.GetUser()
-	
+
 	if user != nil {
 		name = game.Blue(name)
 	}
@@ -457,15 +490,16 @@ func (c *ClientManager) AddClient(networkClient NetworkClient) error {
 	}
 
 	client := Client{
-		Id:             id,
-		Name:           "unnamed",
-		ELO:            NewELOState(c.Duels),
-		Connection:     networkClient,
-		Status:         ClientStatusDisconnected,
-		manager:        c,
-		delayMessages:  false,
-		messageQueue:   make([]string, 0),
-		Authentication: make(chan *auth.User, 1),
+		Id:               id,
+		Name:             "unnamed",
+		ELO:              NewELOState(c.Duels),
+		Connection:       networkClient,
+		Status:           ClientStatusDisconnected,
+		manager:          c,
+		delayMessages:    false,
+		messageQueue:     make([]string, 0),
+		Authentication:   make(chan *auth.User, 1),
+		serverSessionCtx: context.Background(),
 	}
 
 	c.Mutex.Lock()

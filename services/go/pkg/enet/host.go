@@ -6,6 +6,31 @@ package enet
 #include <stdlib.h>
 #include <enet/enet.h>
 
+ENetHost* initClient(const char *addr, int port) {
+	if (enet_initialize() != 0) {
+		fprintf (stderr, "An error occurred while initializing ENet.\n");
+		return NULL;
+	}
+	atexit(enet_deinitialize);
+
+	ENetAddress address;
+
+	address.host = ENET_HOST_ANY;
+
+	address.port = port;
+
+	enet_address_set_host(&address, addr);
+
+	ENetHost* host = enet_host_create(NULL, 2, 3, 0, 0);
+	if (host == NULL) {
+		fprintf(stderr, "An error occurred while trying to create an ENet server host.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	enet_host_connect(host, &address, 3, 0);
+
+	return host;
+}
 
 ENetHost* initServer(const char *addr, int port) {
 	if (enet_initialize() != 0) {
@@ -52,6 +77,18 @@ import (
 	"errors"
 )
 
+func NewConnectHost(laddr string, lport int) (*Host, error) {
+	cHost := C.initClient(C.CString(laddr), C.int(lport))
+	if cHost == nil {
+		return nil, errors.New("an error occured initializing the ENet host in C")
+	}
+
+	return &Host{
+		cHost: cHost,
+		peers: map[*C.ENetPeer]*Peer{},
+	}, nil
+}
+
 func NewHost(laddr string, lport int) (*Host, error) {
 	cHost := C.initServer(C.CString(laddr), C.int(lport))
 	if cHost == nil {
@@ -75,6 +112,10 @@ func (h *Host) Service() <-chan Event {
 		for {
 			cEvent := C.serviceHost(h.cHost)
 			events <- h.eventFromCEvent(&cEvent)
+
+			for _, peer := range h.peers {
+				peer.CheckACKs()
+			}
 		}
 	}()
 	return events

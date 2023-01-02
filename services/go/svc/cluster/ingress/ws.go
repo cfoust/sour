@@ -180,8 +180,12 @@ func (c *WSClient) Type() clients.ClientType {
 	return clients.ClientTypeWS
 }
 
-func (c *WSClient) Send(packet game.GamePacket) {
+func (c *WSClient) Send(packet game.GamePacket) <-chan bool {
+	done := make(chan bool, 1)
 	c.toClient <- packet
+	// We don't get ACKs over WS (for now, this is unnecessary)
+	done <- true
+	return done
 }
 
 func (c *WSClient) ReceivePackets() <-chan game.GamePacket {
