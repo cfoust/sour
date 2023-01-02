@@ -140,14 +140,14 @@ func (s *SendState) TriggerSend() {
 
 func (s *SendState) Send() error {
 	client := s.Client
-
-	sendCtx, cancelSend := context.WithCancel(client.ServerSessionContext())
-	defer cancelSend()
-
 	logger := client.Logger()
+	ctx := client.ServerSessionContext()
 
-	if sendCtx.Err() != nil {
-		return sendCtx.Err()
+	logger.Info().Msg("sending map to client")
+
+
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
 	s.SendPause(true)
@@ -163,8 +163,8 @@ func (s *SendState) Send() error {
 	)
 	s.SendClient(p, 1)
 
-	if sendCtx.Err() != nil {
-		return sendCtx.Err()
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
 	map_ := s.Maps.FindMap(s.Map)
@@ -172,6 +172,8 @@ func (s *SendState) Send() error {
 		// How?
 		return fmt.Errorf("could not find map")
 	}
+
+	logger = client.Logger().With().Str("map", map_.Value.Map.Name).Logger()
 
 	fakeMap, err := MakeDownloadMap(map_.Value.Map.Bundle)
 	if err != nil {
@@ -199,22 +201,19 @@ func (s *SendState) Send() error {
 		return err
 	}
 
-	if sendCtx.Err() != nil {
-		return sendCtx.Err()
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
-
-	logger.Info().Msgf("downloaded desktop map to %s", mapPath)
 
 	client.SendServerMessage("You are missing this map. Please run '/do $maptitle' to download it.")
 
-	doCtx, cancelDo := context.WithTimeout(sendCtx, 30*time.Second)
-	defer cancelDo()
-
 	select {
 	case <-s.userAccepted:
-	case <-doCtx.Done():
-		return doCtx.Err()
+	case <-ctx.Done():
+		return ctx.Err()
 	}
+
+	logger.Info().Msg("user accepted download")
 
 	s.Client.GetServer().SendCommand(fmt.Sprintf("forcerespawn %d", s.Client.GetClientNum()))
 	time.Sleep(1 * time.Second)
@@ -227,9 +226,11 @@ func (s *SendState) Send() error {
 	select {
 	case request := <-s.demoRequested:
 		tag = request
-	case <-sendCtx.Done():
-		return sendCtx.Err()
+	case <-ctx.Done():
+		return ctx.Err()
 	}
+
+	logger.Info().Msg("user requested demo")
 
 	file, err := os.Open(s.Path)
 	defer file.Close()
@@ -252,10 +253,12 @@ func (s *SendState) Send() error {
 	if err != nil {
 		return err
 	}
+	logger.Info().Msg("demo downloaded")
+
 	time.Sleep(500 * time.Millisecond)
 
-	if sendCtx.Err() != nil {
-		return sendCtx.Err()
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
 	// Then load the demo
@@ -263,11 +266,14 @@ func (s *SendState) Send() error {
 	s.MoveClient(512-10, 512-10)
 	time.Sleep(500 * time.Millisecond)
 
-	if sendCtx.Err() != nil {
-		return sendCtx.Err()
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
 	s.SendPause(false)
+
+	logger.Info().Msg("download complete")
+
 	return nil
 }
 
