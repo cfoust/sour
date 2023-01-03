@@ -13,6 +13,9 @@ int isCommandPresent(ENetPeer *peer, enet_uint16 seq) {
 	currentCommand = enet_list_next(currentCommand))
 	{
 		outgoingCommand = (ENetOutgoingCommand *) currentCommand;
+		if (outgoingCommand == NULL) {
+			continue;
+		}
 		if (outgoingCommand->reliableSequenceNumber == seq) {
 			return 1;
 		}
