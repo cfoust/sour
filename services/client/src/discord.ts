@@ -97,7 +97,10 @@ export function renderDiscordHeader(state: AuthState): string {
 }
 
 export function renderDiscordButton(state: AuthState): string {
-  if (state.status === AuthStatus.Authenticated || state.status === AuthStatus.AvatarMounted) {
+  if (
+    state.status === AuthStatus.Authenticated ||
+    state.status === AuthStatus.AvatarMounted
+  ) {
     return `
           guibutton "discord.."        "showgui discord"
       `
@@ -119,7 +122,13 @@ export default function useAuth(
 
   const initialize = React.useCallback(
     (urlCode: Maybe<string>) => {
-      if (!CONFIG.auth.enabled) return
+      if (!CONFIG.auth.enabled) {
+        sendMessage({
+          Op: MessageType.DiscordCode,
+          Code: '',
+        })
+        return
+      }
 
       let code: Maybe<string> = urlCode
       // Look in localStorage
@@ -127,13 +136,9 @@ export default function useAuth(
         code = localStorage.getItem(DISCORD_CODE)
       }
 
-      if (code == null) {
-        return
-      }
-
       sendMessage({
         Op: MessageType.DiscordCode,
-        Code: code,
+        Code: code == null ? '' : code,
       })
     },
     [sendMessage]
@@ -158,7 +163,7 @@ export default function useAuth(
         )
           return
         log.info(
-          "Copied authkey command to clipboard! Run it in desktop Sauerbraten (hit /) and then run /saveauthkeys."
+          'Copied authkey command to clipboard! Run it in desktop Sauerbraten (hit /) and then run /saveauthkeys.'
         )
         navigator.clipboard.writeText(
           `authkey ${state.user.Id} ${state.key} ${CONFIG.auth.domain}`

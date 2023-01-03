@@ -474,6 +474,10 @@ func (server *Cluster) HandleChallengeAnswer(
 
 func (server *Cluster) GreetClient(ctx context.Context, client *clients.Client) {
 	client.AnnounceELO()
+	user := client.GetUser()
+	if user == nil {
+		client.SendServerMessage("You are not logged in. Your rating will not be saved.")
+	}
 	server.NotifyClientChange(ctx, client, true)
 }
 
@@ -636,29 +640,17 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 	defer client.Connection.Destroy()
 
-	// If the user hasn't authenticated in a second, greet them normally.
-	go func() {
-		time.Sleep(5 * time.Second)
-
-		if clientCtx.Err() != nil {
-			return
-		}
-
-		client.Mutex.Lock()
-		user := client.User
-		client.Mutex.Unlock()
-		if user == nil {
-			server.GreetClient(clientCtx, client)
-			client.SendServerMessage("You are not logged in. Your rating will not be saved.")
-		}
-	}()
-
 	for {
 		select {
 		case <-ctx.Done():
 			cancel()
 			return
 		case user := <-authentication:
+			if user == nil {
+				server.GreetClient(clientCtx, client)
+				continue
+			}
+
 			client.Mutex.Lock()
 			client.User = user
 			client.Mutex.Unlock()
@@ -787,6 +779,8 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 					if description == server.authDomain && client.GetUser() == nil {
 						server.DoAuthChallenge(ctx, client, name)
+					} else {
+						server.GreetClient(clientCtx, client)
 					}
 					continue
 				}

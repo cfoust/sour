@@ -261,7 +261,8 @@ func (server *WSIngress) RemoveClient(client *WSClient) {
 }
 
 func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code string) {
-	if server.auth == nil {
+	if server.auth == nil || code == "" {
+		client.authentication <- nil
 		return
 	}
 

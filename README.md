@@ -61,7 +61,6 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Terraform recipes for deployment
 ### Bugs
-* [ ] Fix the greeting mechanism to not use sleeping
 * [ ] Preserve the reliable flag on ENet packets coming from the server
 ### Sourverse
 * [ ] Support map hashes everywhere + async map existence checks

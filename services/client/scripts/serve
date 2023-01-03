@@ -25,6 +25,5 @@ cd "$SCRIPT_DIR/../"
 export SOUR_CONFIG="$(cat $SCRIPT_DIR/../../../config/config.json | jq '.client')"
 yarn serve:site &
 cd dist
-python ../spa.py &
 trap 'kill $(jobs -p)' EXIT
 cat
