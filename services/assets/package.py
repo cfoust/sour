@@ -48,6 +48,8 @@ class GameMap(NamedTuple):
     id: str
     # The map name as it would appear in Sauerbraten e.g. complex.
     name: str
+    # The bundle that contains this map's files.
+    bundle: Optional[str]
     # The asset ID of the map file.
     ogz: str
     assets: List[Asset]
@@ -66,6 +68,28 @@ class Model(NamedTuple):
     # The path that Sauer would use, a reference to a directory in
     # package/models e.g. skull/blue
     name: str
+
+
+class IndexAsset(NamedTuple):
+    id: int
+    path: str
+
+
+class IndexBundle(NamedTuple):
+    id: str
+    assets: List[IndexAsset]
+    desktop: bool
+    web: bool
+
+
+class IndexMap(NamedTuple):
+    id: str
+    name: str
+    bundle: Optional[str]
+    ogz: int
+    assets: List[IndexAsset]
+    image: Optional[str]
+    description: str
 
 
 def hash_string(string: str) -> str:
@@ -230,10 +254,7 @@ def build_desktop_bundle(outdir: str, bundle: Bundle):
             added.add(_out)
 
 
-def get_map_files(map_file: str, roots: List[str]) -> List[Mapping]:
-    """
-    Get all of the files referenced by a Sauerbraten map.
-    """
+def dump_sour(type_: str, target: str, roots: List[str]) -> List[Mapping]:
     root_args = []
 
     for root in roots:
@@ -243,8 +264,10 @@ def get_map_files(map_file: str, roots: List[str]) -> List[Mapping]:
     result = subprocess.run(
         [
             "./sourdump",
+            "-type",
+            type_,
             *root_args,
-            map_file,
+            target,
         ],
         # check=True,
         capture_output=True
@@ -263,6 +286,15 @@ def get_map_files(map_file: str, roots: List[str]) -> List[Mapping]:
 
     return files
 
+
+def get_map_files(map_file: str, roots: List[str]) -> List[Mapping]:
+    """
+    Get all of the files referenced by a Sauerbraten map.
+    """
+    return dump_sour("map", map_file, roots)
+
+
+MODEL_PREFIX = "packages/models"
 
 class Packager:
     outdir: str
@@ -343,6 +375,7 @@ class Packager:
             )
 
         shutil.copy(compressed, out_file)
+
         return Asset(
             path=out,
             id=hash_file(compressed)
@@ -377,7 +410,6 @@ class Packager:
 
     def build_bundle(
         self,
-        roots: List[str],
         skip_root: str,
         files: List[Mapping],
         build_web: bool,
@@ -403,11 +435,112 @@ class Packager:
             build_sour_bundle(self.outdir, bundle)
 
         if build_desktop:
+            desktop_bundle = bundle._replace(
+                assets=list(
+                    filter(
+                        lambda a: not path.exists(
+                            path.join(
+                                skip_root,
+                                a.path,
+                            )
+                        ),
+                        bundle.assets
+                    )
+                )
+            )
             build_desktop_bundle(self.outdir, bundle)
 
         self.bundles.append(bundle)
 
         return bundle
+
+
+    def build_mod(
+        self,
+        skip_root: str,
+        files: List[Mapping],
+        name: str,
+        description: str,
+        image: str = None,
+        build_web: bool = True,
+        build_desktop: bool = False,
+    ) -> Optional[Mod]:
+        bundle = self.build_bundle(
+            skip_root,
+            files,
+            build_web,
+            build_desktop
+        )
+
+        if not bundle:
+            return None
+
+        mod = Mod(
+            id=bundle.id,
+            name=name,
+            image=image,
+            description=description
+        )
+
+        self.mods.append(mod)
+
+        return mod
+
+
+    def build_model(
+        self,
+        roots: List[str],
+        skip_root: str,
+        model_file: str,
+        build_desktop: bool = False,
+    ) -> Optional[Model]:
+        model_files = dump_sour("model", model_file, roots)
+        bundle = self.build_bundle(
+            skip_root,
+            model_files,
+            True,
+            build_desktop
+        )
+
+        if not bundle:
+            return None
+
+        # Calculate the model name
+        found = search_file(model_file, roots)
+        if not found:
+            return None
+
+        _, resolved = found
+
+        if not resolved.startswith(MODEL_PREFIX):
+            return None
+
+        name = path.relpath(os.path.dirname(resolved), MODEL_PREFIX)
+        if name.endswith('/'):
+            name = name[:-1]
+
+        model = Model(
+            id=bundle.id,
+            name=name,
+        )
+
+        self.models.append(model)
+
+        return model
+
+
+    def build_texture(
+        self,
+        texture: Mapping,
+    ) -> Optional[Asset]:
+        assets = self.build_assets([texture])
+
+        if not assets:
+            return None
+
+        texture = assets[0]
+        self.textures.append(texture)
+        return texture
 
 
     def build_map(
@@ -428,7 +561,7 @@ class Packager:
         files exists in that root, it will be skipped when creating the vanilla zip
         file.
         """
-        map_files = get_map_files(map_file, roots)
+        map_files = dump_sour("map", map_file, roots)
         assets = self.build_assets(map_files)
 
         base, _ = path.splitext(map_file)
@@ -456,9 +589,24 @@ class Packager:
         if not ogz_id:
             return None
 
+        # We don't build web bundles for maps because they don't tend to have
+        # many assets
+        bundle = None
+        if build_desktop:
+            desktop_bundle = self.build_bundle(
+                skip_root,
+                map_files,
+                False,
+                True
+            )
+            if not desktop_bundle:
+                raise Exception('built bundle was missing')
+            bundle = desktop_bundle.id
+
         map_ = GameMap(
             id=map_hash,
             name=name,
+            bundle=bundle,
             ogz=ogz_id,
             assets=assets,
             image=image,
@@ -470,67 +618,47 @@ class Packager:
         return map_
 
 
-class IndexAsset(NamedTuple):
-    id: int
-    path: str
+    def dump_index(
+            self,
+            prefix = ''
+    ) -> None:
+        index = '%s.index.json' % prefix
 
+        lookup: Dict[str, int] = {}
+        for i, asset in enumerate(self.assets):
+            lookup[asset] = i
 
-class IndexMap(NamedTuple):
-    id: str
-    name: str
-    ogz: int
-    assets: List[IndexAsset]
-    image: Optional[str]
-    description: str
+        def replace_asset(asset: Asset) -> IndexAsset:
+            return IndexAsset(
+                id=lookup[asset.id],
+                path=asset.path,
+            )
 
+        index_maps: List[IndexMap] = list(map(
+            lambda map_: IndexMap(
+                id=map_.id,
+                name=map_.name,
+                bundle=map_.bundle,
+                ogz=lookup[map_.ogz],
+                assets=list(map(replace_asset, map_.assets)),
+                image=map_.image,
+                description=map_.description,
+            ),
+            self.maps
+        ))
 
-class IndexMod(NamedTuple):
-    name: str
-    assets: List[IndexAsset]
+        with open(path.join(self.outdir, index), 'w') as f:
+            f.write(json.dumps(
+                {
+                    'assets': self.assets,
+                    'textures': list(map(replace_asset, self.textures)),
+                    'models': list(map(lambda model: model._asdict(), self.models)),
+                    'maps': list(map(lambda _map: _map._asdict(), index_maps)),
+                    'mods': list(map(lambda mod: mod._asdict(), self.mods)),
+                },
+                indent=4
+            ))
 
-
-# def dump_index(maps: List[GameMap], mods: List[Mod], assets: List[str], outdir: str, prefix = ''):
-    # index = '%s.index.json' % prefix
-
-    # lookup: Dict[str, int] = {}
-    # for i, asset in enumerate(assets):
-        # lookup[asset] = i
-
-    # def replace_asset(asset: Asset) -> IndexAsset:
-        # return IndexAsset(
-            # id=lookup[asset.id],
-            # path=asset.path,
-        # )
-
-    # index_maps: List[IndexMap] = list(map(
-        # lambda map_: IndexMap(
-            # id=map_.id,
-            # name=map_.name,
-            # ogz=lookup[map_.ogz],
-            # assets=list(map(replace_asset, map_.assets)),
-            # image=map_.image,
-            # description=map_.description,
-        # ),
-        # maps
-    # ))
-
-    # index_mods: List[IndexMod] = list(map(
-        # lambda mod: IndexMod(
-            # name=mod.name,
-            # assets=list(map(replace_asset, mod.assets)),
-        # ),
-        # mods
-    # ))
-
-    # with open(path.join(outdir, index), 'w') as f:
-        # f.write(json.dumps(
-            # {
-                # 'assets': assets,
-                # 'maps': list(map(lambda _map: _map._asdict(), index_maps)),
-                # 'mods': list(map(lambda mod: mod._asdict(), index_mods)),
-            # },
-            # indent=4
-        # ))
 
 
 if __name__ == "__main__": pass
