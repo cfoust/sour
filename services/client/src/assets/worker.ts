@@ -1,5 +1,7 @@
 import * as R from 'ramda'
 import type {
+  Asset,
+  AssetData,
   Bundle,
   BundleState,
   BundleLoadState,
@@ -15,7 +17,7 @@ import type {
 } from './types'
 import { ResponseType, RequestType, BundleLoadStateType } from './types'
 
-import { getBundle as getSavedBundle, saveBundle, haveBundle } from './storage'
+import { getBundle as getSavedBundle, saveAsset, haveBundle } from './storage'
 
 class PullError extends Error {}
 
@@ -27,9 +29,6 @@ async function fetchIndex(source: string): Promise<AssetSource> {
   const response = await fetch(source)
   const index: AssetSource = await response.json()
   index.source = source
-  for (const map of index.maps) {
-    map.name = map.name.replace('.ogz', '')
-  }
   return index
 }
 
@@ -59,35 +58,6 @@ const updateBundle = (target: string, state: BundleState) => {
   sendState(R.map((v) => (v.name === target ? state : v), pullState))
 }
 
-const INT_SIZE = 4
-function unpackBundle(data: ArrayBuffer): Bundle {
-  const view = new DataView(data)
-
-  let offset = 0
-
-  const pathLength = view.getInt32(offset)
-  offset += INT_SIZE
-  const paths = JSON.parse(
-    new TextDecoder().decode(new Uint8Array(data, offset, pathLength))
-  )
-  offset += pathLength
-
-  const metadataLength = view.getInt32(offset)
-  offset += INT_SIZE
-  const metadata = JSON.parse(
-    new TextDecoder().decode(new Uint8Array(data, offset, metadataLength))
-  )
-  offset += metadataLength
-
-  return {
-    dataOffset: offset,
-    buffer: data,
-    size: metadata.remote_package_size,
-    directories: paths,
-    files: metadata.files,
-  }
-}
-
 function cleanPath(source: string): string {
   const lastSlash = source.lastIndexOf('/')
   if (lastSlash === -1) {
@@ -97,13 +67,13 @@ function cleanPath(source: string): string {
   return source.slice(0, lastSlash + 1)
 }
 
-async function fetchBundle(
+async function fetchAsset(
   source: string,
-  bundle: string,
+  asset: string,
   progress: (bundle: BundleLoadState) => void
 ): Promise<ArrayBuffer> {
   const request = new XMLHttpRequest()
-  const packageName = `${cleanPath(source)}${bundle}.sour`
+  const packageName = `${cleanPath(source)}${asset}`
   request.open('GET', packageName, true)
   request.responseType = 'arraybuffer'
   request.onprogress = (event) => {
@@ -136,27 +106,42 @@ async function fetchBundle(
   })
 }
 
-async function loadBundle(
+async function loadAsset(
   source: string,
-  bundle: string,
+  asset: Asset,
   progress: (bundle: BundleLoadState) => void
-): Promise<Bundle> {
-  if (await haveBundle(bundle)) {
-    const buffer = await getSavedBundle(bundle)
+): Promise<AssetData> {
+  const { id, path } = asset
+  if (await haveBundle(id)) {
+    const buffer = await getSavedBundle(id)
     if (buffer == null) {
-      throw new PullError(`Bundle ${bundle} did not exist`)
+      throw new PullError(`Asset ${id} did not exist`)
     }
-    return unpackBundle(buffer)
+    return {
+      path,
+      data: buffer,
+    }
   }
 
-  const buffer = await fetchBundle(source, bundle, progress)
-  await saveBundle(bundle, buffer)
-  return unpackBundle(buffer)
+  const buffer = await fetchAsset(source, id, progress)
+  await saveAsset(id, buffer)
+  return {
+    data: buffer,
+    path,
+  }
+}
+
+async function loadAssets(
+  source: string,
+  assets: Asset[],
+  progress: (bundle: BundleLoadState) => void
+): Promise<AssetData[]> {
+  return Promise.all(R.map((v) => loadAsset(source, v, progress), assets))
 }
 
 type FoundBundle = {
   source: string
-  bundle: string
+  assets: Asset[]
 }
 
 function findBundle(target: string): Maybe<FoundBundle> {
@@ -167,15 +152,15 @@ function findBundle(target: string): Maybe<FoundBundle> {
       if (mod.name !== target) continue
       return {
         source: source.source,
-        bundle: mod.bundle,
+        assets: R.map((v) => source.assets[v], mod.assets),
       }
     }
 
     for (const map of source.maps) {
-      if (map.name !== target && !map.aliases.includes(target)) continue
+      if (map.name !== target && map.id !== target) continue
       return {
         source: source.source,
-        bundle: map.bundle,
+        assets: R.map((v) => source.assets[v], map.assets),
       }
     }
   }
@@ -206,7 +191,7 @@ async function processLoad(target: string, id: string) {
   })
 
   try {
-    const bundle = await loadBundle(found.source, found.bundle, update)
+    const data = await loadAssets(found.source, found.assets, update)
 
     update({
       type: BundleLoadStateType.Ok,
@@ -216,10 +201,13 @@ async function processLoad(target: string, id: string) {
       op: ResponseType.Bundle,
       id,
       target,
-      bundle,
+      data,
     }
 
-    self.postMessage(response, [bundle.buffer])
+    self.postMessage(
+      response,
+      R.map((v) => v.data, data)
+    )
   } catch (e) {
     if (!(e instanceof PullError)) throw e
 

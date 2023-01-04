@@ -2,6 +2,7 @@ import * as React from 'react'
 import * as R from 'ramda'
 
 import type {
+  AssetData,
   AssetResponse,
   GameMap,
   AssetSource,
@@ -32,20 +33,30 @@ enum NodeType {
 
 export type BundleRequest = {
   id: string
-  promiseSet: PromiseSet<Bundle>
+  promiseSet: PromiseSet<AssetData[]>
 }
 
 function getValidMaps(sources: AssetSource[]): string[] {
   return R.pipe(
     R.chain((source: AssetSource) => source.maps),
-    R.chain((map: GameMap) => [map.name, ...map.aliases])
+    R.chain((map: GameMap) => [map.name, map.id])
   )(sources)
 }
 
 const getDataName = (name: string) => `${name}.data`
 const getBaseName = (dataName: string) => dataName.split('.')[1]
 
+function getDirectory(source: string): string {
+  const lastSlash = source.lastIndexOf('/')
+  if (lastSlash === -1) {
+    return ''
+  }
+
+  return source.slice(0, lastSlash + 1)
+}
+
 export async function mountFile(path: string, data: Uint8Array): Promise<void> {
+  Module.FS_createPath('/', getDirectory(path), true, true)
   return new Promise<void>((resolve, reject) => {
     Module.FS_createPreloadedFile(
       path,
@@ -100,7 +111,7 @@ async function mountBundle(target: string, bundle: Bundle): Promise<void> {
 export default function useAssets(
   setState: React.Dispatch<React.SetStateAction<GameState>>
 ): {
-  loadBundle: (target: string) => Promise<Bundle | undefined>
+  loadBundle: (target: string) => Promise<AssetData[] | undefined>
 } {
   const [bundleState, setBundleState] = React.useState<BundleState[]>([])
   const assetWorkerRef = React.useRef<Worker>()
@@ -114,7 +125,7 @@ export default function useAssets(
     const { current: requests } = requestStateRef
 
     const id = target
-    const promiseSet = breakPromise<Bundle>()
+    const promiseSet = breakPromise<AssetData[]>()
 
     requestStateRef.current = [
       ...requests,
@@ -190,20 +201,22 @@ export default function useAssets(
           }
         }
       } else if (message.op === AssetResponseType.Bundle) {
-        const { target, id, bundle } = message
+        const { target, id, data } = message
 
         ;(async () => {
           const { current: requests } = requestStateRef
           const request = R.find(({ id: otherId }) => id === otherId, requests)
           if (request == null) return
 
-          await mountBundle(target, bundle)
+          await Promise.all(
+            R.map(v => mountFile(`/${v.path}`, new Uint8Array(v.data)), data)
+          )
 
           const {
             promiseSet: { resolve },
           } = request
 
-          resolve(bundle)
+          resolve(data)
 
           requestStateRef.current = R.filter(
             ({ id: otherId }) => id !== otherId,
@@ -230,7 +243,6 @@ export default function useAssets(
       nodes.push(node)
     }
 
-    // We want Sauerbraten to behave as though all of the available maps were
     // already mapped into packages/base/*.ogz, so it needs to be able to check
     // whether a map is valid before loading it
     const isValidMap = (map: string): number => {
@@ -300,28 +312,28 @@ export default function useAssets(
       }
 
       const mapFile = R.find(
-        (file) => file.filename.endsWith('.ogz'),
-        bundle.files
+        (file) => file.path.endsWith('.ogz'),
+        bundle
       )
       if (mapFile == null) {
         console.error('Could not find map file in bundle')
         return
       }
 
-      const { filename } = mapFile
-      const match = filename.match(/packages\/base\/(.+).ogz/)
+      const { path } = mapFile
+      const match = path.match(/packages\/base\/(.+).ogz/)
       if (match != null) {
         loadMap(match[1])
         return
       }
 
       const PACKAGES_PREFIX = '/packages/'
-      if (filename.startsWith(PACKAGES_PREFIX)) {
-        loadMap(filename.slice(PACKAGES_PREFIX.length))
+      if (path.startsWith(PACKAGES_PREFIX)) {
+        loadMap(path.slice(PACKAGES_PREFIX.length))
         return
       }
 
-      console.error(`Map file was not in base ${mapFile.filename}`)
+      console.error(`Map file was not in base ${mapFile.path}`)
     }
 
     Module.assets = {

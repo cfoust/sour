@@ -22,21 +22,33 @@ export type Bundle = {
   buffer: ArrayBuffer
 }
 
+export type Asset = {
+  id: string
+  path: string
+}
+
+export type AssetData = {
+  path: string
+  data: ArrayBuffer
+}
+
 export type GameMap = {
+  id: string
   name: string
-  bundle: string
+  ogz: number
+  assets: number[]
   image: Maybe<string>
   description: string
-  aliases: string[]
 }
 
 export type GameMod = {
   name: string
-  bundle: string
+  assets: number[]
 }
 
 export type AssetSource = {
   source: string
+  assets: Asset[]
   maps: GameMap[]
   mods: GameMod[]
 }
@@ -86,7 +98,7 @@ export type AssetBundleResponse = {
   op: ResponseType.Bundle
   target: string
   id: string
-  bundle: Bundle
+  data: AssetData[]
 }
 
 export type IndexResponse = {

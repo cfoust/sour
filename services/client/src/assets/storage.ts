@@ -33,7 +33,7 @@ export async function getBundle(
   return bundle
 }
 
-export async function saveBundle(
+export async function saveAsset(
   target: string,
   buffer: ArrayBuffer
 ) {
