@@ -56,10 +56,15 @@ function getDirectory(source: string): string {
 }
 
 export async function mountFile(path: string, data: Uint8Array): Promise<void> {
-  Module.FS_createPath('/', getDirectory(path), true, true)
+  const parts = getDirectory(path).split('/')
+  for (let i = 0; i < parts.length; i++) {
+    const first = parts.slice(0, i).join('/')
+    const last = parts[i]
+    Module.FS_createPath(`/${first}`, last, true, true)
+  }
   return new Promise<void>((resolve, reject) => {
     Module.FS_createPreloadedFile(
-      path,
+      `/${path}`,
       null,
       data,
       true,
@@ -209,7 +214,7 @@ export default function useAssets(
           if (request == null) return
 
           await Promise.all(
-            R.map(v => mountFile(`/${v.path}`, new Uint8Array(v.data)), data)
+            R.map((v) => mountFile(v.path, new Uint8Array(v.data)), data)
           )
 
           const {
@@ -311,10 +316,7 @@ export default function useAssets(
         return
       }
 
-      const mapFile = R.find(
-        (file) => file.path.endsWith('.ogz'),
-        bundle
-      )
+      const mapFile = R.find((file) => file.path.endsWith('.ogz'), bundle)
       if (mapFile == null) {
         console.error('Could not find map file in bundle')
         return
