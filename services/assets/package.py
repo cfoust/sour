@@ -122,6 +122,18 @@ def hash_file(file: str) -> str:
     return hash_files([file])
 
 
+def get_root_relative(file: str, roots: List[str]) -> Optional[str]:
+    for root in roots:
+        relative = path.relpath(file, root)
+
+        if '..' in relative:
+            continue
+
+        return relative
+
+    return None
+
+
 def search_file(file: str, roots: List[str]) -> Optional[Mapping]:
     for root in roots:
         unprefixed = path.join(root, file)
@@ -221,9 +233,11 @@ def build_sour_bundle(
                 cleaned
             )),
         ],
-        check=True,
         capture_output=True
     )
+
+    if result.returncode != 0:
+        raise Exception(result.stderr)
 
     with open(js_file, 'wb') as f: f.write(result.stdout)
 
@@ -352,10 +366,11 @@ class Packager:
         )
 
         if path.exists(compressed):
-            shutil.copy(compressed, out_file)
+            hashed = hash_file(compressed)
+            shutil.copy(compressed, path.join(self.outdir, hashed))
             return Asset(
                 path=out,
-                id=hash_file(compressed)
+                id=hashed
             )
 
         # Make the image 1/4 of the size using ImageMagick
@@ -374,11 +389,12 @@ class Packager:
                 check=True
             )
 
-        shutil.copy(compressed, out_file)
+        hashed = hash_file(compressed)
+        shutil.copy(compressed, path.join(self.outdir, hashed))
 
         return Asset(
             path=out,
-            id=hash_file(compressed)
+            id=hashed
         )
 
 
@@ -388,7 +404,7 @@ class Packager:
         compress_images: bool = True,
     ) -> List[Asset]:
         """
-        Given a list of files and a destination, build Sour-compatible bundles.
+        Given a list of files and a destination, build Sour-compatible assets.
         Images are compressed by default, but you can disable this with
         `compress_images`.
         """
@@ -534,9 +550,17 @@ class Packager:
 
     def build_texture(
         self,
-        texture: Mapping,
+        roots: List[str],
+        file: str,
     ) -> Optional[Asset]:
-        assets = self.build_assets([texture])
+        relative = get_root_relative(file, roots)
+
+        if not relative:
+            return None
+
+        assets = self.build_assets([
+            (file, relative),
+        ])
 
         if not assets:
             return None

@@ -1,3 +1,5 @@
+from pathlib import Path
+from pip._vendor.rich import progress
 import package
 import sys
 import glob
@@ -18,7 +20,30 @@ if __name__ == "__main__":
     prefix = os.getenv("PREFIX", "")
     os.makedirs(outdir, exist_ok=True)
 
+    roots = [
+        "sour",
+        "roots/base",
+    ]
+
+    skip_root = roots[1]
+
     p = package.Packager(outdir)
+
+    search = Path('roots/base/packages')
+
+    textures: List[str] = []
+    TEXTURE_TYPES = [
+        "jpg",
+        "png",
+    ]
+    for type_ in TEXTURE_TYPES:
+        textures += list(map(lambda a: str(a), search.rglob(f"*.{type_}")))
+
+    for texture in progress.track(textures, description="building textures"):
+        p.build_texture(
+            roots,
+            texture,
+        )
 
     MODEL_TYPES = [
         "md2",
@@ -31,27 +56,16 @@ if __name__ == "__main__":
 
     models: List[str] = []
     for type_ in MODEL_TYPES:
-        models += glob.glob(
-            f'roots/base/packages/models/**/**/{type_}.cfg'
+        models += list(map(lambda a: str(a), Path("roots/base/packages/models").rglob(f"{type_}.cfg")))
+
+    for model in progress.track(models, description="building models"):
+        p.build_model(
+            roots,
+            skip_root,
+            model,
         )
 
-    roots = [
-        "sour",
-        "roots/base",
-    ]
-
-    mods: List[package.Mod] = []
-
-    assets: Set[str] = set()
-
-    def fill_assets(new_assets: List[package.Asset]):
-        for asset in new_assets:
-            if asset.id in assets:
-                continue
-            assets.add(asset.id)
-
-    skip_root = roots[1]
-
+    print("building base mod")
     # Build base
     with open("base.list", "r") as f:
         files = f.read().split("\n")
@@ -70,9 +84,8 @@ if __name__ == "__main__":
             compress_images=False,
         )
 
-    for _map in maps:
+    for _map in progress.track(maps, description="building maps"):
         base, _ = path.splitext(path.basename(_map))
-        print("Building %s" % base)
         p.build_map(
             roots,
             skip_root,
