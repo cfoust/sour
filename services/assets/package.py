@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import sys
 import zipfile
-from typing import NamedTuple, Optional, Tuple, List, Set
+from typing import NamedTuple, Optional, Tuple, List, Set, Dict
 
 # A mapping from a file on the filesystem to its target in Sour's filesystem.
 # Example: ("/home/cfoust/Downloads/blah.ogz", "packages/base/blah.ogz")
@@ -19,18 +19,22 @@ Mapping = Tuple[str, str]
 
 
 class Asset(NamedTuple):
+    # The hash of the asset's file contents. Also used as a unique reference.
+    id: str
+    # Where the asset appears in the filesystem.
     path: str
-    hash: str
 
 
 class Mod(NamedTuple):
     name: str
-    # This is the hash of the bundle contents.
-    assets: List[Asset]
+    # A list of asset IDs
+    assets: List[str]
 
 
 class BuiltMap(NamedTuple):
+    id: str
     image: Optional[str]
+    ogz: str
     assets: List[Asset]
 
 
@@ -38,19 +42,20 @@ class GameMap(NamedTuple):
     """
     Represents a single game map and the data needed to load it.
     """
+    # For maps, we hash both the .ogz and the .cfg.
+    id: str
     # The map name as it would appear in Sauerbraten e.g. complex.
     name: str
-    assets: List[Asset]
+    # The asset ID of the map file.
+    ogz: str
+    # A list of asset IDs.
+    assets: List[str]
     # An optional image that can be used in the map browser.  Usually this is
     # the mapshot (Sauer's term) that appears on the loading screen, but some
     # Quadropolis maps provided screenshots by other means.
     image: Optional[str]
     # A description of the map that can be shown to the user.
     description: str
-    # To avoid naming collisions, maps can specify aliases so that they can
-    # always be referenced. This is just used for specialized datasets like
-    # Quadropolis.
-    aliases: List[str]
 
 
 def hash_string(string: str) -> str:
@@ -134,7 +139,7 @@ def build_assets(
 
         file_hash = hash_file(_in)
         out_file = path.join(outdir, file_hash)
-        asset = Asset(path=out, hash=file_hash)
+        asset = Asset(path=out, id=file_hash)
 
         if path.exists(out_file):
             cleaned.append(asset)
@@ -164,7 +169,7 @@ def build_assets(
             shutil.copy(compressed, out_file)
             cleaned.append(Asset(
                 path=out,
-                hash=hash_file(compressed)
+                id=hash_file(compressed)
             ))
             continue
 
@@ -187,7 +192,7 @@ def build_assets(
         shutil.copy(compressed, out_file)
         cleaned.append(Asset(
             path=out,
-            hash=hash_file(compressed)
+            id=hash_file(compressed)
         ))
 
     return cleaned
@@ -227,7 +232,7 @@ def get_map_files(map_file: str, roots: List[str]) -> List[Mapping]:
     return files
 
 
-def build_map_assets(map_file: str, roots: List[str], outdir: str, skip_root: str) -> BuiltMap:
+def build_map_assets(map_file: str, roots: List[str], outdir: str, skip_root: str) -> Optional[BuiltMap]:
     """
     Given a map file, roots, and an output directory, create a Sour bundle for
     the map and return its hash.
@@ -238,17 +243,89 @@ def build_map_assets(map_file: str, roots: List[str], outdir: str, skip_root: st
     """
     map_files = get_map_files(map_file, roots)
     assets = build_assets(map_files, outdir)
-    return BuiltMap(assets=assets, image=None)
+
+    base, _ = path.splitext(map_file)
+
+    map_hash_files = [map_file]
+    cfg = "%s.cfg" % (base)
+    if path.exists(cfg):
+        map_hash_files.append(cfg)
+
+    map_hash = hash_files(map_hash_files)
+
+    image = None
+    # Look for an image file adjacent to the map
+    for extension in ['.png', '.jpg']:
+        result = "%s%s" % (base, extension)
+        if not path.exists(result): continue
+        image = "%s%s" % (hash_file(result), extension)
+        shutil.copy(result, path.join(outdir, image))
+
+    ogz_id = None
+    for asset in assets:
+        if asset.path.endswith('.ogz'):
+            ogz_id = asset.id
+
+    if not ogz_id:
+        return None
+
+    return BuiltMap(id=map_hash, ogz=ogz_id, assets=assets, image=image)
 
 
-def dump_index(maps: List[GameMap], mods: List[Mod], outdir: str, prefix = ''):
+def get_asset_ids(assets: List[Asset]) -> List[str]:
+    return list(map(lambda a: a.id, assets))
+
+
+class IndexMap(NamedTuple):
+    id: str
+    name: str
+    ogz: int
+    assets: List[int]
+    image: Optional[str]
+    description: str
+
+
+class IndexMod(NamedTuple):
+    name: str
+    assets: List[int]
+
+
+def dump_index(maps: List[GameMap], mods: List[Mod], assets: List[Asset], outdir: str, prefix = ''):
     index = '%s.index.json' % prefix
+
+    lookup: Dict[str, int] = {}
+    for i, asset in enumerate(assets):
+        lookup[asset.id] = i
+
+    def replace_asset(asset: str) -> int:
+        return lookup[asset]
+
+    index_maps: List[IndexMap] = list(map(
+        lambda map_: IndexMap(
+            id=map_.id,
+            name=map_.name,
+            ogz=replace_asset(map_.ogz),
+            assets=list(map(replace_asset, map_.assets)),
+            image=map_.image,
+            description=map_.description,
+        ),
+        maps
+    ))
+
+    index_mods: List[IndexMod] = list(map(
+        lambda mod: IndexMod(
+            name=mod.name,
+            assets=list(map(replace_asset, mod.assets)),
+        ),
+        mods
+    ))
 
     with open(path.join(outdir, index), 'w') as f:
         f.write(json.dumps(
             {
-                'maps': list(map(lambda _map: _map._asdict(), maps)),
-                'mods': list(map(lambda mod: mod._asdict(), mods)),
+                'assets': list(map(lambda _assets: _assets._asdict(), assets)),
+                'maps': list(map(lambda _map: _map._asdict(), index_maps)),
+                'mods': list(map(lambda mod: mod._asdict(), index_mods)),
             },
             indent=4
         ))

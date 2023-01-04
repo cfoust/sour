@@ -3,7 +3,7 @@ import sys
 import glob
 from os import path
 import os
-from typing import NamedTuple, Optional, Tuple, List
+from typing import NamedTuple, Optional, Tuple, List, Dict
 import subprocess
 
 if __name__ == "__main__":
@@ -25,6 +25,14 @@ if __name__ == "__main__":
 
     mods: List[package.Mod] = []
 
+    assets: Dict[str, package.Asset] = {}
+
+    def fill_assets(new_assets: List[package.Asset]):
+        for asset in new_assets:
+            if asset.id in assets:
+                continue
+            assets[asset.id] = asset
+
     # Build base
     with open("base.list", "r") as f:
         files = f.read().split("\n")
@@ -35,15 +43,16 @@ if __name__ == "__main__":
             if not mapping or path.isdir(mapping[0]): continue
             mappings.append(mapping)
 
-        assets = package.build_assets(
+        base_assets = package.build_assets(
             mappings,
             outdir,
             compress_images=False,
         )
+        fill_assets(base_assets)
         mods.append(
             package.Mod(
                 name="base",
-                assets=assets
+                assets=package.get_asset_ids(base_assets)
             )
         )
 
@@ -58,15 +67,22 @@ if __name__ == "__main__":
             outdir,
             roots[1]
         )
+        if not map_bundle:
+            raise Exception('map bundle was None')
+
+        fill_assets(map_bundle.assets)
         game_maps.append(
             package.GameMap(
+                id=map_bundle.id,
                 name=base,
-                assets=map_bundle.assets,
+                ogz=map_bundle.ogz,
+                assets=package.get_asset_ids(map_bundle.assets),
                 image=map_bundle.image,
                 description="""Base game map %s as it appeared in game version r6584.
 """ % base,
-                aliases=[]
             )
         )
 
-    package.dump_index(game_maps, mods, outdir, prefix)
+    asset_list = [v for _, v in assets.items()]
+
+    package.dump_index(game_maps, mods, asset_list, outdir, prefix)
