@@ -18,6 +18,8 @@ if __name__ == "__main__":
     prefix = os.getenv("PREFIX", "")
     os.makedirs(outdir, exist_ok=True)
 
+    p = package.Packager(outdir)
+
     MODEL_TYPES = [
         "md2",
         "md3",
@@ -32,8 +34,6 @@ if __name__ == "__main__":
         models += glob.glob(
             f'roots/base/packages/models/**/**/{type_}.cfg'
         )
-
-    print(models, len(models))
 
     roots = [
         "sour",
@@ -50,6 +50,8 @@ if __name__ == "__main__":
                 continue
             assets.add(asset.id)
 
+    skip_root = roots[1]
+
     # Build base
     with open("base.list", "r") as f:
         files = f.read().split("\n")
@@ -60,44 +62,24 @@ if __name__ == "__main__":
             if not mapping or path.isdir(mapping[0]): continue
             mappings.append(mapping)
 
-        base_assets = package.build_assets(
+        p.build_mod(
+            skip_root,
             mappings,
-            outdir,
+            "base",
+            "Everything the base game needs.",
             compress_images=False,
         )
-        fill_assets(base_assets)
-        mods.append(
-            package.Mod(
-                name="base",
-                assets=base_assets
-            )
-        )
-
-    game_maps: List[package.GameMap] = []
 
     for _map in maps:
         base, _ = path.splitext(path.basename(_map))
         print("Building %s" % base)
-        map_bundle = package.build_map_assets(
-            _map,
+        p.build_map(
             roots,
-            outdir,
-            roots[1]
-        )
-        if not map_bundle:
-            raise Exception('map bundle was None')
-
-        fill_assets(map_bundle.assets)
-        game_maps.append(
-            package.GameMap(
-                id=map_bundle.id,
-                name=base,
-                ogz=map_bundle.ogz,
-                assets=map_bundle.assets,
-                image=map_bundle.image,
-                description="""Base game map %s as it appeared in game version r6584.
-""" % base,
-            )
+            skip_root,
+            _map,
+            base,
+            """Base game map %s as it appeared in game version r6584.
+            """ % base,
         )
 
-    package.dump_index(game_maps, mods, list(assets), outdir, prefix)
+    p.dump_index(prefix)

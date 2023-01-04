@@ -414,8 +414,9 @@ class Packager:
         files: List[Mapping],
         build_web: bool,
         build_desktop: bool,
+        compress_images: bool = True,
     ) -> Optional[Bundle]:
-        assets = self.build_assets(files)
+        assets = self.build_assets(files, compress_images=compress_images)
 
         id_ = hash_files(
             list(map(
@@ -464,12 +465,14 @@ class Packager:
         image: str = None,
         build_web: bool = True,
         build_desktop: bool = False,
+        compress_images: bool = True,
     ) -> Optional[Mod]:
         bundle = self.build_bundle(
             skip_root,
             files,
             build_web,
-            build_desktop
+            build_desktop,
+            compress_images=compress_images
         )
 
         if not bundle:
@@ -650,8 +653,14 @@ class Packager:
         with open(path.join(self.outdir, index), 'w') as f:
             f.write(json.dumps(
                 {
-                    'assets': self.assets,
+                    'assets': list(self.assets),
                     'textures': list(map(replace_asset, self.textures)),
+                    'bundles': list(map(lambda bundle: IndexBundle(
+                        id=bundle.id,
+                        desktop=bundle.desktop,
+                        web=bundle.web,
+                        assets=list(map(replace_asset, bundle.assets)),
+                    )._asdict(), self.bundles)),
                     'models': list(map(lambda model: model._asdict(), self.models)),
                     'maps': list(map(lambda _map: _map._asdict(), index_maps)),
                     'mods': list(map(lambda mod: mod._asdict(), self.mods)),
