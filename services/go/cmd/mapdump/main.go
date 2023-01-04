@@ -226,6 +226,8 @@ func main() {
 		}
 	}
 
+	references = processor.CrunchReferences(references)
+
 	for _, path := range references {
 		fmt.Printf("%s->%s\n", path.Absolute, path.Relative)
 	}

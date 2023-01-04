@@ -597,3 +597,61 @@ func (processor *Processor) ProcessFile(file string) error {
 
 	return nil
 }
+
+func (p *Processor) NormalizeFile(file string) opt.Option[Reference] {
+	reference := Reference{}
+
+	if filepath.IsAbs(file) {
+		reference.Absolute = file
+
+		relative := p.GetRootRelative(file)
+
+		if opt.IsNone(relative) {
+			return opt.None[Reference]()
+		}
+
+		reference.Relative = relative.Value
+		return opt.Some[Reference](reference)
+	}
+
+	// This might just be a file (like a config) that was specified with a relative path
+	absolute, err := filepath.Abs(file)
+	if err != nil {
+		log.Fatal().Err(err)
+	}
+
+	if FileExists(absolute) {
+		return p.NormalizeFile(absolute)
+	}
+
+	// If it's relative, it must be inside of a root
+	resolved := p.SearchFile(file)
+
+	if opt.IsNone(resolved) {
+		log.Printf("Failed to find relative file in roots: %s", file)
+		return opt.None[Reference]()
+	}
+
+	// Sometimes a file was specified without packages/ so we need
+	// to normalize it
+	return p.NormalizeFile(resolved.Value)
+}
+
+// Ensure each source file only appears in the destination once.
+func (p *Processor) CrunchReferences(references []Reference) []Reference {
+	unique := make(map[string]string)
+
+	for _, reference := range references {
+		unique[reference.Relative] = reference.Absolute
+	}
+
+	result := make([]Reference, 0)
+	for relative, absolute := range unique {
+		result = append(result, Reference{
+			Absolute: absolute,
+			Relative: relative,
+		})
+	}
+
+	return result
+}

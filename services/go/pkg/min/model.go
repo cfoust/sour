@@ -13,40 +13,38 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// This is slightly different from the other Normalize because models
+// specifically use relative paths for some stuff
+func (p *Processor) NormalizeModelPath(modelDir string, path string) string {
+	return filepath.Clean(filepath.Join(modelDir, path))
+}
 
-func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], error) {
-	results := make([]string, 0)
+func (p *Processor) ResolveRelative(modelDir string, file string) opt.Option[string] {
+	path := p.NormalizeModelPath(modelDir, file)
+	resolved := p.SearchFile(path)
 
-	modelDir := filepath.Join(
-		"packages/models",
-		path,
-	)
-
-	// This is slightly different from the other Normalize because models
-	// specifically use relative paths for some stuff
-	normalizePath := func(path string) string {
-		return filepath.Clean(filepath.Join(modelDir, path))
+	if opt.IsSome(resolved) {
+		return resolved
 	}
 
-	resolveRelative := func(file string) opt.Option[string] {
-		path := normalizePath(file)
-		resolved := processor.SearchFile(path)
+	// Also check the parent dir (Cube does this, too)
+	parent := filepath.Join(
+		filepath.Dir(path),
+		"..",
+		filepath.Base(path),
+	)
+	return p.SearchFile(parent)
+}
 
-		if opt.IsSome(resolved) {
-			return resolved
-		}
+func (p *Processor) ProcessModelFile(modelDir string, modelType string, path string) (opt.Option[[]string], error) {
+	results := make([]string, 0)
 
-		// Also check the parent dir (Cube does this, too)
-		parent := filepath.Join(
-			filepath.Dir(path),
-			"..",
-			filepath.Base(path),
-		)
-		return processor.SearchFile(parent)
+	addFile := func(file string) {
+		results = append(results, file)
 	}
 
 	addRootFile := func(file string) {
-		resolved := processor.SearchFile(file)
+		resolved := p.SearchFile(file)
 
 		if opt.IsNone(resolved) {
 			log.Printf("Failed to find root-relative model path %s", file)
@@ -58,7 +56,7 @@ func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], err
 
 	// Some references are relative to the model config
 	addRelative := func(file string) {
-		resolved := resolveRelative(file)
+		resolved := p.ResolveRelative(modelDir, file)
 
 		if opt.IsNone(resolved) {
 			log.Printf("Failed to find cfg-relative model path %s (%s)", file, path)
@@ -96,83 +94,11 @@ func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], err
 		}
 	}
 
-	_type := Find[string](func(x string) bool {
-		// First look for the cfg
-		cfg := fmt.Sprintf(
-			"%s/%s.cfg",
-			modelDir,
-			x,
-		)
+	addFile(path)
 
-		resolved := processor.SearchFile(cfg)
-
-		if opt.IsSome(resolved) {
-			return true
-		}
-
-		// Then tris, since that is also there
-		tris := fmt.Sprintf(
-			"%s/tris.%s",
-			modelDir,
-			x,
-		)
-
-		resolved = processor.SearchFile(tris)
-
-		if opt.IsSome(resolved) {
-			return true
-		}
-
-		return false
-	})(MODELTYPES)
-
-	if opt.IsNone(_type) {
-		return opt.None[[]string](), errors.New(fmt.Sprintf("Failed to infer type for model %s", path))
-	}
-
-	modelType := _type.Value
-
-	defaultFiles := []string{
-		fmt.Sprintf("tris.%s", modelType),
-		"skin.png",
-		"skin.jpg",
-		"mask.png",
-		"mask.jpg",
-	}
-
-	hadDefault := false
-	for _, _default := range defaultFiles {
-		resolved := resolveRelative(_default)
-
-		if opt.IsNone(resolved) {
-			continue
-		}
-
-		hadDefault = true
-		addRelative(_default)
-	}
-
-	cfgPath := fmt.Sprintf(
-		"%s/%s.cfg",
-		modelDir,
-		modelType,
-	)
-
-	resolved := processor.SearchFile(cfgPath)
-
-	if opt.IsNone(resolved) {
-		if !hadDefault {
-			return opt.None[[]string](), errors.New(fmt.Sprintf("Model %s had neither defaults nor a .cfg", path))
-		}
-
-		return opt.Some[[]string](results), nil
-	}
-
-	addRootFile(cfgPath)
-
-	src, err := os.ReadFile(resolved.Value)
+	src, err := os.ReadFile(path)
 	if err != nil {
-		return opt.None[[]string](), errors.New(fmt.Sprintf("Failed to read %s", resolved.Value))
+		return opt.None[[]string](), errors.New(fmt.Sprintf("Failed to read %s", path))
 	}
 
 	for _, line := range strings.Split(string(src), "\n") {
@@ -197,7 +123,7 @@ func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], err
 			// `anim` uses anim indices and files, so no need to
 			// error if it's not found
 			for i := 2; i < len(args); i++ {
-				resolved := resolveRelative(args[i])
+				resolved := p.ResolveRelative(modelDir, args[i])
 				if opt.IsNone(resolved) {
 					continue
 				}
@@ -211,6 +137,32 @@ func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], err
 			}
 
 			addTexture(args[2])
+
+		case "exec":
+			if len(args) != 2 {
+				break
+			}
+			execPath := args[1]
+
+			resolved := p.SearchFile(execPath)
+
+			if opt.IsNone(resolved) {
+				log.Printf("Could not find %s", execPath)
+			} else {
+				files, err := p.ProcessModelFile(
+					modelDir,
+					modelType,
+					resolved.Value,
+				)
+				if err != nil {
+					return opt.None[[]string](), err
+				}
+				if opt.IsNone(files) {
+					break
+				}
+
+				results = append(results, files.Value...)
+			}
 
 		case "load":
 			if len(args) < 2 {
@@ -237,12 +189,13 @@ func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], err
 				break
 			}
 
-			for _, texture := range processor.FindCubemap(NormalizeTexture(args[3])) {
+			for _, texture := range p.FindCubemap(NormalizeTexture(args[3])) {
 				addRootFile(texture)
 			}
 
-		case "basemodelcfg": // TODO dynamic code in models?
 		case "ambient":
+		case "animpart":
+		case "basemodelcfg": // TODO dynamic code in models?
 		case "cullface":
 		case "dir":
 		case "mdlalphablend":
@@ -268,14 +221,127 @@ func (processor *Processor) ProcessModel(path string) (opt.Option[[]string], err
 		case "mdlyaw":
 		case "noclip":
 		case "pitch":
+		case "rdeye":
+		case "rdjoint":
+		case "rdlimitdist":
+		case "rdlimitrot":
+		case "rdtri":
+		case "rdvert":
 		case "scroll":
 		case "spec":
+		case "tag":
 			break
 
 		default:
 			log.Printf("Unhandled modelcommand: %s", command)
 		}
 	}
+
+	return opt.Some[[]string](results), nil
+}
+
+func (p *Processor) ProcessModel(path string) (opt.Option[[]string], error) {
+	results := make([]string, 0)
+
+	modelDir := filepath.Join(
+		"packages/models",
+		path,
+	)
+
+	// Some references are relative to the model config
+	addRelative := func(file string) {
+		resolved := p.ResolveRelative(modelDir, file)
+
+		if opt.IsNone(resolved) {
+			log.Printf("Failed to find cfg-relative model path %s (%s)", file, path)
+			return
+		}
+
+		results = append(results, resolved.Value)
+	}
+
+	_type := Find[string](func(x string) bool {
+		// First look for the cfg
+		cfg := fmt.Sprintf(
+			"%s/%s.cfg",
+			modelDir,
+			x,
+		)
+
+		resolved := p.SearchFile(cfg)
+
+		if opt.IsSome(resolved) {
+			return true
+		}
+
+		// Then tris, since that is also there
+		tris := fmt.Sprintf(
+			"%s/tris.%s",
+			modelDir,
+			x,
+		)
+
+		resolved = p.SearchFile(tris)
+
+		if opt.IsSome(resolved) {
+			return true
+		}
+
+		return false
+	})(MODELTYPES)
+
+	if opt.IsNone(_type) {
+		return opt.None[[]string](), errors.New(fmt.Sprintf("Failed to infer type for model %s", path))
+	}
+
+	modelType := _type.Value
+
+	defaultFiles := []string{
+		fmt.Sprintf("tris.%s", modelType),
+		"skin.png",
+		"skin.jpg",
+		"mask.png",
+		"mask.jpg",
+	}
+
+	hadDefault := false
+	for _, _default := range defaultFiles {
+		resolved := p.ResolveRelative(modelDir, _default)
+
+		if opt.IsNone(resolved) {
+			continue
+		}
+
+		hadDefault = true
+		addRelative(_default)
+	}
+
+	cfgPath := fmt.Sprintf(
+		"%s/%s.cfg",
+		modelDir,
+		modelType,
+	)
+
+	resolved := p.SearchFile(cfgPath)
+
+	if opt.IsNone(resolved) {
+		if !hadDefault {
+			return opt.None[[]string](), errors.New(fmt.Sprintf("Model %s had neither defaults nor a .cfg", path))
+		}
+
+		return opt.Some[[]string](results), nil
+	}
+
+	cfgFiles, err := p.ProcessModelFile(modelDir, modelType, resolved.Value)
+	if err != nil {
+		return opt.None[[]string](), err
+	}
+
+	if opt.IsNone(cfgFiles) {
+		return opt.None[[]string](), nil
+	}
+
+	results = append(results, cfgFiles.Value...)
 
 	return opt.Some[[]string](results), nil
 }
@@ -289,4 +355,3 @@ func (processor *Processor) AddModel(textures []string) {
 	model.Paths = textures
 	processor.Models = append(processor.Models, model)
 }
-
