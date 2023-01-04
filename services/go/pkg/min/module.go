@@ -598,6 +598,13 @@ func (processor *Processor) ProcessFile(file string) error {
 	return nil
 }
 
+
+// File paths are strange in Sauer: certain types of assets omit the
+// packages/, others are relative to the config file (models), and this
+// program also accepts map files not inside of a Sauer directory
+// structure. On top of that, we ultimately need to map assets into the
+// game's filesystem correctly. This function normalizes all paths so
+// we can do that more easily.
 func (p *Processor) NormalizeFile(file string) opt.Option[Reference] {
 	reference := Reference{}
 
@@ -638,7 +645,7 @@ func (p *Processor) NormalizeFile(file string) opt.Option[Reference] {
 }
 
 // Ensure each source file only appears in the destination once.
-func (p *Processor) CrunchReferences(references []Reference) []Reference {
+func CrunchReferences(references []Reference) []Reference {
 	unique := make(map[string]string)
 
 	for _, reference := range references {

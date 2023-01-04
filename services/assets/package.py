@@ -209,7 +209,7 @@ def get_map_files(map_file: str, roots: List[str]) -> List[Mapping]:
 
     result = subprocess.run(
         [
-            "./mapdump",
+            "./sourdump",
             *root_args,
             map_file,
         ],

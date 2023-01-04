@@ -15,8 +15,8 @@ if ! [ -f "roots/base/data/default_map_settings.cfg" ]; then
   tar xvf "roots/base/$sauer_archive" -C "roots/base" 
 fi
 
-if ! [ -f "mapdump" ]; then
+if ! [ -f "sourdump" ]; then
   cd ../go
-  go build -o mapdump cmd/mapdump/main.go
-  mv mapdump ../assets
+  go build -o sourdump cmd/sourdump/main.go
+  mv sourdump ../assets
 fi

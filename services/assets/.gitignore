@@ -2,6 +2,6 @@ working/**
 output/**
 roots/**
 __pycache__
-mapdump
+/sourdump
 quadropolis
 *.tar.gz

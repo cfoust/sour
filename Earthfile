@@ -34,7 +34,7 @@ goexe:
     COPY services/go .
     RUN ./build
     SAVE ARTIFACT cluster AS LOCAL "earthly/cluster"
-    SAVE ARTIFACT mapdump AS LOCAL "earthly/mapdump"
+    SAVE ARTIFACT sourdump AS LOCAL "earthly/sourdump"
 
 emscripten:
     FROM emscripten/emsdk:3.1.8
@@ -46,7 +46,7 @@ assets:
     FROM +emscripten
     WORKDIR /tmp
     COPY services/assets assets
-    COPY +goexe/mapdump assets/mapdump
+    COPY +goexe/sourdump assets/sourdump
     RUN --mount=type=cache,target=/tmp/assets/working /tmp/assets/build
     RUN cd assets/output && gzip -k --best $(find .) || true
     SAVE ARTIFACT assets/output AS LOCAL "earthly/assets"

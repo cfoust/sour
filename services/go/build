@@ -14,4 +14,4 @@ fi
 
 # then the go stuff
 go build -o cluster svc/cluster/main.go
-go build -o mapdump cmd/mapdump/main.go
+go build -o sourdump cmd/sourdump/main.go

@@ -25,7 +25,7 @@ In addition, my goal with Sour was to allow the player to load _any_ map that ha
 The Sauerbraten map format, it turns out, is a bit of a nightmare. I was able to find [a](https://incoherency.co.uk/interest/sauer_map.html
 ) [few](https://github.com/SalatielSauer/OGZ-Editor) [projects](https://github.com/sauerbraten/genserverogz) [around](https://github.com/bsummer4/ogz) the web for reading or writing them, but nothing that was sophisticated enough to read the data that I needed. Therefore I had to start from scratch.
 
-I wrote a Go program (`mapdump`) by porting much of Sauerbraten's own map loading code to Go. The program does two things:
+I wrote a Go program (`sourdump`) by porting much of Sauerbraten's own map loading code to Go. The program does two things:
 1. Parses the actual map file (`.ogz`) to determine what texture slots (here: vslots) are actually used on cube faces in the map.
 2. Recursively reads the map file's `.cfg` file to (a) establish the available texture slots and (b) make a note of any files like sounds, map models, and sky boxes the map uses.
 
