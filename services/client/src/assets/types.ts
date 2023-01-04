@@ -27,6 +27,13 @@ export type Asset = {
   path: string
 }
 
+export type IndexAsset = [
+  // The index of an asset in AssetSource.assets
+  number,
+  // The path at which this asset should be mounted
+  string
+]
+
 export type AssetData = {
   path: string
   data: ArrayBuffer
@@ -36,19 +43,19 @@ export type GameMap = {
   id: string
   name: string
   ogz: number
-  assets: number[]
+  assets: IndexAsset[]
   image: Maybe<string>
   description: string
 }
 
 export type GameMod = {
   name: string
-  assets: number[]
+  assets: IndexAsset[]
 }
 
 export type AssetSource = {
   source: string
-  assets: Asset[]
+  assets: string[]
   maps: GameMap[]
   mods: GameMod[]
 }

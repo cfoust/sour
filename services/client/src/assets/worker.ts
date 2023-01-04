@@ -152,7 +152,10 @@ function findBundle(target: string): Maybe<FoundBundle> {
       if (mod.name !== target) continue
       return {
         source: source.source,
-        assets: R.map((v) => source.assets[v], mod.assets),
+        assets: R.map(
+          (v) => ({ id: source.assets[v[0]], path: v[1] }),
+          mod.assets
+        ),
       }
     }
 
@@ -160,7 +163,10 @@ function findBundle(target: string): Maybe<FoundBundle> {
       if (map.name !== target && map.id !== target) continue
       return {
         source: source.source,
-        assets: R.map((v) => source.assets[v], map.assets),
+        assets: R.map(
+          (v) => ({ id: source.assets[v[0]], path: v[1] }),
+          map.assets
+        ),
       }
     }
   }

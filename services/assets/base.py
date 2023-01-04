@@ -3,7 +3,7 @@ import sys
 import glob
 from os import path
 import os
-from typing import NamedTuple, Optional, Tuple, List, Dict
+from typing import NamedTuple, Optional, Tuple, List, Dict, Set
 import subprocess
 
 if __name__ == "__main__":
@@ -25,13 +25,13 @@ if __name__ == "__main__":
 
     mods: List[package.Mod] = []
 
-    assets: Dict[str, package.Asset] = {}
+    assets: Set[str] = set()
 
     def fill_assets(new_assets: List[package.Asset]):
         for asset in new_assets:
             if asset.id in assets:
                 continue
-            assets[asset.id] = asset
+            assets.add(asset.id)
 
     # Build base
     with open("base.list", "r") as f:
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         mods.append(
             package.Mod(
                 name="base",
-                assets=package.get_asset_ids(base_assets)
+                assets=base_assets
             )
         )
 
@@ -76,13 +76,11 @@ if __name__ == "__main__":
                 id=map_bundle.id,
                 name=base,
                 ogz=map_bundle.ogz,
-                assets=package.get_asset_ids(map_bundle.assets),
+                assets=map_bundle.assets,
                 image=map_bundle.image,
                 description="""Base game map %s as it appeared in game version r6584.
 """ % base,
             )
         )
 
-    asset_list = [v for _, v in assets.items()]
-
-    package.dump_index(game_maps, mods, asset_list, outdir, prefix)
+    package.dump_index(game_maps, mods, list(assets), outdir, prefix)

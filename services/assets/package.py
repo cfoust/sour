@@ -28,7 +28,7 @@ class Asset(NamedTuple):
 class Mod(NamedTuple):
     name: str
     # A list of asset IDs
-    assets: List[str]
+    assets: List[Asset]
 
 
 class BuiltMap(NamedTuple):
@@ -48,8 +48,7 @@ class GameMap(NamedTuple):
     name: str
     # The asset ID of the map file.
     ogz: str
-    # A list of asset IDs.
-    assets: List[str]
+    assets: List[Asset]
     # An optional image that can be used in the map browser.  Usually this is
     # the mapshot (Sauer's term) that appears on the loading screen, but some
     # Quadropolis maps provided screenshots by other means.
@@ -276,35 +275,43 @@ def get_asset_ids(assets: List[Asset]) -> List[str]:
     return list(map(lambda a: a.id, assets))
 
 
+class IndexAsset(NamedTuple):
+    id: int
+    path: str
+
+
 class IndexMap(NamedTuple):
     id: str
     name: str
     ogz: int
-    assets: List[int]
+    assets: List[IndexAsset]
     image: Optional[str]
     description: str
 
 
 class IndexMod(NamedTuple):
     name: str
-    assets: List[int]
+    assets: List[IndexAsset]
 
 
-def dump_index(maps: List[GameMap], mods: List[Mod], assets: List[Asset], outdir: str, prefix = ''):
+def dump_index(maps: List[GameMap], mods: List[Mod], assets: List[str], outdir: str, prefix = ''):
     index = '%s.index.json' % prefix
 
     lookup: Dict[str, int] = {}
     for i, asset in enumerate(assets):
-        lookup[asset.id] = i
+        lookup[asset] = i
 
-    def replace_asset(asset: str) -> int:
-        return lookup[asset]
+    def replace_asset(asset: Asset) -> IndexAsset:
+        return IndexAsset(
+            id=lookup[asset.id],
+            path=asset.path,
+        )
 
     index_maps: List[IndexMap] = list(map(
         lambda map_: IndexMap(
             id=map_.id,
             name=map_.name,
-            ogz=replace_asset(map_.ogz),
+            ogz=lookup[map_.ogz],
             assets=list(map(replace_asset, map_.assets)),
             image=map_.image,
             description=map_.description,
@@ -323,7 +330,7 @@ def dump_index(maps: List[GameMap], mods: List[Mod], assets: List[Asset], outdir
     with open(path.join(outdir, index), 'w') as f:
         f.write(json.dumps(
             {
-                'assets': list(map(lambda _assets: _assets._asdict(), assets)),
+                'assets': assets,
                 'maps': list(map(lambda _map: _map._asdict(), index_maps)),
                 'mods': list(map(lambda mod: mod._asdict(), index_mods)),
             },
