@@ -18,10 +18,20 @@ from typing import NamedTuple, Optional, Tuple, List, Set
 Mapping = Tuple[str, str]
 
 
+class Asset(NamedTuple):
+    path: str
+    hash: str
+
+
 class Mod(NamedTuple):
     name: str
     # This is the hash of the bundle contents.
-    bundle: str
+    assets: List[Asset]
+
+
+class BuiltMap(NamedTuple):
+    image: Optional[str]
+    assets: List[Asset]
 
 
 class GameMap(NamedTuple):
@@ -30,8 +40,7 @@ class GameMap(NamedTuple):
     """
     # The map name as it would appear in Sauerbraten e.g. complex.
     name: str
-    # This refers to the hash of the bundle that contains this map's data.
-    bundle: str
+    assets: List[Asset]
     # An optional image that can be used in the map browser.  Usually this is
     # the mapshot (Sauer's term) that appears on the loading screen, but some
     # Quadropolis maps provided screenshots by other means.
@@ -48,40 +57,11 @@ def hash_string(string: str) -> str:
     return hashlib.sha256(string.encode('utf-8')).hexdigest()
 
 
-def combine_bundle(data_file: str, js_file: str, dest: str):
-    """
-    Given the output of Emscripten's file packager, make a single file with the
-    file list and data combined.
-    """
-
-    data = open(data_file, 'rb').read()
-    js = open(js_file, 'r').read()
-    package = re.search('loadPackage\((.+)\)', js)
-
-    if not package:
-        raise Exception("Failed to find loadPackage in %s" % js_file)
-
-    # We could compute these directories from the file list alone, but I'm
-    # lazy.
-    paths = []
-    for directory in re.finditer('createPath...(.+), true', js):
-        paths.append(json.loads('[%s]' % directory[1][:-6]))
-
-    directories = json.dumps(paths)
-    metadata = package[1]
-
-    with open(dest, 'wb') as out:
-        out.write(len(directories).to_bytes(4, 'big'))
-        out.write(bytes(directories, 'utf-8'))
-        out.write(len(metadata).to_bytes(4, 'big'))
-        out.write(bytes(metadata, 'utf-8'))
-        out.write(data)
-
-    os.remove(data_file)
-    os.remove(js_file)
-
-
 def hash_files(files: List[str]) -> str:
+    if len(files) == 1:
+        sha = subprocess.check_output(['sha256sum', files[0]])
+        return sha.decode('utf-8').split(' ')[0]
+
     tar = subprocess.Popen([
         'tar',
         'cf',
@@ -97,6 +77,10 @@ def hash_files(files: List[str]) -> str:
     sha = subprocess.check_output(['sha256sum'], stdin=tar.stdout)
     tar.wait()
     return sha.decode('utf-8').split(' ')[0]
+
+
+def hash_file(file: str) -> str:
+    return hash_files([file])
 
 
 def search_file(file: str, roots: List[str]) -> Optional[Mapping]:
@@ -125,29 +109,22 @@ def sizeof_fmt(num, suffix="B"):
         num /= 1024.0
     return f"{num:.1f}Yi{suffix}"
 
-def build_bundle(
+
+def build_assets(
     files: List[Mapping],
     outdir: str,
     compress_images: bool = True,
-    print_summary: bool = False
-) -> str:
+) -> List[Asset]:
     """
-    Given a list of files and a destination, build a Sour-compatible bundle.
+    Given a list of files and a destination, build Sour-compatible bundles.
     Images are compressed by default, but you can disable this with
     `compress_images`.
     """
 
-    bundle_hash = hash_files(list(map(lambda a: a[0], files)))
-
     # We may remap files after conversion
-    cleaned: List[Mapping] = []
+    cleaned: List[Asset] = []
 
-    sour_target = path.join(outdir, "%s.sour" % bundle_hash)
-
-    if path.exists(sour_target):
-        return bundle_hash
-
-    sizes: List[Tuple[str, int]] = []
+    os.makedirs("working/", exist_ok=True)
 
     for _in, out in files:
         _, extension = path.splitext(_in)
@@ -155,9 +132,15 @@ def build_bundle(
         if not path.exists(_in):
             continue
 
-        size = path.getsize(_in)
+        file_hash = hash_file(_in)
+        out_file = path.join(outdir, file_hash)
+        asset = Asset(path=out, hash=file_hash)
 
-        sizes.append((_in, size))
+        if path.exists(out_file):
+            cleaned.append(asset)
+            continue
+
+        size = path.getsize(_in)
 
         # We can only compress certain file types
         if (
@@ -165,23 +148,24 @@ def build_bundle(
             size < 128000 or
             not compress_images
         ):
-            cleaned.append((_in, out))
+            shutil.copy(_in, out_file)
+            cleaned.append(asset)
             continue
 
-        os.makedirs("working/", exist_ok=True)
-
-        # If multiple bundles rely on the same converted image, we don't want
-        # to redo the calculation.
         compressed = path.join(
             "working/",
             "%s%s" % (
-                hash_string(_in),
+                file_hash,
                 extension
             )
         )
 
         if path.exists(compressed):
-            cleaned.append((compressed, out))
+            shutil.copy(compressed, out_file)
+            cleaned.append(Asset(
+                path=out,
+                hash=hash_file(compressed)
+            ))
             continue
 
         # Make the image 1/4 of the size using ImageMagick
@@ -200,37 +184,13 @@ def build_bundle(
                 check=True
             )
 
-        cleaned.append((compressed, out))
+        shutil.copy(compressed, out_file)
+        cleaned.append(Asset(
+            path=out,
+            hash=hash_file(compressed)
+        ))
 
-    if print_summary:
-        sizes = list(reversed(sorted(sizes, key=lambda a: a[1])))
-
-        for _in, size in sizes:
-            print(f"{_in} {sizeof_fmt(size)}")
-
-    js_file = "/tmp/preload_%s.js" % bundle_hash
-    data_file = "/tmp/%s.data" % bundle_hash
-
-    result = subprocess.run(
-        [
-            "python3",
-            "%s/upstream/emscripten/tools/file_packager.py" % os.getenv('EMSDK', '/emsdk'),
-            data_file,
-            "--use-preload-plugins",
-            "--preload",
-            *list(map(
-                lambda v: "%s@%s" % (v[0], v[1]),
-                cleaned
-            )),
-        ],
-        check=True,
-        capture_output=True
-    )
-
-    with open(js_file, 'wb') as f: f.write(result.stdout)
-
-    combine_bundle(data_file, js_file, sour_target)
-    return bundle_hash
+    return cleaned
 
 
 def get_map_files(map_file: str, roots: List[str]) -> List[Mapping]:
@@ -267,12 +227,7 @@ def get_map_files(map_file: str, roots: List[str]) -> List[Mapping]:
     return files
 
 
-class BuiltMap(NamedTuple):
-    bundle: str
-    image: Optional[str]
-
-
-def build_map_bundle(map_file: str, roots: List[str], outdir: str, skip_root: str) -> BuiltMap:
+def build_map_assets(map_file: str, roots: List[str], outdir: str, skip_root: str) -> BuiltMap:
     """
     Given a map file, roots, and an output directory, create a Sour bundle for
     the map and return its hash.
@@ -282,43 +237,8 @@ def build_map_bundle(map_file: str, roots: List[str], outdir: str, skip_root: st
     file.
     """
     map_files = get_map_files(map_file, roots)
-    bundle = build_bundle(map_files, outdir)
-    image = None
-
-    # Look for an image file adjacent to the map
-    base, _ = path.splitext(map_file)
-    for extension in ['.png', '.jpg']:
-        result = "%s%s" % (base, extension)
-
-        if not path.exists(result): continue
-        image = "%s%s" % (bundle, extension)
-        shutil.copy(result, path.join(outdir, image))
-
-    # Copy the map file as well
-    shutil.copy(map_file, path.join(outdir, "%s.ogz" % bundle))
-
-    skip_root = path.abspath(skip_root)
-    added: Set[str] = set()
-    zip_path = path.join(outdir, "%s.desktop" % bundle)
-    with zipfile.ZipFile(
-        zip_path,
-        'w',
-        compression=zipfile.ZIP_DEFLATED,
-        compresslevel=9
-    ) as desktop:
-        for _in, _out in map_files:
-            if _in.startswith(skip_root) or _out in added:
-                continue
-
-            with desktop.open(_out, 'w') as outfile:
-                with open(_in, 'rb') as infile:
-                    outfile.write(infile.read())
-
-            added.add(_out)
-
-    # shutil.move(zip_path + ".zip", zip_path)
-
-    return BuiltMap(bundle=bundle, image=image)
+    assets = build_assets(map_files, outdir)
+    return BuiltMap(assets=assets, image=None)
 
 
 def dump_index(maps: List[GameMap], mods: List[Mod], outdir: str, prefix = ''):

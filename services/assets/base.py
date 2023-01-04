@@ -35,16 +35,15 @@ if __name__ == "__main__":
             if not mapping or path.isdir(mapping[0]): continue
             mappings.append(mapping)
 
-        _hash = package.build_bundle(
+        assets = package.build_assets(
             mappings,
             outdir,
             compress_images=False,
-            print_summary=True
         )
         mods.append(
             package.Mod(
                 name="base",
-                bundle=_hash
+                assets=assets
             )
         )
 
@@ -53,7 +52,7 @@ if __name__ == "__main__":
     for _map in maps:
         base, _ = path.splitext(path.basename(_map))
         print("Building %s" % base)
-        map_bundle = package.build_map_bundle(
+        map_bundle = package.build_map_assets(
             _map,
             roots,
             outdir,
@@ -62,7 +61,7 @@ if __name__ == "__main__":
         game_maps.append(
             package.GameMap(
                 name=base,
-                bundle=map_bundle.bundle,
+                assets=map_bundle.assets,
                 image=map_bundle.image,
                 description="""Base game map %s as it appeared in game version r6584.
 """ % base,
