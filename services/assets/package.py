@@ -28,6 +28,8 @@ class Asset(NamedTuple):
 class Bundle(NamedTuple):
     id: str
     assets: List[Asset]
+    desktop: bool
+    web: bool
 
 
 class Mod(NamedTuple):
@@ -158,10 +160,8 @@ def combine_bundle(data_file: str, js_file: str, dest: str):
 
 
 def build_sour_bundle(
-    bundle: Bundle,
     outdir: str,
-    compress_images: bool = True,
-    print_summary: bool = False
+    bundle: Bundle,
 ) -> str:
     """
     Given a list of files and a destination, build a Sour-compatible bundle.
@@ -177,68 +177,10 @@ def build_sour_bundle(
     if path.exists(sour_target):
         return bundle.id
 
-    sizes: List[Tuple[str, int]] = []
-
     for asset in bundle.assets:
         _in = path.join(outdir, asset.id)
         out = asset.path
-        _, extension = path.splitext(_in)
-
-        if not path.exists(_in):
-            continue
-
-        size = path.getsize(_in)
-
-        sizes.append((_in, size))
-
-        # We can only compress certain file types
-        if (
-            extension not in [".dds", ".jpg", ".png"] or
-            size < 128000 or
-            not compress_images
-        ):
-            cleaned.append((_in, out))
-            continue
-
-        os.makedirs("working/", exist_ok=True)
-
-        # If multiple bundles rely on the same converted image, we don't want
-        # to redo the calculation.
-        compressed = path.join(
-            "working/",
-            "%s%s" % (
-                hash_string(_in),
-                extension
-            )
-        )
-
-        if path.exists(compressed):
-            cleaned.append((compressed, out))
-            continue
-
-        # Make the image 1/4 of the size using ImageMagick
-        for _from, _to in [
-                (_in, compressed),
-                (compressed, compressed)
-        ]:
-            subprocess.run(
-                [
-                    "convert",
-                    _from,
-                    "-resize",
-                    "50%",
-                    _to
-                ],
-                check=True
-            )
-
-        cleaned.append((compressed, out))
-
-    if print_summary:
-        sizes = list(reversed(sorted(sizes, key=lambda a: a[1])))
-
-        for _in, size in sizes:
-            print(f"{_in} {sizeof_fmt(size)}")
+        cleaned.append((_in, out))
 
     js_file = "/tmp/preload_%s.js" % bundle.id
     data_file = "/tmp/%s.data" % bundle.id
@@ -433,6 +375,41 @@ class Packager:
         return cleaned
 
 
+    def build_bundle(
+        self,
+        roots: List[str],
+        skip_root: str,
+        files: List[Mapping],
+        build_web: bool,
+        build_desktop: bool,
+    ) -> Optional[Bundle]:
+        assets = self.build_assets(files)
+
+        id_ = hash_files(
+            list(map(
+                lambda a: path.join(self.outdir, a.id),
+                assets,
+            ))
+        )
+
+        bundle = Bundle(
+            id=id_,
+            assets=assets,
+            desktop=build_desktop,
+            web=build_web,
+        )
+
+        if build_web:
+            build_sour_bundle(self.outdir, bundle)
+
+        if build_desktop:
+            build_desktop_bundle(self.outdir, bundle)
+
+        self.bundles.append(bundle)
+
+        return bundle
+
+
     def build_map(
         self,
         roots: List[str],
@@ -441,6 +418,7 @@ class Packager:
         name: str,
         description: str,
         image: str = None,
+        build_desktop: bool = False,
     ) -> Optional[GameMap]:
         """
         Given a map file, roots, and an output directory, create a Sour bundle for
