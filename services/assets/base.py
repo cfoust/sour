@@ -18,6 +18,23 @@ if __name__ == "__main__":
     prefix = os.getenv("PREFIX", "")
     os.makedirs(outdir, exist_ok=True)
 
+    MODEL_TYPES = [
+        "md2",
+        "md3",
+        "md5",
+        "obj",
+        "smd",
+        "iqm"
+    ]
+
+    models: List[str] = []
+    for type_ in MODEL_TYPES:
+        models += glob.glob(
+            f'roots/base/packages/models/**/**/{type_}.cfg'
+        )
+
+    print(models, len(models))
+
     roots = [
         "sour",
         "roots/base",

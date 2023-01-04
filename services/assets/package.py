@@ -31,13 +31,6 @@ class Mod(NamedTuple):
     assets: List[Asset]
 
 
-class BuiltMap(NamedTuple):
-    id: str
-    image: Optional[str]
-    ogz: str
-    assets: List[Asset]
-
-
 class GameMap(NamedTuple):
     """
     Represents a single game map and the data needed to load it.
@@ -114,89 +107,6 @@ def sizeof_fmt(num, suffix="B"):
     return f"{num:.1f}Yi{suffix}"
 
 
-def build_assets(
-    files: List[Mapping],
-    outdir: str,
-    compress_images: bool = True,
-) -> List[Asset]:
-    """
-    Given a list of files and a destination, build Sour-compatible bundles.
-    Images are compressed by default, but you can disable this with
-    `compress_images`.
-    """
-
-    # We may remap files after conversion
-    cleaned: List[Asset] = []
-
-    os.makedirs("working/", exist_ok=True)
-
-    for _in, out in files:
-        _, extension = path.splitext(_in)
-
-        if not path.exists(_in):
-            continue
-
-        file_hash = hash_file(_in)
-        out_file = path.join(outdir, file_hash)
-        asset = Asset(path=out, id=file_hash)
-
-        if path.exists(out_file):
-            cleaned.append(asset)
-            continue
-
-        size = path.getsize(_in)
-
-        # We can only compress certain file types
-        if (
-            extension not in [".dds", ".jpg", ".png"] or
-            size < 128000 or
-            not compress_images
-        ):
-            shutil.copy(_in, out_file)
-            cleaned.append(asset)
-            continue
-
-        compressed = path.join(
-            "working/",
-            "%s%s" % (
-                file_hash,
-                extension
-            )
-        )
-
-        if path.exists(compressed):
-            shutil.copy(compressed, out_file)
-            cleaned.append(Asset(
-                path=out,
-                id=hash_file(compressed)
-            ))
-            continue
-
-        # Make the image 1/4 of the size using ImageMagick
-        for _from, _to in [
-                (_in, compressed),
-                (compressed, compressed)
-        ]:
-            subprocess.run(
-                [
-                    "convert",
-                    _from,
-                    "-resize",
-                    "50%",
-                    _to
-                ],
-                check=True
-            )
-
-        shutil.copy(compressed, out_file)
-        cleaned.append(Asset(
-            path=out,
-            id=hash_file(compressed)
-        ))
-
-    return cleaned
-
-
 def get_map_files(map_file: str, roots: List[str]) -> List[Mapping]:
     """
     Get all of the files referenced by a Sauerbraten map.
@@ -231,48 +141,165 @@ def get_map_files(map_file: str, roots: List[str]) -> List[Mapping]:
     return files
 
 
-def build_map_assets(map_file: str, roots: List[str], outdir: str, skip_root: str) -> Optional[BuiltMap]:
-    """
-    Given a map file, roots, and an output directory, create a Sour bundle for
-    the map and return its hash.
+class Packager:
+    outdir: str
+    assets: Set[str]
+    maps: List[GameMap]
 
-    `skip_root` is one of the roots from `roots`. If a file from the map's
-    files exists in that root, it will be skipped when creating the vanilla zip
-    file.
-    """
-    map_files = get_map_files(map_file, roots)
-    assets = build_assets(map_files, outdir)
-
-    base, _ = path.splitext(map_file)
-
-    map_hash_files = [map_file]
-    cfg = "%s.cfg" % (base)
-    if path.exists(cfg):
-        map_hash_files.append(cfg)
-
-    map_hash = hash_files(map_hash_files)
-
-    image = None
-    # Look for an image file adjacent to the map
-    for extension in ['.png', '.jpg']:
-        result = "%s%s" % (base, extension)
-        if not path.exists(result): continue
-        image = "%s%s" % (hash_file(result), extension)
-        shutil.copy(result, path.join(outdir, image))
-
-    ogz_id = None
-    for asset in assets:
-        if asset.path.endswith('.ogz'):
-            ogz_id = asset.id
-
-    if not ogz_id:
-        return None
-
-    return BuiltMap(id=map_hash, ogz=ogz_id, assets=assets, image=image)
+    def __init__(self, outdir: str):
+        self.outdir = outdir
+        self.assets = set()
+        self.maps = []
 
 
-def get_asset_ids(assets: List[Asset]) -> List[str]:
-    return list(map(lambda a: a.id, assets))
+    def build_asset(self, file: Mapping, compress_images: bool = True) -> Optional[Asset]:
+        _in, out = file
+        _, extension = path.splitext(_in)
+
+        os.makedirs("working/", exist_ok=True)
+
+        if not path.exists(_in):
+            return None
+
+        file_hash = hash_file(_in)
+        out_file = path.join(self.outdir, file_hash)
+        asset = Asset(path=out, id=file_hash)
+
+        if path.exists(out_file):
+            return asset
+
+        size = path.getsize(_in)
+
+        # We can only compress certain file types
+        if (
+            extension not in [".dds", ".jpg", ".png"] or
+            size < 128000 or
+            not compress_images
+        ):
+            shutil.copy(_in, out_file)
+            return asset
+
+        compressed = path.join(
+            "working/",
+            "%s%s" % (
+                file_hash,
+                extension
+            )
+        )
+
+        if path.exists(compressed):
+            shutil.copy(compressed, out_file)
+            return Asset(
+                path=out,
+                id=hash_file(compressed)
+            )
+
+        # Make the image 1/4 of the size using ImageMagick
+        for _from, _to in [
+                (_in, compressed),
+                (compressed, compressed)
+        ]:
+            subprocess.run(
+                [
+                    "convert",
+                    _from,
+                    "-resize",
+                    "50%",
+                    _to
+                ],
+                check=True
+            )
+
+        shutil.copy(compressed, out_file)
+        return Asset(
+            path=out,
+            id=hash_file(compressed)
+        )
+
+
+    def build_assets(
+        self,
+        files: List[Mapping],
+        compress_images: bool = True,
+    ) -> List[Asset]:
+        """
+        Given a list of files and a destination, build Sour-compatible bundles.
+        Images are compressed by default, but you can disable this with
+        `compress_images`.
+        """
+
+        # We may remap files after conversion
+        cleaned: List[Asset] = []
+
+        for file in files:
+            asset = self.build_asset(file, compress_images=compress_images)
+
+            if not asset:
+                continue
+
+            self.assets.add(asset.id)
+            cleaned.append(asset)
+
+        return cleaned
+
+
+    def build_map(
+        self,
+        roots: List[str],
+        skip_root: str,
+        map_file: str,
+        name: str,
+        description: str,
+        image: str = None,
+    ) -> Optional[GameMap]:
+        """
+        Given a map file, roots, and an output directory, create a Sour bundle for
+        the map and return its hash.
+
+        `skip_root` is one of the roots from `roots`. If a file from the map's
+        files exists in that root, it will be skipped when creating the vanilla zip
+        file.
+        """
+        map_files = get_map_files(map_file, roots)
+        assets = self.build_assets(map_files)
+
+        base, _ = path.splitext(map_file)
+
+        map_hash_files = [map_file]
+        cfg = "%s.cfg" % (base)
+        if path.exists(cfg):
+            map_hash_files.append(cfg)
+
+        map_hash = hash_files(map_hash_files)
+
+        if not image:
+            # Look for an image file adjacent to the map
+            for extension in ['.png', '.jpg']:
+                result = "%s%s" % (base, extension)
+                if not path.exists(result): continue
+                image = "%s%s" % (hash_file(result), extension)
+                shutil.copy(result, path.join(self.outdir, image))
+
+        ogz_id = None
+        for asset in assets:
+            if asset.path.endswith('.ogz'):
+                ogz_id = asset.id
+
+        if not ogz_id:
+            return None
+
+        map_ = GameMap(
+            id=map_hash,
+            name=name,
+            ogz=ogz_id,
+            assets=assets,
+            image=image,
+            description=description,
+        )
+
+        self.maps.append(map_)
+
+        return map_
 
 
 class IndexAsset(NamedTuple):
