@@ -34,7 +34,7 @@ enum NodeType {
 
 export type AssetRequest = {
   id: string
-  promiseSet: PromiseSet<AssetData[]>
+  promiseSet: PromiseSet<Maybe<AssetData[]>>
 }
 
 function getValidMaps(sources: AssetSource[]): string[] {
@@ -87,7 +87,7 @@ export default function useAssets(
   loadAsset: (
     type: LoadRequestType,
     target: string
-  ) => Promise<AssetData[] | undefined>
+  ) => Promise<Maybe<AssetData[]>>
 } {
   const assetWorkerRef = React.useRef<Worker>()
   const requestStateRef = React.useRef<AssetRequest[]>([])
@@ -101,7 +101,7 @@ export default function useAssets(
       const { current: requests } = requestStateRef
 
       const id = target
-      const promiseSet = breakPromise<AssetData[]>()
+      const promiseSet = breakPromise<Maybe<AssetData[]>>()
 
       requestStateRef.current = [
         ...requests,
@@ -162,25 +162,33 @@ export default function useAssets(
           }
         }
       } else if (message.op === AssetResponseType.Data) {
-        const { id, data } = message
+        const { id, data, status } = message
 
         ;(async () => {
           const { current: requests } = requestStateRef
           const request = R.find(({ id: otherId }) => id === otherId, requests)
           if (request == null) return
 
-          await Promise.all(R.map((v) => mountFile(v.path, v.data), data))
-
           const {
-            promiseSet: { resolve },
+            promiseSet: { resolve, reject },
           } = request
-
-          resolve(data)
 
           requestStateRef.current = R.filter(
             ({ id: otherId }) => id !== otherId,
             requestStateRef.current
           )
+
+          if (status === LoadStateType.Failed) {
+            reject()
+            return
+          }
+
+          // Mount the data first
+          if (data != null) {
+            await Promise.all(R.map((v) => mountFile(v.path, v.data), data))
+          }
+
+          resolve(data)
         })()
       } else if (message.op === AssetResponseType.Index) {
         const { index } = message

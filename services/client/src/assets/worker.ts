@@ -1,6 +1,7 @@
 import * as R from 'ramda'
 import type {
   DataResponse,
+  ResponseStatus,
   Model,
   Request,
   Asset,
@@ -414,13 +415,30 @@ async function processRequest(
     })
   }
 
+  const sendResponse = (
+    status: ResponseStatus,
+    data: Maybe<AssetData[]>,
+    buffers?: Transferable[]
+  ) => {
+    const response: DataResponse = {
+      op: ResponseType.Data,
+      id: pullId,
+      type,
+      status,
+      data,
+    }
+
+    self.postMessage(response, buffers ?? [])
+  }
+
   // Initialize state to waiting (and send it)
   setState(getOverallState(load.waiting()))
 
   const found = resolveRequest(type, target)
 
   if (found == null) {
-    throw new Error(`Could not resolve ${LoadRequestType[type]} ${target}`)
+    sendResponse(LoadStateType.Missing, null)
+    return
   }
 
   const { source, bundles, assets } = found
@@ -477,15 +495,10 @@ async function processRequest(
       data
     )
 
-    const response: DataResponse = {
-      op: ResponseType.Data,
-      id: pullId,
-      data: aggregated.files,
-    }
-
-    self.postMessage(response, aggregated.buffers)
+    sendResponse(LoadStateType.Ok, aggregated.files, aggregated.buffers)
   } catch (e) {
-    if (!(e instanceof PullError)) throw e
+    console.error(e)
+    sendResponse(LoadStateType.Failed, null)
   }
 }
 

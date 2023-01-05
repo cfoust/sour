@@ -96,6 +96,11 @@ export enum LoadStateType {
   Failed,
 }
 
+export type ResponseStatus =
+  | LoadStateType.Ok
+  | LoadStateType.Failed
+  | LoadStateType.Missing
+
 export type WaitingState = {
   type: LoadStateType.Waiting
 }
@@ -173,7 +178,9 @@ export type DataResponse = {
   op: ResponseType.Data
   // The id provided in the original AssetLoadRequest
   id: string
-  data: AssetData[]
+  type: LoadRequestType
+  status: ResponseStatus
+  data: Maybe<AssetData[]>
 }
 
 export type IndexResponse = {
