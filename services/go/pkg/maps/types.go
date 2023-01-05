@@ -319,12 +319,37 @@ type IVec2 struct {
 	Y int32
 }
 
-type VSlot struct {
-	Index   int32
-	Changed int32
-	Layer   int32
-	Next    *VSlot
+type TexSlot struct {
+	Name string
+}
 
+type Slot struct {
+	Index    int32
+	Sts      []TexSlot
+	Variants *VSlot
+	Loaded   bool
+}
+
+func NewSlot() *Slot {
+	newSlot := Slot{}
+	newSlot.Sts = make([]TexSlot, 0)
+	newSlot.Loaded = false
+	return &newSlot
+}
+
+func (slot *Slot) AddSts(name string) *TexSlot {
+	sts := TexSlot{}
+	sts.Name = name
+	slot.Sts = append(slot.Sts, sts)
+	return &slot.Sts[len(slot.Sts)-1]
+}
+
+type VSlot struct {
+	Index      int32
+	Changed    int32
+	Layer      int32
+	Next       *VSlot
+	Slot       *Slot
 	Params     []SlotShaderParam
 	Linked     bool
 	Scale      float32
@@ -335,6 +360,29 @@ type VSlot struct {
 	AlphaBack  float32
 	ColorScale Vector
 	GlowColor  Vector
+}
+
+func (vslot *VSlot) AddVariant(slot *Slot) {
+	if slot.Variants == nil {
+		slot.Variants = vslot
+	} else {
+		prev := slot.Variants
+		for prev != nil {
+			prev = prev.Next
+		}
+		prev.Next = vslot
+	}
+}
+
+func NewVSlot(owner *Slot, index int32) *VSlot {
+	vslot := VSlot{
+		Index: index,
+		Slot:  owner,
+	}
+	if owner != nil {
+		vslot.AddVariant(owner)
+	}
+	return &vslot
 }
 
 type IntVariable int32

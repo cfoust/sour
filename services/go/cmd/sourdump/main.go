@@ -153,11 +153,15 @@ func DumpMap(roots []string, filename string) ([]min.Reference, error) {
 
 	textureRefs := min.GetChildTextures(_map.WorldRoot.Children, processor.VSlots)
 
+	processor.ListVSlots()
 	for i, slot := range processor.Slots {
 		if _, ok := textureRefs[int32(i)]; ok {
+			log.Debug().Msgf("%d %+v ok", i, slot)
 			for _, path := range slot.Sts {
 				addFile(path.Name)
 			}
+		} else {
+			log.Debug().Msgf("%d %+v missing", i, slot)
 		}
 	}
 

@@ -31,7 +31,7 @@ func CountChildTextures(cubes []*maps.Cube, target map[int32]int) {
 	}
 }
 
-func GetChildTextures(cubes []*maps.Cube, vslots []*VSlot) map[int32]int {
+func GetChildTextures(cubes []*maps.Cube, vslots []*maps.VSlot) map[int32]int {
 	vSlotRefs := make(map[int32]int)
 	CountChildTextures(cubes, vSlotRefs)
 
@@ -67,14 +67,14 @@ func GetChildTextures(cubes []*maps.Cube, vslots []*VSlot) map[int32]int {
 	return slotRefs
 }
 
-func (processor *Processor) AddSlot() *Slot {
-	newSlot := NewSlot()
+func (processor *Processor) AddSlot() *maps.Slot {
+	newSlot := maps.NewSlot()
 	newSlot.Index = int32(len(processor.Slots))
 	processor.Slots = append(processor.Slots, newSlot)
 	return newSlot
 }
 
-func (processor *Processor) ReassignVSlot(owner *Slot, vslot *VSlot) *VSlot {
+func (processor *Processor) ReassignVSlot(owner *maps.Slot, vslot *maps.VSlot) *maps.VSlot {
 	current := vslot
 	owner.Variants = current
 
@@ -87,7 +87,7 @@ func (processor *Processor) ReassignVSlot(owner *Slot, vslot *VSlot) *VSlot {
 	return vslot
 }
 
-func (processor *Processor) EmptyVSlot(owner *Slot) *VSlot {
+func (processor *Processor) EmptyVSlot(owner *maps.Slot) *maps.VSlot {
 	var offset int32 = 0
 
 	for i := len(processor.Slots) - 1; i >= 0; i-- {
@@ -104,7 +104,7 @@ func (processor *Processor) EmptyVSlot(owner *Slot) *VSlot {
 		}
 	}
 
-	vslot := NewVSlot(owner, int32(len(processor.VSlots)))
+	vslot := maps.NewVSlot(owner, int32(len(processor.VSlots)))
 	processor.VSlots = append(processor.VSlots, vslot)
 	return processor.VSlots[len(processor.VSlots)-1]
 }
@@ -133,7 +133,7 @@ func (processor *Processor) Texture(textureType string, name string) {
 
 	isDiffuse := texture.Value == "c" || textureType == "0"
 
-	var slot *Slot
+	var slot *maps.Slot
 	if isDiffuse {
 		processor.LastMaterial = nil
 	} else if processor.LastMaterial != nil {
@@ -267,12 +267,12 @@ func NormalizeTexture(texture string) string {
 }
 
 func (processor *Processor) SetMaterial(material string) {
-	texture := NewSlot()
+	texture := maps.NewSlot()
 	processor.Materials[material] = texture
 	processor.LastMaterial = texture
 }
 
-var dummySlot = Slot{}
+var dummySlot = maps.Slot{}
 
 func (processor *Processor) ResetTextures(n int32) {
 	limit := n

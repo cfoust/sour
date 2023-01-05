@@ -139,10 +139,9 @@ func LoadVSlots(p *Buffer, numVSlots int32) ([]*VSlot, error) {
 	prev := make([]int32, numVSlots)
 
 	addSlot := func() *VSlot {
-		vslot := VSlot{}
-		vslot.Index = int32(len(vSlots))
-		vSlots = append(vSlots, &vslot)
-		return &vslot
+		vslot := NewVSlot(nil, int32(len(vSlots)))
+		vSlots = append(vSlots, vslot)
+		return vslot
 	}
 
 	for leftToRead > 0 {

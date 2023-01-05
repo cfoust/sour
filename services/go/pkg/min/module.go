@@ -148,75 +148,17 @@ func NewTexture() *Texture {
 	return &texture
 }
 
-type TexSlot struct {
-	Name string
-}
-
-type Slot struct {
-	Index    int32
-	Sts      []TexSlot
-	Variants *VSlot
-	Loaded   bool
-}
-
-func NewSlot() *Slot {
-	newSlot := Slot{}
-	newSlot.Sts = make([]TexSlot, 0)
-	newSlot.Loaded = false
-	return &newSlot
-}
-
-func (slot *Slot) AddSts(name string) *TexSlot {
-	sts := TexSlot{}
-	sts.Name = name
-	slot.Sts = append(slot.Sts, sts)
-	return &slot.Sts[len(slot.Sts)-1]
-}
-
-type VSlot struct {
-	Slot *Slot
-	Next *VSlot
-
-	Index   int32
-	Changed int32
-	Layer   int32
-	Linked  bool
-}
-
-func (vslot *VSlot) AddVariant(slot *Slot) {
-	if slot.Variants == nil {
-		slot.Variants = vslot
-	} else {
-		prev := slot.Variants
-		for prev != nil {
-			prev = prev.Next
-		}
-		prev.Next = vslot
-	}
-}
-
-func NewVSlot(owner *Slot, index int32) *VSlot {
-	vslot := VSlot{
-		Index: index,
-		Slot:  owner,
-	}
-	if owner != nil {
-		vslot.AddVariant(owner)
-	}
-	return &vslot
-}
-
 type Processor struct {
 	Roots        RootFlags
-	LastMaterial *Slot
+	LastMaterial *maps.Slot
 
-	VSlots []*VSlot
-	Slots  []*Slot
+	VSlots []*maps.VSlot
+	Slots  []*maps.Slot
 	// Cube faces reference slots inside of this
 	Textures  []Texture
 	Models    []Model
 	Sounds    []string
-	Materials map[string]*Slot
+	Materials map[string]*maps.Slot
 	// File references are guaranteed to be included and do not have a slot
 	Files []string
 }
@@ -225,23 +167,14 @@ func NewProcessor(roots RootFlags, slots []*maps.VSlot) *Processor {
 	processor := Processor{}
 
 	processor.Roots = roots
-
-	vslots := fp.Map[*maps.VSlot, *VSlot](func(old *maps.VSlot) *VSlot {
-		vslot := NewVSlot(nil, old.Index)
-		vslot.Changed = old.Changed
-		vslot.Layer = old.Layer
-		return vslot
-	})(slots)
-
-	processor.VSlots = vslots
-
-	processor.Slots = make([]*Slot, 0)
+	processor.VSlots = slots
+	processor.Slots = make([]*maps.Slot, 0)
 	processor.Models = make([]Model, 0)
 	processor.Sounds = make([]string, 0)
-	processor.Materials = make(map[string]*Slot)
+	processor.Materials = make(map[string]*maps.Slot)
 
 	for _, material := range MATERIALS {
-		processor.Materials[material] = NewSlot()
+		processor.Materials[material] = maps.NewSlot()
 	}
 
 	processor.Files = make([]string, 0)
@@ -298,7 +231,7 @@ func (processor *Processor) ResetMaterials() {
 		if material == "sky" {
 			continue
 		}
-		processor.Materials[material] = NewSlot()
+		processor.Materials[material] = maps.NewSlot()
 	}
 }
 
