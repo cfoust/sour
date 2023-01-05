@@ -210,13 +210,6 @@ export default function useAssets(
       nodes.push(node)
     }
 
-    // already mapped into packages/base/*.ogz, so it needs to be able to check
-    // whether a map is valid before loading it
-    const isValidMap = (map: string): number => {
-      const maps = getValidMaps(bundleIndexRef.current ?? [])
-      return maps.includes(map) ? 1 : 0
-    }
-
     const isMountedFile = (filename: string): number => {
       const found = R.pipe(
         R.chain((node: PreloadNode) => node.files),
@@ -274,7 +267,7 @@ export default function useAssets(
 
       const bundle = await loadAsset(LoadRequestType.Map, map)
       if (bundle == null) {
-        console.error(`Failed to load bundle for map ${bundle}`)
+        console.error(`Failed to load bundle for map ${map}`)
         return
       }
 
@@ -301,7 +294,6 @@ export default function useAssets(
     }
 
     Module.assets = {
-      isValidMap,
       isMountedFile,
       onConnect: () => {
         targetMap = null

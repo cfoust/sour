@@ -247,7 +247,7 @@ type Resolver = (source: AssetSource, target: string) => Maybe<ResolvedLookup>
 const resolvers: Record<LoadRequestType, Resolver> = {
   [LoadRequestType.Map]: makeResolver<GameMap>(
     ({ maps }) => maps,
-    (target, map) => map.name === target || map.id === target,
+    (target, map) => map.name === target || map.id.startsWith(target),
     ({ bundle, assets }) => {
       if (bundle != null) {
         return { bundles: [bundle], assets: [] }
@@ -258,7 +258,7 @@ const resolvers: Record<LoadRequestType, Resolver> = {
   ),
   [LoadRequestType.Model]: makeResolver<Model>(
     ({ models }) => models,
-    (target, model) => model.name === target || model.id === target,
+    (target, model) => model.name === target || model.id.startsWith(target),
     ({ id }) => {
       return {
         bundles: [id],
@@ -270,7 +270,7 @@ const resolvers: Record<LoadRequestType, Resolver> = {
     ({ textures }) => textures,
     (target, [index, path], source) => {
       const id = source.assets[index]
-      return path === target || id === target
+      return path === target || id.startsWith(target)
     },
     (texture) => {
       return {
@@ -281,7 +281,7 @@ const resolvers: Record<LoadRequestType, Resolver> = {
   ),
   [LoadRequestType.Mod]: makeResolver<GameMod>(
     ({ mods }) => mods,
-    (target, mod) => mod.name === target || mod.id === target,
+    (target, mod) => mod.name === target || mod.id.startsWith(target),
     (mod) => {
       return {
         bundles: [mod.id],

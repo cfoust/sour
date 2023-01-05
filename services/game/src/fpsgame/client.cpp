@@ -832,15 +832,6 @@ namespace game
             return;
         }
 
-        int result = EM_ASM_INT({
-            return Module.assets.isValidMap(UTF8ToString($0))
-        }, name);
-
-        if (result == 0) {
-            conoutf(CON_ERROR, "Map %s does not exist or not built for Sour", name);
-            return;
-        }
-
         if(!remote)
         {
             server::forcemap(name, mode);

@@ -66,7 +66,6 @@ type ModuleType = {
   assets: {
     // assets has its own hook
     onConnect: () => void
-    isValidMap: (map: string) => number
     isMountedFile: (file: string) => number
     loadRandomMap: () => void
     loadWorld: (map: string) => void
