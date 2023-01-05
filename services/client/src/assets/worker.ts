@@ -1,38 +1,39 @@
 import * as R from 'ramda'
 import type {
-  IndexAsset,
-  MountData,
   Asset,
-  BundleData,
   AssetData,
-  Bundle,
-  AssetLoadState,
-  GameMod,
-  GameMap,
-  AssetState,
+  AssetDataResponse,
   AssetIndex,
-  AssetSource,
+  LoadState,
   AssetRequest,
   AssetResponse,
+  AssetSource,
+  AssetState,
   AssetStateResponse,
+  Bundle,
+  BundleData,
+  GameMap,
+  GameMod,
+  IndexAsset,
   IndexResponse,
-  AssetDataResponse,
+  MountData,
 } from './types'
 import {
   ResponseType,
   RequestType,
-  AssetLoadStateType,
-  AssetLoadType,
+  LoadStateType,
+  DataType,
   LoadRequestType,
+  load,
 } from './types'
+import type { DownloadState } from '../types'
 
 import { getBlob as getSavedBlob, saveBlob, haveBlob } from './storage'
 
 class PullError extends Error {}
 
 let assetSources: string[] = []
-let bundleIndex: Maybe<AssetIndex> = null
-let pullState: Record<string, AssetState[]> = {}
+let assetIndex: Maybe<AssetIndex> = null
 
 async function fetchIndex(source: string): Promise<AssetSource> {
   const response = await fetch(source)
@@ -44,19 +45,6 @@ async function fetchIndex(source: string): Promise<AssetSource> {
 async function fetchIndices(): Promise<AssetIndex> {
   const indices = await Promise.all(R.map((v) => fetchIndex(v), assetSources))
   return indices
-}
-
-const updatePull = (pullId: string, newState: AssetState[]) => {
-  pullState[pullId] = newState
-
-  const update: AssetStateResponse = {
-    op: ResponseType.State,
-    id: pullId,
-    status: AssetLoadStateType.Waiting,
-    state: newState,
-  }
-
-  self.postMessage(update)
 }
 
 function cleanPath(source: string): string {
@@ -108,11 +96,12 @@ async function fetchData(
   request.responseType = 'arraybuffer'
   request.onprogress = (event) => {
     if (!event.lengthComputable) return
-    progress({
-      type: AssetLoadStateType.Downloading,
-      downloadedBytes: event.loaded,
-      totalBytes: event.total,
-    })
+    progress(
+      load.downloading({
+        downloadedBytes: event.loaded,
+        totalBytes: event.total,
+      })
+    )
   }
   request.onerror = function (event) {
     throw new PullError('NetworkError for: ' + packageName)
@@ -194,12 +183,6 @@ async function loadBundle(
   }
 }
 
-type FoundBundle = {
-  source: string
-  assets: Asset[]
-  bundles: Bundle[]
-}
-
 const resolveBundles = (source: AssetSource, bundles: string[]): Bundle[] =>
   R.chain((id) => {
     const bundle = R.find((v) => v.id === id, source.bundles)
@@ -217,103 +200,163 @@ const resolveAssets = (source: AssetSource, assets: IndexAsset[]): Asset[] =>
     ]
   }, assets)
 
+type LookupResult = {
+  assets: IndexAsset[]
+  bundles: string[]
+}
+
+type ResolvedLookup = {
+  source: string
+  assets: Asset[]
+  bundles: Bundle[]
+}
+
 const makeResolver =
   <T>(
     type: LoadRequestType,
     list: (source: AssetSource) => T[],
-    matches: (item: T) => boolean,
-    transform: (item: T) => FoundBundle
+    matches: (target: string, item: T) => boolean,
+    transform: (item: T) => LookupResult
   ) =>
-  (
-    targetType: LoadRequestType,
-    target: string,
-    source: AssetSource
-  ): Maybe<FoundBundle> => {
-    if (targetType !== type) return null
-    const found = R.find(matches, list(source))
+  (source: AssetSource, target: string): Maybe<ResolvedLookup> => {
+    const found = R.find((v) => matches(target, v), list(source))
     if (found == null) return null
-    return transform(found)
+    const { assets: foundAssets, bundles: foundBundles } = transform(found)
+
+    // If anything inside of this result fails to resolve, it's game over,
+    // the assets are missing.
+    const assets = resolveAssets(source, foundAssets)
+    if (assets.length !== foundAssets.length) return null
+    const bundles = resolveBundles(source, foundBundles)
+    if (bundles.length !== foundBundles.length) return null
+
+    const { source: url } = source
+    return {
+      source: url,
+      assets,
+      bundles,
+    }
   }
+
+type Resolver = (source: AssetSource, target: string) => Maybe<ResolvedLookup>
+
+const resolvers: Record<LoadRequestType, Resolver> = {
+  [LoadRequestType.Map]: makeResolver<GameMap>(
+    ({ maps }) => maps,
+    (target, map) => map.name === target || map.id === target,
+    ({ bundle, assets }) => {
+      if (bundle != null) {
+        return {
+          bundles: [bundle],
+          assets: [],
+        }
+      }
+
+      return {
+        bundles: [],
+        assets,
+      }
+    }
+  ),
+  [LoadRequestType.Model]: makeResolver<Model>(
+    ({ models }) => models,
+    (target, model) => model.name === target || model.id === target,
+    ({ id }) => {
+      return {
+        bundles: [id],
+        assets: [],
+      }
+    }
+  ),
+  [LoadRequestType.Mod]: makeResolver<GameMod>(
+    ({ mods }) => mods,
+    (target, mod) => mod.name === target || mod.id === target,
+    (mod) => {
+      return {
+        bundles: [mod.id],
+        assets: [],
+      }
+    }
+  ),
+}
 
 function resolveRequest(
   type: LoadRequestType,
   target: string
-): Maybe<FoundBundle> {
-  if (bundleIndex == null) return null
+): Maybe<ResolvedLookup> {
+  if (assetIndex == null) return null
 
-  switch (type) {
-    case LoadRequestType.Map:
-      for (const source of bundleIndex) {
-        for (const map of source.maps) {
-          if (map.name !== target && map.id !== target) continue
-          const { bundle, assets } = map
-
-          if (bundle != null) {
-            return {
-              source: source.source,
-              assets: [],
-              bundles: resolveBundles(source, [bundle]),
-            }
-          }
-
-          return {
-            source: source.source,
-            assets: resolveAssets(source, assets),
-            bundles: [],
-          }
-        }
-      }
-      break
-    case LoadRequestType.Model:
-      for (const source of bundleIndex) {
-        for (const model of source.models) {
-          if (model.name !== target && model.id !== target) continue
-          const { id } = model
-
-          return {
-            source: source.source,
-            assets: [],
-            bundles: resolveBundles(source, [id]),
-          }
-        }
-      }
-      break
-    case LoadRequestType.Texture:
-      for (const source of bundleIndex) {
-        for (const texture of source.textures) {
-          const [index, path] = texture
-          const asset = source.assets[index]
-          if (path !== target && asset !== target) continue
-
-          return {
-            source: source.source,
-            assets: [
-              {
-                id: asset,
-                path,
-              },
-            ],
-            bundles: [],
-          }
-        }
-      }
-      break
-    case LoadRequestType.Mod:
-      for (const source of bundleIndex) {
-        for (const mod of source.mods) {
-          if (mod.name !== target && mod.id !== target) continue
-
-          return {
-            source: source.source,
-            assets: [],
-            bundles: resolveBundles(source, [mod.id]),
-          }
-        }
-      }
-      break
+  const resolver = resolvers[type]
+  if (resolver == null) return null
+  for (const source of assetIndex) {
+    const resolved = resolver(source, target)
+    if (resolved == null) continue
+    return resolved
   }
 
   return null
+}
+
+const haveType =
+  (type: LoadStateType) =>
+  (states: AssetState[]): boolean =>
+    R.any(({ state }) => state.type === type, states)
+
+const haveWaiting = haveType(LoadStateType.Waiting)
+const haveMissing = haveType(LoadStateType.Missing)
+const haveFailed = haveType(LoadStateType.Failed)
+
+const aggregateState = (states: AssetState[]): LoadState => {
+  if (states.length === 0 || haveWaiting(states)) {
+    return load.waiting()
+  }
+
+  // If we have any missing or errors, it's done.
+  if (haveMissing(states)) {
+    return load.missing()
+  }
+
+  if (haveFailed(states)) {
+    return load.failed()
+  }
+
+  // Now all are either downloading or OK (we have no waiting, missing, or
+  // failed)
+  const downloadState: DownloadState = R.reduce(
+    (a: DownloadState, state: AssetState): DownloadState => {
+      const individual: DownloadState =
+        state.type === LoadStateType.Downloading
+          ? {
+              downloadedBytes: state.downloadedBytes,
+              totalBytes: state.totalBytes,
+            }
+          : state.type === LoadStateType.Ok
+          ? {
+              downloadedBytes: state.totalBytes,
+              totalBytes: state.totalBytes,
+            }
+          : {
+              downloadedBytes: 0,
+              totalBytes: 0,
+            }
+
+      return {
+        downloadedBytes: a.downloadedBytes + individual.downloadedBytes,
+        totalBytes: a.totalBytes + individual.downloadedBytes,
+      }
+    },
+    {
+      downloadedBytes: 0,
+      totalBytes: 0,
+    },
+    states
+  )
+
+  if (R.all(({ state }) => state.type === LoadStateType.Ok, states)) {
+    return load.ok(downloadState.totalBytes)
+  }
+
+  return load.downloading(downloadState)
 }
 
 async function processLoad(
@@ -321,8 +364,27 @@ async function processLoad(
   type: LoadRequestType,
   target: string
 ) {
-  if (bundleIndex == null) {
-    bundleIndex = await fetchIndices()
+  let state: AssetState[] = []
+
+  const setState = (newState: AssetState[]) => {
+    const response: AssetStateResponse = {
+      op: ResponseType.State,
+      id: pullId,
+      overall: aggregateState(newState),
+      individual: newState,
+    }
+    self.postMessage(response)
+    state = newState
+  }
+}
+
+async function processLoad(
+  pullId: string,
+  type: LoadRequestType,
+  target: string
+) {
+  if (assetIndex == null) {
+    assetIndex = await fetchIndices()
   }
 
   const found = resolveRequest(type, target)
@@ -336,7 +398,7 @@ async function processLoad(
   let state: AssetState[] = [
     ...R.map(
       ({ id }): AssetState => ({
-        type: AssetLoadType.Bundle,
+        type: DataType.Bundle,
         state: {
           type: AssetLoadStateType.Waiting,
         },
@@ -346,7 +408,7 @@ async function processLoad(
     ),
     ...R.map(
       ({ id }): AssetState => ({
-        type: AssetLoadType.Asset,
+        type: DataType.Asset,
         state: {
           type: AssetLoadStateType.Waiting,
         },
@@ -357,7 +419,7 @@ async function processLoad(
   ]
 
   const update =
-    (type: AssetLoadType, id: string) => (loadState: AssetLoadState) => {
+    (type: DataType, id: string) => (loadState: AssetLoadState) => {
       state = R.map((item) => {
         if (item.type !== type || item.id !== id) return item
         return {
@@ -380,12 +442,11 @@ async function processLoad(
   try {
     const data: MountData[] = await Promise.all([
       ...R.map(
-        ({ id }) => loadBundle(source, id, update(AssetLoadType.Bundle, id)),
+        ({ id }) => loadBundle(source, id, update(DataType.Bundle, id)),
         bundles
       ),
       ...R.map(
-        (asset) =>
-          loadAsset(source, asset, update(AssetLoadType.Asset, asset.id)),
+        (asset) => loadAsset(source, asset, update(DataType.Asset, asset.id)),
         assets
       ),
     ])
@@ -422,11 +483,11 @@ self.onmessage = (evt) => {
     const { assetSources: newSources } = request
     assetSources = newSources
     ;(async () => {
-      bundleIndex = await fetchIndices()
+      assetIndex = await fetchIndices()
 
       const response: IndexResponse = {
         op: ResponseType.Index,
-        index: bundleIndex,
+        index: assetIndex,
       }
 
       self.postMessage(response, [])

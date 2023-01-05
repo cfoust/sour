@@ -85,56 +85,89 @@ export type AssetSource = {
 
 export type AssetIndex = AssetSource[]
 
-export enum AssetLoadStateType {
+export enum LoadStateType {
+  // The request is in-flight
   Waiting,
+  // No assets of this type were found
+  Missing,
   Downloading,
   Ok,
+  // There was an operational fault while responding to this request
   Failed,
 }
 
-export type AssetWaitingState = {
-  type: AssetLoadStateType.Waiting
+export type WaitingState = {
+  type: LoadStateType.Waiting
 }
 
-export type AssetDownloadingState = {
-  type: AssetLoadStateType.Downloading
+export type MissingState = {
+  type: LoadStateType.Missing
+}
+
+export type DownloadingState = {
+  type: LoadStateType.Downloading
 } & DownloadState
 
-export type AssetOkState = {
-  type: AssetLoadStateType.Ok
+export type OkState = {
+  type: LoadStateType.Ok
+  totalBytes: number
 }
 
-export type AssetFailedState = {
-  type: AssetLoadStateType.Failed
+export type FailedState = {
+  type: LoadStateType.Failed
 }
 
-export type AssetLoadState =
-  | AssetWaitingState
-  | AssetDownloadingState
-  | AssetOkState
-  | AssetFailedState
+export const load = {
+  waiting: (): WaitingState => ({
+    type: LoadStateType.Waiting,
+  }),
+  missing: (): MissingState => ({
+    type: LoadStateType.Missing,
+  }),
+  downloading: (state: DownloadState): DownloadingState => ({
+    type: LoadStateType.Downloading,
+    ...state,
+  }),
+  ok: (totalBytes: number): OkState => ({
+    type: LoadStateType.Ok,
+    totalBytes,
+  }),
+  failed: (): FailedState => ({
+    type: LoadStateType.Failed,
+  }),
+}
 
-export enum AssetLoadType {
+export type LoadState =
+  | WaitingState
+  | MissingState
+  | DownloadingState
+  | OkState
+  | FailedState
+
+export enum DataType {
   Asset,
   Bundle,
 }
 
 export type AssetState = {
-  type: AssetLoadType
   // The id of the asset or bundle
   id: string
-  state: AssetLoadState
+  type: DataType
+  state: LoadState
 }
 
-export type AssetStateResponse = {
+export type StateResponse = {
   op: ResponseType.State
   // The id provided in the original AssetLoadRequest
   id: string
-  status: AssetLoadStateType
-  state: AssetState[]
+  // The high-level status, which generally represents the aggregation
+  // of all of the assets in `state`
+  overall: LoadState
+  // The state for specific assets or bundles
+  individual: AssetState[]
 }
 
-export type AssetDataResponse = {
+export type DataResponse = {
   op: ResponseType.Data
   // The id provided in the original AssetLoadRequest
   id: string
@@ -146,17 +179,14 @@ export type IndexResponse = {
   index: AssetIndex
 }
 
-export type AssetResponse =
-  | AssetStateResponse
-  | AssetDataResponse
-  | IndexResponse
+export type Response = StateResponse | DataResponse | IndexResponse
 
 export enum RequestType {
   Environment,
   Load,
 }
 
-export type AssetEnvironmentRequest = {
+export type EnvironmentRequest = {
   op: RequestType.Environment
   assetSources: string[]
 }
@@ -168,7 +198,7 @@ export enum LoadRequestType {
   Mod,
 }
 
-export type AssetLoadRequest = {
+export type LoadRequest = {
   op: RequestType.Load
   id: string
   type: LoadRequestType
@@ -180,4 +210,4 @@ export type AssetLoadRequest = {
   target: string
 }
 
-export type AssetRequest = AssetEnvironmentRequest | AssetLoadRequest
+export type Request = EnvironmentRequest | LoadRequest
