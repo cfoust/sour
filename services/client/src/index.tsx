@@ -30,7 +30,11 @@ import { MessageType, ENetEventType } from './protocol'
 import StatusOverlay from './Loading'
 import NAMES from './names'
 import useAssets from './assets/hook'
-import useAuth, { DISCORD_CODE, renderDiscordHeader, renderDiscordButton } from './discord'
+import useAuth, {
+  DISCORD_CODE,
+  renderDiscordHeader,
+  renderDiscordButton,
+} from './discord'
 import { CubeMessageType } from './game'
 import * as cube from './game'
 
@@ -38,6 +42,8 @@ import type { PromiseSet } from './utils'
 import { CONFIG } from './config'
 import { breakPromise } from './utils'
 import * as log from './logging'
+
+import { LoadRequestType } from './assets/types'
 
 start()
 
@@ -106,7 +112,7 @@ function App() {
     ws.send(CBOR.encode(message))
   }, [])
 
-  const { loadBundle } = useAssets(setState)
+  const { loadAsset } = useAssets(setState)
   const {
     state: authState,
     receiveMessage: receiveAuthMessage,
@@ -116,7 +122,7 @@ function App() {
   React.useEffect(() => {
     // Load the basic required data for the game
     ;(async () => {
-      await loadBundle('base')
+      await loadAsset(LoadRequestType.Mod, 'base')
 
       shouldRunNow = true
       calledRun = false

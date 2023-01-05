@@ -84,38 +84,44 @@ export async function mountFile(path: string, data: Uint8Array): Promise<void> {
 export default function useAssets(
   setState: React.Dispatch<React.SetStateAction<GameState>>
 ): {
-  loadBundle: (target: string) => Promise<AssetData[] | undefined>
+  loadAsset: (
+    type: LoadRequestType,
+    target: string
+  ) => Promise<AssetData[] | undefined>
 } {
   const assetWorkerRef = React.useRef<Worker>()
   const requestStateRef = React.useRef<AssetRequest[]>([])
   const bundleIndexRef = React.useRef<AssetIndex>()
 
-  const loadBundle = React.useCallback(async (target: string) => {
-    const { current: assetWorker } = assetWorkerRef
-    if (assetWorker == null) return
+  const loadAsset = React.useCallback(
+    async (type: LoadRequestType, target: string) => {
+      const { current: assetWorker } = assetWorkerRef
+      if (assetWorker == null) return
 
-    const { current: requests } = requestStateRef
+      const { current: requests } = requestStateRef
 
-    const id = target
-    const promiseSet = breakPromise<AssetData[]>()
+      const id = target
+      const promiseSet = breakPromise<AssetData[]>()
 
-    requestStateRef.current = [
-      ...requests,
-      {
+      requestStateRef.current = [
+        ...requests,
+        {
+          id,
+          promiseSet,
+        },
+      ]
+
+      assetWorker.postMessage({
+        op: AssetRequestType.Load,
+        type,
         id,
-        promiseSet,
-      },
-    ]
+        target,
+      })
 
-    assetWorker.postMessage({
-      op: AssetRequestType.Load,
-      type: LoadRequestType.Mod,
-      id,
-      target,
-    })
-
-    return promiseSet.promise
-  }, [])
+      return promiseSet.promise
+    },
+    []
+  )
 
   React.useEffect(() => {
     const worker = new Worker(
@@ -177,12 +183,9 @@ export default function useAssets(
         ;(async () => {
           const { current: requests } = requestStateRef
           const request = R.find(({ id: otherId }) => id === otherId, requests)
-          console.log(id, data, requests);
           if (request == null) return
 
-          await Promise.all(
-            R.map((v) => mountFile(v.path, v.data), data)
-          )
+          await Promise.all(R.map((v) => mountFile(v.path, v.data), data))
 
           const {
             promiseSet: { resolve },
@@ -277,7 +280,7 @@ export default function useAssets(
         return
       }
 
-      const bundle = await loadBundle(map)
+      const bundle = await loadAsset(LoadRequestType.Map, map)
       if (bundle == null) {
         console.error(`Failed to load bundle for map ${bundle}`)
         return
@@ -328,5 +331,5 @@ export default function useAssets(
     }
   }, [])
 
-  return { loadBundle }
+  return { loadAsset }
 }
