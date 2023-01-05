@@ -217,6 +217,24 @@ const resolveAssets = (source: AssetSource, assets: IndexAsset[]): Asset[] =>
     ]
   }, assets)
 
+const makeResolver =
+  <T>(
+    type: LoadRequestType,
+    list: (source: AssetSource) => T[],
+    matches: (item: T) => boolean,
+    transform: (item: T) => FoundBundle
+  ) =>
+  (
+    targetType: LoadRequestType,
+    target: string,
+    source: AssetSource
+  ): Maybe<FoundBundle> => {
+    if (targetType !== type) return null
+    const found = R.find(matches, list(source))
+    if (found == null) return null
+    return transform(found)
+  }
+
 function resolveRequest(
   type: LoadRequestType,
   target: string
