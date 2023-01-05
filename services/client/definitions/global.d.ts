@@ -32,6 +32,7 @@ type ModuleType = {
   setCanvasSize: ((width: number, height: number) => void) | null
   setStatus: (text: string) => void
   tweakDetail: () => void
+  running: boolean
 
   calledRun: boolean
   FS_createPath: (...path: Array<string, boolean>) => void

@@ -1,15 +1,15 @@
 import * as R from 'ramda'
 import type {
+  DataResponse,
+  Model,
+  Request,
   Asset,
+  StateResponse,
   AssetData,
-  AssetDataResponse,
   AssetIndex,
   LoadState,
-  AssetRequest,
-  AssetResponse,
   AssetSource,
   AssetState,
-  AssetStateResponse,
   Bundle,
   BundleData,
   GameMap,
@@ -88,7 +88,7 @@ function unpackBundle(data: ArrayBuffer): BundleData {
 async function fetchData(
   source: string,
   id: string,
-  progress: (bundle: AssetLoadState) => void
+  progress: (bundle: LoadState) => void
 ): Promise<ArrayBuffer> {
   const request = new XMLHttpRequest()
   const packageName = `${cleanPath(source)}${id}`
@@ -128,7 +128,7 @@ async function loadBlob(
   source: string,
   id: string,
   url: string,
-  progress: (bundle: AssetLoadState) => void
+  progress: (bundle: LoadState) => void
 ): Promise<ArrayBuffer> {
   if (await haveBlob(id)) {
     const buffer = await getSavedBlob(id)
@@ -138,6 +138,12 @@ async function loadBlob(
     return buffer
   }
 
+  progress(
+    load.downloading({
+      downloadedBytes: 0,
+      totalBytes: 0,
+    })
+  )
   const buffer = await fetchData(source, url, progress)
   await saveBlob(id, buffer)
   return buffer
@@ -146,11 +152,12 @@ async function loadBlob(
 async function loadAsset(
   source: string,
   asset: Asset,
-  progress: (bundle: AssetLoadState) => void
+  progress: (bundle: LoadState) => void
 ): Promise<MountData> {
   const { id, path } = asset
 
   const buffer = await loadBlob(source, id, id, progress)
+  progress(load.ok(buffer.byteLength))
 
   return {
     files: [
@@ -166,10 +173,11 @@ async function loadAsset(
 async function loadBundle(
   source: string,
   bundle: string,
-  progress: (bundle: AssetLoadState) => void
+  progress: (bundle: LoadState) => void
 ): Promise<MountData> {
   const buffer = await loadBlob(source, bundle, `${bundle}.sour`, progress)
   const data = unpackBundle(buffer)
+  progress(load.ok(buffer.byteLength))
 
   return {
     files: R.map(
@@ -213,13 +221,12 @@ type ResolvedLookup = {
 
 const makeResolver =
   <T>(
-    type: LoadRequestType,
     list: (source: AssetSource) => T[],
-    matches: (target: string, item: T) => boolean,
+    matches: (target: string, item: T, source: AssetSource) => boolean,
     transform: (item: T) => LookupResult
   ) =>
   (source: AssetSource, target: string): Maybe<ResolvedLookup> => {
-    const found = R.find((v) => matches(target, v), list(source))
+    const found = R.find((v) => matches(target, v, source), list(source))
     if (found == null) return null
     const { assets: foundAssets, bundles: foundBundles } = transform(found)
 
@@ -231,11 +238,7 @@ const makeResolver =
     if (bundles.length !== foundBundles.length) return null
 
     const { source: url } = source
-    return {
-      source: url,
-      assets,
-      bundles,
-    }
+    return { source: url, assets, bundles }
   }
 
 type Resolver = (source: AssetSource, target: string) => Maybe<ResolvedLookup>
@@ -246,16 +249,10 @@ const resolvers: Record<LoadRequestType, Resolver> = {
     (target, map) => map.name === target || map.id === target,
     ({ bundle, assets }) => {
       if (bundle != null) {
-        return {
-          bundles: [bundle],
-          assets: [],
-        }
+        return { bundles: [bundle], assets: [] }
       }
 
-      return {
-        bundles: [],
-        assets,
-      }
+      return { bundles: [], assets }
     }
   ),
   [LoadRequestType.Model]: makeResolver<Model>(
@@ -265,6 +262,19 @@ const resolvers: Record<LoadRequestType, Resolver> = {
       return {
         bundles: [id],
         assets: [],
+      }
+    }
+  ),
+  [LoadRequestType.Texture]: makeResolver<IndexAsset>(
+    ({ textures }) => textures,
+    (target, [index, path], source) => {
+      const id = source.assets[index]
+      return path === target || id === target
+    },
+    (texture) => {
+      return {
+        bundles: [],
+        assets: [texture],
       }
     }
   ),
@@ -287,6 +297,7 @@ function resolveRequest(
   if (assetIndex == null) return null
 
   const resolver = resolvers[type]
+
   if (resolver == null) return null
   for (const source of assetIndex) {
     const resolved = resolver(source, target)
@@ -323,7 +334,7 @@ const aggregateState = (states: AssetState[]): LoadState => {
   // Now all are either downloading or OK (we have no waiting, missing, or
   // failed)
   const downloadState: DownloadState = R.reduce(
-    (a: DownloadState, state: AssetState): DownloadState => {
+    (a: DownloadState, { state }: AssetState): DownloadState => {
       const individual: DownloadState =
         state.type === LoadStateType.Downloading
           ? {
@@ -342,7 +353,7 @@ const aggregateState = (states: AssetState[]): LoadState => {
 
       return {
         downloadedBytes: a.downloadedBytes + individual.downloadedBytes,
-        totalBytes: a.totalBytes + individual.downloadedBytes,
+        totalBytes: a.totalBytes + individual.totalBytes,
       }
     },
     {
@@ -361,7 +372,13 @@ const aggregateState = (states: AssetState[]): LoadState => {
 
 type RequestState = {
   overall: LoadState
+  individual: AssetState[]
 }
+
+const getOverallState = (overall: LoadState) => ({
+  overall,
+  individual: [],
+})
 
 async function processRequest(
   pullId: string,
@@ -372,37 +389,33 @@ async function processRequest(
     assetIndex = await fetchIndices()
   }
 
-  let state: AssetState[] = []
-  const setState = (newState: AssetState[]) => {
-    const response: AssetStateResponse = {
+  let state: RequestState = {
+    overall: load.waiting(),
+    individual: [],
+  }
+
+  const setState = (newState: RequestState) => {
+    const { overall, individual } = newState
+    const response: StateResponse = {
       op: ResponseType.State,
       id: pullId,
-      overall: aggregateState(newState),
-      individual: newState,
+      type,
+      overall,
+      individual,
     }
     self.postMessage(response)
     state = newState
   }
 
-  // Initialize state to waiting
-  setState([])
-
-  const found = resolveRequest(type, target)
-
-  if (found == null) {
-    throw new Error(`Could not resolve ${LoadRequestType[type]} ${target}`)
+  const setDerivedState = (newState: AssetState[]) => {
+    setState({
+      overall: aggregateState(newState),
+      individual: newState,
+    })
   }
 
-}
-
-async function processRequest(
-  pullId: string,
-  type: LoadRequestType,
-  target: string
-) {
-  if (assetIndex == null) {
-    assetIndex = await fetchIndices()
-  }
+  // Initialize state to waiting (and send it)
+  setState(getOverallState(load.waiting()))
 
   const found = resolveRequest(type, target)
 
@@ -412,13 +425,11 @@ async function processRequest(
 
   const { source, bundles, assets } = found
 
-  let state: AssetState[] = [
+  setDerivedState([
     ...R.map(
       ({ id }): AssetState => ({
         type: DataType.Bundle,
-        state: {
-          type: AssetLoadStateType.Waiting,
-        },
+        state: load.waiting(),
         id,
       }),
       bundles
@@ -426,35 +437,21 @@ async function processRequest(
     ...R.map(
       ({ id }): AssetState => ({
         type: DataType.Asset,
-        state: {
-          type: AssetLoadStateType.Waiting,
-        },
+        state: load.waiting(),
         id,
       }),
       assets
     ),
-  ]
+  ])
 
-  const update =
-    (type: DataType, id: string) => (loadState: AssetLoadState) => {
-      state = R.map((item) => {
+  const update = (type: DataType, id: string) => (loadState: LoadState) => {
+    setDerivedState(
+      R.map((item) => {
         if (item.type !== type || item.id !== id) return item
-        return {
-          ...item,
-          state: loadState,
-        }
-      }, state)
-
-      const response: AssetStateResponse = {
-        op: ResponseType.State,
-        // TODO
-        status: AssetLoadStateType.Waiting,
-        id: pullId,
-        state,
-      }
-
-      self.postMessage(response)
-    }
+        return { ...item, state: loadState }
+      }, state.individual)
+    )
+  }
 
   try {
     const data: MountData[] = await Promise.all([
@@ -480,7 +477,7 @@ async function processRequest(
       data
     )
 
-    const response: AssetDataResponse = {
+    const response: DataResponse = {
       op: ResponseType.Data,
       id: pullId,
       data: aggregated.files,
@@ -494,7 +491,7 @@ async function processRequest(
 
 self.onmessage = (evt) => {
   const { data } = evt
-  const request: AssetRequest = data
+  const request: Request = data
 
   if (request.op === RequestType.Environment) {
     const { assetSources: newSources } = request

@@ -290,6 +290,7 @@ function App() {
     let queuedEvents: SocketMessage[] = []
     let loadingWorld = false
 
+    Module.running = false
     Module.postLoadWorld = function () {
       loadingWorld = false
       serverEvents = [...serverEvents, ...queuedEvents]
@@ -297,6 +298,7 @@ function App() {
 
     let cachedServers: Maybe<any> = null
     Module.onGameReady = () => {
+      Module.running = true
       setState({
         type: GameStateType.Ready,
       })

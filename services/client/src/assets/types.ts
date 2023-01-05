@@ -160,6 +160,8 @@ export type StateResponse = {
   op: ResponseType.State
   // The id provided in the original AssetLoadRequest
   id: string
+  // The type of the request
+  type: LoadRequestType
   // The high-level status, which generally represents the aggregation
   // of all of the assets in `state`
   overall: LoadState

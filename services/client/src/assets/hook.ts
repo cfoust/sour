@@ -3,17 +3,17 @@ import * as R from 'ramda'
 
 import type {
   AssetData,
-  AssetDownloadingState,
+  DownloadingState,
   AssetIndex,
   MountData,
-  AssetResponse,
+  Response,
   GameMap,
   AssetSource,
   IndexResponse,
   Bundle,
 } from './types'
 import {
-  AssetLoadStateType,
+  LoadStateType,
   LoadRequestType,
   ResponseType as AssetResponseType,
   RequestType as AssetRequestType,
@@ -137,34 +137,18 @@ export default function useAssets(
 
     worker.onmessage = (evt) => {
       const { data } = evt
-      const message: AssetResponse = data
+      const message: Response = data
 
       if (message.op === AssetResponseType.State) {
-        const { state } = message
+        const { overall, type } = message
 
-        const downloading: AssetDownloadingState[] = R.chain(({ state }) => {
-          if (state.type !== AssetLoadStateType.Downloading) return []
-          return [state]
-        }, state)
-
-        // Show progress if any bundles are downloading.
-        if (downloading.length > 0) {
-          const { downloadedBytes, totalBytes } = R.reduce(
-            (
-              { downloadedBytes: currentDownload, totalBytes: currentTotal },
-              { downloadedBytes: newDownload, totalBytes: newTotal }
-            ) => ({
-              downloadedBytes: currentDownload + newDownload,
-              totalBytes: currentTotal + newTotal,
-            }),
-            {
-              downloadedBytes: 0,
-              totalBytes: 0,
-            },
-            downloading
-          )
-
-          if (BananaBread.renderprogress == null) {
+        // Show progress if maps or mods are downloading
+        if (
+          (type === LoadRequestType.Map || type === LoadRequestType.Mod) &&
+          overall.type === LoadStateType.Downloading
+        ) {
+          const { downloadedBytes, totalBytes } = overall
+          if (!Module.running) {
             setState({
               type: GameStateType.Downloading,
               downloadedBytes,
