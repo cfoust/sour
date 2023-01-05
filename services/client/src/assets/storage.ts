@@ -2,7 +2,7 @@ import type { DBSchema, IDBPDatabase } from 'idb'
 import { openDB } from 'idb'
 
 interface BundleDB extends DBSchema {
-  bundles: {
+  blobs: {
     key: string
     value: ArrayBuffer
   }
@@ -11,32 +11,32 @@ interface BundleDB extends DBSchema {
 async function initDB(): Promise<IDBPDatabase<BundleDB>> {
   return await openDB<BundleDB>('sour-assets', 1, {
     upgrade(db) {
-      db.createObjectStore('bundles')
+      db.createObjectStore('blobs')
     },
   })
 }
 
-export async function haveBundle(
+export async function haveBlob(
   target: string
 ): Promise<boolean> {
   const db = await initDB()
-  const keys = await db.getAllKeys('bundles')
+  const keys = await db.getAllKeys('blobs')
   return keys.includes(target)
 }
 
-export async function getBundle(
+export async function getBlob(
   target: string
 ): Promise<Maybe<ArrayBuffer>> {
   const db = await initDB()
-  const bundle = await db.get('bundles', target)
+  const bundle = await db.get('blobs', target)
   if (bundle == null) return null
   return bundle
 }
 
-export async function saveAsset(
+export async function saveBlob(
   target: string,
   buffer: ArrayBuffer
 ) {
   const db = await initDB()
-  await db.put('bundles', buffer, target)
+  await db.put('blobs', buffer, target)
 }

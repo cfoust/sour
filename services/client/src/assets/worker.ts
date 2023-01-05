@@ -1,29 +1,39 @@
 import * as R from 'ramda'
 import type {
+  IndexAsset,
+  MountData,
+  MountEntry,
   Asset,
+  BundleData,
   AssetData,
   Bundle,
-  BundleState,
-  BundleLoadState,
+  AssetLoadState,
   GameMod,
   GameMap,
-  BundleIndex,
+  AssetState,
+  AssetIndex,
   AssetSource,
   AssetRequest,
   AssetResponse,
   AssetStateResponse,
   IndexResponse,
-  AssetBundleResponse,
+  AssetDataResponse,
 } from './types'
-import { ResponseType, RequestType, BundleLoadStateType } from './types'
+import {
+  ResponseType,
+  RequestType,
+  AssetLoadStateType,
+  AssetLoadType,
+  LoadRequestType,
+} from './types'
 
-import { getBundle as getSavedBundle, saveAsset, haveBundle } from './storage'
+import { getBlob as getSavedBlob, saveBlob, haveBlob } from './storage'
 
 class PullError extends Error {}
 
 let assetSources: string[] = []
-let bundleIndex: Maybe<BundleIndex> = null
-let pullState: BundleState[] = []
+let bundleIndex: Maybe<AssetIndex> = null
+let pullState: Record<string, AssetState[]> = {}
 
 async function fetchIndex(source: string): Promise<AssetSource> {
   const response = await fetch(source)
@@ -32,30 +42,22 @@ async function fetchIndex(source: string): Promise<AssetSource> {
   return index
 }
 
-async function fetchIndices(): Promise<BundleIndex> {
+async function fetchIndices(): Promise<AssetIndex> {
   const indices = await Promise.all(R.map((v) => fetchIndex(v), assetSources))
   return indices
 }
 
-const sendState = (newState: BundleState[]) => {
-  pullState = newState
+const updatePull = (pullId: string, newState: AssetState[]) => {
+  pullState[pullId] = newState
+
   const update: AssetStateResponse = {
     op: ResponseType.State,
-    state: pullState,
+    id: pullId,
+    status: AssetLoadStateType.Waiting,
+    state: newState,
   }
 
   self.postMessage(update)
-}
-
-const updateBundle = (target: string, state: BundleState) => {
-  const bundle = R.find(({ name }) => name === target, pullState)
-
-  if (bundle == null) {
-    sendState([...pullState, state])
-    return
-  }
-
-  sendState(R.map((v) => (v.name === target ? state : v), pullState))
 }
 
 function cleanPath(source: string): string {
@@ -67,19 +69,48 @@ function cleanPath(source: string): string {
   return source.slice(0, lastSlash + 1)
 }
 
-async function fetchAsset(
+const INT_SIZE = 4
+function unpackBundle(data: ArrayBuffer): BundleData {
+  const view = new DataView(data)
+
+  let offset = 0
+
+  const pathLength = view.getInt32(offset)
+  offset += INT_SIZE
+  const paths = JSON.parse(
+    new TextDecoder().decode(new Uint8Array(data, offset, pathLength))
+  )
+  offset += pathLength
+
+  const metadataLength = view.getInt32(offset)
+  offset += INT_SIZE
+  const metadata = JSON.parse(
+    new TextDecoder().decode(new Uint8Array(data, offset, metadataLength))
+  )
+  offset += metadataLength
+
+  return {
+    dataOffset: offset,
+    buffer: data,
+    size: metadata.remote_package_size,
+    directories: paths,
+    files: metadata.files,
+  }
+}
+
+async function fetchData(
   source: string,
-  asset: string,
-  progress: (bundle: BundleLoadState) => void
+  id: string,
+  progress: (bundle: AssetLoadState) => void
 ): Promise<ArrayBuffer> {
   const request = new XMLHttpRequest()
-  const packageName = `${cleanPath(source)}${asset}`
+  const packageName = `${cleanPath(source)}${id}`
   request.open('GET', packageName, true)
   request.responseType = 'arraybuffer'
   request.onprogress = (event) => {
     if (!event.lengthComputable) return
     progress({
-      type: BundleLoadStateType.Downloading,
+      type: AssetLoadStateType.Downloading,
       downloadedBytes: event.loaded,
       totalBytes: event.total,
     })
@@ -96,7 +127,6 @@ async function fetchAsset(
         request.status == 206 ||
         (request.status == 0 && request.response)
       ) {
-        const packageData = request.response
         resolve(request.response)
       } else {
         throw new PullError(request.statusText + ' : ' + request.responseURL)
@@ -106,121 +136,261 @@ async function fetchAsset(
   })
 }
 
-async function loadAsset(
+async function loadBlob(
   source: string,
-  asset: Asset,
-  progress: (bundle: BundleLoadState) => void
-): Promise<AssetData> {
-  const { id, path } = asset
-  if (await haveBundle(id)) {
-    const buffer = await getSavedBundle(id)
+  id: string,
+  url: string,
+  progress: (bundle: AssetLoadState) => void
+): Promise<ArrayBuffer> {
+  if (await haveBlob(id)) {
+    const buffer = await getSavedBlob(id)
     if (buffer == null) {
       throw new PullError(`Asset ${id} did not exist`)
     }
-    return {
-      path,
-      data: buffer,
-    }
+    return buffer
   }
 
-  const buffer = await fetchAsset(source, id, progress)
-  await saveAsset(id, buffer)
+  const buffer = await fetchData(source, url, progress)
+  await saveBlob(id, buffer)
+  return buffer
+}
+
+async function loadAsset(
+  source: string,
+  asset: Asset,
+  progress: (bundle: AssetLoadState) => void
+): Promise<MountData> {
+  const { id, path } = asset
+
+  const buffer = await loadBlob(source, id, id, progress)
+
   return {
-    data: buffer,
-    path,
+    files: [{
+      path,
+      data: new Uint8Array(buffer),
+    }],
+    buffers: [buffer],
   }
 }
 
-async function loadAssets(
+async function loadBundle(
   source: string,
-  assets: Asset[],
-  progress: (bundle: BundleLoadState) => void
-): Promise<AssetData[]> {
-  return Promise.all(R.map((v) => loadAsset(source, v, progress), assets))
+  bundle: string,
+  progress: (bundle: AssetLoadState) => void
+): Promise<MountData> {
+  const buffer = await loadBlob(source, bundle, `${bundle}.sour`, progress)
+  const data = unpackBundle(buffer)
+
+  return {
+    files: R.map(
+      ({ filename, start, end }): MountEntry => ({
+        path: filename,
+        data: new Uint8Array(buffer, data.dataOffset + start, end - start),
+      }),
+      data.files
+    ),
+    buffers: [buffer],
+  }
 }
 
 type FoundBundle = {
   source: string
   assets: Asset[]
+  bundles: Bundle[]
 }
 
-function findBundle(target: string): Maybe<FoundBundle> {
+const resolveBundles = (source: AssetSource, bundles: string[]): Bundle[] =>
+  R.chain((id) => {
+    const bundle = R.find((v) => v.id === id, source.bundles)
+    if (bundle == null) return []
+    return [bundle]
+  }, bundles)
+
+const resolveAssets = (source: AssetSource, assets: IndexAsset[]): Asset[] =>
+  R.chain(([id, path]) => {
+    return [
+      {
+        id: source.assets[id],
+        path,
+      },
+    ]
+  }, assets)
+
+function resolveRequest(
+  type: LoadRequestType,
+  target: string
+): Maybe<FoundBundle> {
   if (bundleIndex == null) return null
 
-  for (const source of bundleIndex) {
-    for (const mod of source.mods) {
-      if (mod.name !== target) continue
-      return {
-        source: source.source,
-        assets: R.map(
-          (v) => ({ id: source.assets[v[0]], path: v[1] }),
-          mod.assets
-        ),
-      }
-    }
+  switch (type) {
+    case LoadRequestType.Map:
+      for (const source of bundleIndex) {
+        for (const map of source.maps) {
+          if (map.name !== target && map.id !== target) continue
+          const { bundle, assets } = map
 
-    for (const map of source.maps) {
-      if (map.name !== target && map.id !== target) continue
-      return {
-        source: source.source,
-        assets: R.map(
-          (v) => ({ id: source.assets[v[0]], path: v[1] }),
-          map.assets
-        ),
+          if (bundle != null) {
+            return {
+              source: source.source,
+              assets: [],
+              bundles: resolveBundles(source, [bundle]),
+            }
+          }
+
+          return {
+            source: source.source,
+            assets: resolveAssets(source, assets),
+            bundles: [],
+          }
+        }
       }
-    }
+      break
+    case LoadRequestType.Model:
+      for (const source of bundleIndex) {
+        for (const model of source.models) {
+          if (model.name !== target && model.id !== target) continue
+          const { id } = model
+
+          return {
+            source: source.source,
+            assets: [],
+            bundles: resolveBundles(source, [id]),
+          }
+        }
+      }
+      break
+    case LoadRequestType.Texture:
+      for (const source of bundleIndex) {
+        for (const texture of source.textures) {
+          const [index, path] = texture
+          const asset = source.assets[index]
+          if (path !== target && asset !== target) continue
+
+          return {
+            source: source.source,
+            assets: [
+              {
+                id: asset,
+                path,
+              },
+            ],
+            bundles: [],
+          }
+        }
+      }
+      break
+    case LoadRequestType.Mod:
+      for (const source of bundleIndex) {
+        for (const mod of source.mods) {
+          if (mod.name !== target && mod.id !== target) continue
+
+          return {
+            source: source.source,
+            assets: [],
+            bundles: resolveBundles(source, [mod.id]),
+          }
+        }
+      }
+      break
   }
 
   return null
 }
 
-async function processLoad(target: string, id: string) {
+async function processLoad(
+  pullId: string,
+  type: LoadRequestType,
+  target: string
+) {
   if (bundleIndex == null) {
     bundleIndex = await fetchIndices()
   }
 
-  const found = findBundle(target)
+  const found = resolveRequest(type, target)
 
   if (found == null) {
-    throw new Error(`No hash for ${target} found in index`)
+    throw new Error(`Could not resolve ${LoadRequestType[type]} ${target}`)
   }
 
-  const update = (state: BundleLoadState) => {
-    updateBundle(target, {
-      name: target,
-      state,
-    })
-  }
+  const { source, bundles, assets } = found
 
-  update({
-    type: BundleLoadStateType.Waiting,
-  })
+  let state: AssetState[] = [
+    ...R.map(
+      ({ id }): AssetState => ({
+        type: AssetLoadType.Bundle,
+        state: {
+          type: AssetLoadStateType.Waiting,
+        },
+        id,
+      }),
+      bundles
+    ),
+    ...R.map(
+      ({ id }): AssetState => ({
+        type: AssetLoadType.Asset,
+        state: {
+          type: AssetLoadStateType.Waiting,
+        },
+        id,
+      }),
+      assets
+    ),
+  ]
 
-  try {
-    const data = await loadAssets(found.source, found.assets, update)
+  const update =
+    (type: AssetLoadType, id: string) => (loadState: AssetLoadState) => {
+      state = R.map((item) => {
+        if (item.type !== type || item.id !== id) return item
+        return {
+          ...item,
+          state: loadState,
+        }
+      }, state)
 
-    update({
-      type: BundleLoadStateType.Ok,
-    })
+      const response: AssetStateResponse = {
+        op: ResponseType.State,
+        // TODO
+        status: AssetLoadStateType.Waiting,
+        id: pullId,
+        state,
+      }
 
-    const response: AssetBundleResponse = {
-      op: ResponseType.Bundle,
-      id,
-      target,
-      data,
+      self.postMessage(response)
     }
 
-    self.postMessage(
-      response,
-      R.map((v) => v.data, data)
-    )
-  } catch (e) {
-    if (!(e instanceof PullError)) throw e
+  const data: MountData[] = await Promise.all([
+    ...R.map(
+      ({ id }) => loadBundle(source, id, update(AssetLoadType.Bundle, id)),
+      bundles
+    ),
+    ...R.map((asset) => loadAsset(source, asset, update(AssetLoadType.Asset, asset.id)), assets),
+  ])
 
-    update({
-      type: BundleLoadStateType.Failed,
-    })
-  }
+  //try {
+    //const data = await loadAssets(found.source, found.assets, update)
+
+    //update({
+      //type: BundleLoadStateType.Ok,
+    //})
+
+    //const response: AssetBundleResponse = {
+      //op: ResponseType.Bundle,
+      //id,
+      //target,
+      //data,
+    //}
+
+    //self.postMessage(
+      //response,
+      //R.map((v) => v.data, data)
+    //)
+  //} catch (e) {
+    //if (!(e instanceof PullError)) throw e
+
+    //update({
+      //type: BundleLoadStateType.Failed,
+    //})
+  //}
 }
 
 self.onmessage = (evt) => {
@@ -241,7 +411,7 @@ self.onmessage = (evt) => {
       self.postMessage(response, [])
     })()
   } else if (request.op === RequestType.Load) {
-    const { target, id } = request
-    processLoad(target, id)
+    const { target, type, id } = request
+    processLoad(id, type, target)
   }
 }

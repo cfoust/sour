@@ -14,12 +14,22 @@ export type BundleEntry = {
   audio?: number
 }
 
-export type Bundle = {
+export type BundleData = {
   directories: string[][]
   files: BundleEntry[]
   size: number
   dataOffset: number
   buffer: ArrayBuffer
+}
+
+export type MountEntry = {
+  path: string
+  data: Uint8Array
+}
+
+export type MountData = {
+  files: MountEntry[]
+  buffers: ArrayBuffer[]
 }
 
 export type Asset = {
@@ -43,79 +53,107 @@ export type GameMap = {
   id: string
   name: string
   ogz: number
+  bundle: Maybe<string>
   assets: IndexAsset[]
   image: Maybe<string>
   description: string
 }
 
 export type GameMod = {
+  id: string
   name: string
+  image: Maybe<string>
+  description: string
+}
+
+export type Bundle = {
+  id: string
+  desktop: boolean
+  web: boolean
   assets: IndexAsset[]
+}
+
+export type Model = {
+  id: string
+  name: string
 }
 
 export type AssetSource = {
   source: string
   assets: string[]
+  textures: IndexAsset[]
+  bundles: Bundle[]
   maps: GameMap[]
+  models: Model[]
   mods: GameMod[]
 }
 
-export type BundleIndex = AssetSource[]
+export type AssetIndex = AssetSource[]
 
-export enum BundleLoadStateType {
+export enum AssetLoadStateType {
   Waiting,
   Downloading,
   Ok,
   Failed,
 }
 
-export type BundleWaitingState = {
-  type: BundleLoadStateType.Waiting
+export type AssetWaitingState = {
+  type: AssetLoadStateType.Waiting
 }
 
-export type BundleDownloadingState = {
-  type: BundleLoadStateType.Downloading
+export type AssetDownloadingState = {
+  type: AssetLoadStateType.Downloading
 } & DownloadState
 
-export type BundleOkState = {
-  type: BundleLoadStateType.Ok
+export type AssetOkState = {
+  type: AssetLoadStateType.Ok
 }
 
-export type BundleFailedState = {
-  type: BundleLoadStateType.Failed
+export type AssetFailedState = {
+  type: AssetLoadStateType.Failed
 }
 
-export type BundleLoadState =
-  | BundleWaitingState
-  | BundleDownloadingState
-  | BundleOkState
-  | BundleFailedState
+export type AssetLoadState =
+  | AssetWaitingState
+  | AssetDownloadingState
+  | AssetOkState
+  | AssetFailedState
 
-export type BundleState = {
-  name: string
-  state: BundleLoadState
+export enum AssetLoadType {
+  Asset,
+  Bundle,
+}
+
+export type AssetState = {
+  type: AssetLoadType
+  // The id of the asset or bundle
+  id: string
+  state: AssetLoadState
 }
 
 export type AssetStateResponse = {
   op: ResponseType.State
-  state: BundleState[]
+  // The id provided in the original AssetLoadRequest
+  id: string
+  status: AssetLoadStateType
+  state: AssetState[]
 }
 
-export type AssetBundleResponse = {
+export type AssetDataResponse = {
   op: ResponseType.Bundle
-  target: string
+  // The id provided in the original AssetLoadRequest
   id: string
   data: AssetData[]
 }
 
 export type IndexResponse = {
   op: ResponseType.Index
-  index: BundleIndex
+  index: AssetIndex
 }
 
 export type AssetResponse =
   | AssetStateResponse
-  | AssetBundleResponse
+  | AssetDataResponse
   | IndexResponse
 
 export enum RequestType {
@@ -128,9 +166,22 @@ export type AssetEnvironmentRequest = {
   assetSources: string[]
 }
 
+export enum LoadRequestType {
+  Map,
+  Model,
+  Texture,
+  Mod,
+}
+
 export type AssetLoadRequest = {
   op: RequestType.Load
   id: string
+  type: LoadRequestType
+  // The identifier for the data in question:
+  // - Map: the map's ID or its reserved name (e.g. "dust2")
+  // - Model: the model's ID or its path (e.g. "skull/blue")
+  // - Texture: the texture's ID or its full path (e.g. "packages/unnamed/test.png")
+  // - Mod: the mod's ID or its name (e.g. "base")
   target: string
 }
 
