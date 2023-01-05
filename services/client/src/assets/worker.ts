@@ -359,13 +359,20 @@ const aggregateState = (states: AssetState[]): LoadState => {
   return load.downloading(downloadState)
 }
 
-async function processLoad(
+type RequestState = {
+  overall: LoadState
+}
+
+async function processRequest(
   pullId: string,
   type: LoadRequestType,
   target: string
 ) {
-  let state: AssetState[] = []
+  if (assetIndex == null) {
+    assetIndex = await fetchIndices()
+  }
 
+  let state: AssetState[] = []
   const setState = (newState: AssetState[]) => {
     const response: AssetStateResponse = {
       op: ResponseType.State,
@@ -376,9 +383,19 @@ async function processLoad(
     self.postMessage(response)
     state = newState
   }
+
+  // Initialize state to waiting
+  setState([])
+
+  const found = resolveRequest(type, target)
+
+  if (found == null) {
+    throw new Error(`Could not resolve ${LoadRequestType[type]} ${target}`)
+  }
+
 }
 
-async function processLoad(
+async function processRequest(
   pullId: string,
   type: LoadRequestType,
   target: string
@@ -494,6 +511,6 @@ self.onmessage = (evt) => {
     })()
   } else if (request.op === RequestType.Load) {
     const { target, type, id } = request
-    processLoad(id, type, target)
+    processRequest(id, type, target)
   }
 }
