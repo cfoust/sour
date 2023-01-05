@@ -3,19 +3,20 @@ import * as R from 'ramda'
 
 import type {
   AssetData,
+  AssetDownloadingState,
+  AssetIndex,
+  MountData,
   AssetResponse,
   GameMap,
   AssetSource,
   IndexResponse,
   Bundle,
-  BundleIndex,
-  BundleState,
-  BundleDownloadingState,
 } from './types'
 import {
+  AssetLoadStateType,
+  LoadRequestType,
   ResponseType as AssetResponseType,
   RequestType as AssetRequestType,
-  BundleLoadStateType,
 } from './types'
 
 import type { GameState } from '../types'
@@ -31,7 +32,7 @@ enum NodeType {
   Map,
 }
 
-export type BundleRequest = {
+export type AssetRequest = {
   id: string
   promiseSet: PromiseSet<AssetData[]>
 }
@@ -56,7 +57,8 @@ function getDirectory(source: string): string {
 }
 
 export async function mountFile(path: string, data: Uint8Array): Promise<void> {
-  const parts = getDirectory(path).split('/')
+  const normalizedPath = path.startsWith('/') ? path.slice(1) : path
+  const parts = getDirectory(normalizedPath).split('/')
   for (let i = 0; i < parts.length; i++) {
     const first = parts.slice(0, i).join('/')
     const last = parts[i]
@@ -64,7 +66,7 @@ export async function mountFile(path: string, data: Uint8Array): Promise<void> {
   }
   return new Promise<void>((resolve, reject) => {
     Module.FS_createPreloadedFile(
-      `/${path}`,
+      `/${normalizedPath}`,
       null,
       data,
       true,
@@ -79,49 +81,14 @@ export async function mountFile(path: string, data: Uint8Array): Promise<void> {
   })
 }
 
-async function mountBundle(target: string, bundle: Bundle): Promise<void> {
-  const { directories, files, buffer, dataOffset } = bundle
-
-  Module.registerNode({
-    name: target,
-    files,
-  })
-
-  for (const directory of directories) {
-    Module.FS_createPath(...directory, true, true)
-  }
-
-  await Promise.all(
-    R.map(({ filename, start, end, audio }) => {
-      const offset = dataOffset + start
-      return new Promise<void>((resolve, reject) => {
-        Module.FS_createPreloadedFile(
-          filename,
-          null,
-          new Uint8Array(buffer, offset, end - start),
-          true,
-          true,
-          () => resolve(),
-          () => {
-            reject(new Error('Preloading file ' + filename + ' failed'))
-          },
-          false,
-          true
-        )
-      })
-    }, files)
-  )
-}
-
 export default function useAssets(
   setState: React.Dispatch<React.SetStateAction<GameState>>
 ): {
   loadBundle: (target: string) => Promise<AssetData[] | undefined>
 } {
-  const [bundleState, setBundleState] = React.useState<BundleState[]>([])
   const assetWorkerRef = React.useRef<Worker>()
-  const requestStateRef = React.useRef<BundleRequest[]>([])
-  const bundleIndexRef = React.useRef<BundleIndex>()
+  const requestStateRef = React.useRef<AssetRequest[]>([])
+  const bundleIndexRef = React.useRef<AssetIndex>()
 
   const loadBundle = React.useCallback(async (target: string) => {
     const { current: assetWorker } = assetWorkerRef
@@ -142,6 +109,7 @@ export default function useAssets(
 
     assetWorker.postMessage({
       op: AssetRequestType.Load,
+      type: LoadRequestType.Mod,
       id,
       target,
     })
@@ -168,10 +136,8 @@ export default function useAssets(
       if (message.op === AssetResponseType.State) {
         const { state } = message
 
-        setBundleState(state)
-
-        const downloading: BundleDownloadingState[] = R.chain(({ state }) => {
-          if (state.type !== BundleLoadStateType.Downloading) return []
+        const downloading: AssetDownloadingState[] = R.chain(({ state }) => {
+          if (state.type !== AssetLoadStateType.Downloading) return []
           return [state]
         }, state)
 
@@ -205,16 +171,17 @@ export default function useAssets(
             )
           }
         }
-      } else if (message.op === AssetResponseType.Bundle) {
-        const { target, id, data } = message
+      } else if (message.op === AssetResponseType.Data) {
+        const { id, data } = message
 
         ;(async () => {
           const { current: requests } = requestStateRef
           const request = R.find(({ id: otherId }) => id === otherId, requests)
+          console.log(id, data, requests);
           if (request == null) return
 
           await Promise.all(
-            R.map((v) => mountFile(v.path, new Uint8Array(v.data)), data)
+            R.map((v) => mountFile(v.path, v.data), data)
           )
 
           const {

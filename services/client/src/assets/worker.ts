@@ -2,7 +2,6 @@ import * as R from 'ramda'
 import type {
   IndexAsset,
   MountData,
-  MountEntry,
   Asset,
   BundleData,
   AssetData,
@@ -165,10 +164,12 @@ async function loadAsset(
   const buffer = await loadBlob(source, id, id, progress)
 
   return {
-    files: [{
-      path,
-      data: new Uint8Array(buffer),
-    }],
+    files: [
+      {
+        path,
+        data: new Uint8Array(buffer),
+      },
+    ],
     buffers: [buffer],
   }
 }
@@ -183,7 +184,7 @@ async function loadBundle(
 
   return {
     files: R.map(
-      ({ filename, start, end }): MountEntry => ({
+      ({ filename, start, end }): AssetData => ({
         path: filename,
         data: new Uint8Array(buffer, data.dataOffset + start, end - start),
       }),
@@ -358,39 +359,41 @@ async function processLoad(
       self.postMessage(response)
     }
 
-  const data: MountData[] = await Promise.all([
-    ...R.map(
-      ({ id }) => loadBundle(source, id, update(AssetLoadType.Bundle, id)),
-      bundles
-    ),
-    ...R.map((asset) => loadAsset(source, asset, update(AssetLoadType.Asset, asset.id)), assets),
-  ])
+  try {
+    const data: MountData[] = await Promise.all([
+      ...R.map(
+        ({ id }) => loadBundle(source, id, update(AssetLoadType.Bundle, id)),
+        bundles
+      ),
+      ...R.map(
+        (asset) =>
+          loadAsset(source, asset, update(AssetLoadType.Asset, asset.id)),
+        assets
+      ),
+    ])
 
-  //try {
-    //const data = await loadAssets(found.source, found.assets, update)
+    const aggregated: MountData = R.reduce(
+      (oldData: MountData, newData: MountData) => ({
+        files: [...oldData.files, ...newData.files],
+        buffers: [...oldData.buffers, ...newData.buffers],
+      }),
+      {
+        files: [],
+        buffers: [],
+      },
+      data
+    )
 
-    //update({
-      //type: BundleLoadStateType.Ok,
-    //})
+    const response: AssetDataResponse = {
+      op: ResponseType.Data,
+      id: pullId,
+      data: aggregated.files,
+    }
 
-    //const response: AssetBundleResponse = {
-      //op: ResponseType.Bundle,
-      //id,
-      //target,
-      //data,
-    //}
-
-    //self.postMessage(
-      //response,
-      //R.map((v) => v.data, data)
-    //)
-  //} catch (e) {
-    //if (!(e instanceof PullError)) throw e
-
-    //update({
-      //type: BundleLoadStateType.Failed,
-    //})
-  //}
+    self.postMessage(response, aggregated.buffers)
+  } catch (e) {
+    if (!(e instanceof PullError)) throw e
+  }
 }
 
 self.onmessage = (evt) => {

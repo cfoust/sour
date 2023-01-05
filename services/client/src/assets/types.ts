@@ -2,7 +2,7 @@ import type { DownloadState } from '../types'
 
 export enum ResponseType {
   State,
-  Bundle,
+  Data,
   Index,
 }
 
@@ -22,13 +22,13 @@ export type BundleData = {
   buffer: ArrayBuffer
 }
 
-export type MountEntry = {
+export type AssetData = {
   path: string
   data: Uint8Array
 }
 
 export type MountData = {
-  files: MountEntry[]
+  files: AssetData[]
   buffers: ArrayBuffer[]
 }
 
@@ -43,11 +43,6 @@ export type IndexAsset = [
   // The path at which this asset should be mounted
   string
 ]
-
-export type AssetData = {
-  path: string
-  data: ArrayBuffer
-}
 
 export type GameMap = {
   id: string
@@ -140,7 +135,7 @@ export type AssetStateResponse = {
 }
 
 export type AssetDataResponse = {
-  op: ResponseType.Bundle
+  op: ResponseType.Data
   // The id provided in the original AssetLoadRequest
   id: string
   data: AssetData[]
