@@ -55,3 +55,5 @@ export const warn = (message: string) =>
   BananaBread.conoutf(LogLevel.Warn, sour(colors.fail(message)))
 export const error = (message: string) =>
   BananaBread.conoutf(LogLevel.Err, sour(colors.error(message)))
+export const vanillaError = (message: string) =>
+  BananaBread.conoutf(LogLevel.Err, message)

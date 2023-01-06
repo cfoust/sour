@@ -18,6 +18,7 @@ import {
   ResponseType as AssetResponseType,
   RequestType as AssetRequestType,
 } from './types'
+import * as log from '../logging'
 
 import type { GameState } from '../types'
 import { GameStateType } from '../types'
@@ -305,7 +306,10 @@ export default function useAssets(
         ;(async () => {
           try {
             const texture = await loadAsset(LoadRequestType.Texture, name)
-            if (texture == null) return
+            if (texture == null) {
+              log.vanillaError(`could not load texture ${name}`)
+              return
+            }
             const [asset] = texture
 
             mountFile(asset.path, asset.data)

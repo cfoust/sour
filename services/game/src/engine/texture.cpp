@@ -1476,13 +1476,13 @@ static bool texturedata(ImageData &d, const char *tname, Slot::Tex *tex = NULL, 
         }
         else s = loadsurface(file);
         if(!s) {
-            if(msg) conoutf(CON_ERROR, "could not load texture %s", file);
 #if __EMSCRIPTEN__
             EM_ASM({
                 Module.assets.missingTexture(UTF8ToString($0));
             }, file);
             return texturedata(d, "packages/textures/downloading.png", tex, msg, compress, wrap);
 #else
+            if(msg) conoutf(CON_ERROR, "could not load texture %s", file);
             return false;
 #endif
         }
