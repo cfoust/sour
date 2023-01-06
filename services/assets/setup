@@ -2,13 +2,13 @@
 
 set -e
 
-sauer_archive="sauerbraten-6584.tar.gz"
+sauer_archive="sauerbraten-6481.tar.gz"
 
-mkdir -p roots/base
+mkdir -p roots/base/
 
 if ! [ -f "roots/base/$sauer_archive" ]; then
   wget "https://static.sourga.me/archives/$sauer_archive"
-  mv "$sauer_archive" roots/base
+  mv "$sauer_archive" roots/base/
 fi
 
 if ! [ -f "roots/base/data/default_map_settings.cfg" ]; then

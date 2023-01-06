@@ -67,7 +67,7 @@ if __name__ == "__main__":
         for type_ in TEXTURE_TYPES:
             textures += list(map(lambda a: str(a), search.rglob(f"*.{type_}")))
 
-        for texture in progress.track(textures, description="building textures"):
+        for texture in track(textures, description="building textures"):
             p.build_texture(
                 roots,
                 texture,
@@ -113,7 +113,7 @@ if __name__ == "__main__":
 
         models = list(map(lambda model: path.abspath(model), models))
 
-        for model in progress.track(models, description="building models"):
+        for model in track(models, description="building models"):
             result = p.build_model(
                 roots,
                 skip_root,
@@ -141,14 +141,14 @@ if __name__ == "__main__":
             compress_images=False,
         )
 
-    for _map in progress.track(maps, description="building maps"):
+    for _map in track(maps, description="building maps"):
         base, _ = path.splitext(path.basename(_map))
         p.build_map(
             roots,
             skip_root,
             _map,
             base,
-            """Base game map %s as it appeared in game version r6584.
+            """Base game map %s as it appeared in game version r6481.
             """ % base,
         )
 
