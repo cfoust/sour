@@ -209,7 +209,6 @@ if __name__ == "__main__":
     num_mods = 0
     num_maps = 0
 
-    jobs: List[MapJob] = []
     for node in track(nodes, "building nodes"):
         _id = node['id']
         files = node['files']
