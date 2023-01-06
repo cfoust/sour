@@ -9,7 +9,7 @@ interface BundleDB extends DBSchema {
 }
 
 async function initDB(): Promise<IDBPDatabase<BundleDB>> {
-  return await openDB<BundleDB>('sour-assets', 1, {
+  return await openDB<BundleDB>('sour-blobs', 1, {
     upgrade(db) {
       db.createObjectStore('blobs')
     },
