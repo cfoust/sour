@@ -452,19 +452,21 @@ class Packager:
             build_sour_bundle(self.outdir, bundle)
 
         if build_desktop:
-            desktop_bundle = bundle._replace(
-                assets=list(
-                    filter(
-                        lambda a: not path.exists(
-                            path.join(
-                                skip_root,
-                                a.path,
-                            )
-                        ),
-                        bundle.assets
+            desktop_bundle = bundle
+            if skip_root:
+                desktop_bundle = bundle._replace(
+                    assets=list(
+                        filter(
+                            lambda a: not path.exists(
+                                path.join(
+                                    skip_root,
+                                    a.path,
+                                )
+                            ),
+                            bundle.assets
+                        )
                     )
                 )
-            )
             build_desktop_bundle(self.outdir, desktop_bundle)
 
         self.bundles.append(bundle)

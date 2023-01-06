@@ -21,18 +21,20 @@ class File(NamedTuple):
     contents: Optional[List[str]]
 
 
-class BuildJob(NamedTuple):
-    file_hash: str
-    file_name: str
-    extension: Optional[str]
+class MapJob(NamedTuple):
     roots: List[str]
     # A map_path set to None implies that the file itself is a map; otherwise
     # it is a path inside of the archive
     map_path:  Optional[str]
 
 
-def get_jobs(file: File) -> List[BuildJob]:
-    jobs: List[BuildJob] = []
+class ModJob(NamedTuple):
+    root: str
+
+
+def get_jobs(file: File) -> Tuple[List[MapJob], List[ModJob]]:
+    maps: List[MapJob] = []
+    mods: List[ModJob] = []
 
     contents: List[str] = file.contents or []
 
@@ -41,22 +43,26 @@ def get_jobs(file: File) -> List[BuildJob]:
 
         # Some maps did not come in archive files
         if name.endswith('.ogz'):
-            jobs.append(
-                BuildJob(
-                    file_hash=file.hash,
-                    file_name=file.name,
-                    extension=None,
+            maps.append(
+                MapJob(
                     map_path=None,
                     roots=[],
                 )
             )
 
-        return jobs
+        if name.endswith('.cfg'):
+            mods.append(
+                ModJob(
+                    root='',
+                )
+            )
+
+        return (maps, mods)
 
     contents = list(filter(lambda a: not a.startswith('__MACOSX'), contents))
 
     if not contents or not file.name:
-        return []
+        return (maps, mods)
 
     roots: List[str] = []
 
@@ -75,22 +81,34 @@ def get_jobs(file: File) -> List[BuildJob]:
             roots.append(root)
 
     roots = list(set(roots))
-    maps = list(filter(lambda a: a.endswith('.ogz'), contents))
+    map_files = list(filter(lambda a: a.endswith('.ogz'), contents))
 
     _, extension = path.splitext(file.name)
 
-    for _map in maps:
-        jobs.append(
-            BuildJob(
-                file_hash=file.hash,
-                file_name=file.name,
-                extension=extension,
+    for _map in map_files:
+        maps.append(
+            MapJob(
                 roots=roots,
                 map_path=_map,
             )
         )
 
-    return jobs
+    for root in roots:
+        mods.append(
+            ModJob(
+                root=root,
+            )
+        )
+
+    # Sometimes nodes did not have a root (e.g they were just a few cfgs)
+    if not maps and not mods:
+        mods.append(
+            ModJob(
+                root='',
+            )
+        )
+
+    return (maps, mods)
 
 
 def build_map(
@@ -162,7 +180,7 @@ if __name__ == "__main__":
 
     nodes = list(filter(lambda node: node['id'] in node_targets if node_targets else True, nodes))
 
-    jobs: List[BuildJob] = []
+    jobs: List[MapJob] = []
     for node in track(nodes, "building nodes"):
         _id = node['id']
         files = node['files']
@@ -181,15 +199,21 @@ if __name__ == "__main__":
         description = node['content']
 
         for file in files:
-            for job in get_jobs(
+            maps, mods = get_jobs(
                 File(
                     url=file['url'],
                     hash=file['hash'],
                     name=file['name'],
                     contents=file['contents'],
                 )
-            ):
-                file_hash = job.file_hash
+            )
+
+            # Node 4405 included a map _and_ a mod, and we still want both.
+            if maps and mods and _id != 4405:
+                mods = []
+
+            for job in maps:
+                file_hash = file.file_hash
                 map_path = job.map_path
                 map_hash = package.hash_string("%d-%s" % (_id, job.map_path))
                 cache_file = path.join(cachedir, "%s.json" % map_hash)
@@ -200,7 +224,7 @@ if __name__ == "__main__":
 
                 # The file itself is a map
                 if not map_path:
-                    map_name, _ = path.splitext(path.basename(job.file_name))
+                    map_name, _ = path.splitext(path.basename(file.file_name))
                     target = tmp("%s.ogz" % map_name)
                     shutil.copy(db(file_hash), target)
 
@@ -218,7 +242,7 @@ if __name__ == "__main__":
 
                 tmpdir = tempfile.mkdtemp()
 
-                file_name = job.file_name
+                file_name = file.file_name
 
                 if file_name.endswith('.tar.gz'):
                     target = path.join("/tmp", "%s.tar.gz" % file_hash)
@@ -271,7 +295,7 @@ if __name__ == "__main__":
                 target_map = path.join(tmpdir, map_path)
 
                 if not path.exists(target_map):
-                    print('Archive %s did not contain %s' % (job.file_name, map_path))
+                    print('Archive %s did not contain %s' % (file_name, map_path))
                     continue
 
                 print(map_roots, roots[1])
