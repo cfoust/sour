@@ -194,7 +194,7 @@ async function loadBundle(
 
 const resolveBundles = (source: AssetSource, bundles: string[]): Bundle[] =>
   R.chain((id) => {
-    const bundle = R.find((v) => v.id === id, source.bundles)
+    const bundle = R.find((v) => v.id === id && v.web, source.bundles)
     if (bundle == null) return []
     return [bundle]
   }, bundles)
@@ -224,12 +224,12 @@ const makeResolver =
   <T>(
     list: (source: AssetSource) => T[],
     matches: (target: string, item: T, source: AssetSource) => boolean,
-    transform: (item: T) => LookupResult
+    transform: (item: T, source: AssetSource) => LookupResult
   ) =>
   (source: AssetSource, target: string): Maybe<ResolvedLookup> => {
     const found = R.find((v) => matches(target, v, source), list(source))
     if (found == null) return null
-    const { assets: foundAssets, bundles: foundBundles } = transform(found)
+    const { assets: foundAssets, bundles: foundBundles } = transform(found, source)
 
     // If anything inside of this result fails to resolve, it's game over,
     // the assets are missing.
@@ -248,9 +248,13 @@ const resolvers: Record<LoadRequestType, Resolver> = {
   [LoadRequestType.Map]: makeResolver<GameMap>(
     ({ maps }) => maps,
     (target, map) => map.name === target || map.id.startsWith(target),
-    ({ bundle, assets }) => {
+    ({ bundle, assets }, source) => {
       if (bundle != null) {
-        return { bundles: [bundle], assets: [] }
+        // XXX: we shouldn't return bundles if a web version doesn't exist
+        const bundles = resolveBundles(source, [bundle])
+        if (bundles != null && bundles.length > 0) {
+          return { bundles: [bundle], assets: [] }
+        }
       }
 
       return { bundles: [], assets }
