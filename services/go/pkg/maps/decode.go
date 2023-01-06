@@ -189,6 +189,8 @@ func Decode(data []byte) (*GameMap, error) {
 	newFooter := NewFooter{}
 	oldFooter := OldFooter{}
 	if header.Version <= 28 {
+		// Reset and read again
+		p = Buffer(data)
 		p.Skip(28) // 7 * 4, like in worldio.cpp
 		err = p.Get(&oldFooter)
 		if err != nil {
@@ -223,7 +225,7 @@ func Decode(data []byte) (*GameMap, error) {
 
 	gameMap.Header = mapHeader
 
-	log.Printf("Version %d", header.Version)
+	log.Debug().Msgf("Version %d", header.Version)
 	gameMap.Vars = make(map[string]Variable)
 
 	for i := 0; i < int(newFooter.NumVars); i++ {
@@ -308,6 +310,8 @@ func Decode(data []byte) (*GameMap, error) {
 
 	vSlotData, err := LoadVSlots(&p, newFooter.NumVSlots)
 	gameMap.VSlots = vSlotData
+
+	log.Debug().Msgf("Header %+v", header)
 
 	cube, err := LoadChildren(&p, header.WorldSize, header.Version)
 	if err != nil {
