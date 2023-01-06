@@ -60,8 +60,8 @@ const theme = extendTheme({ colors })
 const OuterContainer = styled.div`
   width: 100%;
   height: 100%;
+  min-height: 100vh;
   position: absolute;
-  background-color: var(--chakra-colors-yellow-400);
 `
 
 const GameContainer = styled.div`
@@ -72,7 +72,6 @@ const GameContainer = styled.div`
 `
 
 const LoadingContainer = styled.div`
-  backdrop-filter: blur(5px);
   width: 100%;
   height: 100%;
   position: absolute;
@@ -165,6 +164,7 @@ function App() {
 
   React.useEffect(() => {
     if (width == null || height == null) return
+    console.log(width, height);
     Module.desiredWidth = width
     Module.desiredHeight = height
     if (Module.setCanvasSize == null) return
@@ -610,8 +610,8 @@ function App() {
   }, [])
 
   return (
-    <OuterContainer>
-      <GameContainer ref={containerRef}>
+    <OuterContainer ref={containerRef}>
+      <GameContainer>
         <canvas
           className="game"
           style={{ opacity: state.type !== GameStateType.Ready ? 0 : 1 }}
@@ -623,7 +623,6 @@ function App() {
       {state.type !== GameStateType.Ready && (
         <LoadingContainer>
           <Box w="100%" h="100%">
-            <Heading>🍋Sour</Heading>
             <StatusOverlay state={state} />
           </Box>
         </LoadingContainer>

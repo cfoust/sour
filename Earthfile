@@ -64,7 +64,7 @@ client:
     WORKDIR /client
     COPY services/client .
     RUN --mount=type=cache,target=/code/node_modules yarn install
-    RUN rm -rf dist && yarn build && cp src/index.html src/favicon.ico dist
+    RUN rm -rf dist && yarn build && cp src/index.html src/favicon.ico src/background.png dist
     SAVE ARTIFACT dist AS LOCAL "earthly/client"
 
 image-slim:
