@@ -152,6 +152,7 @@ export type LoadState =
 export enum DataType {
   Asset,
   Bundle,
+  Index,
 }
 
 export type AssetState = {
@@ -166,7 +167,7 @@ export type StateResponse = {
   // The id provided in the original AssetLoadRequest
   id: string
   // The type of the request
-  type: LoadRequestType
+  type: Maybe<LoadRequestType>
   // The high-level status, which generally represents the aggregation
   // of all of the assets in `state`
   overall: LoadState
@@ -174,21 +175,44 @@ export type StateResponse = {
   individual: AssetState[]
 }
 
+export enum ResultType {
+  Asset,
+  Index,
+}
+
+export type AssetResult = {
+  type: ResultType.Asset
+  data: AssetData[]
+}
+
+export type IndexResult = {
+  type: ResultType.Index
+  index: AssetIndex
+}
+
+export const result = {
+  asset: (data: AssetData[]): AssetResult => ({
+    type: ResultType.Asset,
+    data,
+  }),
+  index: (index: AssetIndex): IndexResult => ({
+    type: ResultType.Index,
+    index,
+  }),
+}
+
+type Result = AssetResult | IndexResult
+
 export type DataResponse = {
   op: ResponseType.Data
   // The id provided in the original AssetLoadRequest
   id: string
-  type: LoadRequestType
+  type: Maybe<LoadRequestType>
   status: ResponseStatus
-  data: Maybe<AssetData[]>
+  result: Maybe<Result>
 }
 
-export type IndexResponse = {
-  op: ResponseType.Index
-  index: AssetIndex
-}
-
-export type Response = StateResponse | DataResponse | IndexResponse
+export type Response = StateResponse | DataResponse
 
 export enum RequestType {
   Environment,

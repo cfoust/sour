@@ -1,5 +1,7 @@
 import * as R from 'ramda'
 import type {
+  AssetResult,
+  IndexResult,
   DataResponse,
   ResponseStatus,
   Model,
@@ -16,7 +18,6 @@ import type {
   GameMap,
   GameMod,
   IndexAsset,
-  IndexResponse,
   MountData,
 } from './types'
 import {
@@ -26,6 +27,7 @@ import {
   DataType,
   LoadRequestType,
   load,
+  result,
 } from './types'
 import type { DownloadState } from '../types'
 
@@ -33,20 +35,10 @@ import { getBlob as getSavedBlob, saveBlob, haveBlob } from './storage'
 
 class PullError extends Error {}
 
+let indexFetch: Maybe<Promise<AssetIndex>> = null
+
 let assetSources: string[] = []
 let assetIndex: Maybe<AssetIndex> = null
-
-async function fetchIndex(source: string): Promise<AssetSource> {
-  const response = await fetch(source)
-  const index: AssetSource = await response.json()
-  index.source = source
-  return index
-}
-
-async function fetchIndices(): Promise<AssetIndex> {
-  const indices = await Promise.all(R.map((v) => fetchIndex(v), assetSources))
-  return indices
-}
 
 function cleanPath(source: string): string {
   const lastSlash = source.lastIndexOf('/')
@@ -87,13 +79,11 @@ function unpackBundle(data: ArrayBuffer): BundleData {
 }
 
 async function fetchData(
-  source: string,
-  id: string,
+  url: string,
   progress: (bundle: LoadState) => void
 ): Promise<ArrayBuffer> {
   const request = new XMLHttpRequest()
-  const packageName = `${cleanPath(source)}${id}`
-  request.open('GET', packageName, true)
+  request.open('GET', url, true)
   request.responseType = 'arraybuffer'
   request.onprogress = (event) => {
     if (!event.lengthComputable) return
@@ -105,7 +95,7 @@ async function fetchData(
     )
   }
   request.onerror = function (event) {
-    throw new PullError('NetworkError for: ' + packageName)
+    throw new PullError('NetworkError for: ' + url)
   }
 
   return new Promise((resolve, reject) => {
@@ -123,6 +113,14 @@ async function fetchData(
     }
     request.send(null)
   })
+}
+
+async function fetchSourceData(
+  source: string,
+  id: string,
+  progress: (bundle: LoadState) => void
+): Promise<ArrayBuffer> {
+  return fetchData(`${cleanPath(source)}${id}`, progress)
 }
 
 async function loadBlob(
@@ -145,9 +143,43 @@ async function loadBlob(
       totalBytes: 0,
     })
   )
-  const buffer = await fetchData(source, url, progress)
+  const buffer = await fetchSourceData(source, url, progress)
   await saveBlob(id, buffer)
   return buffer
+}
+
+function sourceFromBuffer(
+  buffer: ArrayBuffer
+): AssetSource {
+  const text = new TextDecoder("utf-8");
+  return JSON.parse(text.decode(buffer))
+}
+
+async function loadIndex(
+  url: string,
+  progress: (bundle: LoadState) => void
+): Promise<AssetSource> {
+  if (await haveBlob(url)) {
+    const buffer = await getSavedBlob(url)
+    if (buffer == null) {
+      throw new PullError(`Index ${url} did not exist`)
+    }
+    const source = sourceFromBuffer(buffer)
+    source.source = url
+    return source
+  }
+
+  progress(
+    load.downloading({
+      downloadedBytes: 0,
+      totalBytes: 0,
+    })
+  )
+  const buffer = await fetchData(url, progress)
+  await saveBlob(url, buffer)
+  const source = sourceFromBuffer(buffer)
+  source.source = url
+  return source
 }
 
 async function loadAsset(
@@ -229,7 +261,10 @@ const makeResolver =
   (source: AssetSource, target: string): Maybe<ResolvedLookup> => {
     const found = R.find((v) => matches(target, v, source), list(source))
     if (found == null) return null
-    const { assets: foundAssets, bundles: foundBundles } = transform(found, source)
+    const { assets: foundAssets, bundles: foundBundles } = transform(
+      found,
+      source
+    )
 
     // If anything inside of this result fails to resolve, it's game over,
     // the assets are missing.
@@ -390,8 +425,12 @@ async function processRequest(
   type: LoadRequestType,
   target: string
 ) {
+  if (indexFetch != null) {
+    await indexFetch
+  }
+
   if (assetIndex == null) {
-    assetIndex = await fetchIndices()
+    throw new PullError('missing asset index')
   }
 
   let state: RequestState = {
@@ -424,12 +463,13 @@ async function processRequest(
     data: Maybe<AssetData[]>,
     buffers?: Transferable[]
   ) => {
+    const _result: Maybe<AssetResult> = data != null ? result.asset(data) : null
     const response: DataResponse = {
       op: ResponseType.Data,
       id: pullId,
       type,
       status,
-      data,
+      result: _result,
     }
 
     self.postMessage(response, buffers ?? [])
@@ -506,6 +546,86 @@ async function processRequest(
   }
 }
 
+async function processEnvironment(
+  pullId: string,
+  indices: string[]
+): Promise<AssetIndex> {
+  let state: RequestState = {
+    overall: load.waiting(),
+    individual: [],
+  }
+
+  const setState = (newState: RequestState) => {
+    const { overall, individual } = newState
+    const response: StateResponse = {
+      op: ResponseType.State,
+      id: pullId,
+      type: null,
+      overall,
+      individual,
+    }
+    self.postMessage(response)
+    state = newState
+  }
+
+  const setDerivedState = (newState: AssetState[]) => {
+    setState({
+      overall: aggregateState(newState),
+      individual: newState,
+    })
+  }
+
+  const sendResponse = (status: ResponseStatus, index: Maybe<AssetIndex>) => {
+    const _result: Maybe<IndexResult> =
+      index != null ? result.index(index) : null
+    const response: DataResponse = {
+      op: ResponseType.Data,
+      id: pullId,
+      type: null,
+      status,
+      result: _result,
+    }
+
+    self.postMessage(response, [])
+  }
+
+  // Initialize state to waiting (and send it)
+  setState(getOverallState(load.waiting()))
+
+  setDerivedState([
+    ...R.map(
+      (index): AssetState => ({
+        type: DataType.Index,
+        state: load.waiting(),
+        id: index,
+      }),
+      indices
+    ),
+  ])
+
+  const update = (id: string) => (loadState: LoadState) => {
+    setDerivedState(
+      R.map((item) => {
+        if (item.id !== id) return item
+        return { ...item, state: loadState }
+      }, state.individual)
+    )
+  }
+
+  try {
+    const sources: AssetSource[] = await Promise.all([
+      ...R.map((index) => loadIndex(index, update(index)), indices),
+    ])
+
+    sendResponse(LoadStateType.Ok, sources)
+    assetIndex = sources
+    return sources
+  } catch (e) {
+    sendResponse(LoadStateType.Failed, null)
+    throw e
+  }
+}
+
 self.onmessage = (evt) => {
   const { data } = evt
   const request: Request = data
@@ -514,14 +634,9 @@ self.onmessage = (evt) => {
     const { assetSources: newSources } = request
     assetSources = newSources
     ;(async () => {
-      assetIndex = await fetchIndices()
-
-      const response: IndexResponse = {
-        op: ResponseType.Index,
-        index: assetIndex,
-      }
-
-      self.postMessage(response, [])
+      indexFetch = processEnvironment('environment', newSources)
+      await indexFetch
+      indexFetch = null
     })()
   } else if (request.op === RequestType.Load) {
     const { target, type, id } = request

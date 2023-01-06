@@ -9,10 +9,10 @@ import type {
   Response,
   GameMap,
   AssetSource,
-  IndexResponse,
   Bundle,
 } from './types'
 import {
+  ResultType,
   LoadStateType,
   LoadRequestType,
   ResponseType as AssetResponseType,
@@ -21,7 +21,7 @@ import {
 import * as log from '../logging'
 
 import type { GameState } from '../types'
-import { GameStateType } from '../types'
+import { GameStateType, DownloadingType } from '../types'
 
 import type { PromiseSet } from '../utils'
 import { breakPromise } from '../utils'
@@ -94,32 +94,35 @@ export default function useAssets(
   const requestStateRef = React.useRef<AssetRequest[]>([])
   const bundleIndexRef = React.useRef<AssetIndex>()
 
+  const addRequest = React.useCallback((id: string): AssetRequest => {
+    const { current: requests } = requestStateRef
+    const promiseSet = breakPromise<Maybe<AssetData[]>>()
+    const request: AssetRequest = {
+      id,
+      promiseSet,
+    }
+
+    requestStateRef.current = [...requests, request]
+    return request
+  }, [])
+
   const loadAsset = React.useCallback(
-    async (type: LoadRequestType, target: string) => {
+    async (
+      type: LoadRequestType,
+      target: string
+    ): Promise<Maybe<AssetData[]>> => {
       const { current: assetWorker } = assetWorkerRef
-      if (assetWorker == null) return
+      if (assetWorker == null) return null
 
-      const { current: requests } = requestStateRef
-
-      const id = target
-      const promiseSet = breakPromise<Maybe<AssetData[]>>()
-
-      requestStateRef.current = [
-        ...requests,
-        {
-          id,
-          promiseSet,
-        },
-      ]
-
+      const request = addRequest(target)
       assetWorker.postMessage({
         op: AssetRequestType.Load,
         type,
-        id,
+        id: target,
         target,
       })
 
-      return promiseSet.promise
+      return request.promiseSet.promise
     },
     []
   )
@@ -131,6 +134,7 @@ export default function useAssets(
       { type: 'module' }
     )
 
+    addRequest('environment')
     worker.postMessage({
       op: AssetRequestType.Environment,
       assetSources: CONFIG.assets,
@@ -143,27 +147,37 @@ export default function useAssets(
       if (message.op === AssetResponseType.State) {
         const { overall, type } = message
 
+        const downloadType =
+          type === LoadRequestType.Map
+            ? DownloadingType.Map
+            : type === LoadRequestType.Mod
+            ? DownloadingType.Mod
+            : DownloadingType.Index
+
         // Show progress if maps or mods are downloading
         if (
-          (type === LoadRequestType.Map || type === LoadRequestType.Mod) &&
+          (type === LoadRequestType.Map ||
+            type === LoadRequestType.Mod ||
+            type == null) &&
           overall.type === LoadStateType.Downloading
         ) {
           const { downloadedBytes, totalBytes } = overall
           if (!Module.running) {
             setState({
               type: GameStateType.Downloading,
+              downloadType,
               downloadedBytes,
               totalBytes,
             })
           } else {
             BananaBread.renderprogress(
               downloadedBytes / totalBytes,
-              'loading map data..'
+              `loading ${DownloadingType[downloadType].toLowerCase()} data..`
             )
           }
         }
       } else if (message.op === AssetResponseType.Data) {
-        const { id, data, status } = message
+        const { id, result, status } = message
 
         ;(async () => {
           const { current: requests } = requestStateRef
@@ -184,16 +198,23 @@ export default function useAssets(
             return
           }
 
-          // Mount the data first
-          if (data != null) {
-            await Promise.all(R.map((v) => mountFile(v.path, v.data), data))
+          if (result == null) {
+            resolve(null)
+            return
           }
 
+          if (result.type === ResultType.Index) {
+            const { index } = result
+            bundleIndexRef.current = index
+            resolve(null)
+            return
+          }
+
+          const { data } = result
+          // Mount the data first
+          await Promise.all(R.map((v) => mountFile(v.path, v.data), data))
           resolve(data)
         })()
-      } else if (message.op === AssetResponseType.Index) {
-        const { index } = message
-        bundleIndexRef.current = index
       }
     }
 

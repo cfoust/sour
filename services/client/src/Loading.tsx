@@ -3,7 +3,7 @@ import * as React from 'react'
 import { Flex, VStack, HStack, Heading, Progress } from '@chakra-ui/react'
 
 import type { GameState, DownloadingState } from './types'
-import { GameStateType } from './types'
+import { GameStateType, DownloadingType } from './types'
 
 type Props = {
   state: GameState
@@ -11,12 +11,14 @@ type Props = {
 
 function Downloading(props: { state: DownloadingState }) {
   const {
-    state: { downloadedBytes, totalBytes },
+    state: { downloadedBytes, totalBytes, downloadType },
   } = props
 
   return (
     <VStack>
-      <Heading>Downloading assets...</Heading>
+      <Heading>
+        Loading {DownloadingType[downloadType].toLowerCase()} data...
+      </Heading>
       <Progress
         colorScheme="yellow"
         hasStripe
@@ -34,7 +36,7 @@ export default function StatusOverlay(props: Props) {
     <Flex align="center" justify="center">
       <VStack paddingTop="20%">
         {state.type === GameStateType.PageLoading && (
-          <Heading>Waiting for asset index...</Heading>
+          <Heading>Initializing...</Heading>
         )}
         {state.type === GameStateType.Downloading && (
           <Downloading state={state} />

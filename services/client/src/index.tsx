@@ -171,7 +171,6 @@ function App() {
 
   React.useEffect(() => {
     if (width == null || height == null) return
-    console.log(width, height)
     Module.desiredWidth = width
     Module.desiredHeight = height
     if (Module.setCanvasSize == null) return

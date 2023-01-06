@@ -15,6 +15,12 @@ export type PageLoadingState = {
   type: GameStateType.PageLoading
 }
 
+export enum DownloadingType {
+  Map,
+  Mod,
+  Index,
+}
+
 export type DownloadState = {
   downloadedBytes: number
   totalBytes: number
@@ -22,6 +28,7 @@ export type DownloadState = {
 
 export type DownloadingState = {
   type: GameStateType.Downloading
+  downloadType: DownloadingType
 } & DownloadState
 
 export type MapChangeState = {
