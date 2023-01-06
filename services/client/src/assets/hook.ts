@@ -57,14 +57,12 @@ function getDirectory(source: string): string {
   return source.slice(0, lastSlash + 1)
 }
 
-export async function mountFile(path: string, data: Uint8Array): Promise<void> {
-  try {
-    FS.unlink(path)
-  } catch (e) {
-    console.error(`Failed to remove file: ${path}`)
-  }
+function normalizePath(path: string): string {
+  return path.startsWith('/') ? path.slice(1) : path
+}
 
-  const normalizedPath = path.startsWith('/') ? path.slice(1) : path
+export async function mountFile(path: string, data: Uint8Array): Promise<void> {
+  const normalizedPath = normalizePath(path)
   const parts = getDirectory(normalizedPath).split('/')
   for (let i = 0; i < parts.length; i++) {
     const first = parts.slice(0, i).join('/')
@@ -86,6 +84,36 @@ export async function mountFile(path: string, data: Uint8Array): Promise<void> {
       true
     )
   })
+}
+
+type Layer = Record<string, AssetData>
+let layers: Layer[] = []
+
+export async function pushLayer(data: AssetData[], overwrite: boolean) {
+  const newLayer: Layer = {}
+  for (const asset of data) {
+    const { path } = asset
+    newLayer[normalizePath(path)] = asset
+  }
+
+  // Clear out the previous layer's assets
+  if (overwrite) {
+    console.log('overwriting')
+    for (const asset of data) {
+      const { path } = asset
+      for (let i = layers.length - 1; i >= 0; i--) {
+        const previous: Maybe<AssetData> = layers[i][normalizePath(path)]
+        if (previous == null) continue
+        try {
+          FS.unlink(previous.path)
+        } catch (e) {}
+        break
+      }
+    }
+  }
+
+  await Promise.all(R.map((v) => mountFile(v.path, v.data), data))
+  layers.push(newLayer)
 }
 
 export default function useAssets(
@@ -183,9 +211,7 @@ export default function useAssets(
           }
         }
       } else if (message.op === AssetResponseType.Data) {
-        const { id, result, status } = message
-
-        console.log(id, result, status)
+        const { id, result, status, type } = message
 
         ;(async () => {
           const { current: requests } = requestStateRef
@@ -219,9 +245,7 @@ export default function useAssets(
           }
 
           const { data } = result
-          console.log(data)
-          // Mount the data first
-          await Promise.all(R.map((v) => mountFile(v.path, v.data), data))
+          await pushLayer(data, type === LoadRequestType.Mod)
           resolve(data)
         })()
       }
