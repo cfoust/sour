@@ -231,7 +231,7 @@ async function loadBundle(
 
 const resolveBundles = (source: AssetSource, bundles: string[]): Bundle[] =>
   R.chain((id) => {
-    const bundle = R.find((v) => v.id === id && v.web, source.bundles)
+    const bundle = R.find((v) => v.id === id, source.bundles)
     if (bundle == null) return []
     return [bundle]
   }, bundles)
@@ -290,9 +290,12 @@ const resolvers: Record<LoadRequestType, Resolver> = {
     (target, map) => map.name === target || map.id.startsWith(target),
     ({ bundle, assets }, source) => {
       if (bundle != null) {
-        // XXX: we shouldn't return bundles if a web version doesn't exist
         const bundles = resolveBundles(source, [bundle])
-        if (bundles != null && bundles.length > 0) {
+        if (
+          bundles != null &&
+          bundles.length > 0 &&
+          R.all((v) => v.web, bundles)
+        ) {
           return { bundles: [bundle], assets: [] }
         }
       }
@@ -326,11 +329,18 @@ const resolvers: Record<LoadRequestType, Resolver> = {
   [LoadRequestType.Mod]: makeResolver<GameMod>(
     ({ mods }) => mods,
     (target, mod) => mod.name === target || mod.id.startsWith(target),
-    (mod) => {
-      return {
-        bundles: [mod.id],
-        assets: [],
+    (mod, source) => {
+      const bundles = resolveBundles(source, [mod.id])
+      if (bundles == null) {
+        return { bundles: [], assets: [] }
       }
+
+      if (R.all((v) => v.web, bundles)) {
+        return { bundles: [mod.id], assets: [] }
+      }
+
+      const [{ assets }] = bundles
+      return { bundles: [], assets }
     }
   ),
 }

@@ -58,6 +58,12 @@ function getDirectory(source: string): string {
 }
 
 export async function mountFile(path: string, data: Uint8Array): Promise<void> {
+  try {
+    FS.unlink(path)
+  } catch (e) {
+    console.error(`Failed to remove file: ${path}`)
+  }
+
   const normalizedPath = path.startsWith('/') ? path.slice(1) : path
   const parts = getDirectory(normalizedPath).split('/')
   for (let i = 0; i < parts.length; i++) {
@@ -179,6 +185,8 @@ export default function useAssets(
       } else if (message.op === AssetResponseType.Data) {
         const { id, result, status } = message
 
+        console.log(id, result, status)
+
         ;(async () => {
           const { current: requests } = requestStateRef
           const request = R.find(({ id: otherId }) => id === otherId, requests)
@@ -211,6 +219,7 @@ export default function useAssets(
           }
 
           const { data } = result
+          console.log(data)
           // Mount the data first
           await Promise.all(R.map((v) => mountFile(v.path, v.data), data))
           resolve(data)
