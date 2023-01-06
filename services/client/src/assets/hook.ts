@@ -329,19 +329,16 @@ export default function useAssets(
       missingModel: (name: string, msg: number) => {
         if (models.has(name)) return
         models.add(name)
-        console.log(name, msg)
         ;(async () => {
           try {
             const assets = await loadAsset(LoadRequestType.Model, name)
             if (assets == null) {
-              console.log('not found', name);
               return
             }
 
             await Promise.all(R.map((v) => mountFile(v.path, v.data), assets))
-            console.log('now what?', name)
           } catch (e) {
-            console.error(`texture ${name} not found anywhere`)
+            console.error(`model ${name} not found anywhere`)
           }
         })()
       },

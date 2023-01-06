@@ -16,6 +16,23 @@ export default function start() {
       },
     },
     setPlayerModels: function () {
+      //{ "mrfixit", "mrfixit/blue", "mrfixit/red", "mrfixit/hudguns", NULL, "mrfixit/horns", { "mrfixit/armor/blue", "mrfixit/armor/green", "mrfixit/armor/yellow" }, "mrfixit", "mrfixit_blue", "mrfixit_red", true },
+      BananaBread.setPlayerModelInfo(
+        'mrfixit',
+        'mrfixit/blue',
+        'mrfixit/red',
+        'mrfixit/hudguns',
+        0,
+        'mrfixit/horns',
+        'mrfixit/armor/blue',
+        'mrfixit/armor/green',
+        'mrfixit/armor/yellow',
+        'mrfixit',
+        'mrfixit_blue',
+        'mrfixit_red',
+        true
+      )
+        //{ "snoutx10k", "snoutx10k/blue", "snoutx10k/red", "snoutx10k/hudguns", NULL, "snoutx10k/wings", { "snoutx10k/armor/blue", "snoutx10k/armor/green", "snoutx10k/armor/yellow" }, "snoutx10k", "snoutx10k_blue", "snoutx10k_red", true },
       BananaBread.setPlayerModelInfo(
         'snoutx10k',
         'snoutx10k/blue',
@@ -29,6 +46,56 @@ export default function start() {
         'snoutx10k',
         'snoutx10k_blue',
         'snoutx10k_red',
+        true
+      )
+      //{ "ogro2", "ogro2/blue", "ogro2/red", "mrfixit/hudguns", NULL, "ogro2/quad", { "ogro2/armor/blue", "ogro2/armor/green", "ogro2/armor/yellow" }, "ogro", "ogro_blue", "ogro_red", true },
+      BananaBread.setPlayerModelInfo(
+        'ogro2',
+        'ogro2/blue',
+        'ogro2/red',
+        'mrfixit/hudguns',
+        0,
+        'ogro2/quad',
+        'ogro2/armor/blue',
+        'ogro2/armor/green',
+        'ogro2/armor/yellow',
+        'ogro',
+        'ogro2_blue',
+        'ogro2_red',
+        true
+      )
+
+        //{ "inky", "inky/blue", "inky/red", "inky/hudguns", NULL, "inky/quad", { "inky/armor/blue", "inky/armor/green", "inky/armor/yellow" }, "inky", "inky_blue", "inky_red", true },
+      BananaBread.setPlayerModelInfo(
+        'inky',
+        'inky/blue',
+        'inky/red',
+        'inky/hudguns',
+        0,
+        'inky/quad',
+        'inky/armor/blue',
+        'inky/armor/green',
+        'inky/armor/yellow',
+        'ogro',
+        'inky_blue',
+        'inky_red',
+        true
+      )
+
+        //{ "captaincannon", "captaincannon/blue", "captaincannon/red", "captaincannon/hudguns", NULL, "captaincannon/quad", { "captaincannon/armor/blue", "captaincannon/armor/green", "captaincannon/armor/yellow" }, "captaincannon", "captaincannon_blue", "captaincannon_red", true }
+      BananaBread.setPlayerModelInfo(
+        'captaincannon',
+        'captaincannon/blue',
+        'captaincannon/red',
+        'captaincannon/hudguns',
+        0,
+        'captaincannon/quad',
+        'captaincannon/armor/blue',
+        'captaincannon/armor/green',
+        'captaincannon/armor/yellow',
+        'ogro',
+        'captaincannon_blue',
+        'captaincannon_red',
         true
       )
     },

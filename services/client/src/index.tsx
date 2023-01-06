@@ -184,11 +184,19 @@ function App() {
     ]
 
     injectedmenu = [
-      guilist [
-          newname = (getname)
-          guifield newname 15 [name $newname]
-          guispring
-          guiimage (getcrosshair) [showgui crosshair] 0.5
+        guilist [
+          guiimage (concatword "packages/icons/" (playermodelicon) ".jpg") [chooseplayermodel] 1.15
+          guistrut 0.25
+          guilist [
+              newname = (getname)
+              guifield newname 15 [name $newname]
+              guispring
+              guilist [
+                  guibutton (playermodelname) [chooseplayermodel] 0
+                  guistrut 1
+                  guiimage (getcrosshair) [showgui crosshair] 0.5
+              ]
+          ]
       ]
       ${renderDiscordHeader(authState)}
       guibar
