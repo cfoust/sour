@@ -2,6 +2,7 @@
 
 #include "engine.h"
 #include "SDL_image.h"
+#include <emscripten.h>
 
 #ifndef SDL_IMAGE_VERSION_ATLEAST
 #define SDL_IMAGE_VERSION_ATLEAST(X, Y, Z) \
@@ -1474,7 +1475,17 @@ static bool texturedata(ImageData &d, const char *tname, Slot::Tex *tex = NULL, 
             }
         }
         else s = loadsurface(file);
-        if(!s) { if(msg) conoutf(CON_ERROR, "could not load texture %s", file); return false; }
+        if(!s) {
+            if(msg) conoutf(CON_ERROR, "could not load texture %s", file);
+#if __EMSCRIPTEN__
+            EM_ASM({
+                Module.assets.missingTexture(UTF8ToString($0));
+            }, file);
+            return texturedata(d, "packages/textures/downloading.png", tex, msg, compress, wrap);
+#else
+            return false;
+#endif
+        }
         int bpp = s->format->BitsPerPixel;
         if(bpp%8 || !texformat(bpp/8)) { SDL_FreeSurface(s); conoutf(CON_ERROR, "texture must be 8, 16, 24, or 32 bpp: %s", file); return false; }
         if(max(s->w, s->h) > (1<<12)) { SDL_FreeSurface(s); conoutf(CON_ERROR, "texture size exceeded %dx%d pixels: %s", 1<<12, 1<<12, file); return false; }
@@ -1570,6 +1581,7 @@ Texture *textureload(const char *name, int clamp, bool mipit, bool msg)
     int compress = 0;
     ImageData s;
     if(texturedata(s, tname, NULL, msg, &compress, &clamp)) return newtexture(NULL, tname, s, clamp, mipit, false, false, compress);
+
     return notexture;
 }
 
@@ -2898,7 +2910,7 @@ void reloadtex(char *name)
 {
     Texture *t = textures.access(path(name, true));
     if(!t) { conoutf(CON_ERROR, "texture %s is not loaded", name); return; }
-    if(t->type&Texture::TRANSIENT) { conoutf(CON_ERROR, "can't reload transient texture %s", name); return; }
+    //if(t->type&Texture::TRANSIENT) { conoutf(CON_ERROR, "can't reload transient texture %s", name); return; }
     DELETEA(t->alphamask);
     Texture oldtex = *t;
     t->id = 0;

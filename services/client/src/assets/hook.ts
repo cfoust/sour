@@ -293,10 +293,27 @@ export default function useAssets(
       console.error(`Map file was not in base ${mapFile.path}`)
     }
 
+    const textures = new Set<string>()
     Module.assets = {
       isMountedFile,
       onConnect: () => {
         targetMap = null
+      },
+      missingTexture: (name: string) => {
+        if (textures.has(name)) return
+        textures.add(name)
+        ;(async () => {
+          try {
+            const texture = await loadAsset(LoadRequestType.Texture, name)
+            if (texture == null) return
+            const [asset] = texture
+
+            mountFile(asset.path, asset.data)
+            BananaBread.execute(`reloadtex ${name}`)
+          } catch (e) {
+            console.error(`texture ${name} not found anywhere`)
+          }
+        })()
       },
       loadRandomMap: () => {
         const maps = getValidMaps(bundleIndexRef.current ?? [])
