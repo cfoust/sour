@@ -12,27 +12,94 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type IndexAsset struct {
+	Id   int
+	Path string
+}
+
+// https://eagain.net/articles/go-json-array-to-struct/
+func (i *IndexAsset) UnmarshalJSON(buf []byte) error {
+	tmp := []interface{}{&i.Id, &i.Path}
+	wantLen := len(tmp)
+	if err := json.Unmarshal(buf, &tmp); err != nil {
+		return err
+	}
+	if g, e := len(tmp), wantLen; g != e {
+		return fmt.Errorf("wrong number of fields in IndexAsset: %d != %d", g, e)
+	}
+	return nil
+}
+
 type Mod struct {
-	Name   string
-	Bundle string
+	Id          string
+	Name        string
+	Image       string
+	Description string
 }
 
 type GameMap struct {
+	Id          string
 	Name        string
+	Ogz         int
 	Bundle      string
+	Assets      []IndexAsset
 	Image       string
 	Description string
-	Aliases     []string
+}
+
+type Bundle struct {
+	Id      string
+	Desktop bool
+	Web     bool
+	Assets  []IndexAsset
+}
+
+type Model struct {
+	Id   string
+	Name string
 }
 
 type Index struct {
-	Maps []GameMap
-	Mods []Mod
+	Assets   []string
+	Textures []IndexAsset
+	Bundles  []Bundle
+	Maps     []GameMap
+	Models   []Model
+	Mods     []Mod
 }
 
 type AssetSource struct {
 	Index *Index
 	Base  string
+}
+
+func (a *AssetSource) ResolveAsset(id int) opt.Option[string] {
+	if a.Index == nil {
+		return opt.None[string]()
+	}
+
+	assets := a.Index.Assets
+	if id < 0 || id >= len(assets) {
+		return opt.None[string]()
+	}
+
+	return opt.Some[string](assets[id])
+}
+
+func (a *AssetSource) ResolveBundle(id string) opt.Option[Bundle] {
+	if a.Index == nil {
+		return opt.None[Bundle]()
+	}
+
+	for _, bundle := range a.Index.Bundles {
+		if bundle.Id != id {
+			continue
+		}
+
+		return opt.Some[Bundle](bundle)
+	}
+
+	return opt.None[Bundle]()
 }
 
 type MapFetcher struct {
@@ -142,12 +209,36 @@ func (f *FoundMap) GetBaseURL() string {
 	return fmt.Sprintf("%s%s", f.Source.Base, f.Map.Bundle)
 }
 
-func (f *FoundMap) GetOGZURL() string {
-	return f.GetBaseURL() + ".ogz"
+func (f *FoundMap) GetOGZURL() opt.Option[string] {
+	if f.Source == nil || f.Map == nil {
+		return opt.None[string]()
+	}
+
+	asset := f.Source.ResolveAsset(f.Map.Ogz)
+	if opt.IsNone(asset) {
+		return opt.None[string]()
+	}
+
+	return opt.Some[string](f.GetBaseURL() + asset.Value)
 }
 
-func (f *FoundMap) GetDesktopURL() string {
-	return f.GetBaseURL() + ".desktop"
+func (f *FoundMap) GetDesktopURL() opt.Option[string] {
+	if f.Source == nil || f.Map == nil {
+		return opt.None[string]()
+	}
+
+	bundle := f.Source.ResolveBundle(f.Map.Bundle)
+	if opt.IsNone(bundle) || !bundle.Value.Desktop {
+		return opt.None[string]()
+	}
+
+	return opt.Some[string](
+		fmt.Sprintf(
+			"%s%s.desktop",
+			f.GetBaseURL(),
+			bundle.Value.Id,
+		),
+	)
 }
 
 func (m *MapFetcher) FindMap(mapName string) opt.Option[FoundMap] {

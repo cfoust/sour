@@ -191,10 +191,14 @@ func (s *SendState) Send() error {
 	}
 
 	desktopURL := map_.Value.GetDesktopURL()
-	mapPath := filepath.Join(s.Sender.workingDir, assets.GetURLBase(desktopURL))
+	if opt.IsNone(desktopURL) {
+		return fmt.Errorf("no desktop bundle for map %s", s.Map)
+	}
+
+	mapPath := filepath.Join(s.Sender.workingDir, assets.GetURLBase(desktopURL.Value))
 	s.Path = mapPath
 	err = assets.DownloadFile(
-		desktopURL,
+		desktopURL.Value,
 		mapPath,
 	)
 	if err != nil {

@@ -346,7 +346,12 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 
 			logger := log.With().Str("map", request.Map).Int32("mode", request.Mode).Logger()
 
-			url := map_.Value.GetOGZURL()
+			ogz := map_.Value.GetOGZURL()
+			if opt.IsNone(ogz) {
+				continue
+			}
+
+			url := ogz.Value
 
 			logger.Info().Str("url", url).Msg("downloading map")
 			path := filepath.Join(manager.workingDir, fmt.Sprintf("packages/base/%s.ogz", request.Map))
