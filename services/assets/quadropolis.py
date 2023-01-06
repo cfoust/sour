@@ -259,7 +259,9 @@ if __name__ == "__main__":
                         ],
                         f"quad-{_id}",
                         description,
+                        image=image,
                         compress_images=False,
+                        build_web=False,
                         build_desktop=True,
                     )
                     num_mods += 1
@@ -357,7 +359,9 @@ if __name__ == "__main__":
                     mod_files,
                     name,
                     description,
+                    image=image,
                     compress_images=False,
+                    build_web=False,
                     build_desktop=True,
                 )
                 num_mods += 1
