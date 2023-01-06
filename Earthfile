@@ -47,7 +47,7 @@ assets:
     WORKDIR /tmp
     COPY services/assets assets
     COPY +goexe/sourdump assets/sourdump
-    RUN --mount=type=cache,target=/tmp/assets/working /tmp/assets/build
+    RUN --mount=type=cache,target=/tmp/assets/working /tmp/assets/ci
     RUN cd assets/output && gzip -k --best $(find .) || true
     SAVE ARTIFACT assets/output AS LOCAL "earthly/assets"
 

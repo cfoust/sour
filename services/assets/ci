@@ -7,4 +7,4 @@ cd "$SCRIPT_DIR"
 set -e
 
 ./setup
-python3 base.py --models --textures complex dust2 turbine
+python3 base.py --models --player-models complex dust2 turbine
