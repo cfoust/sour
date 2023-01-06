@@ -17,6 +17,8 @@ import {
   Spacer,
 } from '@chakra-ui/react'
 
+import type { ThemeConfig } from '@chakra-ui/react'
+
 import type { GameState } from './types'
 import type {
   ClientAuthMessage,
@@ -55,7 +57,12 @@ const colors = {
   },
 }
 
-const theme = extendTheme({ colors })
+const config: ThemeConfig = {
+  initialColorMode: 'dark',
+  useSystemColorMode: false,
+}
+
+const theme = extendTheme({ colors, config })
 
 const OuterContainer = styled.div`
   width: 100%;
@@ -164,7 +171,7 @@ function App() {
 
   React.useEffect(() => {
     if (width == null || height == null) return
-    console.log(width, height);
+    console.log(width, height)
     Module.desiredWidth = width
     Module.desiredHeight = height
     if (Module.setCanvasSize == null) return
