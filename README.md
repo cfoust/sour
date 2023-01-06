@@ -63,11 +63,11 @@ Check out the roadmap below to see what you might be able to help with.
 ### Bugs
 * [ ] Preserve the reliable flag on ENet packets coming from the server
 ### Sourverse
-* [ ] Support map hashes everywhere + async map existence checks
 * [ ] Rooms vs maps
   * [ ] Map address: map/12312321
   * [ ] Room address: room/abcdef0123
   * [ ] Room and map namespace is shared?
+* [ ] Loading maps from the backend
 * [ ] Allow teleports to rooms, maps, and locations within them
 * [ ] Assign each user a room + map on join
 * [ ] Hub world with portals to rooms
@@ -89,7 +89,6 @@ Check out the roadmap below to see what you might be able to help with.
   * [ ] Stretch: generate gifs in the browser
 * [ ] Save demos for any game played to IndexedDB and allow for download
 * [ ] Explore running Sour in a Web Worker rather than the rendering thread
-* [ ] Support all player models (right now it's just snout)
 * [ ] Use password field for queueing or room joining eg /connect sourga.me 28785 ffa
 * [ ] Stretch: spectate any running Sour match
 ### Map editing
