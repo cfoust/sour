@@ -144,7 +144,7 @@ if __name__ == "__main__":
 
     p = package.Packager(outdir)
 
-    prefix = os.getenv("PREFIX")
+    prefix = os.getenv("PREFIX", '')
     quaddir = 'quadropolis'
 
     roots = [
@@ -274,6 +274,7 @@ if __name__ == "__main__":
                     print('Archive %s did not contain %s' % (job.file_name, map_path))
                     continue
 
+                print(map_roots, roots[1])
                 name, _ = path.splitext(path.basename(map_path))
                 build_map(
                     p,

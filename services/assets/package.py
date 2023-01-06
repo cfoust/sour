@@ -465,7 +465,7 @@ class Packager:
                     )
                 )
             )
-            build_desktop_bundle(self.outdir, bundle)
+            build_desktop_bundle(self.outdir, desktop_bundle)
 
         self.bundles.append(bundle)
 
