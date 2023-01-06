@@ -2909,7 +2909,33 @@ bool reloadtexture(Texture &tex)
 void reloadtex(char *name)
 {
     Texture *t = textures.access(path(name, true));
-    if(!t) { conoutf(CON_ERROR, "texture %s is not loaded", name); return; }
+    if(!t) {
+#if __EMSCRIPTEN__
+        // Also look through slots and reload combined textures if necessary
+        loopv(slots) {
+            Slot * slot = slots[i];
+            bool reload = false;
+            loopvj(slot->sts) {
+                Slot::Tex *tex = &slot->sts[j];
+                if (strcmp(name, tex->name) == 0) {
+                    reload = true;
+                    break;
+                }
+            }
+
+            if (reload) {
+                loopvj(slot->sts) {
+                    Slot::Tex *tex = &slot->sts[j];
+                    tex->combined = -1;
+                }
+                loadslot(*slot, true);
+            }
+        }
+#else
+        // We suppress this entirely in Sour because it's handled elsewhere
+        conoutf(CON_ERROR, "texture %s is not loaded", name); return;
+#endif
+    }
     //if(t->type&Texture::TRANSIENT) { conoutf(CON_ERROR, "can't reload transient texture %s", name); return; }
     DELETEA(t->alphamask);
     Texture oldtex = *t;

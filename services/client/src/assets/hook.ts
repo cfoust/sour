@@ -314,6 +314,10 @@ export default function useAssets(
 
             mountFile(asset.path, asset.data)
             BananaBread.execute(`reloadtex ${name}`)
+            // Sauer strips the packages/ from combined textures
+            if (name.startsWith('packages/')) {
+              BananaBread.execute(`reloadtex ${name.slice('packages/'.length)}`)
+            }
           } catch (e) {
             console.error(`texture ${name} not found anywhere`)
           }
