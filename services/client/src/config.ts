@@ -25,11 +25,28 @@ export let CONFIG: Configuration = {
   },
 }
 
+const REPLACED = {
+  ORIGIN: '#origin',
+  HOST: '#host',
+  PROTOCOL: '#protocol',
+}
+
 function fillHost(url: string): string {
   return url
-    .replace('#origin', window.location.origin)
-    .replace('#host', window.location.host)
-    .replace('#protocol', window.location.protocol)
+    .replace(REPLACED.ORIGIN, window.location.origin)
+    .replace(REPLACED.HOST, window.location.host)
+    .replace(REPLACED.PROTOCOL, window.location.protocol)
+}
+
+function fillAssetHost(url: string): string {
+  const newHost = fillHost(url)
+
+  // Don't cache asset sources pointing to this host
+  if (url.includes(REPLACED.HOST) || url.includes(REPLACED.ORIGIN)) {
+    return `!${newHost}`
+  }
+
+  return newHost
 }
 
 function getInjected(): Maybe<Configuration> {
@@ -56,7 +73,7 @@ function init() {
     CONFIG = JSON.parse(configStr)
   }
 
-  CONFIG.assets = R.map((v) => fillHost(v), CONFIG.assets)
+  CONFIG.assets = R.map((v) => fillAssetHost(v), CONFIG.assets)
   CONFIG.clusters = R.map((v) => fillHost(v), CONFIG.clusters)
   CONFIG.proxy = fillHost(CONFIG.proxy)
 }

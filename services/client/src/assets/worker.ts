@@ -86,7 +86,9 @@ async function fetchData(
   request.open('GET', url, true)
   request.responseType = 'arraybuffer'
   request.onprogress = (event) => {
-    if (!event.lengthComputable) return
+    if (!event.lengthComputable) {
+      return
+    }
     progress(
       load.downloading({
         downloadedBytes: event.loaded,
@@ -148,10 +150,8 @@ async function loadBlob(
   return buffer
 }
 
-function sourceFromBuffer(
-  buffer: ArrayBuffer
-): AssetSource {
-  const text = new TextDecoder("utf-8");
+function sourceFromBuffer(buffer: ArrayBuffer): AssetSource {
+  const text = new TextDecoder('utf-8')
   return JSON.parse(text.decode(buffer))
 }
 
@@ -159,13 +159,16 @@ async function loadIndex(
   url: string,
   progress: (bundle: LoadState) => void
 ): Promise<AssetSource> {
-  if (await haveBlob(url)) {
-    const buffer = await getSavedBlob(url)
+  const shouldCache = !url.startsWith('!')
+  const cleanUrl = shouldCache ? url : url.slice(1)
+
+  if (await haveBlob(cleanUrl)) {
+    const buffer = await getSavedBlob(cleanUrl)
     if (buffer == null) {
-      throw new PullError(`Index ${url} did not exist`)
+      throw new PullError(`Index ${cleanUrl} did not exist`)
     }
     const source = sourceFromBuffer(buffer)
-    source.source = url
+    source.source = cleanUrl
     return source
   }
 
@@ -175,10 +178,12 @@ async function loadIndex(
       totalBytes: 0,
     })
   )
-  const buffer = await fetchData(url, progress)
-  await saveBlob(url, buffer)
+  const buffer = await fetchData(cleanUrl, progress)
+  if (shouldCache) {
+    await saveBlob(cleanUrl, buffer)
+  }
   const source = sourceFromBuffer(buffer)
-  source.source = url
+  source.source = cleanUrl
   return source
 }
 
