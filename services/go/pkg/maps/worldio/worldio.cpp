@@ -592,10 +592,11 @@ struct bufstream : stream
     }
 };
 
-cube *loadchildren_buf(void *p, size_t len, int size)
+cube *loadchildren_buf(void *p, size_t len, int size, int _mapversion)
 {
     bool failed = false;
     bufstream buf(p, len);
+    mapversion = _mapversion;
 
     cube *c = loadchildren(&buf, ivec(0, 0, 0), size>>1, failed);
     if (failed) {

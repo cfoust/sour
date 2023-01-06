@@ -28,7 +28,7 @@ func DumpMap(roots []string, filename string) ([]min.Reference, error) {
 	_map, err := maps.FromFile(filename)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse map file")
+		return nil, err
 	}
 
 	processor := min.NewProcessor(roots, _map.VSlots)

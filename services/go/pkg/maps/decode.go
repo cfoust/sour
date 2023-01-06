@@ -59,8 +59,13 @@ func MapToGo(parent worldio.Cube) *Cube {
 	return &cube
 }
 
-func LoadChildren(p *Buffer, size int32) (*Cube, error) {
-	root := worldio.Loadchildren_buf(uintptr(unsafe.Pointer(&(*p)[0])), int64(len(*p)), int(size))
+func LoadChildren(p *Buffer, size int32, mapVersion int32) (*Cube, error) {
+	root := worldio.Loadchildren_buf(
+		uintptr(unsafe.Pointer(&(*p)[0])),
+		int64(len(*p)),
+		int(size),
+		int(mapVersion),
+	)
 	if root.Swigcptr() == 0 {
 		return nil, fmt.Errorf("failed to load cubes")
 	}
@@ -304,7 +309,7 @@ func Decode(data []byte) (*GameMap, error) {
 	vSlotData, err := LoadVSlots(&p, newFooter.NumVSlots)
 	gameMap.VSlots = vSlotData
 
-	cube, err := LoadChildren(&p, header.WorldSize)
+	cube, err := LoadChildren(&p, header.WorldSize, header.Version)
 	if err != nil {
 		return nil, err
 	}

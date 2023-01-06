@@ -29,6 +29,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate assets from the base game.')
     parser.add_argument('--textures', action="store_true", help="Include all textures from the base game.")
     parser.add_argument('--models', action="store_true", help="Include all models from the base game.")
+    parser.add_argument('--prefix', help="The prefix for the index file.", default="")
     parser.add_argument('--player-models', action="store_true", help="Include only player models from the base game.")
     parser.add_argument('maps', nargs=argparse.REMAINDER)
     args = parser.parse_args()
@@ -42,7 +43,6 @@ if __name__ == "__main__":
         maps = list(map(lambda a: "roots/base/packages/base/%s.ogz" % a, args.maps))
 
     outdir = os.getenv("ASSET_OUTPUT_DIR", "output/")
-    prefix = os.getenv("PREFIX", "")
     os.makedirs(outdir, exist_ok=True)
 
     roots = [
@@ -152,4 +152,4 @@ if __name__ == "__main__":
             """ % base,
         )
 
-    p.dump_index(prefix)
+    p.dump_index(args.prefix)

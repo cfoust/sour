@@ -7,7 +7,7 @@
 #include "engine.h"
 
 void freeocta(cube *c);
-cube *loadchildren_buf(void *p, size_t len, int size);
+cube *loadchildren_buf(void *p, size_t len, int size, int _mapversion);
 size_t savec_buf(void *p, unsigned int len, cube *c, int size);
 
 cube *getcubeindex(cube *c, int i);
