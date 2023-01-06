@@ -420,8 +420,6 @@ bool modelloaded(const char *name)
     return models.find(name, NULL) != NULL;
 }
 
-hashtable<const char *, model *> missingmodels; // XXX EMSCRIPTEN: models that fail to load once, we will never try to load again
-
 model *loadmodel(const char *name, int i, bool msg)
 {
     if(!name)
@@ -437,7 +435,6 @@ model *loadmodel(const char *name, int i, bool msg)
     else
     { 
         if(!name[0] || loadingmodel || lightmapping > 1) return NULL;
-        if(missingmodels.access(name)) return NULL; // XXX EMSCRIPTEN
         if(msg)
         {
             defformatstring(filename, "packages/models/%s", name);
@@ -454,7 +451,11 @@ model *loadmodel(const char *name, int i, bool msg)
         loadingmodel = NULL;
         if(!m)
         {
-            missingmodels.access(name, (model *) NULL); // XXX EMSCRIPTEN
+#if __EMSCRIPTEN__
+            EM_ASM({
+                Module.assets.missingModel(UTF8ToString($0), $1);
+            }, name, msg);
+#endif
             return NULL;
         }
         models.access(m->name, m);

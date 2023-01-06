@@ -66,7 +66,8 @@ type ModuleType = {
   assets: {
     // assets has its own hook
     onConnect: () => void
-    missingTexture: (path: string) => void
+    missingTexture: (path: string, msg: number) => void
+    missingModel: (name: string, msg: number) => void
     isMountedFile: (file: string) => number
     loadRandomMap: () => void
     loadWorld: (map: string) => void

@@ -295,19 +295,22 @@ export default function useAssets(
     }
 
     const textures = new Set<string>()
+    const models = new Set<string>()
     Module.assets = {
       isMountedFile,
       onConnect: () => {
         targetMap = null
       },
-      missingTexture: (name: string) => {
+      missingTexture: (name: string, msg: number) => {
         if (textures.has(name)) return
         textures.add(name)
         ;(async () => {
           try {
             const texture = await loadAsset(LoadRequestType.Texture, name)
             if (texture == null) {
-              log.vanillaError(`could not load texture ${name}`)
+              if (msg === 1) {
+                log.vanillaError(`could not load texture ${name}`)
+              }
               return
             }
             const [asset] = texture
@@ -318,6 +321,25 @@ export default function useAssets(
             if (name.startsWith('packages/')) {
               BananaBread.execute(`reloadtex ${name.slice('packages/'.length)}`)
             }
+          } catch (e) {
+            console.error(`texture ${name} not found anywhere`)
+          }
+        })()
+      },
+      missingModel: (name: string, msg: number) => {
+        if (models.has(name)) return
+        models.add(name)
+        console.log(name, msg)
+        ;(async () => {
+          try {
+            const assets = await loadAsset(LoadRequestType.Model, name)
+            if (assets == null) {
+              console.log('not found', name);
+              return
+            }
+
+            await Promise.all(R.map((v) => mountFile(v.path, v.data), assets))
+            console.log('now what?', name)
           } catch (e) {
             console.error(`texture ${name} not found anywhere`)
           }
