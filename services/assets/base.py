@@ -5,21 +5,37 @@ import sys
 import glob
 from os import path
 import os
-from typing import NamedTuple, Optional, Tuple, List, Dict, Set
+from typing import NamedTuple, Optional, Tuple, List, Dict, Set, Union, Sequence, Iterable, TypeVar
 import subprocess
 
-from pip._vendor.rich import progress
+ProgressType = TypeVar("ProgressType")
+
+def _track(
+    sequence: Union[Sequence[ProgressType], Iterable[ProgressType]],
+    description: str = "Working...",
+) -> Iterable[ProgressType]:
+    return sequence
+
+track = _track
+
+try:
+    from pip._vendor.rich import progress
+    track = progress.track
+except ModuleNotFoundError:
+    pass
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate assets from the base game.')
-
     parser.add_argument('--textures', action="store_true", help="Include all textures from the base game.")
     parser.add_argument('--models', action="store_true", help="Include all models from the base game.")
     parser.add_argument('--player-models', action="store_true", help="Include only player models from the base game.")
     parser.add_argument('maps', nargs=argparse.REMAINDER)
-
     args = parser.parse_args()
-    print(args)
+
+    if not sys.argv[1:]:
+        args.textures = True
+        args.models = True
 
     maps = glob.glob('roots/base/packages/base/*.ogz')
     if args.maps:
