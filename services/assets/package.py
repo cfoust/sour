@@ -512,7 +512,7 @@ class Packager:
         skip_root: str,
         model_file: str,
         build_desktop: bool = False,
-    ) -> Optional[Model]:
+    ) -> Model:
         model_files = dump_sour("model", model_file, roots)
         bundle = self.build_bundle(
             skip_root,
@@ -522,17 +522,15 @@ class Packager:
         )
 
         if not bundle:
-            return None
+            raise Exception('failed to build bundle for model')
 
         # Calculate the model name
-        found = search_file(model_file, roots)
-        if not found:
-            return None
-
-        _, resolved = found
+        resolved = get_root_relative(model_file, roots)
+        if not resolved:
+            raise Exception('model file not found in root')
 
         if not resolved.startswith(MODEL_PREFIX):
-            return None
+            raise Exception('could not find relative model path')
 
         name = path.relpath(os.path.dirname(resolved), MODEL_PREFIX)
         if name.endswith('/'):

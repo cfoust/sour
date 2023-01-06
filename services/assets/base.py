@@ -25,6 +25,8 @@ if __name__ == "__main__":
         "roots/base",
     ]
 
+    roots = list(map(lambda root: path.abspath(root), roots))
+
     skip_root = roots[1]
 
     p = package.Packager(outdir)
@@ -58,12 +60,16 @@ if __name__ == "__main__":
     for type_ in MODEL_TYPES:
         models += list(map(lambda a: str(a), Path("roots/base/packages/models").rglob(f"{type_}.cfg")))
 
+    models = list(map(lambda model: path.abspath(model), models))
+
     for model in progress.track(models, description="building models"):
-        p.build_model(
+        result = p.build_model(
             roots,
             skip_root,
             model,
         )
+        if not result:
+            raise Exception('could not generate model')
 
     print("building base mod")
     # Build base
