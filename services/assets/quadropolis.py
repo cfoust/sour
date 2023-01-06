@@ -11,6 +11,9 @@ import hashlib
 
 import package
 
+from pip._vendor.rich import progress
+track = progress.track
+
 class File(NamedTuple):
     url: str
     hash: str
@@ -90,19 +93,26 @@ def get_jobs(file: File) -> List[BuildJob]:
     return jobs
 
 
-def build_map_bundle(
-    map_file: str,
+def build_map(
+    p: package.Packager,
     roots: List[str],
-    outdir: str,
     skip_root: str,
-) -> Optional[package.BuiltMap]:
+    map_file: str,
+    name: str,
+    description: str,
+    image: str = None,
+    build_desktop: bool = False,
+) -> Optional[package.GameMap]:
 
     try:
-        map_bundle = package.build_map_bundle(
-            map_file,
+        map_bundle = p.build_map(
             roots,
-            outdir,
             skip_root,
+            map_file,
+            name,
+            description,
+            image,
+            build_desktop,
         )
     except Exception as e:
         if 'shims' in str(e):
@@ -132,6 +142,8 @@ if __name__ == "__main__":
     cachedir = path.join("/tmp", "quad-cache")
     os.makedirs(cachedir, exist_ok=True)
 
+    p = package.Packager(outdir)
+
     prefix = os.getenv("PREFIX")
     quaddir = 'quadropolis'
 
@@ -139,9 +151,6 @@ if __name__ == "__main__":
         "sour",
         "roots/base",
     ]
-
-    mods: List[package.Mod] = []
-    game_maps: List[package.GameMap] = []
 
     nodes = json.loads(open(path.join(quaddir, 'nodes.json'), 'r').read())
 
@@ -151,11 +160,11 @@ if __name__ == "__main__":
     def out(file): return path.join(outdir, file)
     def db(file): return path.join(quaddir, "db", file)
 
+    nodes = list(filter(lambda node: node['id'] in node_targets if node_targets else True, nodes))
+
     jobs: List[BuildJob] = []
-    for node in nodes:
+    for node in track(nodes, "building nodes"):
         _id = node['id']
-        if node_targets and not _id in node_targets:
-            continue
         files = node['files']
 
         image = None
@@ -169,13 +178,7 @@ if __name__ == "__main__":
             image = '%s%s' % (file['hash'], extension)
             shutil.copy(db(file['hash']), out(image))
 
-        base_map = package.GameMap(
-            name='',
-            bundle='',
-            image=image,
-            description=node['content'],
-            aliases=['quad_%d' % _id]
-        )
+        description = node['content']
 
         for file in files:
             for job in get_jobs(
@@ -193,40 +196,26 @@ if __name__ == "__main__":
 
                 if path.exists(cache_file):
                     game_map = package.GameMap(**json.loads(open(cache_file, 'r').read()))
-                    game_maps.append(game_map)
                     continue
 
                 # The file itself is a map
                 if not map_path:
-                    print("%d: %s" % (_id, job.file_name))
-                    map_name = path.basename(job.file_name)
+                    map_name, _ = path.splitext(path.basename(job.file_name))
                     target = tmp("%s.ogz" % map_name)
                     shutil.copy(db(file_hash), target)
 
-                    map_bundle = build_map_bundle(
-                        target,
+                    build_map(
+                        p,
                         roots,
-                        outdir,
                         roots[1],
+                        target,
+                        map_name,
+                        description,
+                        image,
+                        build_desktop=True,
                     )
-
-                    if not map_bundle: continue
-
-                    map_image = map_bundle.image if map_bundle.image else image
-
-                    game_map = base_map._replace(
-                        name=map_name,
-                        bundle=map_bundle.bundle,
-                        image=map_image,
-                    )
-
-                    with open(cache_file, 'w') as f:
-                        f.write(json.dumps(game_map._asdict()))
-
-                    game_maps.append(game_map)
                     continue
 
-                print("%d: %s" % (_id, map_path))
                 tmpdir = tempfile.mkdtemp()
 
                 file_name = job.file_name
@@ -285,27 +274,18 @@ if __name__ == "__main__":
                     print('Archive %s did not contain %s' % (job.file_name, map_path))
                     continue
 
-                map_bundle = build_map_bundle(
-                    target_map,
+                name, _ = path.splitext(path.basename(map_path))
+                build_map(
+                    p,
                     map_roots,
-                    outdir,
                     roots[1],
+                    target_map,
+                    name,
+                    description,
+                    image,
+                    build_desktop=True,
                 )
 
-                if not map_bundle: continue
-
-                map_image = map_bundle.image if map_bundle.image else image
-
-                game_map = base_map._replace(
-                    name=path.basename(map_path),
-                    bundle=map_bundle.bundle,
-                    image=map_image,
-                )
-
-                with open(cache_file, 'w') as f:
-                    f.write(json.dumps(game_map._asdict()))
-
-                game_maps.append(game_map)
                 shutil.rmtree(tmpdir, ignore_errors=True)
 
-    package.dump_index(game_maps, mods, outdir, prefix)
+    p.dump_index(prefix)
