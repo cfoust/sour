@@ -177,6 +177,7 @@ def build_map(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate assets from Quadropolis.')
     parser.add_argument('--dry', action="store_true", help="Don't build anything, just print what would be built.")
+    parser.add_argument('--prefix', help="The prefix for the index file.", default="")
     parser.add_argument('nodes', nargs=argparse.REMAINDER, help="Particular node IDs you want to build.")
     args = parser.parse_args()
 
@@ -187,7 +188,6 @@ if __name__ == "__main__":
 
     p = package.Packager(outdir)
 
-    prefix = os.getenv("PREFIX", '')
     quaddir = 'quadropolis'
 
     roots = [
@@ -274,16 +274,21 @@ if __name__ == "__main__":
                 target = tmp("%s.ogz" % map_name)
                 shutil.copy(db(file_hash), target)
 
-                build_map(
-                    p,
-                    roots,
-                    roots[1],
-                    target,
-                    map_name,
-                    description,
-                    image,
-                    build_desktop=True,
-                )
+                try:
+                    build_map(
+                        p,
+                        roots,
+                        roots[1],
+                        target,
+                        map_name,
+                        description,
+                        image,
+                        build_desktop=True,
+                    )
+                except Exception as e:
+                    print(f"failed to build map id={_id} map={file_name} err={str(e)}")
+                    break
+
                 continue
 
             if args.dry:
@@ -386,18 +391,22 @@ if __name__ == "__main__":
                     continue
 
                 name, _ = path.splitext(path.basename(map_path))
-                build_map(
-                    p,
-                    map_roots,
-                    roots[1],
-                    target_map,
-                    name,
-                    description,
-                    image,
-                    build_desktop=True,
-                )
+                try:
+                    build_map(
+                        p,
+                        map_roots,
+                        roots[1],
+                        target_map,
+                        name,
+                        description,
+                        image,
+                        build_desktop=True,
+                    )
+                except Exception as e:
+                    print(f"failed to build map id={_id} map={map_path} err={str(e)}")
+                    break
 
-                shutil.rmtree(tmpdir, ignore_errors=True)
+            shutil.rmtree(tmpdir, ignore_errors=True)
 
     print(f"built {num_mods} mods and {num_maps} maps")
-    p.dump_index(prefix)
+    p.dump_index(args.prefix)

@@ -248,6 +248,10 @@ def build_sour_bundle(
 def build_desktop_bundle(outdir: str, bundle: Bundle):
     added: Set[str] = set()
     zip_path = path.join(outdir, "%s.desktop" % bundle.id)
+
+    if path.exists(zip_path):
+        return
+
     with zipfile.ZipFile(
         zip_path,
         'w',
