@@ -2944,7 +2944,9 @@ void reloadtex(char *name)
     {
         if(t->id) glDeleteTextures(1, &t->id);
         *t = oldtex;
+#ifndef __EMSCRIPTEN__
         conoutf(CON_ERROR, "failed to reload texture %s", name);
+#endif
     }
 }
 
