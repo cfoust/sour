@@ -71,6 +71,7 @@ type ModuleType = {
     loadRandomMap: () => void
     loadWorld: (map: string) => void
     receivedMap: (map: string, oldMap: string) => void
+    installMod: (name: string) => void,
   }
 
   discord: {

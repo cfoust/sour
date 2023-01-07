@@ -187,7 +187,10 @@ export async function removeLayer(layer: Layer) {
 const CHUNK_SIZE = 17
 function buildModMenu(index: AssetIndex): string {
   const mods: GameMod[] = R.sort(
-    R.ascend((v: GameMod): string => v.name),
+    ({ name: nameA }, { name: nameB }): number => {
+      if (nameA.length < nameB.length) return -1
+      return R.ascend(v => v)(nameA, nameB)
+    },
     R.chain((source) => source.mods, index)
   )
   const chunks = R.splitEvery(CHUNK_SIZE, mods)
@@ -207,7 +210,7 @@ function buildModMenu(index: AssetIndex): string {
     R.map(([i, ids]: [number, number[]]): string => {
       const entries = R.join('', R.map(
         id => `
-      guilist [ guistrut 15 1; genmapitems $gamemods${id + 1} ]`,
+      guilist [ guistrut 15 1; genmoditems $gamemods${id + 1} ]`,
         ids
       ))
       return `
@@ -222,6 +225,16 @@ function buildModMenu(index: AssetIndex): string {
 
   return `
 ${header}
+
+loadmod = [
+  js (concat (concat "Module.assets.installMod('" $arg1) "')")
+]
+
+genmoditems = [
+    looplist curmod $arg1 [
+        guibutton $curmod (concat loadmod $curmod) "cube"
+    ]
+]
 
 newgui mods [
 ${tabs}
@@ -346,7 +359,6 @@ export default function useAssets(
           if (result.type === ResultType.Index) {
             const { index } = result
             const modMenu = buildModMenu(index)
-            console.log(modMenu);
             BananaBread.execute(modMenu)
             bundleIndexRef.current = index
             resolve(null)
@@ -432,6 +444,22 @@ export default function useAssets(
     const textures = new Set<string>()
     const models = new Set<string>()
     Module.assets = {
+      installMod: (name: string) => {
+        const modName = name.trim()
+        log.info(`installing mod ${modName}...`)
+        ;(async () => {
+          try {
+            const layer = await loadAsset(LoadRequestType.Mod, modName)
+            if (layer == null) {
+              log.error(`mod ${modName} does not exist`)
+              return
+            }
+            log.success(`installed ${modName}`)
+          } catch (e) {
+            log.error(`failed to install ${modName}`)
+          }
+        })()
+      },
       onConnect: () => {
         targetMap = null
       },

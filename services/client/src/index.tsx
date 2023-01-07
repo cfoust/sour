@@ -189,6 +189,11 @@ function App() {
         guibutton "log out.." [js "Module.discord.logout()"]
     ]
 
+    newgui content [
+        guibutton "mods.."  "showgui mods"
+        guibutton "random map.."  "map random"
+    ]
+
     injectedmenu = [
         guilist [
           guiimage (concatword "packages/icons/" (playermodelicon) ".jpg") [chooseplayermodel] 1.15
@@ -220,7 +225,7 @@ function App() {
           guibutton "play" "join"
           guibutton "create private game..." "creategame"
       ]
-      guibutton "random map.."  "map random"
+      guibutton "content.." "showgui content"
       guibutton "server browser.."  "showgui servers"
       if ($fullscreen) [
           guibutton "exit fullscreen.." [fullscreen 0]
