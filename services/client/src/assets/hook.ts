@@ -306,7 +306,7 @@ function installMod(id: string) {
 }
 
 function removeMod(id: string) {
-  setInstalledMods(R.filter((v) => id !== id, getInstalledMods()))
+  setInstalledMods(R.filter((v: string) => v !== id, getInstalledMods()))
 }
 
 export default function useAssets(
