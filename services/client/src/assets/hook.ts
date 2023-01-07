@@ -262,13 +262,8 @@ ${tabs}
 ]`
 }
 
-const wrap = (length: number, s: string): string => R.join(
-  '\n',
-  R.splitEvery(
-    length,
-    s,
-  )
-)
+const wrap = (length: number, s: string): string =>
+  R.join('\n', R.splitEvery(length, s))
 
 const TITLE_REGEX = /Blurb\n?\s+([^\n]+)/
 function formatQuadropolis(description: string): string {
@@ -285,7 +280,7 @@ function formatDescription(description: string): string {
     return formatQuadropolis(description)
   }
 
-  return ''
+  return description
 }
 
 export default function useAssets(
