@@ -86,7 +86,11 @@ const LoadingContainer = styled.div`
 `
 
 const pushURLState = (url: string) => {
-  window.history.pushState({}, '', url)
+  const {
+    location: { search: params },
+  } = window
+
+  window.history.pushState({}, '', `${url}${params}`)
 }
 
 const clearURLState = () => pushURLState('/')
@@ -103,6 +107,7 @@ const DELAY_AFTER_LOAD: CubeMessageType[] = [
 ]
 
 const SERVER_URL_REGEX = /\/server\/([\w.]+)\/?(\d+)?/
+const MAP_URL_REGEX = /\/map\/(\w+)/
 
 let loadedMods: string[] = []
 let failedMods: string[] = []
@@ -398,7 +403,6 @@ function App() {
         )
       }
       if (failedMods.length > 0) {
-        console.log(failedMods)
         log.error(`failed to load mods: ${R.join(', ', failedMods)}`)
       }
 
@@ -407,6 +411,7 @@ function App() {
       } = window
 
       const serverDestination = SERVER_URL_REGEX.exec(pathname)
+      const mapDestination = MAP_URL_REGEX.exec(pathname)
       if (serverDestination != null) {
         const [, hostname, port] = serverDestination
         if (port == null) {
@@ -414,6 +419,9 @@ function App() {
         } else {
           BananaBread.execute(`connect ${hostname} ${port}`)
         }
+      } else if (mapDestination != null) {
+        const [, mapId] = mapDestination
+        BananaBread.execute(`map ${mapId}`)
       } else {
         // It should not be anything else
         pushURLState('/')
@@ -448,8 +456,18 @@ function App() {
       pushURLState(`/server/${name}/${port}`)
     }
 
+    let remoteConnected: boolean = false
+
     Module.onConnect = () => {}
-    Module.onDisconnect = clearURLState
+    Module.onDisconnect = () => {
+      remoteConnected = false
+      clearURLState()
+    }
+
+    Module.loadedMap = (name: string) => {
+      if (remoteConnected) return
+      pushURLState(`/map/${name}`)
+    }
 
     let lastPointer: number = 0
     let lastPointerLength: number = 0
@@ -469,6 +487,10 @@ function App() {
       lastPointer = pointer
       lastPointerLength = size
       return pointer
+    }
+
+    Module.onLocalDisconnect = () => {
+      clearURLState()
     }
 
     Module.cluster = {
@@ -601,6 +623,7 @@ function App() {
       }
 
       if (serverMessage.Op === MessageType.ServerConnected) {
+        remoteConnected = true
         const { Server, Internal, Owned } = serverMessage
         if (Internal) {
           clearURLState()

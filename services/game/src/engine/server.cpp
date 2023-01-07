@@ -2,6 +2,7 @@
 // runs dedicated or as client coroutine
 
 #include "engine.h"
+#include <emscripten.h>
 
 #define LOGSTRLEN 512
 
@@ -698,6 +699,11 @@ void flushserver(bool force)
 #ifndef STANDALONE
 void localdisconnect(bool cleanup)
 {
+#if __EMSCRIPTEN__
+    EM_ASM({
+        Module.onLocalDisconnect();
+    });
+#endif
     bool disconnected = false;
     loopv(clients) if(clients[i]->type==ST_LOCAL) 
     {

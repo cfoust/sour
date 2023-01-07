@@ -501,6 +501,8 @@ export default function useAssets(
         return
       }
 
+      Module.loadedMap(map)
+
       const loadMap = (realMap: string) => {
         mapLayer = layer
         loadingMap = null

@@ -80,6 +80,9 @@ type ModuleType = {
     modsToURL: () => void,
   }
 
+  loadedMap: (name: string) => void,
+  onLocalDisconnect: () => void,
+
   discord: {
     login: () => void
     copyKey: () => void
