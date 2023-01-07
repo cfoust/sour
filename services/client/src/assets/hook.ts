@@ -203,7 +203,7 @@ function buildModMenu(index: AssetIndex): string {
   const header: string = R.join(
     '\n',
     R.map(([i, chunk]: [number, GameMod[]]) => {
-      const list = R.map((v) => v.name, chunk)
+      const list = R.map((v) => v.id, chunk)
       return `gamemods${i + 1} = "${R.join(' ', list)}"`
     }, R.zip(R.range(0, chunks.length), chunks))
   )
@@ -238,17 +238,22 @@ loadmod = [
   js (concatword "Module.assets.installMod('" $arg1) "')")
 ]
 
+getmodinfo = [
+  result (js (concatword "Module.assets.getModProperty('" $arg1 "','" $arg2 "')"))
+]
+
 showmodshot = [
     guibar
-    mname = (checkrolloveraction "loadmod " [if (> $numargs 0) [result $arg1] [at $guirollovername 0]])
+    mid = (checkrolloveraction "loadmod " [if (> $numargs 0) [result $arg1] [at $guirolloveraction 1]])
     guilist [
-        guiimage (js (concatword "Module.assets.getModImage('" $mname "')")) (checkrolloveraction "loadmod ") 4 1 "data/cube.png" $mname
+        guiimage (getmodinfo $mid image) (checkrolloveraction "loadmod ") 4 1 "data/cube.png" (getmodinfo $mid name)
+        guitext (getmodinfo $mid description)
     ]
 ]
 
 genmoditems = [
     looplist curmod $arg1 [
-        guibutton $curmod (concat loadmod $curmod) "cube"
+        guibutton (getmodinfo $curmod name) (concat loadmod $curmod) "cube"
     ]
 ]
 
@@ -386,11 +391,15 @@ export default function useAssets(
           }
 
           const { data } = result
-          const layer = await pushLayer(
-            data.map((v) => ({ ...v, path: normalizePath(v.path) }), data),
-            type
-          )
-          resolve(layer)
+          try {
+            const layer = await pushLayer(
+              data.map((v) => ({ ...v, path: normalizePath(v.path) }), data),
+              type
+            )
+            resolve(layer)
+          } catch (e) {
+            reject(e)
+          }
         })()
       }
     }
@@ -460,23 +469,32 @@ export default function useAssets(
     const textures = new Set<string>()
     const models = new Set<string>()
     Module.assets = {
-      getModImage: (name: string) => {
+      getModProperty: (id: string, property: string): string => {
         const found = R.find(
-          (v) => v.name === name,
+          (v) => v.id === id,
           getMods(bundleIndexRef.current ?? [])
         )
         if (found == null) return ''
-        return getModImage(found)
+
+        switch (property) {
+          case 'image':
+            return getModImage(found)
+          case 'description':
+            return found.description ?? ''
+          case 'name':
+            return found.name ?? ''
+        }
+
+        return ''
       },
       installMod: (name: string) => {
-        console.log(name)
         const modName = name.trim()
         log.info(`installing mod ${modName}...`)
         ;(async () => {
           try {
             const layer = await loadAsset(LoadRequestType.Mod, modName)
             if (layer == null) {
-              log.error(`mod ${modName} does not exist`)
+              log.error(`mod ${modName} does not exist or failed to load`)
               return
             }
             log.success(`installed ${modName}`)
@@ -509,7 +527,7 @@ export default function useAssets(
               BananaBread.execute(`reloadtex ${name.slice('packages/'.length)}`)
             }
           } catch (e) {
-            console.error(`texture ${name} not found anywhere`)
+            console.error(`texture ${name} not found anywhere or failed to load`)
           }
         })()
       },

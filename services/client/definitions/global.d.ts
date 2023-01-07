@@ -76,7 +76,7 @@ type ModuleType = {
     loadWorld: (map: string) => void
     receivedMap: (map: string, oldMap: string) => void
     installMod: (name: string) => void,
-    getModImage: (name: string) => string,
+    getModProperty: (id: string, property: string) => string,
   }
 
   discord: {
