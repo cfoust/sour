@@ -235,7 +235,7 @@ function buildModMenu(index: AssetIndex): string {
 ${header}
 
 loadmod = [
-  js (concatword "Module.assets.installMod('" $arg1) "')")
+  js (concatword "Module.assets.installMod('" $arg1 "')")
 ]
 
 getmodinfo = [
@@ -283,14 +283,41 @@ function formatDescription(description: string): string {
   return description
 }
 
+type ModLookup = Record<string, GameMod>
+
+const MODS_KEY = 'sour-mods'
+export function getInstalledMods(): string[] {
+  const modString = localStorage.getItem(MODS_KEY)
+  if (modString == null) return []
+  return modString.split(',')
+}
+
+function setInstalledMods(mods: string[]) {
+  if (mods.length === 0) {
+    localStorage.removeItem(MODS_KEY)
+    return
+  }
+  localStorage.setItem(MODS_KEY, R.join(',', mods))
+}
+
+function installMod(id: string) {
+  setInstalledMods([...getInstalledMods(), id])
+}
+
+function removeMod(id: string) {
+  setInstalledMods(R.filter((v) => id !== id, getInstalledMods()))
+}
+
 export default function useAssets(
   setState: React.Dispatch<React.SetStateAction<GameState>>
 ): {
   loadAsset: (type: LoadRequestType, target: string) => Promise<Maybe<Layer>>
+  getMod: (id: string) => Maybe<GameMod>
 } {
   const assetWorkerRef = React.useRef<Worker>()
   const requestStateRef = React.useRef<AssetRequest[]>([])
   const bundleIndexRef = React.useRef<AssetIndex>()
+  const modLookupRef = React.useRef<ModLookup>()
 
   const addRequest = React.useCallback((id: string): AssetRequest => {
     const { current: requests } = requestStateRef
@@ -302,6 +329,12 @@ export default function useAssets(
 
     requestStateRef.current = [...requests, request]
     return request
+  }, [])
+
+  const getMod = React.useCallback((id: string): Maybe<GameMod> => {
+    const { current: mods } = modLookupRef
+    if (mods == null) return null
+    return mods[id]
   }, [])
 
   const loadAsset = React.useCallback(
@@ -403,6 +436,15 @@ export default function useAssets(
             const modMenu = buildModMenu(index)
             BananaBread.execute(modMenu)
             bundleIndexRef.current = index
+
+            const lookup: ModLookup = {}
+            for (const source of index) {
+              for (const mod of source.mods) {
+                lookup[mod.id] = mod
+              }
+            }
+            modLookupRef.current = lookup
+
             resolve(null)
             return
           }
@@ -491,10 +533,7 @@ export default function useAssets(
     const models = new Set<string>()
     Module.assets = {
       getModProperty: (id: string, property: string): string => {
-        const found = R.find(
-          (v) => v.id === id,
-          getMods(bundleIndexRef.current ?? [])
-        )
+        const found = getMod(id)
         if (found == null) return ''
 
         switch (property) {
@@ -503,26 +542,33 @@ export default function useAssets(
           case 'description':
             return formatDescription(found.description ?? '')
           case 'name':
-            return found.name ?? ''
+            const { name } = found
+            if (R.includes(id, getInstalledMods())) {
+              return log.colors.green(name)
+            }
+            return name
         }
 
         return ''
       },
-      installMod: (name: string) => {
-        const modName = name.trim()
-        log.info(`installing mod ${modName}...`)
-        ;(async () => {
-          try {
-            const layer = await loadAsset(LoadRequestType.Mod, modName)
-            if (layer == null) {
-              log.error(`mod ${modName} does not exist or failed to load`)
-              return
-            }
-            log.success(`installed ${modName}`)
-          } catch (e) {
-            log.error(`failed to install ${modName}`)
-          }
-        })()
+      installMod: (target: string) => {
+        const mod = getMod(target)
+        if (mod == null) {
+          log.error(`failed to find mod with id ${target}`)
+          return
+        }
+        const { name, id } = mod
+        if (R.includes(id, getInstalledMods())) {
+          removeMod(id)
+          log.success(
+            `uninstalled mod ${name}. you must refresh the page for this to take effect.`
+          )
+          return
+        }
+        installMod(id)
+        log.success(
+          `installed mod ${name}. you must refresh the page for this to take effect.`
+        )
       },
       onConnect: () => {
         targetMap = null
@@ -582,5 +628,5 @@ export default function useAssets(
     }
   }, [])
 
-  return { loadAsset }
+  return { loadAsset, getMod }
 }

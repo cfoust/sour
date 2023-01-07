@@ -31,7 +31,7 @@ import { GameStateType } from './types'
 import { MessageType, ENetEventType } from './protocol'
 import StatusOverlay from './Loading'
 import NAMES from './names'
-import useAssets from './assets/hook'
+import useAssets, { getInstalledMods } from './assets/hook'
 import useAuth, {
   DISCORD_CODE,
   renderDiscordHeader,
@@ -104,6 +104,9 @@ const DELAY_AFTER_LOAD: CubeMessageType[] = [
 
 const SERVER_URL_REGEX = /\/server\/([\w.]+)\/?(\d+)?/
 
+let loadedMods: string[] = []
+let failedMods: string[] = []
+
 function App() {
   const [state, setState] = React.useState<GameState>({
     type: GameStateType.PageLoading,
@@ -118,7 +121,7 @@ function App() {
     ws.send(CBOR.encode(message))
   }, [])
 
-  const { loadAsset } = useAssets(setState)
+  const { loadAsset, getMod } = useAssets(setState)
   const {
     state: authState,
     receiveMessage: receiveAuthMessage,
@@ -126,9 +129,41 @@ function App() {
   } = useAuth(sendAuthMessage)
 
   React.useEffect(() => {
-    // Load the basic required data for the game
     ;(async () => {
+      // Load the basic required data for the game
       await loadAsset(LoadRequestType.Mod, 'base')
+
+      const {
+        location: { search: params },
+      } = window
+
+      const parsedParams = new URLSearchParams(params)
+
+      const mods = getInstalledMods()
+      if (mods.length > 0 && !parsedParams.has('safemode')) {
+        await Promise.all(
+          R.map(async (id: string) => {
+            const mod = getMod(id)
+            if (mod == null) {
+              failedMods = [...failedMods, id]
+              return
+            }
+
+            const { name } = mod
+
+            try {
+              const layer = await loadAsset(LoadRequestType.Mod, id)
+              if (layer == null) {
+                failedMods = [...failedMods, name]
+                return
+              }
+              loadedMods = [...loadedMods, name]
+            } catch (e) {
+              failedMods = [...failedMods, name]
+            }
+          }, mods)
+        )
+      }
 
       shouldRunNow = true
       calledRun = false
@@ -343,6 +378,14 @@ function App() {
         injectServers(cachedServers)
       }
 
+      if (loadedMods.length > 0) {
+        log.success(`loaded mods: ${R.join(', ', loadedMods)}. if you experience issues, add ?safemode to the URL.`)
+      }
+      if (failedMods.length > 0) {
+        console.log(failedMods);
+        log.error(`failed to load mods: ${R.join(', ', failedMods)}`)
+      }
+
       const {
         location: { search: params, pathname },
       } = window
@@ -370,6 +413,10 @@ function App() {
         const cmd = parsedParams.get('cmd')
         if (cmd == null) return
         setTimeout(() => BananaBread.execute(cmd), 0)
+      }
+
+      if (parsedParams.has('safemode')) {
+        log.info('you are in safe mode. no mods were loaded, but you can disable them in the mod menu.')
       }
     }
 
