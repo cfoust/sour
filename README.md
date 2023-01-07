@@ -62,7 +62,10 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Terraform recipes for deployment
 ### Bugs
 * [ ] Preserve the reliable flag on ENet packets coming from the server
+### Assets
+* [ ] Simplify index file format
 ### Sourverse
+* [ ] Server-side map editing state
 * [ ] Rooms vs maps
   * [ ] Map address: map/12312321
   * [ ] Room address: room/abcdef0123
@@ -72,6 +75,8 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Assign each user a room + map on join
 * [ ] Hub world with portals to rooms
 * [ ] Consent to automatic map sending on desktop
+* [ ] Map browser
+* [ ] Map usage statistics, favorite maps, etc
 ### Gameplay
 * [ ] Reset master mode when you swap servers
 * [ ] Fix nasty asset base asset sizes for web clients
@@ -79,7 +84,6 @@ Check out the roadmap below to see what you might be able to help with.
 * [ ] Leaderboard for ELO rankings
 * [ ] Separate the rendering and input loops on web (or at least don't vsync game inputs)
 * [ ] Simple, beautiful main menu
-  * [ ] Clean loading page for slow connections
   * [ ] Add `<noscript>` with a plea to enable JavaScript
   * [ ] Ensure page load time isn't horrible
 * [ ] Save demos for every duel
