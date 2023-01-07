@@ -8,6 +8,7 @@ import type {
   MountData,
   Response,
   GameMap,
+  GameMod,
   AssetSource,
   Bundle,
 } from './types'
@@ -183,6 +184,50 @@ export async function removeLayer(layer: Layer) {
   }
 }
 
+const CHUNK_SIZE = 17
+function buildModMenu(index: AssetIndex): string {
+  const mods: GameMod[] = R.sort(
+    R.ascend((v: GameMod): string => v.name),
+    R.chain((source) => source.mods, index)
+  )
+  const chunks = R.splitEvery(CHUNK_SIZE, mods)
+
+  const header: string = R.join(
+    '\n',
+    R.map(([i, chunk]: [number, GameMod[]]) => {
+      const list = R.map((v) => v.name, chunk)
+      return `gamemods${i + 1} = "${R.join(' ', list)}"`
+    }, R.zip(R.range(0, chunks.length), chunks))
+  )
+
+  const tabGroups = R.splitEvery(3, R.range(0, chunks.length))
+
+  const tabs: string = R.join(
+    '',
+    R.map(([i, ids]: [number, number[]]): string => {
+      const entries = R.join('', R.map(
+        id => `
+      guilist [ guistrut 15 1; genmapitems $gamemods${id + 1} ]`,
+        ids
+      ))
+      return `
+    ${i > 0 ? `guitab ${i + 1}` : ''}
+    guilist [
+      guistrut 17 1
+      ${entries}
+      showmapshot
+    ]`
+    }, R.zip(R.range(0, tabGroups.length), tabGroups))
+  )
+
+  return `
+${header}
+
+newgui mods [
+${tabs}
+]`
+}
+
 export default function useAssets(
   setState: React.Dispatch<React.SetStateAction<GameState>>
 ): {
@@ -300,6 +345,9 @@ export default function useAssets(
 
           if (result.type === ResultType.Index) {
             const { index } = result
+            const modMenu = buildModMenu(index)
+            console.log(modMenu);
+            BananaBread.execute(modMenu)
             bundleIndexRef.current = index
             resolve(null)
             return
