@@ -262,6 +262,32 @@ ${tabs}
 ]`
 }
 
+const wrap = (length: number, s: string): string => R.join(
+  '\n',
+  R.splitEvery(
+    length,
+    s,
+  )
+)
+
+const TITLE_REGEX = /Blurb\n?\s+([^\n]+)/
+function formatQuadropolis(description: string): string {
+  const lines = description.split('\n')
+  const title = TITLE_REGEX.exec(description)
+  if (title == null) {
+    return ''
+  }
+  return log.colors.blue(wrap(15, title[1].trim()))
+}
+
+function formatDescription(description: string): string {
+  if (description.includes('Blurb')) {
+    return formatQuadropolis(description)
+  }
+
+  return ''
+}
+
 export default function useAssets(
   setState: React.Dispatch<React.SetStateAction<GameState>>
 ): {
@@ -480,7 +506,7 @@ export default function useAssets(
           case 'image':
             return getModImage(found)
           case 'description':
-            return found.description ?? ''
+            return formatDescription(found.description ?? '')
           case 'name':
             return found.name ?? ''
         }
@@ -527,7 +553,9 @@ export default function useAssets(
               BananaBread.execute(`reloadtex ${name.slice('packages/'.length)}`)
             }
           } catch (e) {
-            console.error(`texture ${name} not found anywhere or failed to load`)
+            console.error(
+              `texture ${name} not found anywhere or failed to load`
+            )
           }
         })()
       },
