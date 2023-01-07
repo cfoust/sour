@@ -77,6 +77,7 @@ type ModuleType = {
     receivedMap: (map: string, oldMap: string) => void
     installMod: (name: string) => void,
     getModProperty: (id: string, property: string) => string,
+    modsToURL: () => void,
   }
 
   discord: {

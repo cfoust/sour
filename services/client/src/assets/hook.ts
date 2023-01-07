@@ -236,6 +236,7 @@ ${header}
 
 loadmod = [
   js (concatword "Module.assets.installMod('" $arg1 "')")
+  showgui content
 ]
 
 getmodinfo = [
@@ -334,7 +335,16 @@ export default function useAssets(
   const getMod = React.useCallback((id: string): Maybe<GameMod> => {
     const { current: mods } = modLookupRef
     if (mods == null) return null
-    return mods[id]
+    const lookup = mods[id]
+    if (lookup != null) return lookup
+
+    // Now look by prefix
+    const results = R.filter(
+      (v: GameMod) => v.id.startsWith(id),
+      R.values(mods)
+    )
+    if (results.length !== 1) return null
+    return results[0]
   }, [])
 
   const loadAsset = React.useCallback(
@@ -532,6 +542,42 @@ export default function useAssets(
     const textures = new Set<string>()
     const models = new Set<string>()
     Module.assets = {
+      modsToURL: () => {
+        const mods = getInstalledMods()
+        const {
+          location: { search: params },
+        } = window
+        const parsedParams = new URLSearchParams(params)
+
+        const { current: lookup } = modLookupRef
+        if (lookup == null) return
+
+        const allMods: GameMod[] = R.values(lookup)
+
+        // Find the shortest unique identifier for every mod
+        const minimal: string[] = R.chain((id: string): string[] => {
+          const mod = getMod(id)
+          if (mod == null) return []
+
+          const { id: fullId } = mod
+          const shortest = R.find(
+            (shortId: string) => {
+              for (const { id: otherId } of allMods) {
+                if (fullId !== otherId && otherId.startsWith(shortId))
+                  return false
+              }
+              return true
+            },
+            R.map((index) => fullId.slice(0, index), R.range(1, fullId.length))
+          )
+
+          if (shortest == null) return [fullId]
+          return [shortest]
+        }, mods)
+
+        parsedParams.set('mods', R.join(',', minimal))
+        window.location.search = parsedParams.toString()
+      },
       getModProperty: (id: string, property: string): string => {
         const found = getMod(id)
         if (found == null) return ''

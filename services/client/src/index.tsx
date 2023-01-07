@@ -138,9 +138,18 @@ function App() {
       } = window
 
       const parsedParams = new URLSearchParams(params)
+      let mods: string[] = getInstalledMods()
+      if (parsedParams.has('safemode')) {
+        mods = []
+      }
+      if (parsedParams.has('mods')) {
+        const urlMods = parsedParams.get('mods')
+        if (urlMods != null) {
+          mods = urlMods.split(',')
+        }
+      }
 
-      const mods = getInstalledMods()
-      if (mods.length > 0 && !parsedParams.has('safemode')) {
+      if (mods.length > 0) {
         await Promise.all(
           R.map(async (id: string) => {
             const mod = getMod(id)
@@ -226,6 +235,8 @@ function App() {
 
     newgui content [
         guibutton "mods.."  "showgui mods"
+        guibutton "put mods in url.."  [js "Module.assets.modsToURL()"]
+        guibutton "reload page.."  [js "window.location.reload()"]
         guibutton "random map.."  "map random"
     ]
 
@@ -379,10 +390,15 @@ function App() {
       }
 
       if (loadedMods.length > 0) {
-        log.success(`loaded mods: ${R.join(', ', loadedMods)}. if you experience issues, add ?safemode to the URL.`)
+        log.success(
+          `loaded mods: ${R.join(
+            ', ',
+            loadedMods
+          )}. if you experience issues, add ?safemode to the URL.`
+        )
       }
       if (failedMods.length > 0) {
-        console.log(failedMods);
+        console.log(failedMods)
         log.error(`failed to load mods: ${R.join(', ', failedMods)}`)
       }
 
@@ -416,7 +432,9 @@ function App() {
       }
 
       if (parsedParams.has('safemode')) {
-        log.info('you are in safe mode. no mods were loaded, but you can disable them in the mod menu.')
+        log.info(
+          'you are in safe mode. no mods were loaded, but you can disable them in the mod menu.'
+        )
       }
     }
 
