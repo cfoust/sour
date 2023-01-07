@@ -98,7 +98,6 @@ export async function pushLayer(data: AssetData[], overwrite: boolean) {
 
   // Clear out the previous layer's assets
   if (overwrite) {
-    console.log('overwriting')
     for (const asset of data) {
       const { path } = asset
       for (let i = layers.length - 1; i >= 0; i--) {
