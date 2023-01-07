@@ -68,7 +68,6 @@ type ModuleType = {
     onConnect: () => void
     missingTexture: (path: string, msg: number) => void
     missingModel: (name: string, msg: number) => void
-    isMountedFile: (file: string) => number
     loadRandomMap: () => void
     loadWorld: (map: string) => void
     receivedMap: (map: string, oldMap: string) => void

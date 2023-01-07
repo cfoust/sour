@@ -33,9 +33,14 @@ enum NodeType {
   Map,
 }
 
+export type Layer = {
+  type: LoadRequestType
+  data: Record<string, AssetData>
+}
+
 export type AssetRequest = {
   id: string
-  promiseSet: PromiseSet<Maybe<AssetData[]>>
+  promiseSet: PromiseSet<Maybe<Layer>>
 }
 
 function getValidMaps(sources: AssetSource[]): string[] {
@@ -85,43 +90,103 @@ export async function mountFile(path: string, data: Uint8Array): Promise<void> {
     )
   })
 }
-
-type Layer = Record<string, AssetData>
 let layers: Layer[] = []
 
-export async function pushLayer(data: AssetData[], overwrite: boolean) {
-  const newLayer: Layer = {}
-  for (const asset of data) {
+export async function pushLayer(
+  assets: AssetData[],
+  type: LoadRequestType
+): Promise<Layer> {
+  const data: Record<string, AssetData> = {}
+  for (const asset of assets) {
     const { path } = asset
-    newLayer[normalizePath(path)] = asset
+    data[normalizePath(path)] = asset
   }
+
+  const newLayer: Layer = {
+    type,
+    data,
+  }
+
+  // Find the index at which we should insert this layer
+  let targetIndex: number = R.findIndex(({ type: otherType }) => {
+    if (type > otherType) return false
+    if (type < otherType) return true
+    // New layers of the same type always follow previous ones
+    return false
+  }, layers)
+
+  if (targetIndex == -1) {
+    targetIndex = layers.length
+  }
+
+  const before = layers.slice(0, targetIndex)
+  const after = layers.slice(targetIndex + 1)
 
   // Clear out the previous layer's assets
-  if (overwrite) {
-    for (const asset of data) {
-      const { path } = asset
-      for (let i = layers.length - 1; i >= 0; i--) {
-        const previous: Maybe<AssetData> = layers[i][normalizePath(path)]
-        if (previous == null) continue
-        try {
-          FS.unlink(previous.path)
-        } catch (e) {}
-        break
-      }
+  for (const asset of assets) {
+    const { path } = asset
+
+    let shouldMount = true
+    // If any layers after this one have this file, don't mount it
+    for (const { data: otherData } of after) {
+      if (otherData[path] == null) continue
+      shouldMount = false
     }
+
+    if (!shouldMount) continue
+
+    // If any layers before this one have this file, remove it
+    for (const { data: otherData } of before.reverse()) {
+      if (otherData[path] == null) continue
+      try {
+        FS.unlink(path)
+      } catch (e) {}
+    }
+
+    await mountFile(path, asset.data)
   }
 
-  await Promise.all(R.map((v) => mountFile(v.path, v.data), data))
-  layers.push(newLayer)
+  layers = [...before, newLayer, ...after]
+
+  return newLayer
+}
+
+export async function removeLayer(layer: Layer) {
+  const index = R.findIndex((v) => v == layer, layers)
+  if (index === -1) return
+  const before = layers.slice(0, index)
+  const after = layers.slice(index + 1)
+
+  const assets = R.values(layer.data)
+  for (const asset of assets) {
+    const { path } = asset
+
+    let isMounted: boolean = true
+    for (const { data: otherData } of after) {
+      if (otherData[path] == null) continue
+      isMounted = false
+    }
+
+    if (!isMounted) continue
+
+    // We can safely remove this
+    try {
+      FS.unlink(path)
+    } catch (e) {}
+
+    // If any layers before this one have this file, mount it
+    for (const { data: otherData } of before.reverse()) {
+      const otherAsset = otherData[path]
+      if (otherAsset == null) continue
+      await mountFile(path, otherAsset.data)
+    }
+  }
 }
 
 export default function useAssets(
   setState: React.Dispatch<React.SetStateAction<GameState>>
 ): {
-  loadAsset: (
-    type: LoadRequestType,
-    target: string
-  ) => Promise<Maybe<AssetData[]>>
+  loadAsset: (type: LoadRequestType, target: string) => Promise<Maybe<Layer>>
 } {
   const assetWorkerRef = React.useRef<Worker>()
   const requestStateRef = React.useRef<AssetRequest[]>([])
@@ -129,7 +194,7 @@ export default function useAssets(
 
   const addRequest = React.useCallback((id: string): AssetRequest => {
     const { current: requests } = requestStateRef
-    const promiseSet = breakPromise<Maybe<AssetData[]>>()
+    const promiseSet = breakPromise<Maybe<Layer>>()
     const request: AssetRequest = {
       id,
       promiseSet,
@@ -140,10 +205,7 @@ export default function useAssets(
   }, [])
 
   const loadAsset = React.useCallback(
-    async (
-      type: LoadRequestType,
-      target: string
-    ): Promise<Maybe<AssetData[]>> => {
+    async (type: LoadRequestType, target: string): Promise<Maybe<Layer>> => {
       const { current: assetWorker } = assetWorkerRef
       if (assetWorker == null) return null
 
@@ -243,9 +305,16 @@ export default function useAssets(
             return
           }
 
+          if (type == null) {
+            return
+          }
+
           const { data } = result
-          await pushLayer(data, type === LoadRequestType.Mod)
-          resolve(data)
+          const layer = await pushLayer(
+            data.map((v) => ({ ...v, path: normalizePath(v.path) }), data),
+            type
+          )
+          resolve(layer)
         })()
       }
     }
@@ -255,79 +324,43 @@ export default function useAssets(
 
   React.useEffect(() => {
     // All of the files loaded by a map
-    let nodes: PreloadNode[] = []
-    let lastMap: Maybe<string> = null
     let loadingMap: Maybe<string> = null
     let targetMap: Maybe<string> = null
-
-    Module.registerNode = (node) => {
-      nodes.push(node)
-    }
-
-    const isMountedFile = (filename: string): number => {
-      const found = R.pipe(
-        R.chain((node: PreloadNode) => node.files),
-        R.find(
-          (file) => file.filename == filename || file.filename == `/${filename}`
-        )
-      )(nodes)
-      return found != null ? 1 : 0
-    }
+    let mapLayer: Maybe<Layer> = null
 
     const loadMapData = async (map: string) => {
       if (loadingMap === map) return
       loadingMap = map
-      const need = ['base', map]
 
-      // Clear out all of the old map files
-      const [have, dontNeed] = R.partition(
-        ({ name }) => need.includes(name),
-        nodes
-      )
-      for (const node of dontNeed) {
-        for (const file of node.files) {
-          try {
-            FS.unlink(file.filename)
-          } catch (e) {
-            console.error(`Failed to remove old map file: ${file}`)
-          }
-        }
-
-        nodes = nodes.filter(({ name }) => name !== node.name)
+      if (mapLayer != null) {
+        await removeLayer(mapLayer)
       }
+      mapLayer = null
 
-      const dontHave = R.filter(
-        (base) =>
-          R.find(({ name }) => name.endsWith(getDataName(base)), nodes) == null,
-        need
-      )
+      const layer = await loadAsset(LoadRequestType.Map, map)
+      if (layer == null) {
+        console.error(`failed to load data for map ${map}`)
+        return
+      }
 
       const loadMap = (realMap: string) => {
-        setTimeout(() => {
-          loadingMap = null
-          if (targetMap == null) {
-            BananaBread.loadWorld(realMap)
-          } else {
-            BananaBread.loadWorld(targetMap, realMap)
-            targetMap = null
-          }
-        }, 1000)
+        mapLayer = layer
+        loadingMap = null
+        if (targetMap == null) {
+          BananaBread.loadWorld(realMap)
+        } else {
+          BananaBread.loadWorld(targetMap, realMap)
+          targetMap = null
+        }
       }
 
-      if (dontHave.length === 0) {
-        loadMap(map)
-        return
-      }
-
-      const bundle = await loadAsset(LoadRequestType.Map, map)
-      if (bundle == null) {
-        console.error(`Failed to load bundle for map ${map}`)
-        return
-      }
-
-      const mapFile = R.find((file) => file.path.endsWith('.ogz'), bundle)
+      const mapFile = R.find(
+        ({ path }) => path.endsWith('.ogz'),
+        R.values(layer.data)
+      )
       if (mapFile == null) {
-        console.error('Could not find map file in bundle')
+        await removeLayer(layer)
+        console.error('could not find map file in bundle')
         return
       }
 
@@ -344,13 +377,13 @@ export default function useAssets(
         return
       }
 
-      console.error(`Map file was not in base ${mapFile.path}`)
+      console.error(`map file was not in base ${mapFile.path}`)
+      await removeLayer(layer)
     }
 
     const textures = new Set<string>()
     const models = new Set<string>()
     Module.assets = {
-      isMountedFile,
       onConnect: () => {
         targetMap = null
       },
@@ -359,14 +392,14 @@ export default function useAssets(
         textures.add(name)
         ;(async () => {
           try {
-            const texture = await loadAsset(LoadRequestType.Texture, name)
-            if (texture == null) {
+            const layer = await loadAsset(LoadRequestType.Texture, name)
+            if (layer == null) {
               if (msg === 1) {
                 log.vanillaError(`could not load texture ${name}`)
               }
               return
             }
-            const [asset] = texture
+            const [asset] = R.values(layer.data)
 
             mountFile(asset.path, asset.data)
             BananaBread.execute(`reloadtex ${name}`)
@@ -384,12 +417,7 @@ export default function useAssets(
         models.add(name)
         ;(async () => {
           try {
-            const assets = await loadAsset(LoadRequestType.Model, name)
-            if (assets == null) {
-              return
-            }
-
-            await Promise.all(R.map((v) => mountFile(v.path, v.data), assets))
+            await loadAsset(LoadRequestType.Model, name)
           } catch (e) {
             console.error(`model ${name} not found anywhere`)
           }

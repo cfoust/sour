@@ -224,11 +224,12 @@ export type EnvironmentRequest = {
   assetSources: string[]
 }
 
+// The ordering of this enum is also the priority for asset layering.
 export enum LoadRequestType {
-  Map,
+  Mod,
   Model,
   Texture,
-  Mod,
+  Map,
 }
 
 export type LoadRequest = {

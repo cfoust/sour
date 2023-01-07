@@ -1050,10 +1050,6 @@ bool really_load_world(const char *mname, const char *cname)        // still sup
     loadingstart = SDL_GetTicks();
     setmapfilenames(mname, cname);
 
-    int result = EM_ASM_INT({
-        return Module.assets.isMountedFile(UTF8ToString($0))
-    }, ogzname);
-
 	stream *f = NULL;
     f = opengzfile(ogzname, "rb");
 
