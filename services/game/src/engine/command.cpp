@@ -2494,8 +2494,8 @@ void js(const char *script)
     char *result = (char*) EM_ASM_INT({
       return Module.interop(UTF8ToString($0));
     }, script);
+
     if (result == NULL) {
-        stringret("");
         return;
     }
     stringret(result);
