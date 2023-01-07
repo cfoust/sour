@@ -345,6 +345,8 @@ const resolvers: Record<LoadRequestType, Resolver> = {
   ),
 }
 
+const IMAGE_REGEX = /packages\/textures\/images\/(\w+(.png|.jpg))/
+
 function resolveRequest(
   type: LoadRequestType,
   target: string
@@ -352,12 +354,49 @@ function resolveRequest(
   if (assetIndex == null) return null
 
   const resolver = resolvers[type]
-
   if (resolver == null) return null
   for (const source of assetIndex) {
     const resolved = resolver(source, target)
     if (resolved == null) continue
     return resolved
+  }
+
+  // Textures have special handling because they can refer to images, too
+  if (type !== LoadRequestType.Texture) return null
+
+  const image = IMAGE_REGEX.exec(target)
+  if (image != null) {
+    const [,id] = image
+
+    // Find the source this image points to
+    const source = R.find((v: AssetSource): boolean => {
+      return R.any(
+        (u: string): boolean => id === u,
+        [
+          ...R.chain(
+            ({ image }): string[] => (image != null ? [image] : []),
+            v.maps
+          ),
+          ...R.chain(
+            ({ image }): string[] => (image != null ? [image] : []),
+            v.mods
+          ),
+        ]
+      )
+    }, assetIndex)
+
+    if (source == null) return null
+
+    return {
+      source: source.source,
+      bundles: [],
+      assets: [
+        {
+          id,
+          path: target,
+        },
+      ],
+    }
   }
 
   return null

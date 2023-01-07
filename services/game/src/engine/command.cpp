@@ -2491,7 +2491,14 @@ COMMAND(writecfg, "s");
 #if __EMSCRIPTEN__
 void js(const char *script)
 {
-    emscripten_run_script(script);
+    char *result = (char*) EM_ASM_INT({
+      return Module.interop(UTF8ToString($0));
+    }, script);
+    if (result == NULL) {
+        stringret("");
+        return;
+    }
+    stringret(result);
 }
 COMMAND(js, "s");
 #endif

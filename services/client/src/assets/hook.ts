@@ -26,6 +26,7 @@ import { GameStateType, DownloadingType } from '../types'
 
 import type { PromiseSet } from '../utils'
 import { breakPromise } from '../utils'
+import { getModImage } from './utils'
 
 import { CONFIG } from '../config'
 
@@ -49,6 +50,10 @@ function getValidMaps(sources: AssetSource[]): string[] {
     R.chain((source: AssetSource) => source.maps),
     R.chain((map: GameMap) => [map.name, map.id])
   )(sources)
+}
+
+function getMods(sources: AssetSource[]): GameMod[] {
+  return R.pipe(R.chain((source: AssetSource) => source.mods))(sources)
 }
 
 const getDataName = (name: string) => `${name}.data`
@@ -189,7 +194,7 @@ function buildModMenu(index: AssetIndex): string {
   const mods: GameMod[] = R.sort(
     ({ name: nameA }, { name: nameB }): number => {
       if (nameA.length < nameB.length) return -1
-      return R.ascend(v => v)(nameA, nameB)
+      return R.ascend((v) => v)(nameA, nameB)
     },
     R.chain((source) => source.mods, index)
   )
@@ -208,17 +213,20 @@ function buildModMenu(index: AssetIndex): string {
   const tabs: string = R.join(
     '',
     R.map(([i, ids]: [number, number[]]): string => {
-      const entries = R.join('', R.map(
-        id => `
+      const entries = R.join(
+        '',
+        R.map(
+          (id) => `
       guilist [ guistrut 15 1; genmoditems $gamemods${id + 1} ]`,
-        ids
-      ))
+          ids
+        )
+      )
       return `
     ${i > 0 ? `guitab ${i + 1}` : ''}
     guilist [
       guistrut 17 1
       ${entries}
-      showmapshot
+      showmodshot
     ]`
     }, R.zip(R.range(0, tabGroups.length), tabGroups))
   )
@@ -227,7 +235,15 @@ function buildModMenu(index: AssetIndex): string {
 ${header}
 
 loadmod = [
-  js (concat (concat "Module.assets.installMod('" $arg1) "')")
+  js (concatword "Module.assets.installMod('" $arg1) "')")
+]
+
+showmodshot = [
+    guibar
+    mname = (checkrolloveraction "loadmod " [if (> $numargs 0) [result $arg1] [at $guirollovername 0]])
+    guilist [
+        guiimage (js (concatword "Module.assets.getModImage('" $mname "')")) (checkrolloveraction "loadmod ") 4 1 "data/cube.png" $mname
+    ]
 ]
 
 genmoditems = [
@@ -444,7 +460,16 @@ export default function useAssets(
     const textures = new Set<string>()
     const models = new Set<string>()
     Module.assets = {
+      getModImage: (name: string) => {
+        const found = R.find(
+          (v) => v.name === name,
+          getMods(bundleIndexRef.current ?? [])
+        )
+        if (found == null) return ''
+        return getModImage(found)
+      },
       installMod: (name: string) => {
+        console.log(name)
         const modName = name.trim()
         log.info(`installing mod ${modName}...`)
         ;(async () => {

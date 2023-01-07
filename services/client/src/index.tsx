@@ -315,6 +315,23 @@ function App() {
       serverEvents = [...serverEvents, ...queuedEvents]
     }
 
+    Module.interop = (command: string): number => {
+      try {
+        const result = window.eval(command)
+        if (result == null) {
+          return 0
+        }
+        const numBytes = lengthBytesUTF8(result) + 1
+        const onHeap = Module._malloc(numBytes)
+        stringToUTF8(result, onHeap, numBytes)
+        // Sauer frees this on its own when it's done
+        return onHeap
+      } catch (e) {
+        console.error(`failed to eval '${command}'`, e)
+        return 0
+      }
+    }
+
     let cachedServers: Maybe<any> = null
     Module.onGameReady = () => {
       Module.running = true

@@ -63,6 +63,10 @@ type ModuleType = {
   onDisconnect: () => void
   onClientJoin: (name: string) => void
 
+  // Run a JavaScript command and return a pointer to its result
+  // This is NOT the same thing as emscripten_run_script_string
+  interop: (script: string) => number,
+
   assets: {
     // assets has its own hook
     onConnect: () => void
@@ -72,6 +76,7 @@ type ModuleType = {
     loadWorld: (map: string) => void
     receivedMap: (map: string, oldMap: string) => void
     installMod: (name: string) => void,
+    getModImage: (name: string) => string,
   }
 
   discord: {
@@ -91,6 +96,9 @@ type ModuleType = {
 }
 declare const Module: ModuleType
 declare type Maybe<T> = T | null | undefined
+
+declare const lengthBytesUTF8 = (s: string) => number
+declare const stringToUTF8 = (s: string, a: number, bytes: number) => number
 
 declare const FS: {
   unlink: (file: string) => void
