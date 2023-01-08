@@ -340,7 +340,7 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 			map_ := manager.Maps.FindMap(request.Map)
 
 			if opt.IsNone(map_) {
-				server.SendMapResponse(request.Map, request.Mode, 0)
+				server.SendMapResponse(request.Map, request.Mode, "", false)
 				continue
 			}
 
@@ -358,12 +358,12 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 			err := assets.DownloadFile(url, path)
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to download map")
-				server.SendMapResponse(request.Map, request.Mode, 0)
+				server.SendMapResponse(request.Map, request.Mode, "", false)
 				continue
 			}
 
 			logger.Info().Str("destination", path).Msg("downloaded map")
-			server.SendMapResponse(request.Map, request.Mode, 1)
+			server.SendMapResponse(request.Map, request.Mode, path, true)
 			continue
 		case <-ctx.Done():
 			return

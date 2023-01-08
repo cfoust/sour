@@ -127,6 +127,23 @@ const (
 	NUMMSG
 )
 
+var EDIT_MESSAGES = []MessageCode{
+	N_COPY,
+	N_DELCUBE,
+	N_EDITENT,
+	N_EDITF,
+	N_EDITM,
+	N_EDITT,
+	N_EDITVAR,
+	N_EDITVSLOT,
+	N_FLIP,
+	N_NEWMAP,
+	N_PASTE,
+	N_REMIP,
+	N_REPLACE,
+	N_ROTATE,
+}
+
 // network quantization scale
 const DMF = 16.0  // for world locations
 const DNF = 100.0 // for normalized vectors
@@ -423,7 +440,7 @@ const (
 )
 
 const (
-	MODE_FFA int = iota
+	MODE_FFA int32 = iota
 	MODE_COOP
 	MODE_TEAMPLAY
 	MODE_INSTA

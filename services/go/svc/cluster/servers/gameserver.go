@@ -28,6 +28,7 @@ type GameServer struct {
 
 	NumClients int
 
+
 	// Everything we get from serverinfo
 	Info       ServerInfo
 	ClientInfo map[uint16]*ClientExtInfo
@@ -38,6 +39,8 @@ type GameServer struct {
 	IsBuiltMap bool
 
 	Hidden bool
+
+	Editing *EditingState
 
 	// Valid while the server is running and healthy
 	Context context.Context
@@ -152,12 +155,16 @@ func (server *GameServer) RequestServerInfo(request []byte) {
 	server.sendMessage(p)
 }
 
-func (server *GameServer) SendMapResponse(mapName string, mode int32, succeeded int32) {
+func (server *GameServer) SendMapResponse(mapName string, mode int32, path string, succeeded bool) {
 	server.Mutex.Lock()
 	server.Map = mapName
 	server.IsBuiltMap = true
-	if succeeded == 0 {
+	if succeeded {
 		server.IsBuiltMap = false
+	}
+
+	if succeeded && server.Editing != nil {
+		go server.Editing.LoadMap(path)
 	}
 	server.Mutex.Unlock()
 
@@ -165,7 +172,7 @@ func (server *GameServer) SendMapResponse(mapName string, mode int32, succeeded 
 	p.PutUint(SOCKET_EVENT_RESPOND_MAP)
 	p.PutString(mapName)
 	p.PutInt(mode)
-	p.PutInt(succeeded)
+	p.Put(succeeded)
 	server.sendMessage(p)
 }
 
@@ -280,23 +287,6 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 	}
 }
 
-var EDIT_MESSAGES = []game.MessageCode{
-	game.N_COPY,
-	game.N_DELCUBE,
-	game.N_EDITENT,
-	game.N_EDITF,
-	game.N_EDITM,
-	game.N_EDITT,
-	game.N_EDITVAR,
-	game.N_EDITVSLOT,
-	game.N_FLIP,
-	game.N_NEWMAP,
-	game.N_PASTE,
-	game.N_REMIP,
-	game.N_REPLACE,
-	game.N_ROTATE,
-}
-
 func (server *GameServer) DecodeMessages(ctx context.Context) {
 	logger := server.Log()
 	for {
@@ -313,7 +303,7 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 				continue
 			}
 
-			for _, editType := range EDIT_MESSAGES {
+			for _, editType := range game.EDIT_MESSAGES {
 				if editType != peeked.Type() {
 					continue
 				}
@@ -461,6 +451,20 @@ func (server *GameServer) HandleServerInfo(numClients int, data []byte) error {
 	return nil
 }
 
+func (server *GameServer) HandleMapChange(ctx context.Context, mapName string, mode int32) {
+	server.Mutex.Lock()
+
+	if server.Editing != nil && mode != game.MODE_COOP {
+		// TODO tear down
+	}
+
+	if mode == game.MODE_COOP {
+		server.Editing = NewEditingState()
+	}
+
+	server.Mutex.Unlock()
+}
+
 func (server *GameServer) PollEvents(ctx context.Context) {
 	pingInterval := 500 * time.Millisecond
 	pingTicker := time.NewTicker(pingInterval)
@@ -543,6 +547,7 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 						break
 					}
 
+					server.HandleMapChange(ctx, mapName, mode)
 					server.mapRequests <- MapRequest{
 						Map:  mapName,
 						Mode: mode,

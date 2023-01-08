@@ -157,7 +157,7 @@ func (s *SendState) Send() error {
 		game.N_MAPCHANGE,
 		game.MapChange{
 			Name:     "sending",
-			Mode:     game.MODE_COOP,
+			Mode:     int(game.MODE_COOP),
 			HasItems: 0,
 		},
 	)

@@ -4,9 +4,12 @@ import (
 	"encoding/binary"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/maps/worldio"
 
 	"github.com/rs/zerolog/log"
 )
+
+type CCube worldio.Cube
 
 type Header struct {
 	Version    int32
