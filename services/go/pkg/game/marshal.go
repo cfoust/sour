@@ -307,6 +307,31 @@ func UnmarshalMessage(p *Packet, code MessageCode, message interface{}) (Message
 	return raw, err
 }
 
+// Peek the first byte to determine the message type but don't deserialize the
+// rest of the packet.
+func Peek(b []byte) (Message, error) {
+	p := Packet(b)
+	type_, ok := p.GetInt()
+	if !ok {
+		return nil, fmt.Errorf("failed to read message type")
+	}
+
+	code := MessageCode(type_)
+
+	if code >= NUMMSG {
+		return nil, fmt.Errorf("code %d is not in range of messages", code)
+	}
+
+	raw := RawMessage{
+		code:    code,
+		message: nil,
+	}
+
+	raw.data = b
+
+	return raw, nil
+}
+
 func Read(b []byte, fromClient bool) ([]Message, error) {
 	messages := make([]Message, 0)
 	p := Packet(b)

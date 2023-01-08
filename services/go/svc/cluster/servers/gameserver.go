@@ -280,6 +280,32 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 	}
 }
 
+var EDIT_MESSAGES = []game.MessageCode{
+	game.N_EDITF,
+	game.N_EDITT,
+	game.N_EDITM,
+	game.N_FLIP,
+	game.N_COPY,
+	game.N_PASTE,
+	game.N_ROTATE,
+	game.N_REPLACE,
+	game.N_DELCUBE,
+	game.N_EDITVSLOT,
+	game.N_EDITF,
+	game.N_EDITT,
+	game.N_EDITM,
+	game.N_FLIP,
+	game.N_COPY,
+	game.N_PASTE,
+	game.N_ROTATE,
+	game.N_REPLACE,
+	game.N_DELCUBE,
+	game.N_EDITVSLOT,
+	game.N_REMIP,
+	game.N_EDITENT,
+	game.N_EDITVAR,
+}
+
 func (server *GameServer) DecodeMessages(ctx context.Context) {
 	logger := server.Log()
 	for {
@@ -288,6 +314,19 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 			// TODO handle files?
 			if bundle.Channel == 2 {
 				continue
+			}
+
+			peeked, err := game.Peek(bundle.Data)
+			if err != nil {
+				logger.Warn().Err(err).Msg("failed to peek broadcast message")
+				continue
+			}
+
+			for _, editType := range EDIT_MESSAGES {
+				if editType != peeked.Type() {
+					continue
+				}
+				logger.Info().Str("type", peeked.Type().String()).Msg("edit message")
 			}
 
 			decoded, err := game.Read(bundle.Data, false)

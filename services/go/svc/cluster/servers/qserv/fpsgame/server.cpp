@@ -1803,7 +1803,7 @@ namespace server {
 
     static void sendeditmessage(packetbuf *p, int offset)
     {
-        ucharbuf wsbuf(p->buf+p->len, p->maxlen);
+        ucharbuf wsbuf(p->buf+offset, p->maxlen);
         ENetPacket *packet = enet_packet_create(wsbuf.buf, wsbuf.maxlen, (reliablemessages ? ENET_PACKET_FLAG_RELIABLE : 0) | ENET_PACKET_FLAG_NO_ALLOCATE);
         sendtocluster(1, packet);
         enet_packet_destroy(packet);
