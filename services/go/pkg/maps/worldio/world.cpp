@@ -10,6 +10,18 @@ int worldsize = 0;
 int octaentsize = 64;
 int entselradius = 2;
 
+char *entname(entity &e)
+{
+    static string fullentname;
+    copystring(fullentname, entities::entname(e.type));
+    const char *einfo = entities::entnameinfo(e);
+    if(*einfo)
+    {
+        concatstring(fullentname, ": ");
+        concatstring(fullentname, einfo);
+    }
+    return fullentname;
+}
 
 extern selinfo sel;
 extern bool havesel;
@@ -47,7 +59,88 @@ void entadd(int id)
     entgroup.add(id);
 }
 
+undoblock *newundoent()
+{
+    int numents = entgroup.length();
+    if(numents <= 0) return NULL;
+    undoblock *u = (undoblock *)new uchar[sizeof(undoblock) + numents*sizeof(undoent)];
+    u->numents = numents;
+    undoent *e = (undoent *)(u + 1);
+    loopv(entgroup)
+    {
+        e->i = entgroup[i];
+        e->e = *entities::getents()[entgroup[i]];
+        e++;
+    }
+    return u;
+}
+
+void makeundoent()
+{
+    if(!undonext) return;
+    undonext = false;
+    oldhover = enthover;
+    undoblock *u = newundoent();
+    if(u) addundo(u);
+}
+
+void detachentity(extentity &e)
+{
+    if(!e.attached) return;
+    e.attached->attached = NULL;
+    e.attached = NULL;
+}
+
 int attachradius = 100;
+
+void attachentity(extentity &e)
+{
+    switch(e.type)
+    {
+        case ET_SPOTLIGHT:
+            break;
+
+        default:
+            if(e.type<ET_GAMESPECIFIC || !entities::mayattach(e)) return;
+            break;
+    }
+
+    detachentity(e);
+
+    vector<extentity *> &ents = entities::getents();
+    int closest = -1;
+    float closedist = 1e10f;
+    loopv(ents)
+    {
+        extentity *a = ents[i];
+        if(a->attached) continue;
+        switch(e.type)
+        {
+            case ET_SPOTLIGHT: 
+                if(a->type!=ET_LIGHT) continue; 
+                break;
+
+            default:
+                if(e.type<ET_GAMESPECIFIC || !entities::attachent(e, *a)) continue;
+                break;
+        }
+        float dist = e.o.dist(a->o);
+        if(dist < closedist)
+        {
+            closest = i;
+            closedist = dist;
+        }
+    }
+    if(closedist>attachradius) return;
+    e.attached = ents[closest];
+    ents[closest]->attached = &e;
+}
+
+void attachentities()
+{
+    vector<extentity *> &ents = entities::getents();
+    loopv(ents) attachentity(*ents[i]);
+}
 
 // convenience macros implicitly define:
 // e         entity, currently edited ent
@@ -74,6 +167,14 @@ int attachradius = 100;
 #define groupeditpure(f){ if(entlooplevel>0) { entedit(efocus, f); } else groupeditloop(f); }
 #define groupeditundo(f){ makeundoent(); groupeditpure(f); }
 #define groupedit(f)    { addimplicit(groupeditundo(f)); }
+
+vec getselpos()
+{
+    vector<extentity *> &ents = entities::getents();
+    if(entgroup.length() && ents.inrange(entgroup[0])) return ents[entgroup[0]]->o;
+    if(ents.inrange(enthover)) return ents[enthover]->o;
+    return vec(sel.o);
+}
 
 int entselsnap = 0;
 int entmovingshadow = 1;
@@ -105,6 +206,47 @@ int entdrop = 2;
 int entcamdir = 1;
 
 static int keepents = 0;
+
+extentity *newentity(bool local, const vec &o, int type, int v1, int v2, int v3, int v4, int v5, int &idx)
+{
+    vector<extentity *> &ents = entities::getents();
+    if(local)
+    {
+        idx = -1;
+        for(int i = keepents; i < ents.length(); i++) if(ents[i]->type == ET_EMPTY) { idx = i; break; }
+        if(idx < 0 && ents.length() >= MAXENTS) { conoutf(CON_ERROR, "too many entities"); return NULL; }
+    }
+    else while(ents.length() < idx) ents.add(entities::newentity())->type = ET_EMPTY;
+    extentity &e = *entities::newentity();
+    e.o = o;
+    e.attr1 = v1;
+    e.attr2 = v2;
+    e.attr3 = v3;
+    e.attr4 = v4;
+    e.attr5 = v5;
+    e.type = type;
+    e.reserved = 0;
+    e.light.color = vec(1, 1, 1);
+    e.light.dir = vec(0, 0, 1);
+    if(local)
+    {
+        if(entcamdir) switch(type)
+        {
+            case ET_MAPMODEL:
+            case ET_PLAYERSTART:
+                e.attr5 = e.attr4;
+                e.attr4 = e.attr3;
+                e.attr3 = e.attr2;
+                e.attr2 = e.attr1;
+                e.attr1 = (int)camera1->yaw;
+                break;
+        }
+        entities::fixentity(e);
+    }
+    if(ents.inrange(idx)) { entities::deleteentity(ents[idx]); ents[idx] = &e; }
+    else { idx = ents.length(); ents.add(&e); }
+    return &e;
+}
 
 struct spawninfo { const extentity *e; float weight; };
 
@@ -139,3 +281,22 @@ static bool isallempty(cube &c)
 int getworldsize() { return worldsize; }
 int getmapversion() { return mapversion; }
 
+void mpeditent(int i, const vec &o, int type, int attr1, int attr2, int attr3, int attr4, int attr5, bool local)
+{
+    if(i < 0 || i >= MAXENTS) return;
+    vector<extentity *> &ents = entities::getents();
+    if(ents.length()<=i)
+    {
+        extentity *e = newentity(local, o, type, attr1, attr2, attr3, attr4, attr5, i);
+        if(!e) return;
+    }
+    else
+    {
+        extentity &e = *ents[i];
+        int oldtype = e.type;
+        e.type = type;
+        e.o = o;
+        e.attr1 = attr1; e.attr2 = attr2; e.attr3 = attr3; e.attr4 = attr4; e.attr5 = attr5;
+    }
+    entities::editent(i, local);
+}
