@@ -10,19 +10,6 @@ int worldsize = 0;
 int octaentsize = 64;
 int entselradius = 2;
 
-char *entname(entity &e)
-{
-    static string fullentname;
-    copystring(fullentname, entities::entname(e.type));
-    const char *einfo = entities::entnameinfo(e);
-    if(*einfo)
-    {
-        concatstring(fullentname, ": ");
-        concatstring(fullentname, einfo);
-    }
-    return fullentname;
-}
-
 extern selinfo sel;
 extern bool havesel;
 int entlooplevel = 0;
@@ -93,55 +80,6 @@ void detachentity(extentity &e)
 
 int attachradius = 100;
 
-void attachentity(extentity &e)
-{
-    switch(e.type)
-    {
-        case ET_SPOTLIGHT:
-            break;
-
-        default:
-            if(e.type<ET_GAMESPECIFIC || !entities::mayattach(e)) return;
-            break;
-    }
-
-    detachentity(e);
-
-    vector<extentity *> &ents = entities::getents();
-    int closest = -1;
-    float closedist = 1e10f;
-    loopv(ents)
-    {
-        extentity *a = ents[i];
-        if(a->attached) continue;
-        switch(e.type)
-        {
-            case ET_SPOTLIGHT: 
-                if(a->type!=ET_LIGHT) continue; 
-                break;
-
-            default:
-                if(e.type<ET_GAMESPECIFIC || !entities::attachent(e, *a)) continue;
-                break;
-        }
-        float dist = e.o.dist(a->o);
-        if(dist < closedist)
-        {
-            closest = i;
-            closedist = dist;
-        }
-    }
-    if(closedist>attachradius) return;
-    e.attached = ents[closest];
-    ents[closest]->attached = &e;
-}
-
-void attachentities()
-{
-    vector<extentity *> &ents = entities::getents();
-    loopv(ents) attachentity(*ents[i]);
-}
-
 // convenience macros implicitly define:
 // e         entity, currently edited ent
 // n         int,    index to currently edited ent
@@ -152,11 +90,7 @@ void attachentities()
 { \
     entfocusv(i, \
     { \
-        int oldtype = e.type; \
-        removeentity(n);  \
         f; \
-        if(oldtype!=e.type) detachentity(e); \
-        if(e.type!=ET_EMPTY) { addentity(n); if(oldtype!=e.type) attachentity(e); } \
         entities::editent(n, true); \
     }, v); \
 }
@@ -174,6 +108,22 @@ vec getselpos()
     if(entgroup.length() && ents.inrange(entgroup[0])) return ents[entgroup[0]]->o;
     if(ents.inrange(enthover)) return ents[enthover]->o;
     return vec(sel.o);
+}
+
+void pasteundoent(int idx, const entity &ue)
+{
+    if(idx < 0 || idx >= MAXENTS) return;
+    vector<extentity *> &ents = entities::getents();
+    while(ents.length() < idx) ents.add(entities::newentity())->type = ET_EMPTY;
+    int efocus = -1;
+    entedit(idx, (entity &)e = ue);
+}
+
+void pasteundoents(undoblock *u)
+{
+    undoent *ue = u->ents();
+    loopi(u->numents)
+        entedit(ue[i].i, (entity &)e = ue[i].e);
 }
 
 int entselsnap = 0;
@@ -214,7 +164,6 @@ extentity *newentity(bool local, const vec &o, int type, int v1, int v2, int v3,
     {
         idx = -1;
         for(int i = keepents; i < ents.length(); i++) if(ents[i]->type == ET_EMPTY) { idx = i; break; }
-        if(idx < 0 && ents.length() >= MAXENTS) { conoutf(CON_ERROR, "too many entities"); return NULL; }
     }
     else while(ents.length() < idx) ents.add(entities::newentity())->type = ET_EMPTY;
     extentity &e = *entities::newentity();
@@ -228,21 +177,6 @@ extentity *newentity(bool local, const vec &o, int type, int v1, int v2, int v3,
     e.reserved = 0;
     e.light.color = vec(1, 1, 1);
     e.light.dir = vec(0, 0, 1);
-    if(local)
-    {
-        if(entcamdir) switch(type)
-        {
-            case ET_MAPMODEL:
-            case ET_PLAYERSTART:
-                e.attr5 = e.attr4;
-                e.attr4 = e.attr3;
-                e.attr3 = e.attr2;
-                e.attr2 = e.attr1;
-                e.attr1 = (int)camera1->yaw;
-                break;
-        }
-        entities::fixentity(e);
-    }
     if(ents.inrange(idx)) { entities::deleteentity(ents[idx]); ents[idx] = &e; }
     else { idx = ents.length(); ents.add(&e); }
     return &e;

@@ -110,6 +110,7 @@ struct VSlot
     Slot *slot;
     VSlot *next;
     int index, changed;
+    vector<SlotShaderParam> params;
     bool linked;
     float scale;
     int rotation;
@@ -270,4 +271,3 @@ extern Slot dummyslot;
 extern VSlot dummyvslot;
 extern vector<Slot *> slots;
 extern vector<VSlot *> vslots;
-

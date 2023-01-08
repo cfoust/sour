@@ -106,7 +106,6 @@ namespace entities
             setuptriggerflags(f);
         }
         else cleartriggerflags(e);
-        if(local) addmsg(N_EDITENT, "rii3ii5", i, (int)(e.o.x*DMF), (int)(e.o.y*DMF), (int)(e.o.z*DMF), e.type, e.attr1, e.attr2, e.attr3, e.attr4, e.attr5);
     }
 }
 

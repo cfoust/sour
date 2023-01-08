@@ -119,7 +119,7 @@ cube &blockcube(int x, int y, int z, const block3 &b, int rgrid) // looks up a w
 
 #define loopxy(b)        loop(y,(b).s[C[dimension((b).orient)]]) loop(x,(b).s[R[dimension((b).orient)]])
 #define loopxyz(b, r, f) { loop(z,(b).s[D[dimension((b).orient)]]) loopxy((b)) { cube &c = blockcube(x,y,z,b,r); f; } }
-#define loopselxyz(f)    { if(local) makeundo(); loopxyz(sel, sel.grid, f); changed(sel); }
+#define loopselxyz(f)    { loopxyz(sel, sel.grid, f); changed(sel); }
 #define selcube(x, y, z) blockcube(x, y, z, sel, sel.grid)
 
 ////////////// cursor ///////////////
@@ -217,14 +217,6 @@ void readychanges(const ivec &bbmin, const ivec &bbmax, cube *c, const ivec &cor
 
 void commitchanges(bool force)
 {
-    if(!force && !haschanged) return;
-    haschanged = false;
-
-    int oldlen = valist.length();
-    resetclipplanes();
-    entitiesinoctanodes();
-    setupmaterials(oldlen);
-    updatevabbs();
 }
 
 void changed(const block3 &sel, bool commit = true)
@@ -397,7 +389,6 @@ undoblock *newundocube(selinfo &s)
 void addundo(undoblock *u)
 {
     u->size = undosize(u);
-    u->timestamp = totalmillis;
     undos.add(u);
     totalundos += u->size;
     pruneundos(undomegs<<20);
@@ -472,6 +463,132 @@ struct vslothdr
     ushort index;
     ushort slot;
 };
+
+void packvslot(vector<uchar> &buf, const VSlot &src)
+{
+    if(src.changed & (1<<VSLOT_SHPARAM))
+    {
+        loopv(src.params)
+        {
+            const SlotShaderParam &p = src.params[i];
+            buf.put(VSLOT_SHPARAM);
+            sendstring(p.name, buf);
+            loopj(4) putfloat(buf, p.val[j]);
+        }
+    }
+    if(src.changed & (1<<VSLOT_SCALE))
+    {
+        buf.put(VSLOT_SCALE);
+        putfloat(buf, src.scale);
+    }
+    if(src.changed & (1<<VSLOT_ROTATION))
+    {
+        buf.put(VSLOT_ROTATION);
+        putint(buf, src.rotation);
+    }
+    if(src.changed & (1<<VSLOT_OFFSET))
+    {
+        buf.put(VSLOT_OFFSET);
+        putint(buf, src.offset.x);
+        putint(buf, src.offset.y);
+    }
+    if(src.changed & (1<<VSLOT_SCROLL))
+    {
+        buf.put(VSLOT_SCROLL);
+        putfloat(buf, src.scroll.x);
+        putfloat(buf, src.scroll.y);
+    }
+    if(src.changed & (1<<VSLOT_LAYER))
+    {
+        buf.put(VSLOT_LAYER);
+        putuint(buf, vslots.inrange(src.layer) && !vslots[src.layer]->changed ? src.layer : 0);
+    }
+    if(src.changed & (1<<VSLOT_ALPHA))
+    {
+        buf.put(VSLOT_ALPHA);
+        putfloat(buf, src.alphafront);
+        putfloat(buf, src.alphaback);
+    }
+    if(src.changed & (1<<VSLOT_COLOR))
+    {
+        buf.put(VSLOT_COLOR);
+        putfloat(buf, src.colorscale.r);
+        putfloat(buf, src.colorscale.g);
+        putfloat(buf, src.colorscale.b);
+    }
+    buf.put(0xFF);
+}
+
+void packvslot(vector<uchar> &buf, int index)
+{
+    if(vslots.inrange(index)) packvslot(buf, *vslots[index]);
+    else buf.put(0xFF);
+}
+
+void packvslot(vector<uchar> &buf, const VSlot *vs)
+{
+    if(vs) packvslot(buf, *vs);
+    else buf.put(0xFF);
+}
+
+bool unpackvslot(ucharbuf &buf, VSlot &dst, bool delta)
+{
+    while(buf.remaining())
+    {
+        int changed = buf.get();
+        if(changed >= 0x80) break;
+        switch(changed)
+        {
+            case VSLOT_SHPARAM:
+            {
+                string name;
+                getstring(name, buf);
+                SlotShaderParam p = { name[0] ? getshaderparamname(name) : NULL, -1, { 0, 0, 0, 0 } };
+                loopi(4) p.val[i] = getfloat(buf);
+                if(p.name) dst.params.add(p);
+                break;
+            }
+            case VSLOT_SCALE:
+                dst.scale = getfloat(buf);
+                if(dst.scale <= 0) dst.scale = 1;
+                else if(!delta) dst.scale = clamp(dst.scale, 1/8.0f, 8.0f);
+                break;
+            case VSLOT_ROTATION:
+                dst.rotation = getint(buf);
+                if(!delta) dst.rotation = clamp(dst.rotation, 0, 7);
+                break;
+            case VSLOT_OFFSET:
+                dst.offset.x = getint(buf);
+                dst.offset.y = getint(buf);
+                if(!delta) dst.offset.max(0);
+                break;
+            case VSLOT_SCROLL:
+                dst.scroll.x = getfloat(buf);
+                dst.scroll.y = getfloat(buf);
+                break;
+            case VSLOT_LAYER:
+            {
+                int tex = getuint(buf);
+                dst.layer = vslots.inrange(tex) ? tex : 0;
+                break;
+            }
+            case VSLOT_ALPHA:
+                dst.alphafront = clamp(getfloat(buf), 0.0f, 1.0f);
+                dst.alphaback = clamp(getfloat(buf), 0.0f, 1.0f);
+                break;
+            case VSLOT_COLOR:
+                dst.colorscale.r = clamp(getfloat(buf), 0.0f, 2.0f);
+                dst.colorscale.g = clamp(getfloat(buf), 0.0f, 2.0f);
+                dst.colorscale.b = clamp(getfloat(buf), 0.0f, 2.0f);
+                break;
+            default:
+                return false;
+        }
+        dst.changed |= 1<<changed;
+    }
+    if(buf.overread()) return false;
+    return true;
+}
 
 static void packvslots(cube &c, vector<uchar> &buf, vector<ushort> &used)
 {
@@ -747,7 +864,6 @@ void pasteblock(block3 &b, selinfo &sel, bool local)
 
 void mpcopy(editinfo *&e, selinfo &sel, bool local)
 {
-    if(local) game::edittrigger(sel, EDIT_COPY);
     if(e==NULL) e = editinfos.add(new editinfo);
     if(e->copy) freeblock(e->copy);
     e->copy = NULL;
@@ -758,7 +874,6 @@ void mpcopy(editinfo *&e, selinfo &sel, bool local)
 void mppaste(editinfo *&e, selinfo &sel, bool local)
 {
     if(e==NULL) return;
-    if(local) game::edittrigger(sel, EDIT_PASTE);
     if(e->copy) pasteblock(*e->copy, sel, local);
 }
 
@@ -1173,9 +1288,6 @@ void mpeditface(int dir, int mode, selinfo &sel, bool local)
     int dc = dimcoord(sel.orient);
     int seldir = dc ? -dir : dir;
 
-    if(local)
-        game::edittrigger(sel, EDIT_FACE, dir, mode);
-
     if(mode==1)
     {
         int h = sel.o[d]+dc*sel.grid;
@@ -1262,7 +1374,6 @@ void pushsel(int *dir)
 
 void mpdelcube(selinfo &sel, bool local)
 {
-    if(local) game::edittrigger(sel, EDIT_DELCUBE);
     loopselxyz(discardchildren(c, true); emptyfaces(c));
 }
 
@@ -1295,6 +1406,313 @@ int reptex = -1;
 static vector<vslotmap> remappedvslots;
 
 int usevdelta = 0;
+
+VSlot &lookupvslot(int index, bool load)
+{
+    VSlot &s = vslots.inrange(index) && vslots[index]->slot ? *vslots[index] : (slots.inrange(DEFAULT_GEOM) && slots[DEFAULT_GEOM]->variants ? *slots[DEFAULT_GEOM]->variants : dummyvslot);
+    return s;
+}
+
+extern const texrotation texrotations[8] =
+{
+    { false, false, false }, // 0: default
+    { false,  true,  true }, // 1: 90 degrees
+    {  true,  true, false }, // 2: 180 degrees
+    {  true, false,  true }, // 3: 270 degrees
+    {  true, false, false }, // 4: flip X
+    { false,  true, false }, // 5: flip Y
+    { false, false,  true }, // 6: transpose
+    {  true,  true,  true }, // 7: flipped transpose
+};
+
+static void clampvslotoffset(VSlot &dst, Slot *slot = NULL)
+{
+    if(!slot) slot = dst.slot;
+    if(slot && slot->sts.inrange(0))
+    {
+        Texture *t = slot->sts[0].t;
+        int xs = t->xs, ys = t->ys;
+        if(t->type & Texture::MIRROR) { xs *= 2; ys *= 2; }
+        if(texrotations[dst.rotation].swapxy) swap(xs, ys);
+        dst.offset.x %= xs; if(dst.offset.x < 0) dst.offset.x += xs;
+        dst.offset.y %= ys; if(dst.offset.y < 0) dst.offset.y += ys;
+    }
+    else dst.offset.max(0);
+}
+
+static void propagatevslot(VSlot &dst, const VSlot &src, int diff, bool edit = false)
+{
+    if(diff & (1<<VSLOT_SHPARAM)) loopv(src.params) dst.params.add(src.params[i]);
+    if(diff & (1<<VSLOT_SCALE)) dst.scale = src.scale;
+    if(diff & (1<<VSLOT_ROTATION)) 
+    {
+        dst.rotation = src.rotation;
+        if(edit && !dst.offset.iszero()) clampvslotoffset(dst);
+    }
+    if(diff & (1<<VSLOT_OFFSET))
+    {
+        dst.offset = src.offset;
+        if(edit) clampvslotoffset(dst);
+    }
+    if(diff & (1<<VSLOT_SCROLL)) dst.scroll = src.scroll;
+    if(diff & (1<<VSLOT_LAYER)) dst.layer = src.layer;
+    if(diff & (1<<VSLOT_ALPHA))
+    {
+        dst.alphafront = src.alphafront;
+        dst.alphaback = src.alphaback;
+    }
+    if(diff & (1<<VSLOT_COLOR)) dst.colorscale = src.colorscale;
+}
+
+static void propagatevslot(VSlot *root, int changed)
+{
+    for(VSlot *vs = root->next; vs; vs = vs->next)
+    {
+        int diff = changed & ~vs->changed;
+        if(diff) propagatevslot(*vs, *root, diff);
+    }
+}
+
+
+static void mergevslot(VSlot &dst, const VSlot &src, int diff, Slot *slot = NULL)
+{
+    if(diff & (1<<VSLOT_SHPARAM)) loopv(src.params) 
+    {
+        const SlotShaderParam &sp = src.params[i];
+        loopvj(dst.params)
+        {
+            SlotShaderParam &dp = dst.params[j];
+            if(sp.name == dp.name)
+            {
+                memcpy(dp.val, sp.val, sizeof(dp.val));
+                goto nextparam;
+            }
+        }
+        dst.params.add(sp);
+    nextparam:;
+    }
+    if(diff & (1<<VSLOT_SCALE)) 
+    {
+        dst.scale = clamp(dst.scale*src.scale, 1/8.0f, 8.0f);
+    }
+    if(diff & (1<<VSLOT_ROTATION)) 
+    {
+        dst.rotation = clamp(dst.rotation + src.rotation, 0, 7);
+        if(!dst.offset.iszero()) clampvslotoffset(dst, slot);
+    }
+    if(diff & (1<<VSLOT_OFFSET))
+    {
+        dst.offset.add(src.offset);
+        clampvslotoffset(dst, slot);
+    }
+    if(diff & (1<<VSLOT_SCROLL)) dst.scroll.add(src.scroll);
+    if(diff & (1<<VSLOT_LAYER)) dst.layer = src.layer;
+    if(diff & (1<<VSLOT_ALPHA))
+    {
+        dst.alphafront = src.alphafront;
+        dst.alphaback = src.alphaback;
+    }
+    if(diff & (1<<VSLOT_COLOR)) dst.colorscale.mul(src.colorscale);
+}
+
+void mergevslot(VSlot &dst, const VSlot &src, const VSlot &delta)
+{
+    dst.changed = src.changed | delta.changed;
+    propagatevslot(dst, src, (1<<VSLOT_NUM)-1);
+    mergevslot(dst, delta, delta.changed, src.slot);
+}
+
+static int compactedvslots = 0, compactvslotsprogress = 0, clonedvslots = 0;
+static bool markingvslots = false;
+
+
+static void assignvslot(VSlot &vs);
+
+static inline void assignvslotlayer(VSlot &vs)
+{
+    if(vs.layer && vslots.inrange(vs.layer))
+    {
+        VSlot &layer = *vslots[vs.layer];
+        if(layer.index < 0) assignvslot(layer);
+    }
+}
+
+static void assignvslot(VSlot &vs)
+{
+    vs.index = compactedvslots++;
+    assignvslotlayer(vs);
+}
+
+void compactvslot(int &index)
+{
+    if(vslots.inrange(index))
+    {
+        VSlot &vs = *vslots[index];
+        if(vs.index < 0) assignvslot(vs);
+        if(!markingvslots) index = vs.index;
+    }
+}
+
+void compactvslot(VSlot &vs)
+{
+    if(vs.index < 0) assignvslot(vs);
+}
+
+void compactvslots(cube *c, int n)
+{
+    loopi(n)
+    {
+        if(c[i].children) compactvslots(c[i].children, 8);
+        else loopj(6) if(vslots.inrange(c[i].texture[j]))
+        {
+            VSlot &vs = *vslots[c[i].texture[j]];
+            if(vs.index < 0) assignvslot(vs);
+            if(!markingvslots) c[i].texture[j] = vs.index;
+        }
+    }
+}
+
+void compacteditvslots()
+{
+    loopv(editingvslots) if(*editingvslots[i]) compactvslot(*editingvslots[i]);
+    loopv(unpackingvslots) compactvslot(*unpackingvslots[i].vslot);
+    loopv(editinfos)
+    {
+        editinfo *e = editinfos[i];
+        compactvslots(e->copy->c(), e->copy->size());
+    }
+    for(undoblock *u = undos.first; u; u = u->next)
+        if(!u->numents)
+            compactvslots(u->block()->c(), u->block()->size());
+    for(undoblock *u = redos.first; u; u = u->next)
+        if(!u->numents)
+            compactvslots(u->block()->c(), u->block()->size());
+}
+
+void compactmruvslots()
+{
+    remappedvslots.setsize(0);
+    loopvrev(texmru)
+    {
+        if(vslots.inrange(texmru[i]))
+        {
+            VSlot &vs = *vslots[texmru[i]];
+            if(vs.index >= 0)
+            {
+                texmru[i] = vs.index;
+                continue;
+            }
+        }
+        if(curtexindex > i) curtexindex--;
+        else if(curtexindex == i) curtexindex = -1;
+        texmru.remove(i);
+    }
+    if(vslots.inrange(lasttex))
+    {
+        VSlot &vs = *vslots[lasttex];
+        lasttex = vs.index >= 0 ? vs.index : 0;
+    }
+    else lasttex = 0;
+    reptex = vslots.inrange(reptex) ? vslots[reptex]->index : -1;
+}
+
+
+int compactvslots()
+{
+    clonedvslots = 0;
+    markingvslots = false;
+    compactedvslots = 0;
+    compactvslotsprogress = 0;
+    loopv(vslots) vslots[i]->index = -1;
+    loopv(slots) slots[i]->variants->index = compactedvslots++;
+    loopv(slots) assignvslotlayer(*slots[i]->variants);
+    loopv(vslots)
+    {
+        VSlot &vs = *vslots[i];
+        if(!vs.changed && vs.index < 0) { markingvslots = true; break; }
+    }
+    compactvslots(worldroot, 8);
+    int total = compactedvslots;
+    compacteditvslots();
+    loopv(vslots)
+    {
+        VSlot *vs = vslots[i];
+        if(vs->changed) continue;
+        while(vs->next)
+        {
+            if(vs->next->index < 0) vs->next = vs->next->next;
+            else vs = vs->next;
+        }
+    }
+    if(markingvslots)
+    {
+        markingvslots = false;
+        compactedvslots = 0;
+        compactvslotsprogress = 0;
+        int lastdiscard = 0;
+        loopv(vslots)
+        {
+            VSlot &vs = *vslots[i];
+            if(vs.changed || (vs.index < 0 && !vs.next)) vs.index = -1;
+            else
+            {
+                while(lastdiscard < i)
+                {
+                    VSlot &ds = *vslots[lastdiscard++];
+                    if(!ds.changed && ds.index < 0) ds.index = compactedvslots++;
+                } 
+                vs.index = compactedvslots++;
+            }
+        }
+        compactvslots(worldroot, 8);
+        total = compactedvslots;
+        compacteditvslots();
+    }
+    compactmruvslots();
+    loopv(vslots)
+    {
+        VSlot &vs = *vslots[i];
+        if(vs.index >= 0 && vs.layer && vslots.inrange(vs.layer)) vs.layer = vslots[vs.layer]->index;
+    }
+    loopv(vslots) 
+    {
+        while(vslots[i]->index >= 0 && vslots[i]->index != i)     
+            swap(vslots[i], vslots[vslots[i]->index]); 
+    }
+    for(int i = compactedvslots; i < vslots.length(); i++) delete vslots[i];
+    vslots.setsize(compactedvslots);
+    return total;
+}
+
+int autocompactvslots = 256;
+
+static VSlot *clonevslot(const VSlot &src, const VSlot &delta)
+{
+    VSlot *dst = vslots.add(new VSlot(src.slot, vslots.length()));
+    dst->changed = src.changed | delta.changed;
+    propagatevslot(*dst, src, ((1<<VSLOT_NUM)-1) & ~delta.changed);
+    propagatevslot(*dst, delta, delta.changed, true);
+    return dst;
+}
+
+VSlot *editvslot(const VSlot &src, const VSlot &delta)
+{
+    VSlot *exists = findvslot(*src.slot, src, delta);
+    if(exists) return exists;
+    if(vslots.length()>=0x10000)
+    {
+        compactvslots();
+        allchanged();
+        if(vslots.length()>=0x10000) return NULL;
+    }
+    if(autocompactvslots && ++clonedvslots >= autocompactvslots)
+    {
+        compactvslots();
+        allchanged();
+    }
+    return clonevslot(src, delta);
+}
+
 
 static VSlot *remapvslot(int index, bool delta, const VSlot &ds)
 {
@@ -1368,13 +1786,6 @@ int allfaces = 0;
 
 void mpeditvslot(int delta, VSlot &ds, int allfaces, selinfo &sel, bool local)
 {
-    if(local)
-    {
-        game::edittrigger(sel, EDIT_VSLOT, delta, allfaces, 0, &ds);
-        if(!(lastsel==sel)) tofronttex();
-        if(allfaces || !(repsel == sel)) reptex = -1;
-        repsel = sel;
-    }
     bool findrep = local && !allfaces && reptex < 0;
     VSlot *findedit = NULL;
     loopselxyz(remapvslots(c, delta != 0, ds, allfaces ? -1 : sel.orient, findrep, findedit));
@@ -1473,12 +1884,6 @@ void vreset()
 
 void mpedittex(int tex, int allfaces, selinfo &sel, bool local)
 {
-    if(local)
-    {
-        game::edittrigger(sel, EDIT_TEX, tex, allfaces);
-        if(allfaces || !(repsel == sel)) reptex = -1;
-        repsel = sel;
-    }
     bool findrep = local && !allfaces && reptex < 0;
     loopselxyz(edittexcube(c, tex, allfaces ? -1 : sel.orient, findrep));
 }
@@ -1528,37 +1933,9 @@ void filltexlist()
     }
 }
 
-void compactmruvslots()
-{
-    remappedvslots.setsize(0);
-    loopvrev(texmru)
-    {
-        if(vslots.inrange(texmru[i]))
-        {
-            VSlot &vs = *vslots[texmru[i]];
-            if(vs.index >= 0)
-            {
-                texmru[i] = vs.index;
-                continue;
-            }
-        }
-        if(curtexindex > i) curtexindex--;
-        else if(curtexindex == i) curtexindex = -1;
-        texmru.remove(i);
-    }
-    if(vslots.inrange(lasttex))
-    {
-        VSlot &vs = *vslots[lasttex];
-        lasttex = vs.index >= 0 ? vs.index : 0;
-    }
-    else lasttex = 0;
-    reptex = vslots.inrange(reptex) ? vslots[reptex]->index : -1;
-}
-
 void edittex(int i, bool save = true)
 {
     lasttex = i;
-    lasttexmillis = totalmillis;
     if(save)
     {
         loopvj(texmru) if(texmru[j]==lasttex) { curtexindex = j; break; }
@@ -1599,7 +1976,6 @@ void replacetexcube(cube &c, int oldtex, int newtex)
 
 void mpreplacetex(int oldtex, int newtex, bool insel, selinfo &sel, bool local)
 {
-    if(local) game::edittrigger(sel, EDIT_REPLACE, oldtex, newtex, insel ? 1 : 0);
     if(insel)
     {
         loopselxyz(replacetexcube(c, oldtex, newtex));
@@ -1608,7 +1984,6 @@ void mpreplacetex(int oldtex, int newtex, bool insel, selinfo &sel, bool local)
     {
         loopi(8) replacetexcube(worldroot[i], oldtex, newtex);
     }
-    allchanged();
 }
 
 bool mpreplacetex(int oldtex, int newtex, bool insel, selinfo &sel, ucharbuf &buf)
@@ -1673,11 +2048,6 @@ void rotatecube(cube &c, int d)   // rotates cube clockwise. see pics in cvs for
 
 void mpflip(selinfo &sel, bool local)
 {
-    if(local) 
-    { 
-        game::edittrigger(sel, EDIT_FLIP);
-        makeundo();
-    }
     int zs = sel.s[dimension(sel.orient)];
     loopxy(sel)
     {
@@ -1700,12 +2070,10 @@ void flip()
 
 void mprotate(int cw, selinfo &sel, bool local)
 {
-    if(local) game::edittrigger(sel, EDIT_ROTATE, cw);
     int d = dimension(sel.orient);
     if(!dimcoord(sel.orient)) cw = -cw;
     int m = sel.s[C[d]] < sel.s[R[d]] ? C[d] : R[d];
     int ss = sel.s[m] = max(sel.s[R[d]], sel.s[C[d]]);
-    if(local) makeundo();
     loop(z,sel.s[D[d]]) loopi(cw>0 ? 1 : 3)
     {
         loopxy(sel) rotatecube(selcube(x,y,z), d);
@@ -1760,7 +2128,6 @@ void setmat(cube &c, ushort mat, ushort matmask, ushort filtermat, ushort filter
 
 void mpeditmat(int matid, int filter, selinfo &sel, bool local)
 {
-    if(local) game::edittrigger(sel, EDIT_MAT, matid, filter);
 
     ushort filtermat = 0, filtermask = 0, matmask;
     int filtergeom = 0;

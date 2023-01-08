@@ -911,6 +911,132 @@ struct vslothdr
     ushort index;
     ushort slot;
 };
+void packvslot(vector<uchar> &buf, const VSlot &src)
+{
+    if(src.changed & (1<<VSLOT_SHPARAM))
+    {
+        loopv(src.params)
+        {
+            const SlotShaderParam &p = src.params[i];
+            buf.put(VSLOT_SHPARAM);
+            sendstring(p.name, buf);
+            loopj(4) putfloat(buf, p.val[j]);
+        }
+    }
+    if(src.changed & (1<<VSLOT_SCALE))
+    {
+        buf.put(VSLOT_SCALE);
+        putfloat(buf, src.scale);
+    }
+    if(src.changed & (1<<VSLOT_ROTATION))
+    {
+        buf.put(VSLOT_ROTATION);
+        putint(buf, src.rotation);
+    }
+    if(src.changed & (1<<VSLOT_OFFSET))
+    {
+        buf.put(VSLOT_OFFSET);
+        putint(buf, src.offset.x);
+        putint(buf, src.offset.y);
+    }
+    if(src.changed & (1<<VSLOT_SCROLL))
+    {
+        buf.put(VSLOT_SCROLL);
+        putfloat(buf, src.scroll.x);
+        putfloat(buf, src.scroll.y);
+    }
+    if(src.changed & (1<<VSLOT_LAYER))
+    {
+        buf.put(VSLOT_LAYER);
+        putuint(buf, vslots.inrange(src.layer) && !vslots[src.layer]->changed ? src.layer : 0);
+    }
+    if(src.changed & (1<<VSLOT_ALPHA))
+    {
+        buf.put(VSLOT_ALPHA);
+        putfloat(buf, src.alphafront);
+        putfloat(buf, src.alphaback);
+    }
+    if(src.changed & (1<<VSLOT_COLOR))
+    {
+        buf.put(VSLOT_COLOR);
+        putfloat(buf, src.colorscale.r);
+        putfloat(buf, src.colorscale.g);
+        putfloat(buf, src.colorscale.b);
+    }
+    buf.put(0xFF);
+}
+
+void packvslot(vector<uchar> &buf, int index)
+{
+    if(vslots.inrange(index)) packvslot(buf, *vslots[index]);
+    else buf.put(0xFF);
+}
+
+void packvslot(vector<uchar> &buf, const VSlot *vs)
+{
+    if(vs) packvslot(buf, *vs);
+    else buf.put(0xFF);
+}
+
+bool unpackvslot(ucharbuf &buf, VSlot &dst, bool delta)
+{
+    while(buf.remaining())
+    {
+        int changed = buf.get();
+        if(changed >= 0x80) break;
+        switch(changed)
+        {
+            case VSLOT_SHPARAM:
+            {
+                string name;
+                getstring(name, buf);
+                SlotShaderParam p = { name[0] ? getshaderparamname(name) : NULL, -1, { 0, 0, 0, 0 } };
+                loopi(4) p.val[i] = getfloat(buf);
+                if(p.name) dst.params.add(p);
+                break;
+            }
+            case VSLOT_SCALE:
+                dst.scale = getfloat(buf);
+                if(dst.scale <= 0) dst.scale = 1;
+                else if(!delta) dst.scale = clamp(dst.scale, 1/8.0f, 8.0f);
+                break;
+            case VSLOT_ROTATION:
+                dst.rotation = getint(buf);
+                if(!delta) dst.rotation = clamp(dst.rotation, 0, 7);
+                break;
+            case VSLOT_OFFSET:
+                dst.offset.x = getint(buf);
+                dst.offset.y = getint(buf);
+                if(!delta) dst.offset.max(0);
+                break;
+            case VSLOT_SCROLL:
+                dst.scroll.x = getfloat(buf);
+                dst.scroll.y = getfloat(buf);
+                break;
+            case VSLOT_LAYER:
+            {
+                int tex = getuint(buf);
+                dst.layer = vslots.inrange(tex) ? tex : 0;
+                break;
+            }
+            case VSLOT_ALPHA:
+                dst.alphafront = clamp(getfloat(buf), 0.0f, 1.0f);
+                dst.alphaback = clamp(getfloat(buf), 0.0f, 1.0f);
+                break;
+            case VSLOT_COLOR:
+                dst.colorscale.r = clamp(getfloat(buf), 0.0f, 2.0f);
+                dst.colorscale.g = clamp(getfloat(buf), 0.0f, 2.0f);
+                dst.colorscale.b = clamp(getfloat(buf), 0.0f, 2.0f);
+                break;
+            default:
+                return false;
+        }
+        dst.changed |= 1<<changed;
+    }
+    if(buf.overread()) return false;
+    return true;
+}
+
 
 static void packvslots(cube &c, vector<uchar> &buf, vector<ushort> &used)
 {
@@ -1913,11 +2039,6 @@ namespace hmap
     }
 }
 
-void edithmap(int dir, int mode) {
-    if((nompedit && multiplayer()) || !hmapsel) return;
-    hmap::run(dir, mode);
-}
-
 ///////////// main cube edit ////////////////
 
 int bounded(int n) { return n<0 ? 0 : (n>8 ? 8 : n); }
@@ -2035,29 +2156,7 @@ void mpeditface(int dir, int mode, selinfo &sel, bool local)
         sel.o[d] += sel.grid * seldir;
 }
 
-void editface(int *dir, int *mode)
-{
-    if(noedit(moving!=0)) return;
-    if(hmapedit!=1)
-        mpeditface(*dir, *mode, sel, true);
-    else
-        edithmap(*dir, *mode);
-}
-
 VAR(selectionsurf, 0, 0, 1);
-
-void pushsel(int *dir)
-{
-    if(noedit(moving!=0)) return;
-    int d = dimension(orient);
-    int s = dimcoord(orient) ? -*dir : *dir;
-    sel.o[d] += s*sel.grid;
-    if(selectionsurf==1)
-    {
-        player->o[d] += s*sel.grid;
-        player->resetinterp();
-    }
-}
 
 void mpdelcube(selinfo &sel, bool local)
 {
@@ -2181,17 +2280,6 @@ void mpeditvslot(int delta, VSlot &ds, int allfaces, selinfo &sel, bool local)
     VSlot *findedit = NULL;
     loopselxyz(remapvslots(c, delta != 0, ds, allfaces ? -1 : sel.orient, findrep, findedit));
     remappedvslots.setsize(0);
-    if(local && findedit)
-    {
-        lasttex = findedit->index;
-        lasttexmillis = totalmillis;
-        curtexindex = texmru.find(lasttex);
-        if(curtexindex < 0)
-        {
-            curtexindex = texmru.length();
-            texmru.add(lasttex);
-        }
-    }
 }
 
 bool mpeditvslot(int delta, int allfaces, selinfo &sel, ucharbuf &buf)
