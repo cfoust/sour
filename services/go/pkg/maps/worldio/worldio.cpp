@@ -688,6 +688,14 @@ void parsemessages(ucharbuf &p)
             break;
         }
 
+        case N_NEWMAP:
+        {
+            int size = getint(p);
+            if(size>=0) emptymap(size, true, NULL);
+            else enlargemap(true);
+            break;
+        }
+
         case N_EDITF:              // coop editing messages
         case N_EDITT:
         case N_EDITM:

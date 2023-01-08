@@ -211,6 +211,55 @@ static bool isallempty(cube &c)
     return true;
 }
 
+void resetmap()
+{
+    clearslots();
+    cancelsel();
+    pruneundos();
+
+    entities::clearents();
+}
+
+bool enlargemap(bool force)
+{
+    if(worldsize >= 1<<16) return false;
+
+    worldscale++;
+    worldsize *= 2;
+    cube *c = newcubes(F_EMPTY);
+    c[0].children = worldroot;
+    loopi(3) solidfaces(c[i+1]);
+    worldroot = c;
+
+    if(worldsize > 0x1000) splitocta(worldroot, worldsize>>1);
+
+    return true;
+}
+
+bool emptymap(int scale, bool force, const char *mname, bool usecfg)    // main empty world creation routine
+{
+    resetmap();
+
+    setvar("mapscale", scale<10 ? 10 : (scale>16 ? 16 : scale), true, false);
+    setvar("mapsize", 1<<worldscale, true, false);
+    
+    texmru.shrink(0);
+    freeocta(worldroot);
+    worldroot = newcubes(F_EMPTY);
+    loopi(4) solidfaces(worldroot[i]);
+
+    if(worldsize > 0x1000) splitocta(worldroot, worldsize>>1);
+
+    //if(usecfg)
+    //{
+        //identflags |= IDF_OVERRIDDEN;
+        //execfile("data/default_map_settings.cfg", false);
+        //identflags &= ~IDF_OVERRIDDEN;
+    //}
+
+    return true;
+}
+
 
 int getworldsize() { return worldsize; }
 int getmapversion() { return mapversion; }

@@ -4573,6 +4573,7 @@ curmsg = p.length(); \
                     if(smode) smode->newmap();
                 }
                 if(!ci->isEditMuted) {
+                    sendeditmessage(&p, curmsg);
                     QUEUE_MSG;
                 }
                 else {

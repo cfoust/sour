@@ -107,10 +107,21 @@ MSlot materialslots[(MATF_VOLUME|MATF_INDEX)+1];
 Slot dummyslot;
 VSlot dummyvslot(&dummyslot);
 
+static int compactedvslots = 0, compactvslotsprogress = 0, clonedvslots = 0;
+static bool markingvslots = false;
+
 Slot &lookupslot(int index, bool load)
 {
     Slot &s = slots.inrange(index) ? *slots[index] : (slots.inrange(DEFAULT_GEOM) ? *slots[DEFAULT_GEOM] : dummyslot);
     return s;
+}
+
+void clearslots()
+{
+    slots.deletecontents();
+    vslots.deletecontents();
+    loopi((MATF_VOLUME|MATF_INDEX)+1) materialslots[i].reset();
+    clonedvslots = 0;
 }
 
 static bool comparevslot(const VSlot &dst, const VSlot &src, int diff)
@@ -1647,8 +1658,6 @@ void mergevslot(VSlot &dst, const VSlot &src, const VSlot &delta)
     mergevslot(dst, delta, delta.changed, src.slot);
 }
 
-static int compactedvslots = 0, compactvslotsprogress = 0, clonedvslots = 0;
-static bool markingvslots = false;
 
 
 static void assignvslot(VSlot &vs);

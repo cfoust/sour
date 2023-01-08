@@ -104,6 +104,7 @@ extern void calcmerges();
 
 extern int mergefaces(int orient, facebounds *m, int sz);
 extern void mincubeface(const cube &cu, int orient, const ivec &o, int size, const facebounds &orig, facebounds &cf, ushort nmat = MAT_AIR, ushort matmask = MATF_VOLUME);
+extern void clearslots();
 
 static inline cubeext &ext(cube &c)
 {
