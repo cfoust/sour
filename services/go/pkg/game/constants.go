@@ -144,6 +144,16 @@ var EDIT_MESSAGES = []MessageCode{
 	N_ROTATE,
 }
 
+func IsEditMessage(code MessageCode) bool {
+	for _, editType := range EDIT_MESSAGES {
+		if editType == code {
+			return true
+		}
+	}
+
+	return false
+}
+
 // network quantization scale
 const DMF = 16.0  // for world locations
 const DNF = 100.0 // for normalized vectors

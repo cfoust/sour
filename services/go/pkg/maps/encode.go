@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"unsafe"
+	"os"
 
 	"github.com/cfoust/sour/pkg/maps/worldio"
 )
@@ -317,3 +318,24 @@ func (m *GameMap) EncodeOGZ() ([]byte, error) {
 
 	return buffer.Bytes(), nil
 }
+
+func (m *GameMap) ToFile(path string) error {
+	data, err := m.EncodeOGZ()
+	if err != nil {
+		return err
+	}
+
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = out.Write(data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+

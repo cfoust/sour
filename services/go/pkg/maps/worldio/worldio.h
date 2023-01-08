@@ -13,5 +13,6 @@ size_t savec_buf(void *p, unsigned int len, cube *c, int size);
 cube *getcubeindex(cube *c, int i);
 void cube_setedge(cube *c, int i, uchar value);
 void cube_settexture(cube *c, int i, ushort value);
+int apply_messages(cube **c, int _worldsize, void *data, size_t len);
 
 #endif

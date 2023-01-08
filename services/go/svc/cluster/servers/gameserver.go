@@ -303,11 +303,13 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 				continue
 			}
 
-			for _, editType := range game.EDIT_MESSAGES {
-				if editType != peeked.Type() {
-					continue
-				}
+			if game.IsEditMessage(peeked.Type()) {
 				logger.Info().Str("type", peeked.Type().String()).Msg("edit message")
+				server.Mutex.Lock()
+				if server.Editing != nil {
+					server.Editing.Consume(peeked)
+				}
+				server.Mutex.Unlock()
 			}
 
 			decoded, err := game.Read(bundle.Data, false)

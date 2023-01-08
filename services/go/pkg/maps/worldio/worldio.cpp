@@ -661,11 +661,10 @@ void filtertext(char *dst, const char *src, bool whitespace, bool forcespace, si
     *dst = '\0';
 }
 
-void parsemessages(ucharbuf &p)
+int processedits(ucharbuf &p)
 {
     static char text[MAXTRANS];
     int type;
-    bool mapchanged = false, demopacket = false;
     editinfo *edit;
 
     while(p.remaining()) {
@@ -707,6 +706,7 @@ void parsemessages(ucharbuf &p)
         case N_DELCUBE:
         case N_EDITVSLOT:
         {
+            printf("edit block\n");
             selinfo sel;
             sel.o.x = getint(p); sel.o.y = getint(p); sel.o.z = getint(p);
             sel.s.x = getint(p); sel.s.y = getint(p); sel.s.z = getint(p);
@@ -720,9 +720,9 @@ void parsemessages(ucharbuf &p)
                 {
                     int tex = getint(p),
                         allfaces = getint(p);
-                    if(p.remaining() < 2) return;
+                    if(p.remaining() < 2) return -1;
                     int extra = lilswap(*(const ushort *)p.pad(2));
-                    if(p.remaining() < extra) return;
+                    if(p.remaining() < extra) return -1;
                     ucharbuf ebuf = p.subbuf(extra);
                     if(sel.validate()) mpedittex(tex, allfaces, sel, ebuf);
                     break;
@@ -737,9 +737,9 @@ void parsemessages(ucharbuf &p)
                     int oldtex = getint(p),
                         newtex = getint(p),
                         insel = getint(p);
-                    if(p.remaining() < 2) return;
+                    if(p.remaining() < 2) return -1;
                     int extra = lilswap(*(const ushort *)p.pad(2));
-                    if(p.remaining() < extra) return;
+                    if(p.remaining() < extra) return -1;
                     ucharbuf ebuf = p.subbuf(extra);
                     if(sel.validate()) mpreplacetex(oldtex, newtex, insel>0, sel, ebuf);
                     break;
@@ -749,9 +749,9 @@ void parsemessages(ucharbuf &p)
                 {
                     int delta = getint(p),
                         allfaces = getint(p);
-                    if(p.remaining() < 2) return;
+                    if(p.remaining() < 2) return -1;
                     int extra = lilswap(*(const ushort *)p.pad(2));
-                    if(p.remaining() < extra) return;
+                    if(p.remaining() < extra) return -1;
                     ucharbuf ebuf = p.subbuf(extra);
                     if(sel.validate()) mpeditvslot(delta, allfaces, sel, ebuf);
                     break;
@@ -808,9 +808,23 @@ void parsemessages(ucharbuf &p)
 
         default:
             printf("got unknown message type=%d", type);
-            return;
+            return -1;
     }
     }
+
+    return 0;
+}
+
+int apply_messages(cube **c, int _worldsize, void *data, size_t len)
+{
+    worldroot = *c;
+    worldsize = _worldsize;
+    ucharbuf buf((uchar*)data, len);
+    int result = processedits(buf);
+
+    *c = worldroot;
+
+    return result;
 }
 
 int dbgvars = 0;
