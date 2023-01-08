@@ -929,7 +929,7 @@ void *genchallenge(const char *pubstr, const char *seed, int seedlen, void * cha
     tiger::hashval hash;
     tiger::hash((const uchar *)seed, seedlen, hash);
     gfint challenge;
-    memcpy(challenge.digits, hash.bytes, sizeof(challenge.digits));
+    memcpy(challenge.digits, hash.bytes, sizeof(challenge.digits) - 2);
     challenge.len = 8*sizeof(hash.bytes)/BI_DIGIT_BITS;
     challenge.shrink();
 
