@@ -541,18 +541,12 @@ void loadc(stream *f, cube &c, const ivec &co, int size, bool &failed)
 
 cube *loadchildren(stream *f, const ivec &co, int size, bool &failed)
 {
-    //printf("loadchildren\n");
     cube *c = newcubes();
     loopi(8)
     {
 ;       loadc(f, c[i], ivec(i, co, size), size, failed);
         if(failed) break;
     }
-
-    //printf("loadchildren\n");
-    //for (int i = 0; i < 8; i++) {
-        //printf("c[%d]: %x\n", i, &c[i]);
-    //}
     return c;
 }
 
@@ -611,11 +605,6 @@ cube *loadchildren_buf(void *p, size_t len, int size, int _mapversion)
     if (failed) {
         return NULL;
     }
-
-    //printf("loadchildren_buf\n");
-    //for (int i = 0; i < 8; i++) {
-        //printf("c[%d]: %x\n", i, &c[i]);
-    //}
 
     return c;
 }
@@ -717,7 +706,6 @@ int processedits(ucharbuf &p)
         case N_DELCUBE:
         case N_EDITVSLOT:
         {
-            printf("edit block\n");
             selinfo sel;
             sel.o.x = getint(p); sel.o.y = getint(p); sel.o.z = getint(p);
             sel.s.x = getint(p); sel.s.y = getint(p); sel.s.z = getint(p);
@@ -828,17 +816,7 @@ int processedits(ucharbuf &p)
 
 cube *apply_messages(cube *c, int _worldsize, void *data, size_t len)
 {
-    printf("apply_messages %x\n", c);
-    //for (int i = 0; i < 8; i++) {
-        //worldroot[i] = (*c)[i];
-    //}
     worldroot = c;
-    //for (int i = 0; i < 8; i++) {
-        //printf("c[%d]: %x\n", i, &((*c)[i]));
-    //}
-    //for (int i = 0; i < 8; i++) {
-        //printf("worldroot[%d]: %x\n", i, &worldroot[i]);
-    //}
     worldsize = _worldsize;
     worldscale = 0;
     while(1<<worldscale < _worldsize) worldscale++;
