@@ -500,6 +500,7 @@ func GetDefaultVariables() map[string]Variable {
 		"spincloudlayer":    FloatVariable(0),      // -720 -> 720
 		"spinclouds":        FloatVariable(0),      // -720 -> 720
 		"spinsky":           FloatVariable(0),      // -720 -> 720
+		"skytexture":        IntVariable(0),        // 0 -> 1
 		"sunlight":          IntVariable(0),        // 0 -> 0xFFFFFF
 		"sunlightpitch":     IntVariable(90),       // -90 -> 90
 		"sunlightscale":     FloatVariable(1),      // 0 -> 16

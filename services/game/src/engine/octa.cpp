@@ -222,6 +222,17 @@ cube &lookupcube(const ivec &to, int tsize, ivec &ro, int &rsize)
         ty = clamp(to.y, 0, worldsize-1),
         tz = clamp(to.z, 0, worldsize-1);
     int scale = worldscale-1, csize = abs(tsize);
+    conoutf(
+            "to.x=%d to.y=%d to.z=%d tsize=%d ro.x=%d ro.y=%d ro.z=%d rsize=%d\n",
+            to.x,
+            to.y,
+            to.z,
+            tsize,
+            ro.x,
+            ro.y,
+            ro.z,
+            rsize
+    );
     cube *c = &worldroot[octastep(tx, ty, tz, scale)];
     if(!(csize>>scale)) do
     {
