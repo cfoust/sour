@@ -9,6 +9,7 @@
 #include <limits.h>
 #include <assert.h>
 #include <time.h>
+#include <zlib.h>
 
 #include "worldio.h"
 %}
