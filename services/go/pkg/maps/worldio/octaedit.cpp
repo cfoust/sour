@@ -1,6 +1,181 @@
 #include "engine.h"
 #include "texture.h"
 
+// from tools.cpp
+
+template<class T>
+static inline void putfloat_(T &p, float f)
+{
+    lilswap(&f, 1);
+    p.put((uchar *)&f, sizeof(float));
+}
+void putfloat(ucharbuf &p, float f) { putfloat_(p, f); }
+void putfloat(vector<uchar> &p, float f) { putfloat_(p, f); }
+
+template<class T>
+static inline void sendstring_(const char *t, T &p)
+{
+    while(*t) putint(p, *t++);
+    putint(p, 0);
+}
+void sendstring(const char *t, ucharbuf &p) { sendstring_(t, p); }
+void sendstring(const char *t, vector<uchar> &p) { sendstring_(t, p); }
+
+void getstring(char *text, ucharbuf &p, size_t len)
+{
+    char *t = text;
+    do
+    {
+        if(t>=&text[len]) { text[len-1] = 0; return; }
+        if(!p.remaining()) { *t = 0; return; }
+        *t = getint(p);
+    }
+    while(*t++);
+}
+
+
+// much smaller encoding for unsigned integers up to 28 bits, but can handle signed
+template<class T>
+static inline void putuint_(T &p, int n)
+{
+    if(n < 0 || n >= (1<<21))
+    {
+        p.put(0x80 | (n & 0x7F));
+        p.put(0x80 | ((n >> 7) & 0x7F));
+        p.put(0x80 | ((n >> 14) & 0x7F));
+        p.put(n >> 21);
+    }
+    else if(n < (1<<7)) p.put(n);
+    else if(n < (1<<14))
+    {
+        p.put(0x80 | (n & 0x7F));
+        p.put(n >> 7);
+    }
+    else
+    {
+        p.put(0x80 | (n & 0x7F));
+        p.put(0x80 | ((n >> 7) & 0x7F));
+        p.put(n >> 14);
+    }
+}
+void putuint(ucharbuf &p, int n) { putuint_(p, n); }
+void putuint(vector<uchar> &p, int n) { putuint_(p, n); }
+
+template<class T>
+static inline void putint_(T &p, int n)
+{
+    if(n<128 && n>-127) p.put(n);
+    else if(n<0x8000 && n>=-0x8000) { p.put(0x80); p.put(n); p.put(n>>8); }
+    else { p.put(0x81); p.put(n); p.put(n>>8); p.put(n>>16); p.put(n>>24); }
+}
+void putint(ucharbuf &p, int n) { putint_(p, n); }
+void putint(vector<uchar> &p, int n) { putint_(p, n); }
+
+float getfloat(ucharbuf &p)
+{
+    float f;
+    p.get((uchar *)&f, sizeof(float));
+    return lilswap(f);
+}
+
+int getuint(ucharbuf &p)
+{
+    int n = p.get();
+    if(n & 0x80)
+    {
+        n += (p.get() << 7) - 0x80;
+        if(n & (1<<14)) n += (p.get() << 14) - (1<<14);
+        if(n & (1<<21)) n += (p.get() << 21) - (1<<21);
+        if(n & (1<<28)) n |= ~0U<<28;
+    }
+    return n;
+}
+
+int getint(ucharbuf &p)
+{
+    int c = (schar)p.get();
+    if(c==-128) { int n = p.get(); n |= ((schar)p.get())<<8; return n; }
+    else if(c==-127) { int n = p.get(); n |= p.get()<<8; n |= p.get()<<16; return n|(p.get()<<24); }
+    else return c;
+}
+
+///
+
+vector<VSlot *> vslots;
+vector<Slot *> slots;
+MSlot materialslots[(MATF_VOLUME|MATF_INDEX)+1];
+Slot dummyslot;
+VSlot dummyvslot(&dummyslot);
+
+Slot &lookupslot(int index, bool load)
+{
+    Slot &s = slots.inrange(index) ? *slots[index] : (slots.inrange(DEFAULT_GEOM) ? *slots[DEFAULT_GEOM] : dummyslot);
+    return s;
+}
+
+static bool comparevslot(const VSlot &dst, const VSlot &src, int diff)
+{
+    if(diff & (1<<VSLOT_SHPARAM)) 
+    {
+        if(src.params.length() != dst.params.length()) return false;
+        loopv(src.params) 
+        {
+            const SlotShaderParam &sp = src.params[i], &dp = dst.params[i];
+            if(sp.name != dp.name || memcmp(sp.val, dp.val, sizeof(sp.val))) return false;
+        }
+    }
+    if(diff & (1<<VSLOT_SCALE) && dst.scale != src.scale) return false;
+    if(diff & (1<<VSLOT_ROTATION) && dst.rotation != src.rotation) return false;
+    if(diff & (1<<VSLOT_OFFSET) && dst.offset != src.offset) return false;
+    if(diff & (1<<VSLOT_SCROLL) && dst.scroll != src.scroll) return false;
+    if(diff & (1<<VSLOT_LAYER) && dst.layer != src.layer) return false;
+    if(diff & (1<<VSLOT_ALPHA) && (dst.alphafront != src.alphafront || dst.alphaback != src.alphaback)) return false;
+    if(diff & (1<<VSLOT_COLOR) && dst.colorscale != src.colorscale) return false;
+    return true;
+}
+
+VSlot *findvslot(Slot &slot, const VSlot &src, const VSlot &delta)
+{
+    for(VSlot *dst = slot.variants; dst; dst = dst->next)
+    {
+        if((!dst->changed || dst->changed == (src.changed | delta.changed)) &&
+           comparevslot(*dst, src, src.changed & ~delta.changed) &&
+           comparevslot(*dst, delta, delta.changed))
+            return dst;
+    }
+    return NULL;
+}
+
+ivec lu;
+int lusize;
+
+cube &lookupcube(const ivec &to, int tsize, ivec &ro, int &rsize)
+{
+    int tx = clamp(to.x, 0, worldsize-1),
+        ty = clamp(to.y, 0, worldsize-1),
+        tz = clamp(to.z, 0, worldsize-1);
+    int scale = worldscale-1, csize = abs(tsize);
+    cube *c = &worldroot[octastep(tx, ty, tz, scale)];
+    if(!(csize>>scale)) do
+    {
+        if(!c->children)
+        {
+            if(tsize > 0) do
+            {
+                subdividecube(*c);
+                scale--;
+                c = &c->children[octastep(tx, ty, tz, scale)];
+            } while(!(csize>>scale));
+            break;
+        }
+        scale--;
+        c = &c->children[octastep(tx, ty, tz, scale)];
+    } while(!(csize>>scale));
+    ro = ivec(tx, ty, tz).mask(~0U<<scale);
+    rsize = 1<<scale;
+    return *c;
+}
+
 extern int outline;
 
 bool boxoutline = false;
@@ -50,21 +225,6 @@ void cancelsel()
 
 int editinview = 1;
 
-bool noedit(bool view, bool msg)
-{
-    if(!editmode) { if(msg) conoutf(CON_ERROR, "operation only allowed in edit mode"); return true; }
-    if(view || haveselent()) return false;
-    float r = 1.0f;
-    vec o(sel.o), s(sel.s);
-    s.mul(float(sel.grid) / 2.0f);
-    o.add(s);
-    r = float(max(s.x, max(s.y, s.z)));
-    bool viewable = (isvisiblesphere(r, o) != VFC_NOT_VISIBLE);
-    if(viewable || !editinview) return false;
-    if(msg) conoutf(CON_ERROR, "selection not in view");
-    return true;
-}
-
 void reorient()
 {
     sel.cx = 0;
@@ -76,7 +236,6 @@ void reorient()
 
 void selextend()
 {
-    if(noedit(true)) return;
     loopi(3)
     {
         if(cur[i]<sel.o[i])
@@ -94,14 +253,12 @@ void selextend()
 
 void setselpos(int *x, int *y, int *z)
 {
-    if(noedit(moving!=0)) return;
     havesel = true;
     sel.o = ivec(*x, *y, *z).mask(~(gridsize-1));
 }
 
 void movesel(int *dir, int *dim)
 {
-    if(noedit(moving!=0)) return;
     if(*dim < 0 || *dim > 2) return;
     sel.o[*dim] += *dir * sel.grid;
 }
@@ -156,19 +313,6 @@ void updateselection()
     sel.s.z = abs(lastcur.z-cur.z)/sel.grid+1;
 }
 
-bool editmoveplane(const vec &o, const vec &ray, int d, float off, vec &handle, vec &dest, bool first)
-{
-    plane pl(d, off);
-    float dist = 0.0f;
-    if(!pl.rayintersect(player->o, ray, dist))
-        return false;
-
-    dest = vec(ray).mul(dist).add(player->o);
-    if(first) handle = vec(dest).sub(o);
-    dest.sub(handle);
-    return true;
-}
-
 inline bool isheightmap(int orient, int d, bool empty, cube *c);
 extern void entdrag(const vec &ray);
 extern bool hoveringonent(int ent, int orient);
@@ -189,18 +333,6 @@ void readychanges(const ivec &bbmin, const ivec &bbmax, cube *c, const ivec &cor
     loopoctabox(cor, size, bbmin, bbmax)
     {
         ivec o(i, cor, size);
-        if(c[i].ext)
-        {
-            if(c[i].ext->va)             // removes va s so that octarender will recreate
-            {
-                int hasmerges = c[i].ext->va->hasmerges;
-                destroyva(c[i].ext->va);
-                c[i].ext->va = NULL;
-                if(hasmerges) invalidatemerges(c[i], o, size, true);
-            }
-            freeoctaentities(c[i]);
-            c[i].ext->tjoints = -1;
-        }
         if(c[i].children)
         {
             if(size<=1)
@@ -529,6 +661,15 @@ void packvslot(vector<uchar> &buf, const VSlot *vs)
 {
     if(vs) packvslot(buf, *vs);
     else buf.put(0xFF);
+}
+
+static hashset<const char *> shaderparamnames(256);
+
+const char *getshaderparamname(const char *name, bool insert)
+{
+    const char *exists = shaderparamnames.find(name, NULL);
+    if(exists || !insert) return exists;
+    return shaderparamnames.add(newstring(name));
 }
 
 bool unpackvslot(ucharbuf &buf, VSlot &dst, bool delta)
@@ -879,7 +1020,6 @@ void mppaste(editinfo *&e, selinfo &sel, bool local)
 
 void copy()
 {
-    if(noedit(true)) return;
     mpcopy(localedit, sel, true);
 }
 
@@ -893,7 +1033,6 @@ void pastehilite()
 
 void paste()
 {
-    if(noedit(true)) return;
     mppaste(localedit, sel, true);
 }
 
@@ -1359,19 +1498,6 @@ void mpeditface(int dir, int mode, selinfo &sel, bool local)
 
 int selectionsurf = 0;
 
-void pushsel(int *dir)
-{
-    if(noedit(moving!=0)) return;
-    int d = dimension(orient);
-    int s = dimcoord(orient) ? -*dir : *dir;
-    sel.o[d] += s*sel.grid;
-    if(selectionsurf==1)
-    {
-        player->o[d] += s*sel.grid;
-        player->resetinterp();
-    }
-}
-
 void mpdelcube(selinfo &sel, bool local)
 {
     loopselxyz(discardchildren(c, true); emptyfaces(c));
@@ -1379,7 +1505,6 @@ void mpdelcube(selinfo &sel, bool local)
 
 void delcube()
 {
-    if(noedit(true)) return;
     mpdelcube(sel, true);
 }
 
@@ -1702,13 +1827,11 @@ VSlot *editvslot(const VSlot &src, const VSlot &delta)
     if(vslots.length()>=0x10000)
     {
         compactvslots();
-        allchanged();
         if(vslots.length()>=0x10000) return NULL;
     }
     if(autocompactvslots && ++clonedvslots >= autocompactvslots)
     {
         compactvslots();
-        allchanged();
     }
     return clonevslot(src, delta);
 }
@@ -1790,17 +1913,6 @@ void mpeditvslot(int delta, VSlot &ds, int allfaces, selinfo &sel, bool local)
     VSlot *findedit = NULL;
     loopselxyz(remapvslots(c, delta != 0, ds, allfaces ? -1 : sel.orient, findrep, findedit));
     remappedvslots.setsize(0);
-    if(local && findedit)
-    {
-        lasttex = findedit->index;
-        lasttexmillis = totalmillis;
-        curtexindex = texmru.find(lasttex);
-        if(curtexindex < 0)
-        {
-            curtexindex = texmru.length();
-            texmru.add(lasttex);
-        }
-    }
 }
 
 bool mpeditvslot(int delta, int allfaces, selinfo &sel, ucharbuf &buf)
@@ -1812,17 +1924,8 @@ bool mpeditvslot(int delta, int allfaces, selinfo &sel, ucharbuf &buf)
     return true;
 }
 
-void vdelta(char *body)
-{
-    if(noedit()) return;
-    usevdelta++;
-    execute(body);
-    usevdelta--;
-}
-
 void vrotate(int *n)
 {
-    if(noedit()) return;
     VSlot ds;
     ds.changed = 1<<VSLOT_ROTATION;
     ds.rotation = usevdelta ? *n : clamp(*n, 0, 7);
@@ -1831,7 +1934,6 @@ void vrotate(int *n)
 
 void voffset(int *x, int *y)
 {
-    if(noedit()) return;
     VSlot ds;
     ds.changed = 1<<VSLOT_OFFSET;
     ds.offset = usevdelta ? ivec2(*x, *y) : ivec2(*x, *y).max(0);
@@ -1840,7 +1942,6 @@ void voffset(int *x, int *y)
 
 void vscroll(float *s, float *t)
 {
-    if(noedit()) return;
     VSlot ds;
     ds.changed = 1<<VSLOT_SCROLL;
     ds.scroll = vec2(*s, *t).div(1000);
@@ -1849,7 +1950,6 @@ void vscroll(float *s, float *t)
 
 void vscale(float *scale)
 {
-    if(noedit()) return;
     VSlot ds;
     ds.changed = 1<<VSLOT_SCALE;
     ds.scale = *scale <= 0 ? 1 : (usevdelta ? *scale : clamp(*scale, 1/8.0f, 8.0f));
@@ -1858,7 +1958,6 @@ void vscale(float *scale)
 
 void valpha(float *front, float *back)
 {
-    if(noedit()) return;
     VSlot ds;
     ds.changed = 1<<VSLOT_ALPHA;
     ds.alphafront = clamp(*front, 0.0f, 1.0f);
@@ -1868,7 +1967,6 @@ void valpha(float *front, float *back)
 
 void vcolor(float *r, float *g, float *b)
 {
-    if(noedit()) return;
     VSlot ds;
     ds.changed = 1<<VSLOT_COLOR;
     ds.colorscale = vec(clamp(*r, 0.0f, 1.0f), clamp(*g, 0.0f, 1.0f), clamp(*b, 0.0f, 1.0f));
@@ -1877,7 +1975,6 @@ void vcolor(float *r, float *g, float *b)
 
 void vreset()
 {
-    if(noedit()) return;
     VSlot ds;
     mpeditvslot(usevdelta, ds, allfaces, sel, true);
 }
@@ -1945,7 +2042,6 @@ void edittex(int i, bool save = true)
 
 void edittex_(int *dir)
 {
-    if(noedit()) return;
     filltexlist();
     if(texmru.empty()) return;
     texpaneltimer = 5000;
@@ -1956,7 +2052,6 @@ void edittex_(int *dir)
 
 void gettex()
 {
-    if(noedit(true)) return;
     filltexlist();
     int tex = -1;
     loopxyz(sel, sel.grid, tex = c.texture[sel.orient]);
@@ -2064,7 +2159,6 @@ void mpflip(selinfo &sel, bool local)
 
 void flip()
 {
-    if(noedit()) return;
     mpflip(sel, true);
 }
 
@@ -2090,7 +2184,6 @@ void mprotate(int cw, selinfo &sel, bool local)
 
 void rotate(int *cw)
 {
-    if(noedit()) return;
     mprotate(*cw, sel, true);
 }
 
