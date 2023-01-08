@@ -1249,7 +1249,34 @@ enum
     CT_UPPER   = 1<<5,
     CT_UNICODE = 1<<6
 };
-extern const uchar cubectype[256];
+
+#define CUBECTYPE(s, p, d, a, A, u, U) \
+    0, U, U, U, U, U, U, U, U, s, s, s, s, s, U, U, \
+    U, U, U, U, U, U, U, U, U, U, U, U, U, U, U, U, \
+    s, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, \
+    d, d, d, d, d, d, d, d, d, d, p, p, p, p, p, p, \
+    p, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, \
+    A, A, A, A, A, A, A, A, A, A, A, p, p, p, p, p, \
+    p, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, \
+    a, a, a, a, a, a, a, a, a, a, a, p, p, p, p, U, \
+    U, u, u, u, u, u, u, u, u, u, u, u, u, u, u, u, \
+    u, u, u, u, u, u, u, u, u, u, u, u, u, u, u, U, \
+    u, U, u, U, u, U, u, U, u, U, u, U, u, U, u, U, \
+    u, U, u, U, u, U, u, U, u, U, u, U, u, U, u, U, \
+    u, U, u, U, u, U, u, U, U, u, U, u, U, u, U, U, \
+    U, U, U, U, U, U, U, U, U, U, U, U, U, U, U, U, \
+    U, U, U, U, u, u, u, u, u, u, u, u, u, u, u, u, \
+    u, u, u, u, u, u, u, u, u, u, u, u, u, u, U, u
+const uchar cubectype[256] =
+{
+    CUBECTYPE(CT_SPACE,
+              CT_PRINT,
+              CT_PRINT|CT_DIGIT,
+              CT_PRINT|CT_ALPHA|CT_LOWER,
+              CT_PRINT|CT_ALPHA|CT_UPPER,
+              CT_PRINT|CT_UNICODE|CT_ALPHA|CT_LOWER,
+              CT_PRINT|CT_UNICODE|CT_ALPHA|CT_UPPER)
+};
 static inline int iscubeprint(uchar c) { return cubectype[c]&CT_PRINT; }
 static inline int iscubespace(uchar c) { return cubectype[c]&CT_SPACE; }
 static inline int iscubealpha(uchar c) { return cubectype[c]&CT_ALPHA; }

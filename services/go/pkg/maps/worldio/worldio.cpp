@@ -1,6 +1,9 @@
 // worldio.cpp: loading & saving of maps and savegames
 
 #include "engine.h"
+#include "game.h"
+
+#define MAXTRANS 5000                  // max amount of data to swallow in 1 go
 
 static void fixent(entity &e, int version)
 {
@@ -626,6 +629,180 @@ void cube_setedge(cube *c, int i, uchar value)
 void cube_settexture(cube *c, int i, ushort value)
 {
     c->texture[i] = value;
+}
+
+void setvar(const char *name, int i, bool dofunc, bool doclamp)
+{
+}
+void setfvar(const char *name, float f, bool dofunc, bool doclamp)
+{
+}
+void setsvar(const char *name, const char *str, bool dofunc)
+{
+}
+
+void filtertext(char *dst, const char *src, bool whitespace, bool forcespace, size_t len)
+{
+    for(int c = uchar(*src); c; c = uchar(*++src))
+    {
+        if(c == '\f')
+        {
+            if(!*++src) break;
+            continue;
+        }
+        if(!iscubeprint(c))
+        {
+            if(!iscubespace(c) || !whitespace) continue;
+            if(forcespace) c = ' ';
+        }
+        *dst++ = c;
+        if(!--len) break;
+    }
+    *dst = '\0';
+}
+
+void parsemessages(ucharbuf &p)
+{
+    static char text[MAXTRANS];
+    int type;
+    bool mapchanged = false, demopacket = false;
+    editinfo *edit;
+
+    while(p.remaining()) {
+        int type = getint(p);
+        switch(type)
+    {
+        case N_CLIPBOARD:
+        {
+            int cn = getint(p), unpacklen = getint(p), packlen = getint(p);
+            ucharbuf q = p.subbuf(max(packlen, 0));
+            unpackeditinfo(edit, q.buf, q.maxlen, unpacklen);
+            break;
+        }
+        case N_UNDO:
+        case N_REDO:
+        {
+            int cn = getint(p), unpacklen = getint(p), packlen = getint(p);
+            ucharbuf q = p.subbuf(max(packlen, 0));
+            unpackundo(q.buf, q.maxlen, unpacklen);
+            break;
+        }
+
+        case N_EDITF:              // coop editing messages
+        case N_EDITT:
+        case N_EDITM:
+        case N_FLIP:
+        case N_COPY:
+        case N_PASTE:
+        case N_ROTATE:
+        case N_REPLACE:
+        case N_DELCUBE:
+        case N_EDITVSLOT:
+        {
+            selinfo sel;
+            sel.o.x = getint(p); sel.o.y = getint(p); sel.o.z = getint(p);
+            sel.s.x = getint(p); sel.s.y = getint(p); sel.s.z = getint(p);
+            sel.grid = getint(p); sel.orient = getint(p);
+            sel.cx = getint(p); sel.cxs = getint(p); sel.cy = getint(p), sel.cys = getint(p);
+            sel.corner = getint(p);
+            switch(type)
+            {
+                case N_EDITF: { int dir = getint(p), mode = getint(p); if(sel.validate()) mpeditface(dir, mode, sel, false); break; }
+                case N_EDITT:
+                {
+                    int tex = getint(p),
+                        allfaces = getint(p);
+                    if(p.remaining() < 2) return;
+                    int extra = lilswap(*(const ushort *)p.pad(2));
+                    if(p.remaining() < extra) return;
+                    ucharbuf ebuf = p.subbuf(extra);
+                    if(sel.validate()) mpedittex(tex, allfaces, sel, ebuf);
+                    break;
+                }
+                case N_EDITM: { int mat = getint(p), filter = getint(p); if(sel.validate()) mpeditmat(mat, filter, sel, false); break; }
+                case N_FLIP: if(sel.validate()) mpflip(sel, false); break;
+                case N_COPY: if(sel.validate()) mpcopy(edit, sel, false); break;
+                case N_PASTE: if(sel.validate()) mppaste(edit, sel, false); break;
+                case N_ROTATE: { int dir = getint(p); if(sel.validate()) mprotate(dir, sel, false); break; }
+                case N_REPLACE:
+                {
+                    int oldtex = getint(p),
+                        newtex = getint(p),
+                        insel = getint(p);
+                    if(p.remaining() < 2) return;
+                    int extra = lilswap(*(const ushort *)p.pad(2));
+                    if(p.remaining() < extra) return;
+                    ucharbuf ebuf = p.subbuf(extra);
+                    if(sel.validate()) mpreplacetex(oldtex, newtex, insel>0, sel, ebuf);
+                    break;
+                }
+                case N_DELCUBE: if(sel.validate()) mpdelcube(sel, false); break;
+                case N_EDITVSLOT:
+                {
+                    int delta = getint(p),
+                        allfaces = getint(p);
+                    if(p.remaining() < 2) return;
+                    int extra = lilswap(*(const ushort *)p.pad(2));
+                    if(p.remaining() < extra) return;
+                    ucharbuf ebuf = p.subbuf(extra);
+                    if(sel.validate()) mpeditvslot(delta, allfaces, sel, ebuf);
+                    break;
+                }
+            }
+            break;
+        }
+
+        case N_REMIP:
+            {
+                mpremip(false);
+                break;
+            }
+        case N_EDITENT:            // coop edit of ent
+            {
+                int i = getint(p);
+                float x = getint(p)/DMF, y = getint(p)/DMF, z = getint(p)/DMF;
+                int type = getint(p);
+                int attr1 = getint(p), attr2 = getint(p), attr3 = getint(p), attr4 = getint(p), attr5 = getint(p);
+
+                mpeditent(i, vec(x, y, z), type, attr1, attr2, attr3, attr4, attr5, false);
+                break;
+            }
+
+        case N_EDITVAR:
+        {
+            int type = getint(p);
+            getstring(text, p);
+            string name;
+            filtertext(name, text, false);
+            switch(type)
+            {
+                case ID_VAR:
+                {
+                    int val = getint(p);
+                    setvar(name, val);
+                    break;
+                }
+                case ID_FVAR:
+                {
+                    float val = getfloat(p);
+                    setfvar(name, val);
+                    break;
+                }
+                case ID_SVAR:
+                {
+                    getstring(text, p);
+                    setsvar(name, text);
+                    break;
+                }
+            }
+            break;
+        }
+
+        default:
+            printf("got unknown message type=%d", type);
+            return;
+    }
+    }
 }
 
 int dbgvars = 0;

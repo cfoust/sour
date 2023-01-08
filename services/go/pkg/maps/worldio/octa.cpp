@@ -1808,3 +1808,104 @@ void reduceslope(ivec &n)
     if(!(n[R[mindim]]%minval) && !(n[C[mindim]]%minval)) n.div(minval);
     while(!((n.x|n.y|n.z)&1)) n.shr(1);
 }
+
+bool remip(cube &c, const ivec &co, int size)
+{
+    cube *ch = c.children;
+    if(!ch)
+    {
+        if(size<<1 <= 0x1000) return true;
+        subdividecube(c);
+        ch = c.children;
+    }
+
+    bool perfect = true;
+    loopi(8)
+    {
+        ivec o(i, co, size);
+        if(!remip(ch[i], o, size>>1)) perfect = false;
+    }
+
+    solidfaces(c); // so texmip is more consistent
+    loopj(6)
+        c.texture[j] = getmippedtexture(c, j); // parents get child texs regardless
+
+    if(!perfect) return false;
+    if(size<<1 > 0x1000) return false;
+
+    ushort mat = MAT_AIR;
+    loopi(8)
+    {
+        mat = ch[i].material;
+        if((mat&MATF_CLIP) == MAT_NOCLIP || mat&MAT_ALPHA)
+        {
+            if(i > 0) return false;
+            while(++i < 8) if(ch[i].material != mat) return false;
+            break;
+        }
+        else if(!isentirelysolid(ch[i]))
+        {
+            while(++i < 8)
+            {
+                int omat = ch[i].material;
+                if(isentirelysolid(ch[i]) ? (omat&MATF_CLIP) == MAT_NOCLIP || omat&MAT_ALPHA : mat != omat) return false;
+            }
+            break;
+        }
+    }
+
+    cube n = c;
+    n.ext = NULL;
+    forcemip(n);
+    n.children = NULL;
+    if(!subdividecube(n, false, false))
+        { freeocta(n.children); return false; }
+
+    cube *nh = n.children;
+    uchar vis[6] = {0, 0, 0, 0, 0, 0};
+    loopi(8)
+    {
+        if(ch[i].faces[0] != nh[i].faces[0] ||
+           ch[i].faces[1] != nh[i].faces[1] ||
+           ch[i].faces[2] != nh[i].faces[2])
+            { freeocta(nh); return false; }
+
+        if(isempty(ch[i]) && isempty(nh[i])) continue;
+
+        ivec o(i, co, size);
+        loop(orient, 6)
+            if(visibleface(ch[i], orient, o, size, MAT_AIR, (mat&MAT_ALPHA)^MAT_ALPHA, MAT_ALPHA))
+            {
+                if(ch[i].texture[orient] != n.texture[orient]) { freeocta(nh); return false; }
+                vis[orient] |= 1<<i;
+            }
+    }
+    if(mipvis) loop(orient, 6)
+    {
+        int mask = 0;
+        loop(x, 2) loop(y, 2) mask |= 1<<octaindex(dimension(orient), x, y, dimcoord(orient));
+        if(vis[orient]&mask && (vis[orient]&mask)!=mask) { freeocta(nh); return false; }
+    }
+
+    freeocta(nh);
+    discardchildren(c);
+    loopi(3) c.faces[i] = n.faces[i];
+    c.material = mat;
+    loopi(6) if(vis[i]) c.visible |= 1<<i;
+    if(c.visible) c.visible |= 0x40;
+    brightencube(c);
+    return true;
+}
+
+void mpremip(bool local)
+{
+    extern selinfo sel;
+    remipprogress = 1;
+    remiptotal = allocnodes;
+    loopi(8)
+    {
+        ivec o(i, ivec(0, 0, 0), worldsize>>1);
+        remip(worldroot[i], o, worldsize>>2);
+    }
+    calcmerges();
+}
