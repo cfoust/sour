@@ -32,6 +32,10 @@ func (m RawMessage) Data() []byte {
 	return m.data
 }
 
+type Unmarshalable interface {
+	Unmarshal(p *Packet) error
+}
+
 func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	if value.Kind() != reflect.Struct {
 		return fmt.Errorf("cannot unmarshal non-struct")
@@ -46,7 +50,6 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	for i := 0; i < type_.NumField(); i++ {
 		field := type_.Field(i)
 		fieldValue := value.Field(i)
-		ref := fmt.Sprintf("%s.%s", type_.Name(), field.Name)
 
 		switch field.Type.Kind() {
 		case reflect.Slice:
@@ -141,20 +144,13 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 
 			fieldValue.Set(slice)
 
-		case reflect.Int:
-			readValue, ok := p.GetInt()
-			if !ok {
-				return fmt.Errorf("error reading int %s", ref)
-			}
-			fieldValue.SetInt(int64(readValue))
-		case reflect.String:
-			readValue, ok := p.GetString()
-			if !ok {
-				return fmt.Errorf("error reading string %s", ref)
-			}
-			fieldValue.SetString(readValue)
 		case reflect.Struct:
 			err := unmarshalStruct(p, field.Type, fieldValue)
+			if err != nil {
+				return err
+			}
+		default:
+			err := unmarshalValue(p, field.Type, fieldValue)
 			if err != nil {
 				return err
 			}
@@ -217,7 +213,16 @@ func unmarshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 func Unmarshal(p *Packet, pieces ...interface{}) error {
 	for _, piece := range pieces {
 		type_ := reflect.TypeOf(piece).Elem()
-		value := reflect.ValueOf(piece).Elem()
+		pointer := reflect.ValueOf(piece)
+		value := pointer.Elem()
+
+		if u, ok := pointer.Interface().(Unmarshalable); ok {
+			err := u.Unmarshal(p)
+			if err != nil {
+				return err
+			}
+			continue
+		}
 
 		err := unmarshalValue(p, type_, value)
 		if err != nil {
@@ -298,7 +303,12 @@ func UnmarshalMessage(p *Packet, code MessageCode, message interface{}) (Message
 		return nil, fmt.Errorf("can't unmarshal non-pointer")
 	}
 
-	err := unmarshalStruct(p, type_.Elem(), value.Elem())
+	var err error
+	if u, ok := value.Interface().(Unmarshalable); ok {
+		err = u.Unmarshal(p)
+	} else {
+		err = unmarshalStruct(p, type_.Elem(), value.Elem())
+	}
 
 	after := *p
 

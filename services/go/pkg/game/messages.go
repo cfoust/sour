@@ -627,167 +627,71 @@ type Clipboard struct {
 	Data      []byte `type:"count"`
 }
 
+type Selection struct {
+	O      IVec
+	S      IVec
+	Grid   int
+	Orient int
+	Cx     int
+	Cxs    int
+	Cy     int
+	Cys    int
+	Corner int
+}
+
 // N_EDITF
 type Editf struct {
-	Sel_ox     int
-	Sel_oy     int
-	Sel_oz     int
-	Sel_sx     int
-	Sel_sy     int
-	Sel_sz     int
-	Sel_grid   int
-	Sel_orient int
-	Sel_cx     int
-	Sel_cxs    int
-	Sel_cy     int
-	Sel_cys    int
-	Sel_corner int
-	Dir        int
-	Mode       int
+	Sel  Selection
+	Dir  int
+	Mode int
 }
 
 // N_EDITT
 type Editt struct {
-	Sel_ox     int
-	Sel_oy     int
-	Sel_oz     int
-	Sel_sx     int
-	Sel_sy     int
-	Sel_sz     int
-	Sel_grid   int
-	Sel_orient int
-	Sel_cx     int
-	Sel_cxs    int
-	Sel_cy     int
-	Sel_cys    int
-	Sel_corner int
-	Tex        int
-	Allfaces   int
+	Sel      Selection
+	Tex      int
+	Allfaces int
 }
 
 // N_EDITM
 type Editm struct {
-	Sel_ox     int
-	Sel_oy     int
-	Sel_oz     int
-	Sel_sx     int
-	Sel_sy     int
-	Sel_sz     int
-	Sel_grid   int
-	Sel_orient int
-	Sel_cx     int
-	Sel_cxs    int
-	Sel_cy     int
-	Sel_cys    int
-	Sel_corner int
-	Mat        int
-	Filter     int
+	Sel    Selection
+	Mat    int
+	Filter int
 }
 
 // N_FLIP
 type Flip struct {
-	Sel_ox     int
-	Sel_oy     int
-	Sel_oz     int
-	Sel_sx     int
-	Sel_sy     int
-	Sel_sz     int
-	Sel_grid   int
-	Sel_orient int
-	Sel_cx     int
-	Sel_cxs    int
-	Sel_cy     int
-	Sel_cys    int
-	Sel_corner int
+	Sel Selection
 }
 
 // N_COPY
 type Copy struct {
-	Sel_ox     int
-	Sel_oy     int
-	Sel_oz     int
-	Sel_sx     int
-	Sel_sy     int
-	Sel_sz     int
-	Sel_grid   int
-	Sel_orient int
-	Sel_cx     int
-	Sel_cxs    int
-	Sel_cy     int
-	Sel_cys    int
-	Sel_corner int
+	Sel Selection
 }
 
 // N_PASTE
 type Paste struct {
-	Sel_ox     int
-	Sel_oy     int
-	Sel_oz     int
-	Sel_sx     int
-	Sel_sy     int
-	Sel_sz     int
-	Sel_grid   int
-	Sel_orient int
-	Sel_cx     int
-	Sel_cxs    int
-	Sel_cy     int
-	Sel_cys    int
-	Sel_corner int
+	Sel Selection
 }
 
 // N_ROTATE
 type Rotate struct {
-	Sel_ox     int
-	Sel_oy     int
-	Sel_oz     int
-	Sel_sx     int
-	Sel_sy     int
-	Sel_sz     int
-	Sel_grid   int
-	Sel_orient int
-	Sel_cx     int
-	Sel_cxs    int
-	Sel_cy     int
-	Sel_cys    int
-	Sel_corner int
-	Dir        int
+	Sel Selection
+	Dir int
 }
 
 // N_REPLACE
 type Replace struct {
-	Sel_ox     int
-	Sel_oy     int
-	Sel_oz     int
-	Sel_sx     int
-	Sel_sy     int
-	Sel_sz     int
-	Sel_grid   int
-	Sel_orient int
-	Sel_cx     int
-	Sel_cxs    int
-	Sel_cy     int
-	Sel_cys    int
-	Sel_corner int
-	Tex        int
-	Newtex     int
-	Insel      int
+	Sel    Selection
+	Tex    int
+	Newtex int
+	Insel  int
 }
 
 // N_DELCUBE
 type Delcube struct {
-	Sel_ox     int
-	Sel_oy     int
-	Sel_oz     int
-	Sel_sx     int
-	Sel_sy     int
-	Sel_sz     int
-	Sel_grid   int
-	Sel_orient int
-	Sel_cx     int
-	Sel_cxs    int
-	Sel_cy     int
-	Sel_cys    int
-	Sel_corner int
+	Sel Selection
 }
 
 // N_REMIP
