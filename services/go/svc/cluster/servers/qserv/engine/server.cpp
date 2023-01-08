@@ -300,6 +300,21 @@ ENetPeer *getclientpeer(int i) { return clients.inrange(i) && clients[i]->type==
 int getnumclients()        { return clients.length(); }
 uint getclientip(int n)    { return clients.inrange(n) && clients[n]->type==ST_TCPIP ? clients[n]->peer->address.host : 0; }
 
+void sendtocluster(int chan, ENetPacket *packet)
+{
+    if (socketCtl.isConnected() && clients.length() > 0) {
+        // We want the cluster to be able to see all of the broadcasts that
+        // happen instead of having to sort through client messages.
+        packetbuf p(MAXTRANS);
+        putuint(p, SERVER_EVENT_BROADCAST);
+        putuint(p, packet->dataLength);
+        putuint(p, chan);
+        p.put(packet->data, packet->dataLength);
+        ENetPacket *newPacket = p.finalize();
+        socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+    }
+}
+
 void sendpacket(int n, int chan, ENetPacket *packet, int exclude)
 {
     #ifdef QDEBUG
@@ -309,17 +324,7 @@ void sendpacket(int n, int chan, ENetPacket *packet, int exclude)
     {
         server::recordpacket(chan, packet->data, packet->dataLength);
 
-        if (socketCtl.isConnected() && clients.length() > 0) {
-            // We want the cluster to be able to see all of the broadcasts that
-            // happen instead of having to sort through client messages.
-            packetbuf p(MAXTRANS);
-            putuint(p, SERVER_EVENT_BROADCAST);
-            putuint(p, packet->dataLength);
-            putuint(p, chan);
-            p.put(packet->data, packet->dataLength);
-            ENetPacket *newPacket = p.finalize();
-            socketCtl.send((char*) newPacket->data, newPacket->dataLength);
-        }
+        sendtocluster(chan, packet);
 
         loopv(clients) {
             if(i!=exclude && server::allowbroadcast(i)) sendpacket(i, chan, packet);

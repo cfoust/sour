@@ -1784,6 +1784,7 @@ namespace server {
         int wslen = wsbuf.length();
         recordpacket(1, wsbuf.buf, wslen);
         wsbuf.put(wsbuf.buf, wslen);
+
         loopv(clients)
         {
             clientinfo &ci = *clients[i];
@@ -1798,6 +1799,14 @@ namespace server {
             else enet_packet_destroy(packet);
         }
         wsbuf.offset(wsbuf.length());
+    }
+
+    static void sendeditmessage(packetbuf *p, int offset)
+    {
+        ucharbuf wsbuf(p->buf+p->len, p->maxlen);
+        ENetPacket *packet = enet_packet_create(wsbuf.buf, wsbuf.maxlen, (reliablemessages ? ENET_PACKET_FLAG_RELIABLE : 0) | ENET_PACKET_FLAG_NO_ALLOCATE);
+        sendtocluster(1, packet);
+        enet_packet_destroy(packet);
     }
 
     static inline void addmessages(worldstate &ws, ucharbuf &wsbuf, int mtu, clientinfo &bi, clientinfo &ci)
@@ -4308,6 +4317,7 @@ curmsg = p.length(); \
                     break;
                 }
                 else {
+                    sendeditmessage(&p, curmsg);
                     QUEUE_AI;
                     QUEUE_MSG;
                     break;
@@ -4321,6 +4331,7 @@ curmsg = p.length(); \
                 int type = getint(p);
                 loopk(5) getint(p);
                 if(!ci || ci->state.state==CS_SPECTATOR || ci->isEditMuted) break;
+                sendeditmessage(&p, curmsg);
                 QUEUE_MSG;
                 bool canspawn = canspawnitem(type);
                 if(i<MAXENTS && (sents.inrange(i) || canspawnitem(type)))
@@ -4348,6 +4359,7 @@ curmsg = p.length(); \
                     case ID_SVAR: getstring(text, p);
                 }
                 if(ci && ci->state.state!=CS_SPECTATOR && !ci->isEditMuted) {
+                    sendeditmessage(&p, curmsg);
                     QUEUE_MSG;
                 }
                 else {
@@ -4672,10 +4684,12 @@ curmsg = p.length(); \
             case N_COPY:
                 ci->cleanclipboard();
                 ci->lastclipboard = totalmillis ? totalmillis : 1;
+                sendeditmessage(&p, curmsg);
                 goto genericmsg;
 
             case N_PASTE:
                 if(ci->state.state!=CS_SPECTATOR) sendclipboard(ci);
+                sendeditmessage(&p, curmsg);
                 goto genericmsg;
 
             case N_CLIPBOARD:
@@ -4714,7 +4728,10 @@ curmsg = p.length(); \
                 int extra = lilswap(*(const ushort *)p.pad(2));
                 if(p.remaining() < extra) { disconnect_client(sender, DISC_MSGERR); return; }
                 p.pad(extra);
-                if(ci && ci->state.state!=CS_SPECTATOR) QUEUE_MSG;
+                if(ci && ci->state.state!=CS_SPECTATOR) {
+                    sendeditmessage(&p, curmsg);
+                    QUEUE_MSG;
+                }
                 break;
             }
 
