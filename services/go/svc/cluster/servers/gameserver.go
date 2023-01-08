@@ -166,7 +166,6 @@ func (server *GameServer) SendMapResponse(mapName string, mode int32, path strin
 	if succeeded && server.Editing != nil {
 		go func() {
 			err := server.Editing.LoadMap(path)
-			log.Error().Msg("wtf")
 			if err != nil {
 				log.Error().Err(err).Msg("failed to load map")
 			}
