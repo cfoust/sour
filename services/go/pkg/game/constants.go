@@ -127,33 +127,6 @@ const (
 	NUMMSG
 )
 
-var EDIT_MESSAGES = []MessageCode{
-	N_COPY,
-	N_DELCUBE,
-	N_EDITENT,
-	N_EDITF,
-	N_EDITM,
-	N_EDITT,
-	N_EDITVAR,
-	N_EDITVSLOT,
-	N_FLIP,
-	N_NEWMAP,
-	N_PASTE,
-	N_REMIP,
-	N_REPLACE,
-	N_ROTATE,
-}
-
-func IsEditMessage(code MessageCode) bool {
-	for _, editType := range EDIT_MESSAGES {
-		if editType == code {
-			return true
-		}
-	}
-
-	return false
-}
-
 // network quantization scale
 const DMF = 16.0  // for world locations
 const DNF = 100.0 // for normalized vectors
