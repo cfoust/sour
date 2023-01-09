@@ -1,8 +1,6 @@
 package game
 
 import (
-	"encoding/binary"
-	"bytes"
 	"fmt"
 )
 
@@ -657,33 +655,30 @@ type Editt struct {
 	Sel      Selection
 	Tex      int
 	Allfaces int
+	Extra    []byte
 }
 
 var FAILED = fmt.Errorf("failed to unmarshal")
 
-func (e* Editt) Unmarshal(p *Packet) error {
+func (e *Editt) Unmarshal(p *Packet) error {
 	err := p.Get(
 		&e.Sel,
 		&e.Tex,
 		&e.Allfaces,
 	)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
-	extra := make([]byte, 2)
-	_, err = p.Read(extra)
-	if err != nil{
-		return err
+	q := Buffer(*p)
+	numBytes, ok := q.GetShort()
+	if !ok {
+		return FAILED
 	}
+	e.Extra = q[:numBytes]
+	q = q[numBytes:]
 
-	buffer := bytes.NewReader(extra)
-
-	var numExtra uint16
-	err = binary.Read(buffer, binary.LittleEndian, &numExtra)
-	if err != nil{
-		return err
-	}
+	*p = Packet(q)
 
 	return nil
 }
