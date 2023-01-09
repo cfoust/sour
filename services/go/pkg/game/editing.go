@@ -45,15 +45,42 @@ type Selection struct {
 
 // N_EDITVAR
 type EditVar struct {
-	Type int
-	Text string
-	// TODO impl
-	//switch(type)
-	//{
-	//case ID_VAR: getint(p); break;
-	//case ID_FVAR: getfloat(p); break;
-	//case ID_SVAR: getstring(text, p);
-	//}
+	Key   string
+	Value Variable
+}
+
+func (e *EditVar) Unmarshal(p *Packet) error {
+	var type_ int32
+	err := p.Get(
+		&type_,
+		&e.Key,
+	)
+	if err != nil {
+		return err
+	}
+
+	switch VariableType(type_) {
+	case VariableTypeInt:
+		value, ok := p.GetInt()
+		if !ok {
+			return FAILED
+		}
+		e.Value = IntVariable(value)
+	case VariableTypeFloat:
+		value, ok := p.GetFloat()
+		if !ok {
+			return FAILED
+		}
+		e.Value = FloatVariable(value)
+	case VariableTypeString:
+		value, ok := p.GetString()
+		if !ok {
+			return FAILED
+		}
+		e.Value = StringVariable(value)
+	}
+
+	return nil
 }
 
 // N_EDITVSLOT

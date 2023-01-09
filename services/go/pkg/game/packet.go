@@ -6,11 +6,11 @@
 /*modification, are permitted provided that the following conditions are met:*/
 
 /*1. Redistributions of source code must retain the above copyright notice, this*/
-   /*list of conditions and the following disclaimer.*/
+/*list of conditions and the following disclaimer.*/
 
 /*2. Redistributions in binary form must reproduce the above copyright notice,*/
-   /*this list of conditions and the following disclaimer in the documentation*/
-   /*and/or other materials provided with the distribution.*/
+/*this list of conditions and the following disclaimer in the documentation*/
+/*and/or other materials provided with the distribution.*/
 
 /*THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"*/
 /*AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE*/
@@ -104,6 +104,13 @@ func (p *Packet) Get(pieces ...interface{}) error {
 
 func (p *Packet) Put(pieces ...interface{}) error {
 	return Marshal(p, pieces...)
+}
+
+func (p *Packet) GetFloat() (float32, bool) {
+	q := Buffer(*p)
+	value, ok := q.GetFloat()
+	*p = Packet(q)
+	return value, ok
 }
 
 // GetInt returns the integer value encoded in the next byte(s) of the packet.

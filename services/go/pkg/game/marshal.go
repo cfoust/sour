@@ -389,8 +389,8 @@ func Read(b []byte, fromClient bool) ([]Message, error) {
 			message, err = UnmarshalMessage(&p, N_DEMOPACKET, &DemoPacket{})
 		case N_DEMOPLAYBACK:
 			message, err = UnmarshalMessage(&p, N_DEMOPLAYBACK, &DemoPlayback{})
-		//case N_EDITVAR:
-		//message, err = UnmarshalMessage(&p, N_EDITVAR, &Editvar{})
+		case N_EDITVAR:
+			message, err = UnmarshalMessage(&p, N_EDITVAR, &EditVar{})
 		case N_EDITVSLOT:
 			message, err = UnmarshalMessage(&p, N_EDITVSLOT, &EditVSlot{})
 		case N_EXPLODE:
