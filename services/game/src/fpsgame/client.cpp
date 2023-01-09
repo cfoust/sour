@@ -1132,7 +1132,6 @@ namespace game
             messages.put(mbuf, m.length());
             messagecn = mcn;
         }
-        conoutf("addmsg %s len=%d", gettype(type), p.length());
         messages.put(buf, p.length());
         return true;
     }
