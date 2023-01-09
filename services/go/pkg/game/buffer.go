@@ -74,6 +74,16 @@ func (p *Buffer) GetByte() (byte, bool) {
 	return value, ok
 }
 
+func (p *Buffer) GetBytes(n int) ([]byte, bool) {
+	if n > len(*p) {
+		return nil, false
+	}
+	b := make([]byte, n)
+	copy(b, (*p)[:n])
+	*p = (*p)[n:]
+	return b, true
+}
+
 func (p *Buffer) Read(n []byte) (int, error) {
 	packet := Packet(*p)
 	numRead, err := packet.Read(n)

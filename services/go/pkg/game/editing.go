@@ -61,19 +61,65 @@ type EditVSlot struct {
 	Sel      Selection
 	Delta    int
 	AllFaces int
-	// TODO impl
-	Extra1 byte
-	Extra2 byte
+	Extra    []byte
 }
 
+func (e *EditVSlot) Unmarshal(p *Packet) error {
+	err := p.Get(
+		&e.Sel,
+		&e.Delta,
+		&e.AllFaces,
+	)
+	if err != nil {
+		return err
+	}
+
+	q := Buffer(*p)
+	numBytes, ok := q.GetShort()
+	if !ok {
+		return FAILED
+	}
+	e.Extra, ok = q.GetBytes(int(numBytes))
+	if !ok {
+		return FAILED
+	}
+
+	*p = Packet(q)
+
+	return nil
+}
+
+// These are the same
 // N_REDO
-type Redo struct {
-	// TODO impl
+// N_UNDO
+// N_CLIPBOARD
+type PackData struct {
+	Client       int
+	UnpackLength int
+	PackLength   int
+	Data         []byte
 }
 
-// N_UNDO
-type Undo struct {
-	// TODO impl
+func (e *PackData) Unmarshal(p *Packet) error {
+	err := p.Get(
+		&e.Client,
+		&e.UnpackLength,
+		&e.PackLength,
+	)
+	if err != nil {
+		return err
+	}
+
+	q := Buffer(*p)
+	data, ok := q.GetBytes(int(e.PackLength))
+	if !ok {
+		return FAILED
+	}
+	e.Data = data
+
+	*p = Packet(q)
+
+	return nil
 }
 
 // N_EDITF
@@ -87,7 +133,7 @@ type Editf struct {
 type Editt struct {
 	Sel      Selection
 	Tex      int
-	Allfaces int
+	AllFaces int
 	Extra    []byte
 }
 
@@ -97,7 +143,7 @@ func (e *Editt) Unmarshal(p *Packet) error {
 	err := p.Get(
 		&e.Sel,
 		&e.Tex,
-		&e.Allfaces,
+		&e.AllFaces,
 	)
 	if err != nil {
 		return err
@@ -108,8 +154,10 @@ func (e *Editt) Unmarshal(p *Packet) error {
 	if !ok {
 		return FAILED
 	}
-	e.Extra = q[:numBytes]
-	q = q[numBytes:]
+	e.Extra, ok = q.GetBytes(int(numBytes))
+	if !ok {
+		return FAILED
+	}
 
 	*p = Packet(q)
 
@@ -162,15 +210,35 @@ type Rotate struct {
 type Replace struct {
 	Sel    Selection
 	Tex    int
-	Newtex int
+	NewTex int
 	Insel  int
+	Extra  []byte
 }
 
-// N_CLIPBOARD
-type Clipboard struct {
-	Client    int
-	UnpackLen int
-	Data      []byte `type:"count"`
+func (e *Replace) Unmarshal(p *Packet) error {
+	err := p.Get(
+		&e.Sel,
+		&e.Tex,
+		&e.NewTex,
+		&e.Insel,
+	)
+	if err != nil {
+		return err
+	}
+
+	q := Buffer(*p)
+	numBytes, ok := q.GetShort()
+	if !ok {
+		return FAILED
+	}
+	e.Extra, ok = q.GetBytes(int(numBytes))
+	if !ok {
+		return FAILED
+	}
+
+	*p = Packet(q)
+
+	return nil
 }
 
 // N_DELCUBE

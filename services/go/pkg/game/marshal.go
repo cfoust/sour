@@ -417,8 +417,8 @@ func Read(b []byte, fromClient bool) ([]Message, error) {
 			message, err = UnmarshalMessage(&p, N_MAPVOTE, &MapVote{})
 		case N_RECORDDEMO:
 			message, err = UnmarshalMessage(&p, N_RECORDDEMO, &RecordDemo{})
-		//case N_REDO:
-		//message, err = UnmarshalMessage(&p, N_REDO, &Redo{})
+		case N_REDO:
+			message, err = UnmarshalMessage(&p, N_REDO, &PackData{})
 		//case N_SENDMAP:
 		//message, err = UnmarshalMessage(&p, N_SENDMAP, &Sendmap{})
 		case N_SERVCMD:
@@ -435,8 +435,8 @@ func Read(b []byte, fromClient bool) ([]Message, error) {
 			message, err = UnmarshalMessage(&p, N_SWITCHTEAM, &SwitchTeam{})
 		case N_TRYDROPFLAG:
 			message, err = UnmarshalMessage(&p, N_TRYDROPFLAG, &TryDropFlag{})
-		//case N_UNDO:
-		//message, err = UnmarshalMessage(&p, N_UNDO, &Undo{})
+		case N_UNDO:
+			message, err = UnmarshalMessage(&p, N_UNDO, &PackData{})
 		case N_CONNECT:
 			message, err = UnmarshalMessage(&p, N_CONNECT, &Connect{})
 		case N_SERVINFO:
@@ -528,7 +528,7 @@ func Read(b []byte, fromClient bool) ([]Message, error) {
 		case N_ITEMACC:
 			message, err = UnmarshalMessage(&p, N_ITEMACC, &ItemAck{})
 		case N_CLIPBOARD:
-			message, err = UnmarshalMessage(&p, N_CLIPBOARD, &Clipboard{})
+			message, err = UnmarshalMessage(&p, N_CLIPBOARD, &PackData{})
 		case N_EDITF:
 			message, err = UnmarshalMessage(&p, N_EDITF, &Editf{})
 		case N_EDITT:
