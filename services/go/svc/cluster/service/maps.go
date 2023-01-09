@@ -21,8 +21,8 @@ import (
 
 func MakeDownloadMap(demoName string) ([]byte, error) {
 	gameMap := maps.NewMap()
-	gameMap.Vars["cloudlayer"] = maps.StringVariable("")
-	gameMap.Vars["skyboxcolour"] = maps.IntVariable(0)
+	gameMap.Vars["cloudlayer"] = game.StringVariable("")
+	gameMap.Vars["skyboxcolour"] = game.IntVariable(0)
 
 	// First, request the "demo" in its entirety.
 	fileName := demoName[:20]
@@ -41,7 +41,7 @@ say a
 `, fileName, fileName)
 
 	log.Warn().Msgf("maptitle len=%d", len(script))
-	gameMap.Vars["maptitle"] = maps.StringVariable(script)
+	gameMap.Vars["maptitle"] = game.StringVariable(script)
 
 	gameMap.Entities = append(gameMap.Entities,
 		maps.Entity{

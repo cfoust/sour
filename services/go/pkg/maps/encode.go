@@ -209,7 +209,7 @@ func (m *GameMap) Encode() ([]byte, error) {
 	err := p.Put(
 		FileHeader{
 			Magic:      [4]byte{byte('O'), byte('C'), byte('T'), byte('A')},
-			Version:    MAP_VERSION,
+			Version:    game.MAP_VERSION,
 			HeaderSize: 40,
 			WorldSize:  m.Header.WorldSize,
 			NumEnts:    int32(len(m.Entities)),
@@ -228,7 +228,7 @@ func (m *GameMap) Encode() ([]byte, error) {
 		return p, err
 	}
 
-	defaults := GetDefaultVariables()
+	defaults := game.DEFAULT_VARIABLES
 
 	for key, variable := range m.Vars {
 		defaultValue, defaultExists := defaults[key]
@@ -245,18 +245,18 @@ func (m *GameMap) Encode() ([]byte, error) {
 		}
 
 		switch variable.Type() {
-		case VariableTypeInt:
-			err = p.Put(variable.(IntVariable))
-		case VariableTypeFloat:
-			err = p.Put(variable.(FloatVariable))
-		case VariableTypeString:
-			value := variable.(StringVariable)
-			if len(value) >= MAXSTRLEN {
+		case game.VariableTypeInt:
+			err = p.Put(variable.(game.IntVariable))
+		case game.VariableTypeFloat:
+			err = p.Put(variable.(game.FloatVariable))
+		case game.VariableTypeString:
+			value := variable.(game.StringVariable)
+			if len(value) >= game.MAXSTRLEN {
 				return p, fmt.Errorf(
 					"svar value %s is too long (%d > %d)",
 					key,
 					len(value),
-					MAXSTRLEN,
+					game.MAXSTRLEN,
 				)
 			}
 			err = p.Put(

@@ -144,16 +144,6 @@ type MergeCompat struct {
 
 const CUBE_FACTOR = 8
 
-const MAP_VERSION = 33
-
-type VariableType byte
-
-const (
-	VariableTypeInt    VariableType = iota
-	VariableTypeFloat               = iota
-	VariableTypeString              = iota
-)
-
 const (
 	ET_EMPTY        byte = iota
 	ET_LIGHT             = iota
@@ -388,149 +378,10 @@ func NewVSlot(owner *Slot, index int32) *VSlot {
 	return &vslot
 }
 
-type IntVariable int32
-
-func (v IntVariable) Type() VariableType {
-	return VariableTypeInt
-}
-
-type FloatVariable float32
-
-func (v FloatVariable) Type() VariableType {
-	return VariableTypeFloat
-}
-
-type StringVariable string
-
-func (v StringVariable) Type() VariableType {
-	return VariableTypeString
-}
-
-const MAXSTRLEN = 260
-
-type Variable interface {
-	Type() VariableType
-}
-
-func GetDefaultVariables() map[string]Variable {
-	return map[string]Variable{
-		"ambient":           IntVariable(0x191919), // 1 -> 0xFFFFFF
-		"atmo":              IntVariable(0),        // 0 -> 1
-		"atmoalpha":         FloatVariable(1),      // 0 -> 1
-		"atmobright":        FloatVariable(1),      // 0 -> 16
-		"atmodensity":       FloatVariable(1),      // 0 -> 16
-		"atmohaze":          FloatVariable(0.1),    // 0 -> 16
-		"atmoheight":        FloatVariable(1),      // 1e-3f -> 1e3f
-		"atmoozone":         FloatVariable(1),      // 0 -> 16
-		"atmoplanetsize":    FloatVariable(1),      // 1e-3f -> 1e3f
-		"atmosundisk":       IntVariable(0),        // 0 -> 0xFFFFFF
-		"atmosundiskbright": FloatVariable(1),      // 0 -> 16
-		"atmosundiskcorona": FloatVariable(0.4),    // 0 -> 1
-		"atmosundisksize":   FloatVariable(12),     // 0 -> 90
-		"atmosunlight":      IntVariable(0),        // 0 -> 0xFFFFFF
-		"atmosunlightscale": FloatVariable(1),      // 0 -> 16
-		"blurlms":           IntVariable(0),        // 0 -> 2
-		"blurskylight":      IntVariable(0),        // 0 -> 2
-		"bumperror":         IntVariable(3),        // 1 -> 16
-		"causticcontrast":   FloatVariable(0.6),    // 0 -> 1
-		"causticmillis":     IntVariable(75),       // 0 -> 1000
-		"causticscale":      IntVariable(50),       // 0 -> 10000
-		"cloudalpha":        FloatVariable(1),      // 0 -> 1
-		"cloudbox":          StringVariable(""),
-		"cloudboxalpha":     FloatVariable(1),      // 0 -> 1
-		"cloudboxcolour":    IntVariable(0xFFFFFF), // 0 -> 0xFFFFFF
-		"cloudclip":         FloatVariable(0.5),    // 0 -> 1
-		"cloudcolour":       IntVariable(0xFFFFFF), // 0 -> 0xFFFFFF
-		"cloudfade":         FloatVariable(0.2),    // 0 -> 1
-		"cloudheight":       FloatVariable(0.2),    // -1 -> 1
-		"cloudlayer":        StringVariable(""),
-		"cloudoffsetx":      FloatVariable(0),      // 0 -> 1
-		"cloudoffsety":      FloatVariable(0),      // 0 -> 1
-		"cloudscale":        FloatVariable(1),      // 0.001 -> 64
-		"cloudscrollx":      FloatVariable(0),      // -16 -> 16
-		"cloudscrolly":      FloatVariable(0),      // -16 -> 16
-		"cloudsubdiv":       IntVariable(16),       // 4 -> 64
-		"envmapbb":          IntVariable(0),        // 0 -> 1
-		"envmapradius":      IntVariable(128),      // 0 -> 10000
-		"fog":               IntVariable(4000),     // 16 -> 1000024
-		"fogcolour":         IntVariable(0x8099B3), // 0 -> 0xFFFFFF
-		"fogdomecap":        IntVariable(1),        // 0 -> 1
-		"fogdomeclip":       FloatVariable(1),      // 0 -> 1
-		"fogdomeclouds":     IntVariable(1),        // 0 -> 1
-		"fogdomecolour":     IntVariable(0),        // 0 -> 0xFFFFFF
-		"fogdomeheight":     FloatVariable(-0.5),   // -1 -> 1
-		"fogdomemax":        FloatVariable(0),      // 0 -> 1
-		"fogdomemin":        FloatVariable(0),      // 0 -> 1
-		"glass2colour":      IntVariable(0x2080C0), // 0 -> 0xFFFFFF
-		"glass3colour":      IntVariable(0x2080C0), // 0 -> 0xFFFFFF
-		"glass4colour":      IntVariable(0x2080C0), // 0 -> 0xFFFFFF
-		"glasscolour":       IntVariable(0x2080C0), // 0 -> 0xFFFFFF
-		"grassalpha":        FloatVariable(1),      // 0 -> 1
-		"grassanimmillis":   IntVariable(3000),     // 0 -> 60000
-		"grassanimscale":    FloatVariable(0.03),   // 0 -> 1
-		"grasscolour":       IntVariable(0xFFFFFF), // 0 -> 0xFFFFFF
-		"grassscale":        IntVariable(2),        // 1 -> 64
-		"lava2colour":       IntVariable(0xFF4000), // 0 -> 0xFFFFFF
-		"lava2fog":          IntVariable(50),       // 0 -> 10000
-		"lava3colour":       IntVariable(0xFF4000), // 0 -> 0xFFFFFF
-		"lava3fog":          IntVariable(50),       // 0 -> 10000
-		"lava4colour":       IntVariable(0xFF4000), // 0 -> 0xFFFFFF
-		"lava4fog":          IntVariable(50),       // 0 -> 10000
-		"lavacolour":        IntVariable(0xFF4000), // 0 -> 0xFFFFFF
-		"lavafog":           IntVariable(50),       // 0 -> 10000
-		"lerpangle":         IntVariable(44),       // 0 -> 180
-		"lerpsubdiv":        IntVariable(2),        // 0 -> 4
-		"lerpsubdivsize":    IntVariable(4),        // 4 -> 128
-		"lighterror":        IntVariable(8),        // 1 -> 16
-		"lightlod":          IntVariable(0),        // 0 -> 10
-		"lightprecision":    IntVariable(32),       // 1 -> 1024
-		"maptitle":          StringVariable("Untitled Map by Unknown"),
-		"mapversion":        IntVariable(MAP_VERSION), // 1 -> 0
-		"minimapclip":       IntVariable(0),           // 0 -> 1
-		"minimapcolour":     IntVariable(0),           // 0 -> 0xFFFFFF
-		"minimapheight":     IntVariable(0),           // 0 -> 2<<16
-		"refractclear":      IntVariable(0),           // 0 -> 1
-		"refractsky":        IntVariable(0),           // 0 -> 1
-		"shadowmapambient":  IntVariable(0),           // 0 -> 0xFFFFFF
-		"shadowmapangle":    IntVariable(0),           // 0 -> 360
-		"skybox":            StringVariable(""),
-		"skyboxcolour":      IntVariable(0xFFFFFF), // 0 -> 0xFFFFFF
-		"skylight":          IntVariable(0),        // 0 -> 0xFFFFFF
-		"skytexturelight":   IntVariable(1),        // 0 -> 1
-		"spincloudlayer":    FloatVariable(0),      // -720 -> 720
-		"spinclouds":        FloatVariable(0),      // -720 -> 720
-		"spinsky":           FloatVariable(0),      // -720 -> 720
-		"skytexture":        IntVariable(0),        // 0 -> 1
-		"sunlight":          IntVariable(0),        // 0 -> 0xFFFFFF
-		"sunlightpitch":     IntVariable(90),       // -90 -> 90
-		"sunlightscale":     FloatVariable(1),      // 0 -> 16
-		"sunlightyaw":       IntVariable(0),        // 0 -> 360
-		"water2colour":      IntVariable(0x144650), // 0 -> 0xFFFFFF
-		"water2fallcolour":  IntVariable(0),        // 0 -> 0xFFFFFF
-		"water2fog":         IntVariable(150),      // 0 -> 10000
-		"water2spec":        IntVariable(150),      // 0 -> 1000
-		"water3colour":      IntVariable(0x144650), // 0 -> 0xFFFFFF
-		"water3fallcolour":  IntVariable(0),        // 0 -> 0xFFFFFF
-		"water3fog":         IntVariable(150),      // 0 -> 10000
-		"water3spec":        IntVariable(150),      // 0 -> 1000
-		"water4colour":      IntVariable(0x144650), // 0 -> 0xFFFFFF
-		"water4fallcolour":  IntVariable(0),        // 0 -> 0xFFFFFF
-		"water4fog":         IntVariable(150),      // 0 -> 10000
-		"water4spec":        IntVariable(150),      // 0 -> 1000
-		"watercolour":       IntVariable(0x144650), // 0 -> 0xFFFFFF
-		"waterfallcolour":   IntVariable(0),        // 0 -> 0xFFFFFF
-		"waterfog":          IntVariable(150),      // 0 -> 10000
-		"waterspec":         IntVariable(150),      // 0 -> 1000
-		"yawcloudlayer":     IntVariable(0),        // 0 -> 360
-		"yawclouds":         IntVariable(0),        // 0 -> 360
-		"yawsky":            IntVariable(0),        // 0 -> 360
-	}
-}
-
 type GameMap struct {
 	Header    Header
 	Entities  []Entity
-	Vars      map[string]Variable
+	Vars      map[string]game.Variable
 	WorldRoot *Cube
 	VSlots    []*VSlot
 }
@@ -538,14 +389,14 @@ type GameMap struct {
 func NewMap() *GameMap {
 	return &GameMap{
 		Header: Header{
-			Version:    MAP_VERSION,
+			Version:    game.MAP_VERSION,
 			GameType:   "fps",
 			HeaderSize: 40,
 			WorldSize:  1024,
 		},
 		Entities:  make([]Entity, 0),
 		WorldRoot: EmptyMap(1024),
-		Vars:      make(map[string]Variable),
+		Vars:      make(map[string]game.Variable),
 		VSlots:    make([]*VSlot, 0),
 	}
 }

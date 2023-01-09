@@ -11,6 +11,7 @@ import (
 	"github.com/repeale/fp-go"
 	"github.com/repeale/fp-go/option"
 
+	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/min"
 
@@ -78,14 +79,14 @@ func DumpMap(roots []string, filename string) ([]min.Reference, error) {
 
 	// Some variables contain textures
 	if skybox, ok := _map.Vars["skybox"]; ok {
-		value := string(skybox.(maps.StringVariable))
+		value := string(skybox.(game.StringVariable))
 		for _, path := range processor.FindCubemap(min.NormalizeTexture(value)) {
 			addFile(path)
 		}
 	}
 
 	if cloudlayer, ok := _map.Vars["cloudlayer"]; ok {
-		value := string(cloudlayer.(maps.StringVariable))
+		value := string(cloudlayer.(game.StringVariable))
 		resolved := processor.FindTexture(min.NormalizeTexture(value))
 
 		if opt.IsSome(resolved) {

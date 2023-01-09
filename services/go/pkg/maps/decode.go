@@ -8,8 +8,8 @@ import (
 	"os"
 	"unsafe"
 
-	"github.com/cfoust/sour/pkg/maps/worldio"
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/maps/worldio"
 
 	"github.com/rs/zerolog/log"
 )
@@ -227,22 +227,22 @@ func Decode(data []byte) (*GameMap, error) {
 	gameMap.Header = mapHeader
 
 	log.Debug().Msgf("Version %d", header.Version)
-	gameMap.Vars = make(map[string]Variable)
+	gameMap.Vars = make(map[string]game.Variable)
 
 	for i := 0; i < int(newFooter.NumVars); i++ {
 		_type, _ := p.GetByte()
 		name, _ := p.GetString()
 
-		switch VariableType(_type) {
-		case VariableTypeInt:
+		switch game.VariableType(_type) {
+		case game.VariableTypeInt:
 			value, _ := p.GetInt()
-			gameMap.Vars[name] = IntVariable(value)
-		case VariableTypeFloat:
+			gameMap.Vars[name] = game.IntVariable(value)
+		case game.VariableTypeFloat:
 			value, _ := p.GetFloat()
-			gameMap.Vars[name] = FloatVariable(value)
-		case VariableTypeString:
+			gameMap.Vars[name] = game.FloatVariable(value)
+		case game.VariableTypeString:
 			value, _ := p.GetString()
-			gameMap.Vars[name] = StringVariable(value)
+			gameMap.Vars[name] = game.StringVariable(value)
 		}
 	}
 
