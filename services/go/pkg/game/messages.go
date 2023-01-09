@@ -1,5 +1,11 @@
 package game
 
+import (
+	"encoding/binary"
+	"bytes"
+	"fmt"
+)
+
 // N_ADDBOT
 type AddBot struct {
 	NumBots int
@@ -651,6 +657,35 @@ type Editt struct {
 	Sel      Selection
 	Tex      int
 	Allfaces int
+}
+
+var FAILED = fmt.Errorf("failed to unmarshal")
+
+func (e* Editt) Unmarshal(p *Packet) error {
+	err := p.Get(
+		&e.Sel,
+		&e.Tex,
+		&e.Allfaces,
+	)
+	if err != nil{
+		return err
+	}
+
+	extra := make([]byte, 2)
+	_, err = p.Read(extra)
+	if err != nil{
+		return err
+	}
+
+	buffer := bytes.NewReader(extra)
+
+	var numExtra uint16
+	err = binary.Read(buffer, binary.LittleEndian, &numExtra)
+	if err != nil{
+		return err
+	}
+
+	return nil
 }
 
 // N_EDITM

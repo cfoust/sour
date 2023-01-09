@@ -7,10 +7,12 @@ import (
 	"unsafe"
 	"os"
 
+	"github.com/cfoust/sour/pkg/game"
+
 	"github.com/cfoust/sour/pkg/maps/worldio"
 )
 
-func saveVSlot(p *Buffer, vs *VSlot, prev int32) error {
+func saveVSlot(p *game.Buffer, vs *VSlot, prev int32) error {
 	err := p.Put(
 		vs.Changed,
 		prev,
@@ -87,7 +89,7 @@ func saveVSlot(p *Buffer, vs *VSlot, prev int32) error {
 	return nil
 }
 
-func saveVSlots(p *Buffer, slots []*VSlot) error {
+func saveVSlots(p *game.Buffer, slots []*VSlot) error {
 	numVSlots := len(slots)
 	if numVSlots == 0 {
 		return nil
@@ -184,7 +186,7 @@ func MapToCXX(cube *Cube) worldio.Cube {
 	return parent
 }
 
-func SaveChildren(p *Buffer, cube *Cube, size int32) error {
+func SaveChildren(p *game.Buffer, cube *Cube, size int32) error {
 	buf := make([]byte, 20000000) // 20 MiB
 	root := MapToCXX(cube)
 	numBytes := worldio.Savec_buf(
@@ -202,7 +204,7 @@ func SaveChildren(p *Buffer, cube *Cube, size int32) error {
 }
 
 func (m *GameMap) Encode() ([]byte, error) {
-	p := Buffer{}
+	p := game.Buffer{}
 
 	err := p.Put(
 		FileHeader{

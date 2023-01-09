@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/cfoust/sour/pkg/maps/worldio"
+	"github.com/cfoust/sour/pkg/game"
 
 	"github.com/rs/zerolog/log"
 )
@@ -59,7 +60,7 @@ func MapToGo(parent worldio.Cube) *Cube {
 	return &cube
 }
 
-func LoadChildren(p *Buffer, size int32, mapVersion int32) (*Cube, error) {
+func LoadChildren(p *game.Buffer, size int32, mapVersion int32) (*Cube, error) {
 	root := worldio.Loadchildren_buf(
 		uintptr(unsafe.Pointer(&(*p)[0])),
 		int64(len(*p)),
@@ -74,7 +75,7 @@ func LoadChildren(p *Buffer, size int32, mapVersion int32) (*Cube, error) {
 	return cube, nil
 }
 
-func LoadVSlot(p *Buffer, slot *VSlot, changed int32) error {
+func LoadVSlot(p *game.Buffer, slot *VSlot, changed int32) error {
 	slot.Changed = changed
 	if (changed & (1 << VSLOT_SHPARAM)) > 0 {
 		numParams, _ := p.GetShort()
@@ -137,7 +138,7 @@ func LoadVSlot(p *Buffer, slot *VSlot, changed int32) error {
 	return nil
 }
 
-func LoadVSlots(p *Buffer, numVSlots int32) ([]*VSlot, error) {
+func LoadVSlots(p *game.Buffer, numVSlots int32) ([]*VSlot, error) {
 	leftToRead := numVSlots
 
 	vSlots := make([]*VSlot, 0)
@@ -176,7 +177,7 @@ func LoadVSlots(p *Buffer, numVSlots int32) ([]*VSlot, error) {
 }
 
 func Decode(data []byte) (*GameMap, error) {
-	p := Buffer(data)
+	p := game.Buffer(data)
 
 	gameMap := GameMap{}
 
@@ -190,7 +191,7 @@ func Decode(data []byte) (*GameMap, error) {
 	oldFooter := OldFooter{}
 	if header.Version <= 28 {
 		// Reset and read again
-		p = Buffer(data)
+		p = game.Buffer(data)
 		p.Skip(28) // 7 * 4, like in worldio.cpp
 		err = p.Get(&oldFooter)
 		if err != nil {

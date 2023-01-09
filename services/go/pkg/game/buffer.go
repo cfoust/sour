@@ -1,17 +1,15 @@
-package maps
+package game
 
 import (
 	"bytes"
 	"encoding/binary"
 	"reflect"
-
-	"github.com/cfoust/sour/pkg/game"
 )
 
 // Similar to game.Packet, but map IO does not do any compression.
 type Buffer []byte
 
-func unmarshalRawValue(p *Buffer, type_ reflect.Type, value interface{}) error {
+func (p *Buffer) unmarshalRawValue(type_ reflect.Type, value interface{}) error {
 	var err error
 	switch v := value.(type) {
 	default:
@@ -25,11 +23,11 @@ func unmarshalRawValue(p *Buffer, type_ reflect.Type, value interface{}) error {
 	return nil
 }
 
-func Unmarshal(p *Buffer, pieces ...interface{}) error {
+func (p *Buffer) Unmarshal(pieces ...interface{}) error {
 	for _, piece := range pieces {
 		type_ := reflect.TypeOf(piece).Elem()
 
-		err := unmarshalRawValue(p, type_, piece)
+		err := p.unmarshalRawValue(type_, piece)
 		if err != nil {
 			return err
 		}
@@ -38,7 +36,7 @@ func Unmarshal(p *Buffer, pieces ...interface{}) error {
 	return nil
 }
 
-func marshalRawValue(p *Buffer, type_ reflect.Type, value interface{}) error {
+func (p *Buffer) marshalRawValue(type_ reflect.Type, value interface{}) error {
 	var buffer bytes.Buffer
 
 	var err error
@@ -56,11 +54,11 @@ func marshalRawValue(p *Buffer, type_ reflect.Type, value interface{}) error {
 	return nil
 }
 
-func Marshal(p *Buffer, pieces ...interface{}) error {
+func (p *Buffer) Marshal(pieces ...interface{}) error {
 	for _, piece := range pieces {
 		type_ := reflect.TypeOf(piece)
 
-		err := marshalRawValue(p, type_, piece)
+		err := p.marshalRawValue(type_, piece)
 		if err != nil {
 			return err
 		}
@@ -70,14 +68,14 @@ func Marshal(p *Buffer, pieces ...interface{}) error {
 }
 
 func (p *Buffer) GetByte() (byte, bool) {
-	packet := game.Packet(*p)
+	packet := Packet(*p)
 	value, ok := packet.GetByte()
 	(*p) = []byte(packet)
 	return value, ok
 }
 
 func (p *Buffer) Read(n []byte) (int, error) {
-	packet := game.Packet(*p)
+	packet := Packet(*p)
 	numRead, err := packet.Read(n)
 	(*p) = []byte(packet)
 	return numRead, err
@@ -92,11 +90,11 @@ func (p *Buffer) Skip(n int) bool {
 }
 
 func (p *Buffer) Get(pieces ...interface{}) error {
-	return Unmarshal(p, pieces...)
+	return p.Unmarshal(pieces...)
 }
 
 func (p *Buffer) Put(pieces ...interface{}) error {
-	return Marshal(p, pieces...)
+	return p.Marshal(pieces...)
 }
 
 func (p *Buffer) GetString() (string, bool) {
