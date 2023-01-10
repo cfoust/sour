@@ -28,7 +28,6 @@ type GameServer struct {
 
 	NumClients int
 
-
 	// Everything we get from serverinfo
 	Info       ServerInfo
 	ClientInfo map[uint16]*ClientExtInfo
@@ -169,6 +168,8 @@ func (server *GameServer) SendMapResponse(mapName string, mode int32, path strin
 			if err != nil {
 				log.Error().Err(err).Msg("failed to load map")
 			}
+
+			go server.Editing.PollEdits(server.Context)
 		}()
 	}
 	server.Mutex.Unlock()
@@ -302,21 +303,6 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 				continue
 			}
 
-			peeked, err := game.Peek(bundle.Data)
-			if err != nil {
-				logger.Warn().Err(err).Msg("failed to peek broadcast message")
-				continue
-			}
-
-			if game.IsEditMessage(peeked.Type()) {
-				logger.Info().Str("type", peeked.Type().String()).Msg("edit message")
-				server.Mutex.Lock()
-				if server.Editing != nil {
-					server.Editing.Consume(peeked)
-				}
-				server.Mutex.Unlock()
-			}
-
 			decoded, err := game.Read(bundle.Data, false)
 			if err != nil {
 				logger.Warn().Err(err).Msg("failed to decode broadcast")
@@ -325,6 +311,15 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 
 			for _, message := range decoded {
 				logger.Debug().Str("type", message.Type().String()).Msg("broadcast")
+
+				if game.IsEditMessage(message.Type()) {
+					server.Mutex.Lock()
+					if server.Editing != nil {
+						server.Editing.Process(message)
+					}
+					server.Mutex.Unlock()
+				}
+
 				server.broadcasts <- message
 			}
 		case <-ctx.Done():

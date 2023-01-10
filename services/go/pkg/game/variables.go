@@ -251,3 +251,19 @@ func (v Variables) SetString(name string, value string) error {
 
 	return nil
 }
+
+func (v Variables) Set(name string, value Variable) error {
+	switch value.Type() {
+	case VariableTypeInt:
+		var_ := value.(IntVariable)
+		return v.SetInt(name, int32(var_))
+	case VariableTypeFloat:
+		var_ := value.(FloatVariable)
+		return v.SetFloat(name, float32(var_))
+	case VariableTypeString:
+		var_ := value.(StringVariable)
+		return v.SetString(name, string(var_))
+	}
+
+	return fmt.Errorf("attempt to set invalid variable")
+}
