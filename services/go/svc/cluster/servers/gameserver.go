@@ -461,7 +461,7 @@ func (server *GameServer) HandleMapChange(ctx context.Context, mapName string, m
 	}
 
 	if mode == game.MODE_COOP {
-		server.Editing = NewEditingState()
+		// server.Editing = NewEditingState()
 	}
 
 	server.Mutex.Unlock()
