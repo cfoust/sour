@@ -253,6 +253,7 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 					continue
 				}
 
+				target.cancel()
 				server.RemoveClient(target)
 				target.disconnect <- true
 
