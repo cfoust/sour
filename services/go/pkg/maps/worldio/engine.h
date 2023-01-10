@@ -288,5 +288,8 @@ extern bool pointinsel(const selinfo &sel, const vec &o);
 extern void resetmap();
 extern void startmap(const char *name);
 
+// blend
+bool loadblendmap(stream *f, int info);
+
 #endif
 

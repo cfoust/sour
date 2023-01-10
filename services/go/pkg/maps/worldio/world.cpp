@@ -240,8 +240,8 @@ bool emptymap(int scale, bool force, const char *mname, bool usecfg)    // main 
 {
     resetmap();
 
-    setvar("mapscale", scale<10 ? 10 : (scale>16 ? 16 : scale), true, false);
-    setvar("mapsize", 1<<worldscale, true, false);
+    //setvar("mapscale", scale<10 ? 10 : (scale>16 ? 16 : scale), true, false);
+    //setvar("mapsize", 1<<worldscale, true, false);
     
     texmru.shrink(0);
     freeocta(worldroot);

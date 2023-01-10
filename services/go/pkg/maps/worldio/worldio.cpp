@@ -2,6 +2,7 @@
 
 #include "engine.h"
 #include "game.h"
+#include "texture.h"
 
 #define MAXTRANS 5000                  // max amount of data to swallow in 1 go
 
@@ -185,6 +186,73 @@ void savec(cube *c, const ivec &o, int size, stream *f, bool nolms)
             }
         }
     }
+}
+
+void loadvslot(stream *f, VSlot &vs, int changed)
+{
+    vs.changed = changed;
+    if(vs.changed & (1<<VSLOT_SHPARAM))
+    {
+        int numparams = f->getlil<ushort>();
+        string name;
+        loopi(numparams)
+        {
+            SlotShaderParam &p = vs.params.add();
+            int nlen = f->getlil<ushort>();
+            f->read(name, min(nlen, MAXSTRLEN-1));
+            name[min(nlen, MAXSTRLEN-1)] = '\0';
+            if(nlen >= MAXSTRLEN) f->seek(nlen - (MAXSTRLEN-1), SEEK_CUR);
+            p.name = getshaderparamname(name);
+            p.loc = -1;
+            loopk(4) p.val[k] = f->getlil<float>();
+        }
+    }
+    if(vs.changed & (1<<VSLOT_SCALE)) vs.scale = f->getlil<float>();
+    if(vs.changed & (1<<VSLOT_ROTATION)) vs.rotation = clamp(f->getlil<int>(), 0, 7);
+    if(vs.changed & (1<<VSLOT_OFFSET))
+    {
+        vs.offset.x = f->getlil<int>();
+        vs.offset.y = f->getlil<int>();
+    }
+    if(vs.changed & (1<<VSLOT_SCROLL))
+    {
+        vs.scroll.x = f->getlil<float>();
+        vs.scroll.y = f->getlil<float>();
+    }
+    if(vs.changed & (1<<VSLOT_LAYER)) vs.layer = f->getlil<int>();
+    if(vs.changed & (1<<VSLOT_ALPHA))
+    {
+        vs.alphafront = f->getlil<float>();
+        vs.alphaback = f->getlil<float>();
+    }
+    if(vs.changed & (1<<VSLOT_COLOR))
+    {
+        loopk(3) vs.colorscale[k] = f->getlil<float>();
+    }
+}
+
+void loadvslots(stream *f, int numvslots)
+{
+    int *prev = new int[numvslots];
+    if(!prev) return;
+    memset(prev, -1, numvslots*sizeof(int));
+    while(numvslots > 0)
+    {
+        int changed = f->getlil<int>();
+        if(changed < 0)
+        {
+            loopi(-changed) vslots.add(new VSlot(NULL, vslots.length()));
+            numvslots += changed;
+        }
+        else
+        {
+            prev[vslots.length()] = f->getlil<int>();
+            loadvslot(f, *vslots.add(new VSlot(NULL, vslots.length())), changed);
+            numvslots--;
+        }
+    }
+    loopv(vslots) if(vslots.inrange(prev[i])) vslots[prev[i]]->next = vslots[i];
+    delete[] prev;
 }
 
 struct surfacecompat
@@ -550,6 +618,62 @@ cube *loadchildren(stream *f, const ivec &co, int size, bool &failed)
     return c;
 }
 
+bool partial_load_world(
+        stream *f,
+        int numvslots,
+        int worldsize,
+        int mapversion,
+        int numlightmaps,
+        int numpvs,
+        int blendmap
+)
+{
+    loadvslots(f, numvslots);
+
+    bool failed = false;
+    worldroot = loadchildren(f, ivec(0, 0, 0), worldsize>>1, failed);
+    if(failed) return true;
+
+    validatec(worldroot, worldsize>>1);
+
+    if(!failed)
+    {
+        if(mapversion >= 7) loopi(numlightmaps)
+        {
+            LightMap &lm = lightmaps.add();
+            if(mapversion >= 17)
+            {
+                int type = f->getchar();
+                lm.type = type&0x7F;
+                if(mapversion >= 20 && type&0x80)
+                {
+                    lm.unlitx = f->getlil<ushort>();
+                    lm.unlity = f->getlil<ushort>();
+                }
+            }
+            if(lm.type&LM_ALPHA && (lm.type&LM_TYPE)!=LM_BUMPMAP1) lm.bpp = 4;
+            lm.data = new uchar[lm.bpp*LM_PACKW*LM_PACKH];
+            f->read(lm.data, lm.bpp * LM_PACKW * LM_PACKH);
+            lm.finalize();
+        }
+
+        if(mapversion >= 25 && numpvs > 0) loadpvs(f, numpvs);
+        if(mapversion >= 28 && blendmap) loadblendmap(f, blendmap);
+    }
+
+    //identflags |= IDF_OVERRIDDEN;
+    //execfile("data/default_map_settings.cfg", false);
+    //execfile(cfgname, false);
+    //identflags &= ~IDF_OVERRIDDEN;
+
+    extern void fixlightmapnormals();
+    if(mapversion <= 25) fixlightmapnormals();
+    extern void fixrotatedlightmaps();
+    if(mapversion <= 31) fixrotatedlightmaps();
+
+    return true;
+}
+
 struct bufstream : stream
 {
     ucharbuf buf;
@@ -629,16 +753,6 @@ void cube_setedge(cube *c, int i, uchar value)
 void cube_settexture(cube *c, int i, ushort value)
 {
     c->texture[i] = value;
-}
-
-void setvar(const char *name, int i, bool dofunc, bool doclamp)
-{
-}
-void setfvar(const char *name, float f, bool dofunc, bool doclamp)
-{
-}
-void setsvar(const char *name, const char *str, bool dofunc)
-{
 }
 
 void filtertext(char *dst, const char *src, bool whitespace, bool forcespace, size_t len)
@@ -781,24 +895,23 @@ int processedits(ucharbuf &p)
             getstring(text, p);
             string name;
             filtertext(name, text, false);
+
+            // We handle variables in Go
             switch(type)
             {
                 case ID_VAR:
                 {
-                    int val = getint(p);
-                    setvar(name, val);
+                    getint(p);
                     break;
                 }
                 case ID_FVAR:
                 {
-                    float val = getfloat(p);
-                    setfvar(name, val);
+                    getfloat(p);
                     break;
                 }
                 case ID_SVAR:
                 {
                     getstring(text, p);
-                    setsvar(name, text);
                     break;
                 }
             }
@@ -830,11 +943,6 @@ cube *apply_messages(cube *c, int _worldsize, void *data, size_t len)
 }
 
 int dbgvars = 0;
-
-void dumpc(cube *c)
-{
-    printf("c %x\n", c);
-}
 
 #endif
 
