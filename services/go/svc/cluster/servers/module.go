@@ -52,8 +52,6 @@ const (
 	SOCKET_EVENT_SERVER_INFO_REQUEST
 )
 
-const PROTOCOL_VERSION = 260
-
 type ServerEvent uint32
 
 const (

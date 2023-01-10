@@ -85,7 +85,7 @@ type SendState struct {
 }
 
 func (s *SendState) SendClient(data []byte, channel int) <-chan bool {
-	return s.Client.Connection.Send(game.GamePacket{
+	return s.Client.Send(game.GamePacket{
 		Channel: uint8(channel),
 		Data:    data,
 	})

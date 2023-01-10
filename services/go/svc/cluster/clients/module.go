@@ -85,6 +85,11 @@ type NetworkClient interface {
 	Destroy()
 }
 
+type Intercept struct {
+	From chan game.GamePacket
+	To   chan game.GamePacket
+}
+
 type Client struct {
 	Id    uint16
 	Mutex sync.Mutex
@@ -118,6 +123,8 @@ type Client struct {
 	cancel           context.CancelFunc
 
 	Authentication chan *auth.User
+
+	Intercept Intercept
 
 	// XXX This is nasty but to make the API nice, Clients have to be able
 	// to see the list of clients. This could/should be refactored someday.
@@ -312,6 +319,15 @@ func (c *Client) HydrateELOState(ctx context.Context, user *auth.User) error {
 	return nil
 }
 
+func (c *Client) Send(packet game.GamePacket) <-chan bool {
+	c.Intercept.To <- packet
+	return c.Connection.Send(packet)
+}
+
+func (c *Client) ReceiveIntercept() (<-chan game.GamePacket, <-chan game.GamePacket) {
+	return c.Intercept.To, c.Intercept.From
+}
+
 func (c *Client) SaveELOState(ctx context.Context) error {
 	if c.User == nil {
 		return nil
@@ -500,6 +516,10 @@ func (c *ClientManager) AddClient(networkClient NetworkClient) error {
 		messageQueue:     make([]string, 0),
 		Authentication:   make(chan *auth.User, 1),
 		serverSessionCtx: context.Background(),
+		Intercept: Intercept{
+			To:   make(chan game.GamePacket, 1000),
+			From: make(chan game.GamePacket, 1000),
+		},
 	}
 
 	c.Mutex.Lock()

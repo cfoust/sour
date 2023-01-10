@@ -311,7 +311,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 					Msg("cluster -> client (failed to decode message)")
 
 				// Forward it anyway
-				client.Connection.Send(game.GamePacket{
+				client.Send(game.GamePacket{
 					Channel: uint8(packet.Packet.Channel),
 					Data:    packet.Packet.Data,
 				})
@@ -330,7 +330,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 					Uint16("client", client.Id).
 					Msgf("cluster -> client (%d messages)", len(messages)-1)
 
-				client.Connection.Send(game.GamePacket{
+				client.Send(game.GamePacket{
 					Channel: channel,
 					Data:    packet.Packet.Data,
 				})
@@ -353,7 +353,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 					p := game.Packet{}
 					p.PutInt(int32(game.N_SERVINFO))
 					p.Put(*info)
-					client.Connection.Send(game.GamePacket{
+					client.Send(game.GamePacket{
 						Channel: channel,
 						Data:    p,
 					})
@@ -367,7 +367,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 					client.Mutex.Unlock()
 				}
 
-				client.Connection.Send(game.GamePacket{
+				client.Send(game.GamePacket{
 					Channel: channel,
 					Data:    message.Data(),
 				})
@@ -437,7 +437,7 @@ func (server *Cluster) DoAuthChallenge(ctx context.Context, client *clients.Clie
 		Challenge: challenge.Question,
 	}
 	p.Put(challengeMessage)
-	client.Connection.Send(game.GamePacket{
+	client.Send(game.GamePacket{
 		Channel: 1,
 		Data:    p,
 	})
@@ -592,7 +592,7 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Cl
 
 				p = append(p, m...)
 
-				client.Connection.Send(game.GamePacket{
+				client.Send(game.GamePacket{
 					Channel: 1,
 					Data:    p,
 				})
@@ -638,7 +638,15 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 	logger := log.With().Uint16("client", client.Id).Logger()
 
+	go func() {
+		err := RecordSession(client.Connection.SessionContext(), server.settings.SessionDirectory, client)
+		if err != nil {
+			logger.Warn().Err(err).Msg("failed to record client session")
+		}
+	}()
+
 	defer client.Connection.Destroy()
+	defer cancel()
 
 	for {
 		select {
@@ -682,6 +690,8 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 			server.GreetClient(clientCtx, client)
 		case msg := <-toServer:
 			data := msg.Data
+
+			client.Intercept.From <- msg
 
 			gameMessages, err := game.Read(data, true)
 			if err != nil {

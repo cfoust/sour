@@ -384,7 +384,7 @@ func (s *ServerInfoService) Handle(request *game.Packet, out chan []byte) error 
 	}
 
 	err := response.Put(
-		PROTOCOL_VERSION,
+		game.PROTOCOL_VERSION,
 		info.GameMode,
 		info.TimeLeft,
 		info.MaxClients,

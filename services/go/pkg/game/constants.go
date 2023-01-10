@@ -485,3 +485,7 @@ const (
 	EntityTypeElevator                       // ELEVATOR attr1 = angle, attr2 = idx, attr3 = tag, attr4 = speed
 	EntityTypeFlag                           // FLAG attr1 = angle, attr2 = team
 )
+
+const PROTOCOL_VERSION = 260
+const DEMO_VERSION = 1
+const DEMO_MAGIC = "SAUERBRATEN_DEMO"

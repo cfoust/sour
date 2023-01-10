@@ -45,6 +45,13 @@ func NewENetClient() *ENetClient {
 }
 
 func (c *ENetClient) Host() string {
+	peer := c.peer
+	if peer != nil && peer.Address != nil {
+		ip := peer.Address.IP.To4()
+		if ip != nil {
+			return ip.String()
+		}
+	}
 	return ""
 }
 

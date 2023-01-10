@@ -105,6 +105,10 @@ proxy: #Service
 #ClusterSettings: {
 	#Service
 
+	// The directory in which to save user sessions for debugging purposes.
+	// If empty, the cluster does not save any sessions.
+	sessionDirectory: string | *""
+
 	// Information used to respond to server info requests
 	serverInfo: {
 		map:         string | *"Sourland"
