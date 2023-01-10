@@ -176,6 +176,23 @@ func LoadVSlots(p *game.Buffer, numVSlots int32) ([]*VSlot, error) {
 	return vSlots, nil
 }
 
+func LoadPartial(p *game.Buffer, header Header) (worldio.MapState, error) {
+	state := worldio.Partial_load_world(
+		uintptr(unsafe.Pointer(&(*p)[0])),
+		int64(len(*p)),
+		int(header.NumVSlots),
+		int(header.WorldSize),
+		int(header.Version),
+		int(header.LightMaps),
+		int(header.NumPVs),
+		int(header.BlendMap),
+	)
+	if state.Swigcptr() == 0 {
+		return nil, fmt.Errorf("failed to load cubes")
+	}
+	return state, nil
+}
+
 func Decode(data []byte) (*GameMap, error) {
 	p := game.Buffer(data)
 
@@ -220,6 +237,7 @@ func Decode(data []byte) (*GameMap, error) {
 	mapHeader.HeaderSize = header.HeaderSize
 	mapHeader.WorldSize = header.WorldSize
 	mapHeader.LightMaps = header.LightMaps
+	mapHeader.NumPVs = header.NumPVs
 	mapHeader.BlendMap = newFooter.BlendMap
 	mapHeader.NumVars = newFooter.NumVars
 	mapHeader.NumVSlots = newFooter.NumVSlots
@@ -309,17 +327,21 @@ func Decode(data []byte) (*GameMap, error) {
 
 	gameMap.Entities = entities
 
-	vSlotData, err := LoadVSlots(&p, newFooter.NumVSlots)
-	gameMap.VSlots = vSlotData
+	state, err := LoadPartial(&p, gameMap.Header)
+	log.Debug().Msgf("state %+v", state)
+	os.Exit(0)
 
-	log.Debug().Msgf("Header %+v", header)
+	//vSlotData, err := LoadVSlots(&p, newFooter.NumVSlots)
+	//gameMap.VSlots = vSlotData
 
-	cube, err := LoadChildren(&p, header.WorldSize, header.Version)
-	if err != nil {
-		return nil, err
-	}
+	//log.Debug().Msgf("Header %+v", header)
 
-	gameMap.WorldRoot = cube
+	//cube, err := LoadChildren(&p, header.WorldSize, header.Version)
+	//if err != nil {
+		//return nil, err
+	//}
+
+	//gameMap.WorldRoot = cube
 
 	return &gameMap, nil
 }

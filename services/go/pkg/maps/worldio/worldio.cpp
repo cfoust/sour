@@ -3,6 +3,7 @@
 #include "engine.h"
 #include "game.h"
 #include "texture.h"
+#include "state.h"
 
 #define MAXTRANS 5000                  // max amount of data to swallow in 1 go
 
@@ -241,17 +242,17 @@ void loadvslots(stream *f, int numvslots)
         int changed = f->getlil<int>();
         if(changed < 0)
         {
-            loopi(-changed) vslots.add(new VSlot(NULL, vslots.length()));
+            loopi(-changed) (*vslots).add(new VSlot(NULL, (*vslots).length()));
             numvslots += changed;
         }
         else
         {
-            prev[vslots.length()] = f->getlil<int>();
-            loadvslot(f, *vslots.add(new VSlot(NULL, vslots.length())), changed);
+            prev[(*vslots).length()] = f->getlil<int>();
+            loadvslot(f, *(*vslots).add(new VSlot(NULL, (*vslots).length())), changed);
             numvslots--;
         }
     }
-    loopv(vslots) if(vslots.inrange(prev[i])) vslots[prev[i]]->next = vslots[i];
+    loopv((*vslots)) if((*vslots).inrange(prev[i])) (*vslots)[prev[i]]->next = (*vslots)[i];
     delete[] prev;
 }
 
@@ -618,62 +619,6 @@ cube *loadchildren(stream *f, const ivec &co, int size, bool &failed)
     return c;
 }
 
-bool partial_load_world(
-        stream *f,
-        int numvslots,
-        int worldsize,
-        int mapversion,
-        int numlightmaps,
-        int numpvs,
-        int blendmap
-)
-{
-    loadvslots(f, numvslots);
-
-    bool failed = false;
-    worldroot = loadchildren(f, ivec(0, 0, 0), worldsize>>1, failed);
-    if(failed) return true;
-
-    validatec(worldroot, worldsize>>1);
-
-    if(!failed)
-    {
-        if(mapversion >= 7) loopi(numlightmaps)
-        {
-            LightMap &lm = lightmaps.add();
-            if(mapversion >= 17)
-            {
-                int type = f->getchar();
-                lm.type = type&0x7F;
-                if(mapversion >= 20 && type&0x80)
-                {
-                    lm.unlitx = f->getlil<ushort>();
-                    lm.unlity = f->getlil<ushort>();
-                }
-            }
-            if(lm.type&LM_ALPHA && (lm.type&LM_TYPE)!=LM_BUMPMAP1) lm.bpp = 4;
-            lm.data = new uchar[lm.bpp*LM_PACKW*LM_PACKH];
-            f->read(lm.data, lm.bpp * LM_PACKW * LM_PACKH);
-            lm.finalize();
-        }
-
-        if(mapversion >= 25 && numpvs > 0) loadpvs(f, numpvs);
-        if(mapversion >= 28 && blendmap) loadblendmap(f, blendmap);
-    }
-
-    //identflags |= IDF_OVERRIDDEN;
-    //execfile("data/default_map_settings.cfg", false);
-    //execfile(cfgname, false);
-    //identflags &= ~IDF_OVERRIDDEN;
-
-    extern void fixlightmapnormals();
-    if(mapversion <= 25) fixlightmapnormals();
-    extern void fixrotatedlightmaps();
-    if(mapversion <= 31) fixrotatedlightmaps();
-
-    return false;
-}
-
 struct bufstream : stream
 {
     ucharbuf buf;
@@ -719,6 +664,78 @@ struct bufstream : stream
     }
 };
 
+MapState *partial_load_world(
+        void *p,
+        size_t len,
+        int numvslots,
+        int _worldsize,
+        int _mapversion,
+        int numlightmaps,
+        int numpvs,
+        int blendmap
+)
+{
+    bufstream buf(p, len);
+    bufstream *f = &buf;
+
+    mapversion = _mapversion;
+    worldsize = 
+    worldscale = 0;
+    while(1<<worldscale < _worldsize) worldscale++;
+
+    MapState *state = new MapState;
+    state->vslots = new vector<VSlot*>;
+    state->slots = new vector<Slot*>;
+
+    vslots = state->vslots;
+    slots = state->slots;
+
+    loadvslots(f, numvslots);
+
+    bool failed = false;
+    worldroot = loadchildren(f, ivec(0, 0, 0), worldsize>>1, failed);
+    if(failed) return NULL;
+
+    state->root = worldroot;
+
+    validatec(worldroot, worldsize>>1);
+
+    if(mapversion >= 7) loopi(numlightmaps)
+    {
+        LightMap &lm = lightmaps.add();
+        if(mapversion >= 17)
+        {
+            int type = f->getchar();
+            lm.type = type&0x7F;
+            if(mapversion >= 20 && type&0x80)
+            {
+                lm.unlitx = f->getlil<ushort>();
+                lm.unlity = f->getlil<ushort>();
+            }
+        }
+        if(lm.type&LM_ALPHA && (lm.type&LM_TYPE)!=LM_BUMPMAP1) lm.bpp = 4;
+        lm.data = new uchar[lm.bpp*LM_PACKW*LM_PACKH];
+        f->read(lm.data, lm.bpp * LM_PACKW * LM_PACKH);
+        lm.finalize();
+    }
+
+    if(mapversion >= 25 && numpvs > 0) loadpvs(f, numpvs);
+    if(mapversion >= 28 && blendmap) loadblendmap(f, blendmap);
+    printf("vslots=%d pvs=%d blendmap=%d\n", state->vslots->length(), numpvs, blendmap);
+
+    //identflags |= IDF_OVERRIDDEN;
+    //execfile("data/default_map_settings.cfg", false);
+    //execfile(cfgname, false);
+    //identflags &= ~IDF_OVERRIDDEN;
+
+    extern void fixlightmapnormals();
+    if(mapversion <= 25) fixlightmapnormals();
+    extern void fixrotatedlightmaps();
+    if(mapversion <= 31) fixrotatedlightmaps();
+
+    return state;
+}
+
 cube *loadchildren_buf(void *p, size_t len, int size, int _mapversion)
 {
     bool failed = false;
@@ -731,31 +748,6 @@ cube *loadchildren_buf(void *p, size_t len, int size, int _mapversion)
     }
 
     return c;
-}
-
-void partial_load_world_buf(
-        void *p,
-        size_t len,
-        int numvslots,
-        int worldsize,
-        int _mapversion,
-        int numlightmaps,
-        int numpvs,
-        int blendmap
-)
-{
-    bufstream buf(p, len);
-    mapversion = _mapversion;
-
-    bool failed = partial_load_world(
-            &buf,
-            numvslots,
-            worldsize,
-            _mapversion,
-            numlightmaps,
-            numpvs,
-            blendmap
-    );
 }
 
 size_t savec_buf(void *p, unsigned int len, cube *c, int size)

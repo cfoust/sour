@@ -101,8 +101,8 @@ int getint(ucharbuf &p)
 
 ///
 
-vector<VSlot *> vslots;
-vector<Slot *> slots;
+vector<VSlot *> *vslots;
+vector<Slot *> *slots;
 MSlot materialslots[(MATF_VOLUME|MATF_INDEX)+1];
 Slot dummyslot;
 VSlot dummyvslot(&dummyslot);
@@ -112,14 +112,14 @@ static bool markingvslots = false;
 
 Slot &lookupslot(int index, bool load)
 {
-    Slot &s = slots.inrange(index) ? *slots[index] : (slots.inrange(DEFAULT_GEOM) ? *slots[DEFAULT_GEOM] : dummyslot);
+    Slot &s = slots->inrange(index) ? *(*slots)[index] : (slots->inrange(DEFAULT_GEOM) ? *(*slots)[DEFAULT_GEOM] : dummyslot);
     return s;
 }
 
 void clearslots()
 {
-    slots.deletecontents();
-    vslots.deletecontents();
+    slots->deletecontents();
+    vslots->deletecontents();
     loopi((MATF_VOLUME|MATF_INDEX)+1) materialslots[i].reset();
     clonedvslots = 0;
 }
@@ -644,7 +644,7 @@ void packvslot(vector<uchar> &buf, const VSlot &src)
     if(src.changed & (1<<VSLOT_LAYER))
     {
         buf.put(VSLOT_LAYER);
-        putuint(buf, vslots.inrange(src.layer) && !vslots[src.layer]->changed ? src.layer : 0);
+        putuint(buf, vslots->inrange(src.layer) && !(*vslots)[src.layer]->changed ? src.layer : 0);
     }
     if(src.changed & (1<<VSLOT_ALPHA))
     {
@@ -664,7 +664,7 @@ void packvslot(vector<uchar> &buf, const VSlot &src)
 
 void packvslot(vector<uchar> &buf, int index)
 {
-    if(vslots.inrange(index)) packvslot(buf, *vslots[index]);
+    if(vslots->inrange(index)) packvslot(buf, *(*vslots)[index]);
     else buf.put(0xFF);
 }
 
@@ -721,7 +721,7 @@ bool unpackvslot(ucharbuf &buf, VSlot &dst, bool delta)
             case VSLOT_LAYER:
             {
                 int tex = getuint(buf);
-                dst.layer = vslots.inrange(tex) ? tex : 0;
+                dst.layer = vslots->inrange(tex) ? tex : 0;
                 break;
             }
             case VSLOT_ALPHA:
@@ -751,10 +751,10 @@ static void packvslots(cube &c, vector<uchar> &buf, vector<ushort> &used)
     else loopi(6)
     {
         ushort index = c.texture[i];
-        if(vslots.inrange(index) && vslots[index]->changed && used.find(index) < 0)
+        if(vslots->inrange(index) && (*vslots)[index]->changed && used.find(index) < 0)
         {
             used.add(index);
-            VSlot &vs = *vslots[index];
+            VSlot &vs = *(*vslots)[index];
             vslothdr &hdr = *(vslothdr *)buf.pad(sizeof(vslothdr));
             hdr.index = index;
             hdr.slot = vs.slot->index;
@@ -1545,7 +1545,7 @@ int usevdelta = 0;
 
 VSlot &lookupvslot(int index, bool load)
 {
-    VSlot &s = vslots.inrange(index) && vslots[index]->slot ? *vslots[index] : (slots.inrange(DEFAULT_GEOM) && slots[DEFAULT_GEOM]->variants ? *slots[DEFAULT_GEOM]->variants : dummyvslot);
+    VSlot &s = vslots->inrange(index) && (*vslots)[index]->slot ? *(*vslots)[index] : (slots->inrange(DEFAULT_GEOM) && (*slots)[DEFAULT_GEOM]->variants ? *(*slots)[DEFAULT_GEOM]->variants : dummyvslot);
     return s;
 }
 
@@ -1664,9 +1664,9 @@ static void assignvslot(VSlot &vs);
 
 static inline void assignvslotlayer(VSlot &vs)
 {
-    if(vs.layer && vslots.inrange(vs.layer))
+    if(vs.layer && vslots->inrange(vs.layer))
     {
-        VSlot &layer = *vslots[vs.layer];
+        VSlot &layer = *(*vslots)[vs.layer];
         if(layer.index < 0) assignvslot(layer);
     }
 }
@@ -1679,9 +1679,9 @@ static void assignvslot(VSlot &vs)
 
 void compactvslot(int &index)
 {
-    if(vslots.inrange(index))
+    if(vslots->inrange(index))
     {
-        VSlot &vs = *vslots[index];
+        VSlot &vs = *(*vslots)[index];
         if(vs.index < 0) assignvslot(vs);
         if(!markingvslots) index = vs.index;
     }
@@ -1697,9 +1697,9 @@ void compactvslots(cube *c, int n)
     loopi(n)
     {
         if(c[i].children) compactvslots(c[i].children, 8);
-        else loopj(6) if(vslots.inrange(c[i].texture[j]))
+        else loopj(6) if(vslots->inrange(c[i].texture[j]))
         {
-            VSlot &vs = *vslots[c[i].texture[j]];
+            VSlot &vs = *(*vslots)[c[i].texture[j]];
             if(vs.index < 0) assignvslot(vs);
             if(!markingvslots) c[i].texture[j] = vs.index;
         }
@@ -1728,9 +1728,9 @@ void compactmruvslots()
     remappedvslots.setsize(0);
     loopvrev(texmru)
     {
-        if(vslots.inrange(texmru[i]))
+        if(vslots->inrange(texmru[i]))
         {
-            VSlot &vs = *vslots[texmru[i]];
+            VSlot &vs = *((*vslots)[texmru[i]]);
             if(vs.index >= 0)
             {
                 texmru[i] = vs.index;
@@ -1741,13 +1741,13 @@ void compactmruvslots()
         else if(curtexindex == i) curtexindex = -1;
         texmru.remove(i);
     }
-    if(vslots.inrange(lasttex))
+    if(vslots->inrange(lasttex))
     {
-        VSlot &vs = *vslots[lasttex];
+        VSlot &vs = *((*vslots)[lasttex]);
         lasttex = vs.index >= 0 ? vs.index : 0;
     }
     else lasttex = 0;
-    reptex = vslots.inrange(reptex) ? vslots[reptex]->index : -1;
+    reptex = vslots->inrange(reptex) ? (*vslots)[reptex]->index : -1;
 }
 
 
@@ -1757,20 +1757,20 @@ int compactvslots()
     markingvslots = false;
     compactedvslots = 0;
     compactvslotsprogress = 0;
-    loopv(vslots) vslots[i]->index = -1;
-    loopv(slots) slots[i]->variants->index = compactedvslots++;
-    loopv(slots) assignvslotlayer(*slots[i]->variants);
-    loopv(vslots)
+    loopv(*vslots) (*vslots)[i]->index = -1;
+    loopv(*slots) (*slots)[i]->variants->index = compactedvslots++;
+    loopv(*slots) assignvslotlayer(*(*slots)[i]->variants);
+    loopv(*vslots)
     {
-        VSlot &vs = *vslots[i];
+        VSlot &vs = *(*vslots)[i];
         if(!vs.changed && vs.index < 0) { markingvslots = true; break; }
     }
     compactvslots(worldroot, 8);
     int total = compactedvslots;
     compacteditvslots();
-    loopv(vslots)
+    loopv(*vslots)
     {
-        VSlot *vs = vslots[i];
+        VSlot *vs = (*vslots)[i];
         if(vs->changed) continue;
         while(vs->next)
         {
@@ -1784,15 +1784,15 @@ int compactvslots()
         compactedvslots = 0;
         compactvslotsprogress = 0;
         int lastdiscard = 0;
-        loopv(vslots)
+        loopv(*vslots)
         {
-            VSlot &vs = *vslots[i];
+            VSlot &vs = *(*vslots)[i];
             if(vs.changed || (vs.index < 0 && !vs.next)) vs.index = -1;
             else
             {
                 while(lastdiscard < i)
                 {
-                    VSlot &ds = *vslots[lastdiscard++];
+                    VSlot &ds = *(*vslots)[lastdiscard++];
                     if(!ds.changed && ds.index < 0) ds.index = compactedvslots++;
                 } 
                 vs.index = compactedvslots++;
@@ -1803,18 +1803,18 @@ int compactvslots()
         compacteditvslots();
     }
     compactmruvslots();
-    loopv(vslots)
+    loopv(*vslots)
     {
-        VSlot &vs = *vslots[i];
-        if(vs.index >= 0 && vs.layer && vslots.inrange(vs.layer)) vs.layer = vslots[vs.layer]->index;
+        VSlot &vs = *(*vslots)[i];
+        if(vs.index >= 0 && vs.layer && vslots->inrange(vs.layer)) vs.layer = (*vslots)[vs.layer]->index;
     }
-    loopv(vslots) 
+    loopv(*vslots) 
     {
-        while(vslots[i]->index >= 0 && vslots[i]->index != i)     
-            swap(vslots[i], vslots[vslots[i]->index]); 
+        while((*vslots)[i]->index >= 0 && (*vslots)[i]->index != i)     
+            swap((*vslots)[i], (*vslots)[(*vslots)[i]->index]); 
     }
-    for(int i = compactedvslots; i < vslots.length(); i++) delete vslots[i];
-    vslots.setsize(compactedvslots);
+    for(int i = compactedvslots; i < vslots->length(); i++) delete (*vslots)[i];
+    vslots->setsize(compactedvslots);
     return total;
 }
 
@@ -1822,7 +1822,7 @@ int autocompactvslots = 256;
 
 static VSlot *clonevslot(const VSlot &src, const VSlot &delta)
 {
-    VSlot *dst = vslots.add(new VSlot(src.slot, vslots.length()));
+    VSlot *dst = vslots->add(new VSlot(src.slot, vslots->length()));
     dst->changed = src.changed | delta.changed;
     propagatevslot(*dst, src, ((1<<VSLOT_NUM)-1) & ~delta.changed);
     propagatevslot(*dst, delta, delta.changed, true);
@@ -1833,10 +1833,10 @@ VSlot *editvslot(const VSlot &src, const VSlot &delta)
 {
     VSlot *exists = findvslot(*src.slot, src, delta);
     if(exists) return exists;
-    if(vslots.length()>=0x10000)
+    if(vslots->length()>=0x10000)
     {
         compactvslots();
-        if(vslots.length()>=0x10000) return NULL;
+        if(vslots->length()>=0x10000) return NULL;
     }
     if(autocompactvslots && ++clonedvslots >= autocompactvslots)
     {
@@ -2009,9 +2009,9 @@ static int unpacktex(int &tex, ucharbuf &buf, bool insert = true)
 
 int shouldpacktex(int index)
 {
-    if(vslots.inrange(index))
+    if(vslots->inrange(index))
     {
-        VSlot &vs = *vslots[index];
+        VSlot &vs = *((*vslots)[index]);
         if(vs.changed) return 0x10000 + vs.slot->index;
     }
     return 0;
@@ -2027,15 +2027,15 @@ bool mpedittex(int tex, int allfaces, selinfo &sel, ucharbuf &buf)
 
 void filltexlist()
 {
-    if(texmru.length()!=vslots.length())
+    if(texmru.length()!=vslots->length())
     {
-        loopvrev(texmru) if(texmru[i]>=vslots.length())
+        loopvrev(texmru) if(texmru[i]>=vslots->length())
         {
             if(curtexindex > i) curtexindex--;
             else if(curtexindex == i) curtexindex = -1;
             texmru.remove(i);
         }
-        loopv(vslots) if(texmru.find(i)<0) texmru.add(i);
+        loopv(*vslots) if(texmru.find(i)<0) texmru.add(i);
     }
 }
 

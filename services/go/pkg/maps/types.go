@@ -18,6 +18,7 @@ type Header struct {
 	LightMaps  int32
 	BlendMap   int32
 	NumVars    int32
+	NumPVs     int32
 	NumVSlots  int32
 	GameType   string
 }

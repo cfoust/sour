@@ -269,5 +269,5 @@ extern bool unpackvslot(ucharbuf &buf, VSlot &dst, bool delta);
 
 extern Slot dummyslot;
 extern VSlot dummyvslot;
-extern vector<Slot *> slots;
-extern vector<VSlot *> vslots;
+extern vector<Slot *> *slots;
+extern vector<VSlot *> *vslots;

@@ -5,10 +5,23 @@
 
 #include "tools.h"
 #include "engine.h"
+#include "texture.h"
+#include "state.h"
 
 void freeocta(cube *c);
 cube *loadchildren_buf(void *p, size_t len, int size, int _mapversion);
 size_t savec_buf(void *p, unsigned int len, cube *c, int size);
+
+MapState *partial_load_world(
+        void *p,
+        size_t len,
+        int numvslots,
+        int _worldsize,
+        int _mapversion,
+        int numlightmaps,
+        int numpvs,
+        int blendmap
+);
 
 cube *getcubeindex(cube *c, int i);
 void cube_setedge(cube *c, int i, uchar value);
