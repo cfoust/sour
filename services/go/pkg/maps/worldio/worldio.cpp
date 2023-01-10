@@ -671,7 +671,7 @@ bool partial_load_world(
     extern void fixrotatedlightmaps();
     if(mapversion <= 31) fixrotatedlightmaps();
 
-    return true;
+    return false;
 }
 
 struct bufstream : stream
@@ -731,6 +731,31 @@ cube *loadchildren_buf(void *p, size_t len, int size, int _mapversion)
     }
 
     return c;
+}
+
+void partial_load_world_buf(
+        void *p,
+        size_t len,
+        int numvslots,
+        int worldsize,
+        int _mapversion,
+        int numlightmaps,
+        int numpvs,
+        int blendmap
+)
+{
+    bufstream buf(p, len);
+    mapversion = _mapversion;
+
+    bool failed = partial_load_world(
+            &buf,
+            numvslots,
+            worldsize,
+            _mapversion,
+            numlightmaps,
+            numpvs,
+            blendmap
+    );
 }
 
 size_t savec_buf(void *p, unsigned int len, cube *c, int size)
