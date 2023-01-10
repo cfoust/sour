@@ -1,15 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"compress/gzip"
-	"encoding/binary"
 	"flag"
 	"io"
 	"os"
 	"time"
 
-	"github.com/cfoust/sour/pkg/game/messages"
+	"github.com/cfoust/sour/pkg/game"
 
 	"github.com/rs/zerolog/log"
 	"github.com/rs/zerolog"
@@ -53,24 +51,28 @@ func main() {
 	defer gz.Close()
 
 	buffer, err := io.ReadAll(gz)
-	reader := bytes.NewReader(buffer)
+
+	p := game.Buffer(buffer)
 
 	header := DemoHeader{}
-	err = binary.Read(reader, binary.LittleEndian, &header)
+	p.Get(&header)
 
 	section := SectionHeader{}
 	for {
-		err = binary.Read(reader, binary.LittleEndian, &section)
-
-		bytes := make([]byte, section.Length)
-		numRead, _ := reader.Read(bytes)
-		if numRead == 0 {
-			break
+		if len(p) == 0 {
+			return
 		}
-		_, err = messages.Read(bytes[:numRead])
+		p.Get(&section)
+
+		bytes, _ := p.GetBytes(int(section.Length))
+		messages, err := game.Read(bytes, true)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to parse messages")
-			break
+			continue
+		}
+
+		for _, message := range messages {
+			log.Info().Msgf("%d %+v", section.Millis, message.Contents())
 		}
 	}
 }
