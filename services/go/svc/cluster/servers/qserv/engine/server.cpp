@@ -871,7 +871,7 @@ void serverslice(bool dedicated, bool enet, uint timeout)   // main server updat
 
     // First process socket traffic
     ENetPacket socketRead, message;
-    while (socketCtl.receive(&socketRead) != -1) {
+    if (socketCtl.receive(&socketRead) != -1) {
         packetbuf p(&socketRead);
 
         while (!p.overread() && p.len != p.maxlen) {
