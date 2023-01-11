@@ -75,105 +75,49 @@ func LoadChildren(p *game.Buffer, size int32, mapVersion int32) (*Cube, error) {
 	return cube, nil
 }
 
-func LoadVSlot(p *game.Buffer, slot *VSlot, changed int32) error {
-	slot.Changed = changed
-	if (changed & (1 << VSLOT_SHPARAM)) > 0 {
-		numParams, _ := p.GetShort()
+func VSlotsToGo(state worldio.MapState) []*VSlot {
+	vslots := make([]*VSlot, 0)
 
-		for i := 0; i < int(numParams); i++ {
-			param := SlotShaderParam{}
-			name, _ := p.GetStringByte()
+	refs := make(map[uintptr]*VSlot)
 
-			// TODO getshaderparamname
-			param.Name = name
-			for k := 0; k < 4; k++ {
-				value, _ := p.GetFloat()
-				param.Val[k] = value
-			}
-			slot.Params = append(slot.Params, param)
+	for i := 0; i < worldio.Getnumvslots(state); i++ {
+		vslot := VSlot{}
+		slot := worldio.Getvslotindex(state, i)
+		vslot.Index = int32(slot.GetIndex())
+		vslot.Changed = int32(slot.GetChanged())
+		vslot.Layer = int32(slot.GetLayer())
+		vslot.Linked = slot.GetLinked()
+		vslot.Scale = float32(slot.GetScale())
+		vslot.Rotation = int32(slot.GetRotation())
+		vslot.AlphaFront = float32(slot.GetAlphafront())
+		vslot.AlphaBack = float32(slot.GetAlphaback())
+
+		// TODO Params, Offset, Scroll, ColorScale, GlowColor
+
+		refs[slot.Swigcptr()] = &vslot
+
+		vslots = append(vslots, &vslot)
+	}
+
+	// Second pass, link up next pointers
+	for i := 0; i < worldio.Getnumvslots(state); i++ {
+		vslot := vslots[i]
+		slot := worldio.Getvslotindex(state, i)
+
+		ptr := slot.GetNext().Swigcptr()
+		if ptr == 0 {
+			continue
 		}
-	}
 
-	if (changed & (1 << VSLOT_SCALE)) > 0 {
-		p.Get(&slot.Scale)
-	}
-
-	if (changed & (1 << VSLOT_ROTATION)) > 0 {
-		p.Get(&slot.Rotation)
-	}
-
-	if (changed & (1 << VSLOT_OFFSET)) > 0 {
-		p.Get(
-			&slot.Offset.X,
-			&slot.Offset.Y,
-		)
-	}
-
-	if (changed & (1 << VSLOT_SCROLL)) > 0 {
-		p.Get(
-			&slot.Scroll.X,
-			&slot.Scroll.Y,
-		)
-	}
-
-	if (changed & (1 << VSLOT_LAYER)) > 0 {
-		p.Get(&slot.Layer)
-	}
-
-	if (changed & (1 << VSLOT_ALPHA)) > 0 {
-		p.Get(
-			&slot.AlphaFront,
-			&slot.AlphaBack,
-		)
-	}
-
-	if (changed & (1 << VSLOT_COLOR)) > 0 {
-		p.Get(
-			&slot.ColorScale.X,
-			&slot.ColorScale.Y,
-			&slot.ColorScale.Z,
-		)
-	}
-
-	return nil
-}
-
-func LoadVSlots(p *game.Buffer, numVSlots int32) ([]*VSlot, error) {
-	leftToRead := numVSlots
-
-	vSlots := make([]*VSlot, 0)
-	prev := make([]int32, numVSlots)
-
-	addSlot := func() *VSlot {
-		vslot := NewVSlot(nil, int32(len(vSlots)))
-		vSlots = append(vSlots, vslot)
-		return vslot
-	}
-
-	for leftToRead > 0 {
-		changed, _ := p.GetInt()
-		if changed < 0 {
-			for i := 0; i < int(-1*changed); i++ {
-				addSlot()
-			}
-			leftToRead += changed
-		} else {
-			prevValue, _ := p.GetInt()
-			prev[len(vSlots)] = prevValue
-			slot := addSlot()
-			LoadVSlot(p, slot, changed)
-			leftToRead--
+		next, ok := refs[ptr]
+		if !ok || next == nil {
+			continue
 		}
+
+		vslot.Next = next
 	}
 
-	for i, slot := range vSlots {
-		other := prev[i]
-		if other >= 0 && int(other) < len(prev) {
-			vSlots[other].Next = slot
-		}
-	}
-
-	return vSlots, nil
+	return vslots
 }
 
 func LoadPartial(p *game.Buffer, header Header) (worldio.MapState, error) {
@@ -328,20 +272,13 @@ func Decode(data []byte) (*GameMap, error) {
 	gameMap.Entities = entities
 
 	state, err := LoadPartial(&p, gameMap.Header)
-	log.Debug().Msgf("state %+v", state)
-	os.Exit(0)
+	if err != nil {
+		return nil, err
+	}
 
-	//vSlotData, err := LoadVSlots(&p, newFooter.NumVSlots)
-	//gameMap.VSlots = vSlotData
-
-	//log.Debug().Msgf("Header %+v", header)
-
-	//cube, err := LoadChildren(&p, header.WorldSize, header.Version)
-	//if err != nil {
-		//return nil, err
-	//}
-
-	//gameMap.WorldRoot = cube
+	gameMap.VSlots = VSlotsToGo(state)
+	gameMap.WorldRoot = MapToGo(state.GetRoot())
+	gameMap.C = state
 
 	return &gameMap, nil
 }

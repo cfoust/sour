@@ -32,3 +32,27 @@ struct cube
     uchar merged;            // merged faces of the cube
     uchar escaped;       // mask of which children have escaped merges
 };
+
+struct SlotShaderParam
+{
+    const char *name;
+    int loc;
+    float val[4];
+};
+
+struct VSlot
+{
+    Slot *slot;
+    VSlot *next;
+    int index, changed;
+    vector<SlotShaderParam> params;
+    bool linked;
+    float scale;
+    int rotation;
+    ivec2 offset;
+    vec2 scroll;
+    int layer;
+    float alphafront, alphaback;
+    vec colorscale;
+    vec glowcolor;
+};

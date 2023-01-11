@@ -23,6 +23,9 @@ MapState *partial_load_world(
         int blendmap
 );
 
+int getnumvslots(MapState *state);
+VSlot *getvslotindex(MapState *state, int i);
+
 cube *getcubeindex(cube *c, int i);
 void cube_setedge(cube *c, int i, uchar value);
 void cube_settexture(cube *c, int i, ushort value);

@@ -385,6 +385,7 @@ type GameMap struct {
 	Vars      map[string]game.Variable
 	WorldRoot *Cube
 	VSlots    []*VSlot
+	C         worldio.MapState
 }
 
 func NewMap() *GameMap {

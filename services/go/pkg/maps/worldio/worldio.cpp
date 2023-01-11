@@ -772,6 +772,16 @@ void cube_settexture(cube *c, int i, ushort value)
     c->texture[i] = value;
 }
 
+int getnumvslots(MapState *state)
+{
+    return state->vslots->length();
+}
+
+VSlot *getvslotindex(MapState *state, int i)
+{
+    return (*state->vslots)[i];
+}
+
 void filtertext(char *dst, const char *src, bool whitespace, bool forcespace, size_t len)
 {
     for(int c = uchar(*src); c; c = uchar(*++src))
