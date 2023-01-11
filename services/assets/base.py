@@ -42,6 +42,8 @@ if __name__ == "__main__":
     if args.maps:
         maps = list(map(lambda a: "roots/base/packages/base/%s.ogz" % a, args.maps))
 
+    maps.append("sour/packages/base/xmwhub.ogz")
+
     outdir = os.getenv("ASSET_OUTPUT_DIR", "output/")
     os.makedirs(outdir, exist_ok=True)
 

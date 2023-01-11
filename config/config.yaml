@@ -48,8 +48,8 @@ cluster:
       default: true
       inherit: "common"
       config: |
-        defaultmodename "ffa"
-        defaultmap "complex"
+        defaultmodename "coop"
+        defaultmap "xmwhub"
     - name: "ffa-duel" 
       virtual: true
       inherit: "common"
