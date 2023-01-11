@@ -29,15 +29,11 @@ void SocketChannel::checkConnection() {
     if (connected) return;
     int result = accept(sockFd, NULL, NULL);
     if (result == -1) {
-        if (errno == EWOULDBLOCK) return;
         return;
     }
 
     clientFd = result;
     connected = true;
-
-    int flags = fcntl(clientFd, F_GETFL);
-    fcntl(clientFd, F_SETFL, flags | O_NONBLOCK);
 
     if (preconnectOffset > 0) {
         send(preconnect, preconnectOffset);
@@ -60,11 +56,6 @@ void SocketChannel::init()
     struct hostent *he;
 
     sockFd = socket(AF_UNIX, SOCK_STREAM, 0);
-
-    fcntl(sockFd, F_SETFL, O_NONBLOCK);
-
-    int flags = fcntl(sockFd, F_GETFL);
-    fcntl(sockFd, F_SETFL, flags | O_NONBLOCK);
 
     memset(&sa, 0, sizeof(struct sockaddr_un));
     sa.sun_family = AF_UNIX;
