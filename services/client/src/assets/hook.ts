@@ -666,7 +666,7 @@ export default function useAssets(
       },
       loadWorld: (target: string) => loadMapData(target),
       receiveMap: (map: string, oldMap: string) => {
-        if (oldMap != null && !oldMap.startsWith('getmap_')) {
+        if (oldMap != null && oldMap.length > 0 && !oldMap.startsWith('getmap_')) {
           targetMap = map
           loadMapData(oldMap)
         } else {
