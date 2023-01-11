@@ -953,19 +953,25 @@ int processedits(ucharbuf &p)
     return 0;
 }
 
-cube *apply_messages(cube *c, int _worldsize, void *data, size_t len)
+bool apply_messages(MapState *state, int _worldsize, void *data, size_t len)
 {
-    worldroot = c;
+    worldroot = state->root;
+    vslots = state->vslots;
+    slots = state->slots;
+
     worldsize = _worldsize;
     worldscale = 0;
     while(1<<worldscale < _worldsize) worldscale++;
+
     ucharbuf buf((uchar*)data, len);
     int result = processedits(buf);
     if (result == -1) {
-        return NULL;
+        return false;
     }
 
-    return worldroot;
+    state->root = worldroot;
+    // vslots and slots are never reassigned
+    return true;
 }
 
 int dbgvars = 0;

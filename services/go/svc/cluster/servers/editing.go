@@ -26,91 +26,18 @@ func NewEdit(message game.Message) *Edit {
 	}
 }
 
-// Sort of like maps.GameMap, but composed of the C++ types.
-type MapState struct {
-	World worldio.Cube
-	Size  int32
-	Vars  game.Variables
-}
-
-func MapStateFromGameMap(map_ *maps.GameMap) *MapState {
-	return &MapState{
-		World: maps.MapToCXX(map_.WorldRoot),
-		Vars:  map_.Vars,
-		Size:  map_.Header.WorldSize,
-	}
-}
-
-func MapStateFromBytes(data []byte) (*MapState, error) {
-	map_, err := maps.FromGZ(data)
-	if err != nil {
-		return nil, err
-	}
-
-	return MapStateFromGameMap(map_), nil
-}
-
-func MapStateFromFile(path string) (*MapState, error) {
-	map_, err := maps.FromFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	return MapStateFromGameMap(map_), nil
-}
-
-func (m *MapState) Apply(edits []*Edit) error {
-	buffer := make([]byte, 0)
-	for _, edit := range edits {
-		if edit.Message.Type() != game.N_EDITVAR {
-			buffer = append(buffer, edit.Message.Data()...)
-			continue
-		}
-
-		varEdit := edit.Message.Contents().(*game.EditVar)
-		err := m.Vars.Set(varEdit.Key, varEdit.Value)
-		if err != nil {
-			log.Warn().Err(err).Msgf("setting map variable failed %s=%+v", varEdit.Key, varEdit.Value)
-		}
-	}
-
-	if len(buffer) == 0 {
-		return nil
-	}
-
-	result := worldio.Apply_messages(
-		m.World,
-		int(m.Size),
-		uintptr(unsafe.Pointer(&(buffer)[0])),
-		int64(len(buffer)),
-	)
-	if result.Swigcptr() == 0 {
-		return fmt.Errorf("applying changes failed")
-	}
-
-	m.World = result
-
-	map_ := maps.NewMap()
-	map_.WorldRoot = maps.MapToGo(m.World)
-	map_.Vars = m.Vars
-	err := map_.ToFile("../test.ogz")
-	if err != nil {
-		log.Warn().Err(err).Msgf("failed to save map")
-	}
-	return nil
-}
 
 type EditingState struct {
-	Edits    []*Edit
-	MapState *MapState
-	mutex    sync.Mutex
+	Edits []*Edit
+	Map   *maps.GameMap
+	mutex sync.Mutex
 }
 
 // Apply all of the edits to the map.
 func (e *EditingState) Checkpoint() error {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
-	err := e.MapState.Apply(e.Edits)
+	err := e.Apply(e.Edits)
 	e.Edits = make([]*Edit, 0)
 	return err
 }
@@ -122,24 +49,66 @@ func (e *EditingState) Process(message game.Message) {
 }
 
 func (e *EditingState) LoadMap(path string) error {
-	state, err := MapStateFromFile(path)
+	map_, err := maps.FromFile(path)
 	if err != nil {
 		return err
 	}
 
 	e.mutex.Lock()
 	e.Edits = make([]*Edit, 0)
-	e.MapState = state
+	e.Map = map_
 	e.mutex.Unlock()
+	return nil
+}
+
+func (e *EditingState) Apply(edits []*Edit) error {
+	buffer := make([]byte, 0)
+	for _, edit := range edits {
+		if edit.Message.Type() != game.N_EDITVAR {
+			buffer = append(buffer, edit.Message.Data()...)
+			continue
+		}
+
+		varEdit := edit.Message.Contents().(*game.EditVar)
+		err := e.Map.Vars.Set(varEdit.Key, varEdit.Value)
+		if err != nil {
+			log.Warn().Err(err).Msgf("setting map variable failed %s=%+v", varEdit.Key, varEdit.Value)
+		}
+	}
+
+	if len(buffer) == 0 {
+		return nil
+	}
+
+	result := worldio.Apply_messages(
+		e.Map.C,
+		int(e.Map.Header.WorldSize),
+		uintptr(unsafe.Pointer(&(buffer)[0])),
+		int64(len(buffer)),
+	)
+	if !result {
+		return fmt.Errorf("applying changes failed")
+	}
+
+	log.Info().Msgf("applied %d changes", len(edits))
+
+	//map_ := maps.NewMap()
+	//map_.WorldRoot = maps.MapToGo(m.World)
+	//map_.Vars = m.Vars
+	//err := map_.ToFile("../test.ogz")
+	//if err != nil {
+		//log.Warn().Err(err).Msgf("failed to save map")
+	//}
 	return nil
 }
 
 func NewEditingState() *EditingState {
 	return &EditingState{
 		Edits:    make([]*Edit, 0),
-		MapState: MapStateFromGameMap(maps.NewMap()),
+		Map: maps.NewMap(),
 	}
 }
+
 
 func (e *EditingState) PollEdits(ctx context.Context) {
 	tick := time.NewTicker(5 * time.Second)

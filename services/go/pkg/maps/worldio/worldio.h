@@ -29,6 +29,6 @@ VSlot *getvslotindex(MapState *state, int i);
 cube *getcubeindex(cube *c, int i);
 void cube_setedge(cube *c, int i, uchar value);
 void cube_settexture(cube *c, int i, ushort value);
-cube *apply_messages(cube *c, int _worldsize, void *data, size_t len);
+bool apply_messages(MapState *state, int _worldsize, void *data, size_t len);
 
 #endif

@@ -382,7 +382,7 @@ func NewVSlot(owner *Slot, index int32) *VSlot {
 type GameMap struct {
 	Header    Header
 	Entities  []Entity
-	Vars      map[string]game.Variable
+	Vars      game.Variables
 	WorldRoot *Cube
 	VSlots    []*VSlot
 	C         worldio.MapState
