@@ -679,7 +679,7 @@ MapState *partial_load_world(
     bufstream *f = &buf;
 
     mapversion = _mapversion;
-    worldsize = 
+    worldsize = _worldsize;
     worldscale = 0;
     while(1<<worldscale < _worldsize) worldscale++;
 
@@ -721,7 +721,6 @@ MapState *partial_load_world(
 
     if(mapversion >= 25 && numpvs > 0) loadpvs(f, numpvs);
     if(mapversion >= 28 && blendmap) loadblendmap(f, blendmap);
-    printf("vslots=%d pvs=%d blendmap=%d\n", state->vslots->length(), numpvs, blendmap);
 
     //identflags |= IDF_OVERRIDDEN;
     //execfile("data/default_map_settings.cfg", false);
