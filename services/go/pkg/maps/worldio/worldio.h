@@ -23,6 +23,13 @@ MapState *partial_load_world(
         int blendmap
 );
 
+size_t partial_save_world(
+        void *p,
+        size_t len,
+        MapState *state,
+        int _worldsize
+);
+
 int getnumvslots(MapState *state);
 VSlot *getvslotindex(MapState *state, int i);
 

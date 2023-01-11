@@ -256,6 +256,77 @@ void loadvslots(stream *f, int numvslots)
     delete[] prev;
 }
 
+
+void savevslot(stream *f, VSlot &vs, int prev)
+{
+    f->putlil<int>(vs.changed);
+    f->putlil<int>(prev);
+    if(vs.changed & (1<<VSLOT_SHPARAM))
+    {
+        f->putlil<ushort>(vs.params.length());
+        loopv(vs.params)
+        {
+            SlotShaderParam &p = vs.params[i];
+            f->putlil<ushort>(strlen(p.name));
+            f->write(p.name, strlen(p.name));
+            loopk(4) f->putlil<float>(p.val[k]);
+        }
+    }
+    if(vs.changed & (1<<VSLOT_SCALE)) f->putlil<float>(vs.scale);
+    if(vs.changed & (1<<VSLOT_ROTATION)) f->putlil<int>(vs.rotation);
+    if(vs.changed & (1<<VSLOT_OFFSET))
+    {
+        f->putlil<int>(vs.offset.x);
+        f->putlil<int>(vs.offset.y);
+    }
+    if(vs.changed & (1<<VSLOT_SCROLL))
+    {
+        f->putlil<float>(vs.scroll.x);
+        f->putlil<float>(vs.scroll.y);
+    }
+    if(vs.changed & (1<<VSLOT_LAYER)) f->putlil<int>(vs.layer);
+    if(vs.changed & (1<<VSLOT_ALPHA))
+    {
+        f->putlil<float>(vs.alphafront);
+        f->putlil<float>(vs.alphaback);
+    }
+    if(vs.changed & (1<<VSLOT_COLOR))
+    {
+        loopk(3) f->putlil<float>(vs.colorscale[k]);
+    }
+}
+
+void savevslots(stream *f, int numvslots)
+{
+    if(vslots->empty()) return;
+    int *prev = new int[numvslots];
+    memset(prev, -1, numvslots*sizeof(int));
+    loopi(numvslots)
+    {
+        VSlot *vs = (*vslots)[i];
+        if(vs->changed) continue;
+        for(;;)
+        {
+            VSlot *cur = vs;
+            do vs = vs->next; while(vs && vs->index >= numvslots);
+            if(!vs) break;
+            prev[vs->index] = cur->index;
+        }
+    }
+    int lastroot = 0;
+    loopi(numvslots)
+    {
+        VSlot &vs = *(*vslots)[i];
+        if(!vs.changed) continue;
+        if(lastroot < i) f->putlil<int>(-(i - lastroot));
+        savevslot(f, vs, prev[i]);
+        lastroot = i+1;
+    }
+    if(lastroot < numvslots) f->putlil<int>(-(numvslots - lastroot));
+    delete[] prev;
+}
+
+
 struct surfacecompat
 {
     uchar texcoords[8];
@@ -663,6 +734,49 @@ struct bufstream : stream
         return 0;
     }
 };
+
+size_t partial_save_world(
+        void *p,
+        size_t len,
+        MapState *state,
+        int _worldsize
+)
+{
+    bufstream buf(p, len);
+    bufstream *f = &buf;
+
+    // TODO
+    bool nolms = true;
+
+    int numvslots = state->vslots->length();
+    if(!nolms)
+    {
+        numvslots = compactvslots();
+        allchanged();
+    }
+
+    savevslots(f, numvslots);
+
+    savec(worldroot, ivec(0, 0, 0), worldsize>>1, f, nolms);
+
+    if(!nolms)
+    {
+        loopv(lightmaps)
+        {
+            LightMap &lm = lightmaps[i];
+            f->putchar(lm.type | (lm.unlitx>=0 ? 0x80 : 0));
+            if(lm.unlitx>=0)
+            {
+                f->putlil<ushort>(ushort(lm.unlitx));
+                f->putlil<ushort>(ushort(lm.unlity));
+            }
+            f->write(lm.data, lm.bpp*LM_PACKW*LM_PACKH);
+        }
+    }
+
+    return buf.buf.len;
+}
+
 
 MapState *partial_load_world(
         void *p,

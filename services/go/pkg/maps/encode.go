@@ -203,6 +203,21 @@ func SaveChildren(p *game.Buffer, cube *Cube, size int32) error {
 	return nil
 }
 
+func SavePartial(p *game.Buffer, header Header, state worldio.MapState) error {
+	buf := make([]byte, 20000000) // 20 MiB
+	numBytes := worldio.Partial_save_world(
+		uintptr(unsafe.Pointer(&(buf)[0])),
+		int64(len(buf)),
+		state,
+		int(header.WorldSize),
+	)
+	if numBytes == 0 {
+		return fmt.Errorf("failed to write cubes")
+	}
+	(*p) = append(*p, buf[:numBytes]...)
+	return nil
+}
+
 func (m *GameMap) Encode() ([]byte, error) {
 	p := game.Buffer{}
 
@@ -291,12 +306,7 @@ func (m *GameMap) Encode() ([]byte, error) {
 		}
 	}
 
-	err = saveVSlots(&p, m.VSlots)
-	if err != nil {
-		return p, err
-	}
-
-	err = SaveChildren(&p, m.WorldRoot, m.Header.WorldSize)
+	err = SavePartial(&p, m.Header, m.C)
 	if err != nil {
 		return p, err
 	}

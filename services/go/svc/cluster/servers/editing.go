@@ -92,13 +92,10 @@ func (e *EditingState) Apply(edits []*Edit) error {
 
 	log.Info().Msgf("applied %d changes", len(edits))
 
-	//map_ := maps.NewMap()
-	//map_.WorldRoot = maps.MapToGo(m.World)
-	//map_.Vars = m.Vars
-	//err := map_.ToFile("../test.ogz")
-	//if err != nil {
-		//log.Warn().Err(err).Msgf("failed to save map")
-	//}
+	err := e.Map.ToFile("../test.ogz")
+	if err != nil {
+		log.Warn().Err(err).Msgf("failed to save map")
+	}
 	return nil
 }
 
