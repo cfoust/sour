@@ -769,7 +769,6 @@ size_t partial_save_world(
     }
 
     savevslots(f, numvslots);
-    printf("%d vslots\n", numvslots);
 
     savec(worldroot, ivec(0, 0, 0), worldsize>>1, f, nolms);
 
@@ -1036,7 +1035,8 @@ int processedits(ucharbuf &p)
                 int type = getint(p);
                 int attr1 = getint(p), attr2 = getint(p), attr3 = getint(p), attr4 = getint(p), attr5 = getint(p);
 
-                mpeditent(i, vec(x, y, z), type, attr1, attr2, attr3, attr4, attr5, false);
+                // HANDLED IN GO
+                //mpeditent(i, vec(x, y, z), type, attr1, attr2, attr3, attr4, attr5, false);
                 break;
             }
 
@@ -1047,7 +1047,7 @@ int processedits(ucharbuf &p)
             string name;
             filtertext(name, text, false);
 
-            // We handle variables in Go
+            // HANDLED IN GO
             switch(type)
             {
                 case ID_VAR:

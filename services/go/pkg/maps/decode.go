@@ -186,8 +186,6 @@ func Decode(data []byte) (*GameMap, error) {
 	mapHeader.NumVars = newFooter.NumVars
 	mapHeader.NumVSlots = newFooter.NumVSlots
 
-	gameMap.Header = mapHeader
-
 	log.Debug().Msgf("Version %d", header.Version)
 	gameMap.Vars = make(map[string]game.Variable)
 
@@ -213,6 +211,8 @@ func Decode(data []byte) (*GameMap, error) {
 		gameType, _ = p.GetStringByte()
 	}
 	mapHeader.GameType = gameType
+
+	gameMap.Header = mapHeader
 
 	// We just skip extras
 	var eif uint16 = 0

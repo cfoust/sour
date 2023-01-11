@@ -129,6 +129,8 @@ const (
 	NUMMSG
 )
 
+const MAXENTS = 10000
+
 // network quantization scale
 const DMF = 16.0  // for world locations
 const DNF = 100.0 // for normalized vectors

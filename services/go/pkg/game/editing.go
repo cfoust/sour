@@ -200,16 +200,43 @@ type Editm struct {
 
 // N_EDITENT
 type EditEnt struct {
-	Entid int
-	X     int
-	Y     int
-	Z     int
+	Index int
+	X     float32
+	Y     float32
+	Z     float32
 	Type  int
 	Attr1 int
 	Attr2 int
 	Attr3 int
 	Attr4 int
 	Attr5 int
+}
+
+func (e *EditEnt) Unmarshal(p *Packet) error {
+	var X int
+	var Y int
+	var Z int
+	err := p.Get(
+		&e.Index,
+		&X,
+		&Y,
+		&Z,
+		&e.Type,
+		&e.Attr1,
+		&e.Attr2,
+		&e.Attr3,
+		&e.Attr4,
+		&e.Attr5,
+	)
+	if err != nil {
+		return err
+	}
+
+	e.X = float32(X) / DMF
+	e.Y = float32(Y) / DMF
+	e.Z = float32(Z) / DMF
+
+	return nil
 }
 
 // N_COPY
