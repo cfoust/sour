@@ -13,6 +13,7 @@ import (
 	"github.com/repeale/fp-go"
 	"github.com/repeale/fp-go/option"
 
+	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
 
 	"github.com/rs/zerolog/log"
@@ -32,7 +33,7 @@ func Find[T any](handler func(x T) bool) func(list []T) opt.Option[T] {
 	return func(list []T) opt.Option[T] {
 		for _, item := range list {
 			if handler(item) {
-				return opt.Some[T](item)
+				return opt.Some(item)
 			}
 		}
 
@@ -133,29 +134,120 @@ var (
 	}
 )
 
-type Texture struct {
-	Paths     []string
-	Autograss opt.Option[string]
-}
-
 type Model struct {
 	Paths []string
 }
 
-func NewTexture() *Texture {
-	texture := Texture{}
-	texture.Paths = make([]string, 0)
-	return &texture
+const (
+	TEXTURE_CHANGE_ADD = iota
+	TEXTURE_CHANGE_RESET
+)
+
+type TextureChangeType byte
+
+type TextureChange interface {
+	Op() TextureChangeType
+}
+
+type Texture struct {
+	File     string
+	Line     int
+	Type     string
+	Name     string
+	Rotation int
+	Xoffset  int
+	Yoffset  int
+	Scale    float32
+}
+
+func (t Texture) Op() TextureChangeType {
+	return TEXTURE_CHANGE_ADD
+}
+
+type TextureReset struct {
+	Limit int
+}
+
+func (t TextureReset) Op() TextureChangeType {
+	return TEXTURE_CHANGE_RESET
+}
+
+type TextureIndex []TextureChange
+
+func (t TextureIndex) Marshal(p *game.Packet) error {
+	err := p.Put(len(t))
+	if err != nil {
+		return err
+	}
+
+	for _, change := range t {
+		p.Put(change.Op())
+
+		switch change.Op() {
+		case TEXTURE_CHANGE_ADD:
+			add := change.(Texture)
+			err = p.Put(
+				add.Type,
+				add.Name,
+				add.Rotation,
+				add.Xoffset,
+				add.Yoffset,
+				add.Scale,
+			)
+		case TEXTURE_CHANGE_RESET:
+			reset := change.(TextureReset)
+			err = p.Put(reset)
+		}
+	}
+	return nil
+}
+
+func (t *TextureIndex) Unmarshal(p *game.Packet) error {
+	numChanges, ok := p.GetInt()
+	if !ok {
+		return fmt.Errorf("could not read number of textures")
+	}
+
+	for i := 0; i < int(numChanges); i++ {
+		op, ok := p.GetByte()
+		if !ok {
+			return fmt.Errorf("could not read op")
+		}
+
+		var err error
+		switch op {
+		case TEXTURE_CHANGE_ADD:
+			var add Texture
+			err = p.Get(
+				&add.Type,
+				&add.Name,
+				&add.Rotation,
+				&add.Xoffset,
+				&add.Yoffset,
+				&add.Scale,
+			)
+			*t = append(*t, add)
+		case TEXTURE_CHANGE_RESET:
+			var reset TextureReset
+			err = p.Get(&reset)
+			*t = append(*t, reset)
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 type Processor struct {
 	Roots        RootFlags
 	LastMaterial *maps.Slot
+	VSlots       []*maps.VSlot
+	Slots        []*maps.Slot
 
-	VSlots []*maps.VSlot
-	Slots  []*maps.Slot
-	// Cube faces reference slots inside of this
-	Textures  []Texture
+	Textures  TextureIndex
 	Models    []Model
 	Sounds    []string
 	Materials map[string]*maps.Slot
@@ -172,6 +264,7 @@ func NewProcessor(roots RootFlags, slots []*maps.VSlot) *Processor {
 	processor.Models = make([]Model, 0)
 	processor.Sounds = make([]string, 0)
 	processor.Materials = make(map[string]*maps.Slot)
+	processor.Textures = make([]TextureChange, 0)
 
 	for _, material := range MATERIALS {
 		processor.Materials[material] = maps.NewSlot()
@@ -189,11 +282,11 @@ func (processor *Processor) SearchFile(path string) opt.Option[string] {
 		prefixed := filepath.Join(processor.Roots[i], "packages", path)
 
 		if FileExists(unprefixed) {
-			return opt.Some[string](unprefixed)
+			return opt.Some(unprefixed)
 		}
 
 		if FileExists(prefixed) {
-			return opt.Some[string](prefixed)
+			return opt.Some(prefixed)
 		}
 	}
 
@@ -212,7 +305,7 @@ func (processor *Processor) GetRootRelative(path string) opt.Option[string] {
 			continue
 		}
 
-		return opt.Some[string](relative)
+		return opt.Some(relative)
 	}
 
 	return opt.None[string]()
@@ -262,7 +355,7 @@ func ParseLine(line string) []string {
 	// Break the command up into pieces, preserving quoted arguments
 	matches := COMMAND_REGEX.FindAllStringSubmatch(command, -1)
 
-	return fp.Map[[]string, string](
+	return fp.Map(
 		func(x []string) string {
 			return strings.ReplaceAll(x[0], "\"", "")
 		},
@@ -321,7 +414,7 @@ func (processor *Processor) ProcessFile(file string) error {
 		return processor.ProcessFile(shim)
 	}
 
-	for _, line := range strings.Split(string(src), "\n") {
+	for i, line := range strings.Split(string(src), "\n") {
 		args := ParseLine(line)
 
 		if len(args) == 0 {
@@ -329,14 +422,60 @@ func (processor *Processor) ProcessFile(file string) error {
 		}
 
 		switch args[0] {
+		case "texture":
+			if len(args) < 3 {
+				break
+			}
+
+			texture := Texture{
+				File: file,
+				Line: i,
+				Type: args[1],
+				Name: args[2],
+			}
+
+			if len(args) >= 4 {
+				value, err := strconv.Atoi(args[3])
+				if err != nil {
+					texture.Rotation = value
+				}
+			}
+
+			if len(args) >= 5 {
+				value, err := strconv.Atoi(args[4])
+				if err != nil {
+					texture.Xoffset = value
+				}
+			}
+
+			if len(args) >= 6 {
+				value, err := strconv.Atoi(args[5])
+				if err != nil {
+					texture.Yoffset = value
+				}
+			}
+
+			if len(args) >= 7 {
+				value, err := strconv.ParseFloat(args[6], 32)
+				if err == nil {
+					texture.Scale = float32(value)
+				}
+			}
+
+			processor.Textures = append(processor.Textures, texture)
+			processor.Texture(args[1], NormalizeTexture(args[2]))
+
 		case "texturereset":
 			limit := 0
 
+			reset := TextureReset{}
 			if len(args) == 2 {
-				parsed, _ := strconv.Atoi(args[1])
-				limit = parsed
+				value, _ := strconv.Atoi(args[1])
+				limit = value
+				reset.Limit = value
 			}
 
+			processor.Textures = append(processor.Textures, reset)
 			processor.ResetTextures(int32(limit))
 
 		case "materialreset":
@@ -432,13 +571,6 @@ func (processor *Processor) ProcessFile(file string) error {
 
 			processor.AddFile(args[1])
 
-		case "texture":
-			if len(args) < 3 {
-				break
-			}
-
-			processor.Texture(args[1], NormalizeTexture(args[2]))
-
 		case "cloudlayer":
 			if len(args) != 2 {
 				break
@@ -531,7 +663,6 @@ func (processor *Processor) ProcessFile(file string) error {
 	return nil
 }
 
-
 // File paths are strange in Sauer: certain types of assets omit the
 // packages/, others are relative to the config file (models), and this
 // program also accepts map files not inside of a Sauer directory
@@ -551,7 +682,7 @@ func (p *Processor) NormalizeFile(file string) opt.Option[Reference] {
 		}
 
 		reference.Relative = relative.Value
-		return opt.Some[Reference](reference)
+		return opt.Some(reference)
 	}
 
 	// This might just be a file (like a config) that was specified with a relative path

@@ -19,7 +19,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func DumpMap(roots []string, filename string) ([]min.Reference, error) {
+func DumpMap(roots []string, filename string, indexPath string) ([]min.Reference, error) {
 	extension := filepath.Ext(filename)
 
 	if extension != ".ogz" {
@@ -162,6 +162,11 @@ func DumpMap(roots []string, filename string) ([]min.Reference, error) {
 		}
 	}
 
+	if len(indexPath) > 0 {
+		err = processor.SaveTextureIndex(indexPath)
+		log.Fatal().Err(err)
+	}
+
 	return references, nil
 }
 
@@ -211,7 +216,7 @@ func DumpModel(roots []string, filename string) ([]min.Reference, error) {
 	return references, nil
 }
 
-func DumpCFG(roots []string, filename string) ([]min.Reference, error) {
+func DumpCFG(roots []string, filename string, indexPath string) ([]min.Reference, error) {
 	extension := filepath.Ext(filename)
 
 	if extension != ".cfg" {
@@ -264,6 +269,11 @@ func DumpCFG(roots []string, filename string) ([]min.Reference, error) {
 		}
 	}
 
+	if len(indexPath) > 0 {
+		err = processor.SaveTextureIndex(indexPath)
+		log.Fatal().Err(err)
+	}
+
 	return references, nil
 }
 
@@ -274,9 +284,10 @@ func main() {
 
 	flag.Var(&roots, "root", "Specify an explicit asset root directory. Roots are searched in order of appearance.")
 	parseType := flag.String("type", "map", "The type of the asset to parse, one of 'map', 'model', 'cfg'.")
+	indexPath := flag.String("index", "", "Where to save the index of all texture calls.")
 	flag.Parse()
 
-	absoluteRoots := fp.Map[string, string](func(root string) string {
+	absoluteRoots := fp.Map(func(root string) string {
 		absolute, err := filepath.Abs(root)
 		if err != nil {
 			log.Fatal().Err(err)
@@ -299,11 +310,11 @@ func main() {
 
 	switch *parseType {
 	case "map":
-		references, err = DumpMap(absoluteRoots, filename)
+		references, err = DumpMap(absoluteRoots, filename, *indexPath)
 	case "model":
 		references, err = DumpModel(absoluteRoots, filename)
 	case "cfg":
-		references, err = DumpCFG(absoluteRoots, filename)
+		references, err = DumpCFG(absoluteRoots, filename, *indexPath)
 	default:
 		log.Fatal().Msgf("invalid type %s", *parseType)
 	}

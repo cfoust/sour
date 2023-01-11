@@ -6,7 +6,7 @@ import (
 	"reflect"
 )
 
-// Similar to game.Packet, but map IO does not do any compression.
+// Similar to game.Packet, but does not do any compression.
 type Buffer []byte
 
 func (p *Buffer) unmarshalRawValue(type_ reflect.Type, value interface{}) error {

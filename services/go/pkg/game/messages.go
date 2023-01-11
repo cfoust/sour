@@ -159,8 +159,9 @@ type ServCMD struct {
 
 // N_SETMASTER
 type SetMaster struct {
-	Client int
-	Master int
+	Client   int
+	Master   int
+	Password string
 }
 
 // N_SHOOT

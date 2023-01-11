@@ -5,10 +5,12 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"os"
 
 	"github.com/repeale/fp-go/option"
 
 	"github.com/cfoust/sour/pkg/maps"
+	"github.com/cfoust/sour/pkg/game"
 
 	"github.com/rs/zerolog/log"
 )
@@ -39,7 +41,7 @@ func GetChildTextures(cubes []*maps.Cube, vslots []*maps.VSlot) map[int32]int {
 	// * VSlot.Slot
 	// * VSlot.Layer -> VSlot.Slot
 	slotRefs := make(map[int32]int)
-	for index, _ := range vSlotRefs {
+	for index := range vSlotRefs {
 		if index >= int32(len(vslots)) {
 			continue
 		}
@@ -123,11 +125,11 @@ func (processor *Processor) ListVSlots() {
 }
 
 func (processor *Processor) Texture(textureType string, name string) {
-	texture := Find[string](func(x string) bool {
+	texture := Find(func(x string) bool {
 		return textureType == x
 	})(PARAMS)
 
-	material := Find[string](func(x string) bool {
+	material := Find(func(x string) bool {
 		return textureType == x
 	})(MATERIALS)
 
@@ -300,4 +302,31 @@ func (processor *Processor) ResetTextures(n int32) {
 		}
 		processor.VSlots = processor.VSlots[:len(processor.VSlots)-1]
 	}
+}
+
+func (processor *Processor) SaveTextureIndex(path string) error {
+	p := game.Packet{}
+	err := p.Put(processor.Textures)
+	if err != nil {
+		return err
+	}
+
+	//index := TextureIndex{}
+	//err = p.Get(&index)
+	//if err != nil {
+		//return err
+	//}
+
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = out.Write(p)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

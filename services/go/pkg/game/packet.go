@@ -113,6 +113,12 @@ func (p *Packet) GetFloat() (float32, bool) {
 	return value, ok
 }
 
+func (p *Packet) PutFloat(v float32) {
+	q := Buffer(*p)
+	q.Put(v)
+	*p = Packet(q)
+}
+
 // GetInt returns the integer value encoded in the next byte(s) of the packet.
 func (p *Packet) GetInt() (int32, bool) {
 	b, ok := p.GetByte()

@@ -36,6 +36,10 @@ type Unmarshalable interface {
 	Unmarshal(p *Packet) error
 }
 
+type Marshalable interface {
+	Marshal(p *Packet) error
+}
+
 func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	if value.Kind() != reflect.Struct {
 		return fmt.Errorf("cannot unmarshal non-struct")
@@ -186,6 +190,12 @@ func unmarshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 		} else {
 			value.SetBool(false)
 		}
+	case reflect.Float32:
+		readValue, ok := p.GetFloat()
+		if !ok {
+			return fmt.Errorf("error reading float")
+		}
+		value.SetFloat(float64(readValue))
 	case reflect.Uint:
 		readValue, ok := p.GetUint()
 		if !ok {
@@ -238,6 +248,10 @@ func marshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 		return writePhysics(p, value.Interface().(PhysicsState))
 	}
 
+	if u, ok := value.Interface().(Marshalable); ok {
+		return u.Marshal(p)
+	}
+
 	switch type_.Kind() {
 	case reflect.Int32:
 		fallthrough
@@ -245,6 +259,8 @@ func marshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 		p.PutInt(int32(value.Int()))
 	case reflect.Uint8:
 		p.PutByte(byte(value.Uint()))
+	case reflect.Float32:
+		p.PutFloat(float32(value.Float()))
 	case reflect.Bool:
 		boolean := value.Bool()
 		if boolean {

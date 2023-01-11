@@ -2100,6 +2100,7 @@ VAR(usevdelta, 1, 0, 0);
 
 static VSlot *remapvslot(int index, bool delta, const VSlot &ds)
 {
+    conoutf("remapvslot %d %d\n", index, delta);
     loopv(remappedvslots) if(remappedvslots[i].index == index) return remappedvslots[i].vslot;
     VSlot &vs = lookupvslot(index, false);
     if(vs.index < 0 || vs.index == DEFAULT_SKY) return NULL;

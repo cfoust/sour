@@ -735,6 +735,13 @@ struct bufstream : stream
     }
 };
 
+void setworldsize(int size)
+{
+    worldsize = size;
+    worldscale = 0;
+    while(1<<worldscale < size) worldscale++;
+}
+
 size_t partial_save_world(
         void *p,
         size_t len,
@@ -744,6 +751,12 @@ size_t partial_save_world(
 {
     bufstream buf(p, len);
     bufstream *f = &buf;
+
+    vslots = state->vslots;
+    worldroot = state->root;
+    slots = state->slots;
+
+    setworldsize(_worldsize);
 
     // TODO
     bool nolms = true;
@@ -756,6 +769,7 @@ size_t partial_save_world(
     }
 
     savevslots(f, numvslots);
+    printf("%d vslots\n", numvslots);
 
     savec(worldroot, ivec(0, 0, 0), worldsize>>1, f, nolms);
 
@@ -777,7 +791,6 @@ size_t partial_save_world(
     return buf.buf.len;
 }
 
-
 MapState *partial_load_world(
         void *p,
         size_t len,
@@ -793,9 +806,7 @@ MapState *partial_load_world(
     bufstream *f = &buf;
 
     mapversion = _mapversion;
-    worldsize = _worldsize;
-    worldscale = 0;
-    while(1<<worldscale < _worldsize) worldscale++;
+    setworldsize(_worldsize);
 
     MapState *state = new MapState;
     state->vslots = new vector<VSlot*>;
@@ -1073,9 +1084,7 @@ bool apply_messages(MapState *state, int _worldsize, void *data, size_t len)
     vslots = state->vslots;
     slots = state->slots;
 
-    worldsize = _worldsize;
-    worldscale = 0;
-    while(1<<worldscale < _worldsize) worldscale++;
+    setworldsize(_worldsize);
 
     ucharbuf buf((uchar*)data, len);
     int result = processedits(buf);
