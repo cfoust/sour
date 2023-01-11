@@ -49,13 +49,13 @@ func (e *EditingState) Process(message game.Message) {
 	e.mutex.Unlock()
 }
 
-func (e *EditingState) LoadMap(path string) error {
-	map_, err := maps.FromFile(path)
+func (e *EditingState) LoadMapBytes(data []byte) error {
+	map_, err := maps.FromGZ(data)
 	if err != nil {
 		return err
 	}
 
-	file, err := os.Open("complex.texture")
+	file, err := os.Open("default.textures")
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (e *EditingState) LoadMap(path string) error {
 		e.Map.C,
 	)
 	if !result {
-		return fmt.Errorf("applying changes failed")
+		return fmt.Errorf("failed to load texture index")
 	}
 
 	return nil
@@ -173,7 +173,6 @@ func (e *EditingState) Apply(edits []*Edit) error {
 	if !result {
 		return fmt.Errorf("applying changes failed")
 	}
-	log.Info().Msgf(e.Map.Header.GameType)
 
 	err := e.Map.ToFile("../test.ogz")
 	if err != nil {

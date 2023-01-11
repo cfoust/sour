@@ -665,7 +665,7 @@ export default function useAssets(
         setTimeout(() => BananaBread.execute(`map ${map}`), 0)
       },
       loadWorld: (target: string) => loadMapData(target),
-      receivedMap: (map: string, oldMap: string) => {
+      receiveMap: (map: string, oldMap: string) => {
         if (oldMap != null && !oldMap.startsWith('getmap_')) {
           targetMap = map
           loadMapData(oldMap)

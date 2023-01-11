@@ -120,7 +120,7 @@ func (server *Cluster) GetClientInfo() []*servers.ClientExtInfo {
 			newClient := *client
 
 			// Replace with clientID
-			for client, _ := range server.Clients.State {
+			for client := range server.Clients.State {
 				if client.GetServer() == gameServer && int(client.GetClientNum()) == newClient.Client {
 					newClient.Client = int(client.Id)
 				}
@@ -207,7 +207,7 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 			}
 
 			server.Clients.Mutex.Lock()
-			for client, _ := range server.Clients.State {
+			for client := range server.Clients.State {
 				if client == winner || client == loser {
 					continue
 				}
@@ -216,7 +216,7 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 			server.Clients.Mutex.Unlock()
 		case queue := <-queues:
 			server.Clients.Mutex.Lock()
-			for client, _ := range server.Clients.State {
+			for client := range server.Clients.State {
 				if client == queue.Client {
 					continue
 				}
@@ -498,7 +498,7 @@ func (server *Cluster) NotifyClientChange(ctx context.Context, client *clients.C
 	message := fmt.Sprintf("%s: %s (%s)", event, name, serverName)
 
 	server.Clients.Mutex.Lock()
-	for other, _ := range server.Clients.State {
+	for other := range server.Clients.State {
 		if other == client {
 			continue
 		}
@@ -529,7 +529,7 @@ func (server *Cluster) NotifyNameChange(ctx context.Context, client *clients.Cli
 	message := fmt.Sprintf("%s now known as %s [%s]", oldName, newName, serverName)
 
 	server.Clients.Mutex.Lock()
-	for other, _ := range server.Clients.State {
+	for other := range server.Clients.State {
 		if other == client {
 			continue
 		}
@@ -564,7 +564,7 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Cl
 	// To users on another server
 	otherMessage := fmt.Sprintf("%s [%s]: %s", name, serverName, game.Green(message))
 
-	for client, _ := range server.Clients.State {
+	for client := range server.Clients.State {
 		if client == sender {
 			continue
 		}
@@ -807,6 +807,14 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 						)
 						continue
 					}
+				}
+
+				if message.Type() == game.N_TELEPORT {
+					//teleport := message.Contents().(*game.Teleport)
+					//log.Info().Msgf("client %s teleported to %d", client.Reference(), teleport.Destination)
+					//if teleport.Destination == 10 {
+					//go server.RunCommandWithTimeout(clientCtx, "creategame complex", client)
+					//}
 				}
 
 				if message.Type() == game.N_MAPCRC {

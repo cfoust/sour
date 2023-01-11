@@ -161,17 +161,6 @@ func (server *GameServer) SendMapResponse(mapName string, mode int32, path strin
 	if succeeded {
 		server.IsBuiltMap = false
 	}
-
-	if succeeded && server.Editing != nil {
-		go func() {
-			err := server.Editing.LoadMap(path)
-			if err != nil {
-				log.Error().Err(err).Msg("failed to load map")
-			}
-
-			go server.Editing.PollEdits(server.Context)
-		}()
-	}
 	server.Mutex.Unlock()
 
 	p := game.Packet{}
@@ -461,7 +450,7 @@ func (server *GameServer) HandleMapChange(ctx context.Context, mapName string, m
 	}
 
 	if mode == game.MODE_COOP {
-		 server.Editing = NewEditingState()
+		// TODO not supported generally, only on homeworlds
 	}
 
 	server.Mutex.Unlock()
@@ -535,7 +524,7 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 				eventType := ServerEvent(type_)
 
 				if eventType != SERVER_EVENT_PONG {
-					logger.Debug().Str("type", eventType.String()).Msg("server -> cluster")
+					//logger.Debug().Str("type", eventType.String()).Msg("server -> cluster")
 				}
 
 				if eventType == SERVER_EVENT_REQUEST_MAP {

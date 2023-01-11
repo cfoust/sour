@@ -15,8 +15,6 @@ cluster:
         addbanner "^f7Sour ^f7is available online ^f1www.github.com/cfoust/sour^f7."
         addbanner "Queue for duels with #duel or #duel insta."
         defaultgamespeed 100
-        defaultmodename "ffa"
-        defaultmap "complex"
         autosendmap 1
         enable_passflag 1
         instacoop 0

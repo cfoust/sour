@@ -389,6 +389,7 @@ type GameMap struct {
 }
 
 func NewMap() *GameMap {
+	c := worldio.Empty_world(12)
 	return &GameMap{
 		Header: Header{
 			Version:    game.MAP_VERSION,
@@ -400,5 +401,6 @@ func NewMap() *GameMap {
 		WorldRoot: EmptyMap(1024),
 		Vars:      make(map[string]game.Variable),
 		VSlots:    make([]*VSlot, 0),
+		C: c,
 	}
 }

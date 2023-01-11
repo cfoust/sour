@@ -790,6 +790,17 @@ size_t partial_save_world(
     return buf.buf.len;
 }
 
+MapState *empty_world(int scale)
+{
+    MapState *state = new MapState;
+    state->vslots = new vector<VSlot*>;
+    state->slots = new vector<Slot*>;
+    emptymap(scale);
+    state->root = worldroot;
+
+    return state;
+}
+
 MapState *partial_load_world(
         void *p,
         size_t len,

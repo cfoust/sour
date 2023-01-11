@@ -2495,6 +2495,7 @@ namespace server {
         healthy();
     }
     ICOMMAND(changemap, "si", (char *target, int *mode), { changemap(target, *mode); });
+    ICOMMAND(emptymap, "", (), { changemap("", 1); });
     ICOMMAND(setmode, "i", (int *mode), { changemap(smapname, *mode); });
     ICOMMAND(setmap, "s", (char *target), { changemap(target, gamemode); });
 
@@ -3775,7 +3776,7 @@ best.add(clients[i]); \
     {
         if(m_demo) enddemoplayback();
 
-        if(!hasmap(ci)) rotatemap(false);
+        //if(!hasmap(ci)) rotatemap(false);
 
         shouldstep = true;
 

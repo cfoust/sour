@@ -12,6 +12,8 @@ void freeocta(cube *c);
 cube *loadchildren_buf(void *p, size_t len, int size, int _mapversion);
 size_t savec_buf(void *p, unsigned int len, cube *c, int size);
 
+MapState *empty_world(int size);
+
 MapState *partial_load_world(
         void *p,
         size_t len,

@@ -56,7 +56,7 @@ func getModeNames() []string {
 func getModeNumber(mode string) opt.Option[int] {
 	for i, name := range getModeNames() {
 		if name == mode {
-			return opt.Some[int](i)
+			return opt.Some(i)
 		}
 	}
 
@@ -81,13 +81,13 @@ func (server *Cluster) inferCreateParams(args []string) (*CreateParams, error) {
 
 		map_ := server.manager.Maps.FindMap(arg)
 		if opt.IsSome(map_) {
-			params.Map = opt.Some[string](arg)
+			params.Map = opt.Some(arg)
 			continue
 		}
 
 		preset := server.manager.FindPreset(arg, false)
 		if opt.IsSome(preset) {
-			params.Preset = opt.Some[string](preset.Value.Name)
+			params.Preset = opt.Some(preset.Value.Name)
 			continue
 		}
 
@@ -232,6 +232,10 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 
 	case "stopduel":
 		server.matches.Dequeue(client)
+		return true, "", nil
+
+	case "home":
+		server.GoHome(server.serverCtx, client)
 		return true, "", nil
 
 	case "help":

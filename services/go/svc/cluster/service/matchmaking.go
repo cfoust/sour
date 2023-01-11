@@ -533,7 +533,7 @@ func (m *Matchmaker) ReceiveQueues() <-chan DuelQueue {
 func (m *Matchmaker) FindDuelType(name string) opt.Option[config.DuelType] {
 	for _, duelType := range m.duelTypes {
 		if duelType.Name == name || (len(name) == 0 && duelType.Default) {
-			return opt.Some[config.DuelType](duelType)
+			return opt.Some(duelType)
 		}
 	}
 
