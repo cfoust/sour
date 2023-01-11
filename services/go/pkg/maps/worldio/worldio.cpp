@@ -795,7 +795,10 @@ MapState *empty_world(int scale)
     MapState *state = new MapState;
     state->vslots = new vector<VSlot*>;
     state->slots = new vector<Slot*>;
-    emptymap(scale);
+    vslots = state->vslots;
+    slots = state->slots;
+    worldroot = newcubes(F_EMPTY);
+    emptymap(scale, true, NULL);
     state->root = worldroot;
 
     return state;

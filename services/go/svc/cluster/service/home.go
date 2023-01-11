@@ -35,12 +35,14 @@ func (server *Cluster) GoHome(ctx context.Context, client *clients.Client) error
 	gameServer.Editing = editing
 
 	map_ := maps.NewMap()
-	gz, err := map_.EncodeOGZ()
+	err = editing.LoadMap(map_)
 	if err != nil {
 		return err
 	}
 
-	err = editing.LoadMapBytes(gz)
+	map_.ToFile("../test.ogz")
+
+	gz, err := map_.EncodeOGZ()
 	if err != nil {
 		return err
 	}

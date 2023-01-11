@@ -236,7 +236,7 @@ func (m *GameMap) Encode() ([]byte, error) {
 			BlendMap: 0,
 			NumVars:  int32(len(m.Vars)),
 			// TODO
-			NumVSlots: int32(len(m.VSlots)),
+			NumVSlots: int32(worldio.Getnumvslots(m.C)),
 		},
 	)
 	if err != nil {

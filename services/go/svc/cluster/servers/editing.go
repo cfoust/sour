@@ -49,12 +49,7 @@ func (e *EditingState) Process(message game.Message) {
 	e.mutex.Unlock()
 }
 
-func (e *EditingState) LoadMapBytes(data []byte) error {
-	map_, err := maps.FromGZ(data)
-	if err != nil {
-		return err
-	}
-
+func (e *EditingState) LoadMap(map_ *maps.GameMap) error {
 	file, err := os.Open("default.textures")
 	if err != nil {
 		return err
