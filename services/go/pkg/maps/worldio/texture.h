@@ -248,6 +248,8 @@ extern const char *getshaderparamname(const char *name, bool insert = true);
 extern void setupshaders();
 extern void reloadshaders();
 extern void cleanupshaders();
+void texture(char *type, char *name, int *rot, int *xoffset, int *yoffset, float *scale);
+void texturereset(int *n);
 
 #define MAXDYNLIGHTS 5
 #define DYNLIGHTBITS 6

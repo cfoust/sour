@@ -1097,6 +1097,45 @@ bool apply_messages(MapState *state, int _worldsize, void *data, size_t len)
     return true;
 }
 
+bool load_texture_index(void *data, size_t len, MapState *state)
+{
+    ucharbuf p((uchar*)data, len);
+
+    vslots = state->vslots;
+    slots = state->slots;
+
+    int numchanges = getint(p);
+    char textype[MAXTRANS];
+    char name[MAXTRANS];
+    for (int i = 0; i < numchanges; i++) {
+        int type = getint(p);
+
+        if (p.overread()) {
+            return false;
+        }
+
+        switch (type) {
+            case 0: {
+                getstring(textype, p);
+                getstring(name, p);
+                int rotation = getint(p),
+                    xoffset = getint(p),
+                    yoffset = getint(p);
+                float scale = getfloat(p);
+                texture(textype, name, &rotation, &xoffset, &yoffset, &scale);
+                break;
+            }
+            case 1: {
+                int limit = getint(p);
+                texturereset(&limit);
+                break;
+            }
+        }
+    }
+
+    return true;
+}
+
 int dbgvars = 0;
 
 #endif

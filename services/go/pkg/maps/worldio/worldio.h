@@ -30,6 +30,9 @@ size_t partial_save_world(
         int _worldsize
 );
 
+bool load_texture_index(void *data, size_t len, MapState *state);
+
+
 int getnumvslots(MapState *state);
 VSlot *getvslotindex(MapState *state, int i);
 

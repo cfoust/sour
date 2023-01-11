@@ -157,6 +157,7 @@ VSlot *findvslot(Slot &slot, const VSlot &src, const VSlot &delta)
     return NULL;
 }
 
+
 ivec lu;
 int lusize;
 
@@ -2254,4 +2255,128 @@ void mpeditmat(int matid, int filter, selinfo &sel, bool local)
         if(isdeadly(matid&MATF_VOLUME)) matid |= MAT_DEATH;
     }
     loopselxyz(setmat(c, matid, matmask, filtermat, filtermask, filtergeom));
+}
+
+const struct slottex
+{
+    const char *name;
+    int id;
+} slottexs[] =
+{
+    {"c", TEX_DIFFUSE},
+    {"u", TEX_UNKNOWN},
+    {"d", TEX_DECAL},
+    {"n", TEX_NORMAL},
+    {"g", TEX_GLOW},
+    {"s", TEX_SPEC},
+    {"z", TEX_DEPTH},
+    {"a", TEX_ALPHA},
+    {"e", TEX_ENVMAP}
+};
+
+int findslottex(const char *name)
+{
+    loopi(sizeof(slottexs)/sizeof(slottex))
+    {
+        if(!strcmp(slottexs[i].name, name)) return slottexs[i].id;
+    }
+    return -1;
+}
+
+static VSlot *reassignvslot(Slot &owner, VSlot *vs)
+{
+    owner.variants = vs;
+    while(vs)
+    {
+        vs->slot = &owner;
+        vs->linked = false;
+        vs = vs->next;
+    }
+    return owner.variants;
+}
+
+static VSlot *emptyvslot(Slot &owner)
+{
+    int offset = 0;
+    loopvrev(*slots) if((*slots)[i]->variants) { offset = (*slots)[i]->variants->index + 1; break; }
+    for(int i = offset; i < vslots->length(); i++) if(!(*vslots)[i]->changed) return reassignvslot(owner, (*vslots)[i]);
+    return vslots->add(new VSlot(&owner, vslots->length()));
+}
+
+const struct material
+{
+    const char *name;
+    ushort id;
+} materials[] = 
+{
+    {"air", MAT_AIR},
+    {"water", MAT_WATER}, {"water1", MAT_WATER}, {"water2", MAT_WATER+1}, {"water3", MAT_WATER+2}, {"water4", MAT_WATER+3},
+    {"glass", MAT_GLASS}, {"glass1", MAT_GLASS}, {"glass2", MAT_GLASS+1}, {"glass3", MAT_GLASS+2}, {"glass4", MAT_GLASS+3},
+    {"lava", MAT_LAVA}, {"lava1", MAT_LAVA}, {"lava2", MAT_LAVA+1}, {"lava3", MAT_LAVA+2}, {"lava4", MAT_LAVA+3},
+    {"clip", MAT_CLIP},
+    {"noclip", MAT_NOCLIP},
+    {"gameclip", MAT_GAMECLIP},
+    {"death", MAT_DEATH},
+    {"alpha", MAT_ALPHA}
+};
+
+int findmaterial(const char *name)
+{
+    loopi(sizeof(materials)/sizeof(material))
+    {
+        if(!strcmp(materials[i].name, name)) return materials[i].id;
+    } 
+    return -1;
+}  
+
+void texture(char *type, char *name, int *rot, int *xoffset, int *yoffset, float *scale)
+{
+    if(slots->length()>=0x10000) return;
+    static int lastmatslot = -1;
+    int tnum = findslottex(type), matslot = findmaterial(type);
+    if(tnum<0) tnum = atoi(type);
+    if(tnum==TEX_DIFFUSE) lastmatslot = matslot;
+    else if(lastmatslot>=0) matslot = lastmatslot;
+    else if(slots->empty()) return;
+    Slot &s = matslot>=0 ? materialslots[matslot] : *(tnum!=TEX_DIFFUSE ? slots->last() : slots->add(new Slot(slots->length())));
+    s.loaded = false;
+    s.texmask |= 1<<tnum;
+    //if(s.sts.length()>=8) conoutf(CON_WARN, "warning: too many textures in slot %d", slots->length()-1);
+    Slot::Tex &st = s.sts.add();
+    st.type = tnum;
+    st.combined = -1;
+    st.t = NULL;
+    copystring(st.name, name);
+    //path(st.name);
+    if(tnum==TEX_DIFFUSE)
+    {
+        // TODO does this matter?
+        //setslotshader(s);
+        VSlot &vs = matslot >= 0 ? materialslots[matslot] : *emptyvslot(s);
+        vs.reset();
+        vs.rotation = clamp(*rot, 0, 7);
+        vs.offset = ivec2(*xoffset, *yoffset).max(0);
+        vs.scale = *scale <= 0 ? 1 : *scale;
+        propagatevslot(&vs, (1<<VSLOT_NUM)-1);
+    }
+}
+
+void texturereset(int *n)
+{
+    // TODO
+    //resetslotshader();
+    int limit = clamp(*n, 0, slots->length());
+    for(int i = limit; i < slots->length(); i++) 
+    {
+        Slot *s = (*slots)[i];
+        for(VSlot *vs = s->variants; vs; vs = vs->next) vs->slot = &dummyslot;
+        delete s;
+    }
+    slots->setsize(limit);
+    while(vslots->length())
+    {
+        VSlot *vs = vslots->last();
+        if(vs->slot != &dummyslot || vs->changed) break;
+        delete vslots->pop();
+    }
 }
