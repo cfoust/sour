@@ -57,6 +57,13 @@ func (e *EditingState) Checkpoint(ctx context.Context) error {
 	    return err
 	}
 
+	if e.Space != nil {
+		creator, err = e.Space.GetOwner(ctx)
+		if err != nil {
+		    return err
+		}
+	}
+
 	newMap, err := e.verse.SaveGameMap(ctx, creator, e.GameMap)
 	if err != nil {
 	    return err
