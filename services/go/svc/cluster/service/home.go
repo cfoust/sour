@@ -5,33 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cfoust/sour/pkg/game"
 	//"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/clients"
-	"github.com/cfoust/sour/svc/cluster/servers"
 	"github.com/cfoust/sour/svc/cluster/verse"
-
-	"github.com/rs/zerolog/log"
 )
 
 func (c *Cluster) GoHome(ctx context.Context, client *clients.Client) error {
-	gameServer, err := c.manager.NewServer(ctx, "", true)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to create home server")
-		return err
-	}
-
-	err = gameServer.StartAndWait(ctx)
-	if err != nil {
-		return err
-	}
-
-	gameServer.SendCommand(fmt.Sprintf("serverdesc \"Sour %s\"", game.Blue("Home")))
-	gameServer.SendCommand("publicserver 1")
-
-	// New empty map
-	gameServer.SendCommand("emptymap")
-
+	var err error
 	var space *verse.Space
 	user := client.GetUser()
 	isLoggedIn := user != nil
@@ -52,28 +32,12 @@ func (c *Cluster) GoHome(ctx context.Context, client *clients.Client) error {
 		}
 	}
 
-	verseMap, err := space.GetMap(ctx)
+	instance, err := c.spaces.StartSpace(ctx, space.GetID())
 	if err != nil {
-		return err
+	    return err
 	}
 
-	map_, err := verseMap.LoadGameMap(ctx)
-	if err != nil {
-		return err
-	}
-
-	// Load the user's world or create a new one
-	editing := servers.NewEditingState(c.verse, space, verseMap)
-	gameServer.Editing = editing
-
-	err = editing.LoadMap(map_)
-	if err != nil {
-		return err
-	}
-
-	go editing.PollEdits(ctx)
-
-	_, err = client.ConnectToServer(gameServer, false, true)
+	_, err = client.ConnectToServer(instance.Server, false, true)
 
 	message := fmt.Sprintf(
 		"Welcome to your home space (%s).",

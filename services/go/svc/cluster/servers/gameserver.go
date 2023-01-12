@@ -20,9 +20,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type MapEdit struct {
+type RawEdit struct {
 	Client int32
 	Packet game.GamePacket
+}
+
+type MapEdit struct {
+	Client int32
+	Message game.Message
 }
 
 type GameServer struct {
@@ -70,7 +75,8 @@ type GameServer struct {
 	description string
 
 	rawBroadcasts chan game.GamePacket
-	rawEdits      chan MapEdit
+	rawEdits      chan RawEdit
+	mapEdits      chan MapEdit
 	broadcasts    chan game.Message
 	subscribers   []chan game.Message
 
@@ -84,6 +90,10 @@ type GameServer struct {
 
 func (server *GameServer) ReceiveMapRequests() <-chan MapRequest {
 	return server.mapRequests
+}
+
+func (server *GameServer) ReceiveMapEdits() <-chan MapEdit {
+	return server.mapEdits
 }
 
 func (server *GameServer) BroadcastSubscribe() <-chan game.Message {
@@ -306,21 +316,20 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 				logger.Debug().Str("type", message.Type().String()).Msg("broadcast")
 				server.broadcasts <- message
 			}
-		//case edit := <-server.rawEdits:
-			//packet := edit.Packet
-			//decoded, err := game.Read(packet.Data, false)
-			//if err != nil {
-				//logger.Warn().Err(err).Msg("failed to decode map edit")
-				//continue
-			//}
+		case edit := <-server.rawEdits:
+			packet := edit.Packet
+			decoded, err := game.Read(packet.Data, false)
+			if err != nil {
+				logger.Warn().Err(err).Msg("failed to decode map edit")
+				continue
+			}
 
-			//for _, message := range decoded {
-				//server.Mutex.Lock()
-				//if server.Editing != nil {
-					//server.Editing.Process(edit.Client, message)
-				//}
-				//server.Mutex.Unlock()
-			//}
+			for _, message := range decoded {
+				server.mapEdits <- MapEdit{
+					Client: edit.Client,
+					Message: message,
+				}
+			}
 		case <-ctx.Done():
 			return
 		}
@@ -656,7 +665,7 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 					data := p[:numBytes]
 					p = p[len(data):]
 
-					server.rawEdits <- MapEdit{
+					server.rawEdits <- RawEdit{
 						Packet: game.GamePacket{
 							Data:    data,
 							Channel: 1,

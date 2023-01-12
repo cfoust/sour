@@ -275,8 +275,8 @@ func (e *EditingState) Destroy() {
 	}
 }
 
-func (e *EditingState) PollEdits(ctx context.Context) {
-	tick := time.NewTicker(5 * time.Minute)
+func (e *EditingState) SavePeriodically(ctx context.Context) {
+	tick := time.NewTicker(5 * time.Second)
 	for {
 		select {
 		case <-ctx.Done():

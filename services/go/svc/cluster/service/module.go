@@ -34,27 +34,29 @@ const (
 )
 
 type Cluster struct {
-	Clients   *clients.ClientManager
-	MapSender *MapSender
-
+	// State
 	createMutex sync.Mutex
 	// host -> time a client from that host last created a server. We
 	// REALLY don't want clients to be able to DDOS us
 	lastCreate map[string]time.Time
 	// host -> the server created by that host
 	// each host can only have one server at once
-	hostServers map[string]*servers.GameServer
-
+	hostServers   map[string]*servers.GameServer
 	startTime     time.Time
 	authDomain    string
 	settings      config.ClusterSettings
-	auth          *auth.DiscordService
-	manager       *servers.ServerManager
-	matches       *Matchmaker
 	serverCtx     context.Context
 	serverMessage chan []byte
-	redis         *redis.Client
-	verse         *verse.Verse
+
+	// Services
+	Clients   *clients.ClientManager
+	MapSender *MapSender
+	auth      *auth.DiscordService
+	manager   *servers.ServerManager
+	matches   *Matchmaker
+	redis     *redis.Client
+	spaces    *verse.SpaceManager
+	verse     *verse.Verse
 }
 
 func NewCluster(
@@ -68,6 +70,7 @@ func NewCluster(
 	redis *redis.Client,
 ) *Cluster {
 	clients := clients.NewClientManager(redis, settings.Matchmaking.Duel)
+	v := verse.NewVerse(redis)
 	server := &Cluster{
 		MapSender:     sender,
 		serverCtx:     ctx,
@@ -82,7 +85,8 @@ func NewCluster(
 		startTime:     time.Now(),
 		auth:          auth,
 		redis:         redis,
-		verse:         verse.NewVerse(redis),
+		verse:         v,
+		spaces:        verse.NewSpaceManager(v, serverManager, maps),
 	}
 
 	return server
@@ -636,8 +640,10 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Cl
 func (c *Cluster) SendMap(ctx context.Context, client *clients.Client) error {
 	server := client.GetServer()
 
-	if server.Editing != nil {
-		e := server.Editing
+	instance := c.spaces.FindInstance(server)
+
+	if instance != nil {
+		e := instance.Editing
 		err := e.Checkpoint(ctx)
 		if err != nil {
 			return err

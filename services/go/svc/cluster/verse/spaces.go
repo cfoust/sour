@@ -18,6 +18,22 @@ type SpaceInstance struct {
 	Space   *Space
 	Editing *EditingState
 	Server  *gameServers.GameServer
+	// Lasts for the lifetime of the instance, it's copied from the game
+	// server's
+	Context context.Context
+}
+
+func (s *SpaceInstance) PollEdits(ctx context.Context) {
+	edits := s.Server.ReceiveMapEdits()
+	for {
+		select {
+		case <-s.Context.Done():
+			return
+		case edit := <-edits:
+			s.Editing.Process(edit.Client, edit.Message)
+			continue
+		}
+	}
 }
 
 type SpaceManager struct {
@@ -59,6 +75,19 @@ func (s *SpaceManager) SearchSpace(ctx context.Context, id string) (*Space, erro
 	return nil, fmt.Errorf("found map, but unsupported")
 }
 
+func (s *SpaceManager) FindInstance(server *gameServers.GameServer) *SpaceInstance {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for _, instance := range s.instances {
+		if instance.Server == server {
+			return instance
+		}
+	}
+
+	return nil
+}
+
 func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstance, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -96,6 +125,7 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 
 	gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", desc))
 	gameServer.SendCommand("publicserver 1")
+	gameServer.SendCommand("emptymap")
 
 	verseMap, err := space.GetMap(ctx)
 	if err != nil {
@@ -113,13 +143,16 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 		return nil, err
 	}
 
-	go editing.PollEdits(gameServer.Context)
+	go editing.SavePeriodically(gameServer.Context)
 
 	instance := SpaceInstance{
-		Space: space,
+		Space:   space,
 		Editing: editing,
-		Server: gameServer,
+		Server:  gameServer,
+		Context: gameServer.Context,
 	}
+
+	go instance.PollEdits(gameServer.Context)
 
 	s.instances[space.GetID()] = &instance
 
