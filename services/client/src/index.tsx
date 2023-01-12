@@ -385,6 +385,9 @@ function App() {
 
     let cachedServers: Maybe<any> = null
     Module.onGameReady = () => {
+      Module.FS_createPath(`/`, 'packages', true, true)
+      Module.FS_createPath(`/packages`, 'base', true, true)
+
       Module.running = true
       setState({
         type: GameStateType.Ready,

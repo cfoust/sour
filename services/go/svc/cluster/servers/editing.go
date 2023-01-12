@@ -162,9 +162,6 @@ func EditEntity(entities *[]maps.Entity, edit *game.EditEnt) {
 }
 
 func (e *EditingState) Apply(edits []*Edit) error {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
-
 	buffer := make([]byte, 0)
 	for _, edit := range edits {
 		if edit.Message.Type() == game.N_EDITVAR {
@@ -271,7 +268,10 @@ func (e *EditingState) PollEdits(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-tick.C:
-			e.Checkpoint(ctx)
+			err := e.Checkpoint(ctx)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to checkpoint map")
+			}
 			continue
 		}
 	}
