@@ -9,6 +9,7 @@ import (
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
+	"github.com/go-redis/redis/v9"
 	"github.com/rs/zerolog/log"
 )
 

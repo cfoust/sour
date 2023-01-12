@@ -1,7 +1,10 @@
 package maps
 
 import (
+	_ "embed"
 	"encoding/binary"
+	"fmt"
+	"unsafe"
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps/worldio"
@@ -388,8 +391,27 @@ type GameMap struct {
 	C         worldio.MapState
 }
 
-func NewMap() *GameMap {
-	return &GameMap{
+// This is generated using:
+// sourdump -type cfg -index default.textures data/default_map_settings.cfg
+// (that is not the full command, you should be able to infer it though)
+//go:embed default.textures
+var DEFAULT_MAP_SLOTS []byte
+
+func LoadDefaultSlots(map_ *GameMap) error {
+	loadOk := worldio.Load_texture_index(
+		uintptr(unsafe.Pointer(&(DEFAULT_MAP_SLOTS)[0])),
+		int64(len(DEFAULT_MAP_SLOTS)),
+		map_.C,
+	)
+	if !loadOk {
+		return fmt.Errorf("failed to load texture index")
+	}
+
+	return nil
+}
+
+func NewMap() (*GameMap, error) {
+	map_ := GameMap{
 		Header: Header{
 			Version:    game.MAP_VERSION,
 			GameType:   "fps",
@@ -402,4 +424,10 @@ func NewMap() *GameMap {
 		VSlots:    make([]*VSlot, 0),
 		C:         worldio.Empty_world(12),
 	}
+
+	if err := LoadDefaultSlots(&map_); err != nil {
+		return nil, err
+	}
+
+	return &map_, nil
 }

@@ -3,8 +3,6 @@ package servers
 import (
 	"context"
 	"fmt"
-	"io"
-	"os"
 	"sync"
 	"time"
 	"unsafe"
@@ -50,31 +48,10 @@ func (e *EditingState) Process(message game.Message) {
 }
 
 func (e *EditingState) LoadMap(map_ *maps.GameMap) error {
-	file, err := os.Open("default.textures")
-	if err != nil {
-		return err
-	}
-
-	defer file.Close()
-
-	buffer, err := io.ReadAll(file)
-	if err != nil {
-		return err
-	}
-
 	e.mutex.Lock()
 	e.Edits = make([]*Edit, 0)
 	e.Map = map_
 	e.mutex.Unlock()
-
-	result := worldio.Load_texture_index(
-		uintptr(unsafe.Pointer(&(buffer)[0])),
-		int64(len(buffer)),
-		e.Map.C,
-	)
-	if !result {
-		return fmt.Errorf("failed to load texture index")
-	}
 
 	return nil
 }
@@ -179,7 +156,6 @@ func (e *EditingState) Apply(edits []*Edit) error {
 func NewEditingState() *EditingState {
 	return &EditingState{
 		Edits: make([]*Edit, 0),
-		Map:   maps.NewMap(),
 	}
 }
 
