@@ -40,8 +40,6 @@ func (server *Cluster) GoHome(ctx context.Context, client *clients.Client) error
 		return err
 	}
 
-	map_.ToFile("../test.ogz")
-
 	gz, err := map_.EncodeOGZ()
 	if err != nil {
 		return err
