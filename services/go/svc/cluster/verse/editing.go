@@ -1,4 +1,4 @@
-package servers
+package verse
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/maps/worldio"
-	"github.com/cfoust/sour/svc/cluster/verse"
 
 	"github.com/rs/zerolog/log"
 )
@@ -33,12 +32,12 @@ type EditingState struct {
 	Clipboards map[int32]worldio.Editinfo
 	Edits      []*Edit
 	GameMap    *maps.GameMap
-	Map        *verse.Map
-	Space      *verse.Space
+	Map        *Map
+	Space      *Space
 	OpenEdit   bool
 
 	mutex sync.Mutex
-	verse *verse.Verse
+	verse *Verse
 }
 
 const (
@@ -257,7 +256,7 @@ func (e *EditingState) Apply(edits []*Edit) error {
 	return nil
 }
 
-func NewEditingState(verse *verse.Verse, space *verse.Space, map_ *verse.Map) *EditingState {
+func NewEditingState(verse *Verse, space *Space, map_ *Map) *EditingState {
 	return &EditingState{
 		OpenEdit:   false,
 		Edits:      make([]*Edit, 0),

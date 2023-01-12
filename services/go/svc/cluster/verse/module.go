@@ -196,7 +196,7 @@ func (v *Verse) SaveGameMap(ctx context.Context, creator string, gameMap *maps.G
 
 	err = v.redis.Set(ctx, map_.dataKey(), mapData, 0).Err()
 	if err != nil {
-	    return nil, err
+		return nil, err
 	}
 
 	err = map_.save(ctx, mapMeta{
@@ -204,7 +204,7 @@ func (v *Verse) SaveGameMap(ctx context.Context, creator string, gameMap *maps.G
 		Created: time.Now(),
 	})
 	if err != nil {
-	    return nil, err
+		return nil, err
 	}
 
 	return &map_, nil
@@ -216,8 +216,9 @@ type Space struct {
 }
 
 type spaceMeta struct {
-	Owner string
-	Map   string
+	Owner       string
+	Map         string
+	Description string
 }
 
 func (s *Space) GetID() string {
@@ -261,6 +262,24 @@ func (s *Space) SetOwner(ctx context.Context, owner string) error {
 		return err
 	}
 	meta.Owner = owner
+	return s.save(ctx, *meta)
+}
+
+func (s *Space) GetDescription(ctx context.Context) (string, error) {
+	meta, err := s.load(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return meta.Description, nil
+}
+
+func (s *Space) SetDescription(ctx context.Context, description string) error {
+	meta, err := s.load(ctx)
+	if err != nil {
+		return err
+	}
+	meta.Description = description
 	return s.save(ctx, *meta)
 }
 
@@ -331,8 +350,9 @@ func (v *Verse) NewSpace(ctx context.Context, creator string) (*Space, error) {
 	}
 
 	err = space.save(ctx, spaceMeta{
-		Map:   map_.GetID(),
-		Owner: creator,
+		Map:         map_.GetID(),
+		Owner:       creator,
+		Description: "",
 	})
 	if err != nil {
 		return nil, err
@@ -360,6 +380,34 @@ func (v *Verse) LoadSpace(ctx context.Context, id string) (*Space, error) {
 	}
 
 	return &space, nil
+}
+
+// Find a space by a prefix
+func (v *Verse) FindSpace(ctx context.Context, prefix string) (*Space, error) {
+	// Check first if the space name is fully specified
+	fullExists, err := v.HaveSpace(ctx, prefix)
+	if err != nil {
+		return nil, err
+	}
+
+	if fullExists {
+		return v.LoadSpace(ctx, prefix)
+	}
+
+	keys, err := v.redis.Keys(
+		ctx,
+		fmt.Sprintf(SPACE_KEY, prefix)+"*",
+	).Result()
+
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("no keys matching prefix")
+	}
+
+	if len(keys) > 1 {
+		return nil, fmt.Errorf("unambiguous reference")
+	}
+
+	return v.LoadSpace(ctx, keys[0])
 }
 
 type User struct {
@@ -402,7 +450,7 @@ func (u *User) GetHomeID(ctx context.Context) (string, error) {
 func (u *User) GetHomeSpace(ctx context.Context) (*Space, error) {
 	id, err := u.GetHomeID(ctx)
 	if err != nil {
-	    return nil, err
+		return nil, err
 	}
 
 	return u.verse.LoadSpace(ctx, id)
@@ -419,7 +467,7 @@ func (v *Verse) NewUser(ctx context.Context, id string) (*User, error) {
 
 	space, err := v.NewSpace(ctx, id)
 	if err != nil {
-	    return nil, err
+		return nil, err
 	}
 
 	err = user.save(ctx, userMeta{
@@ -439,7 +487,7 @@ func (v *Verse) HaveUser(ctx context.Context, id string) (bool, error) {
 func (v *Verse) GetUser(ctx context.Context, id string) (*User, error) {
 	exists, err := v.HaveUser(ctx, id)
 	if err != nil {
-	    return nil, err
+		return nil, err
 	}
 
 	if !exists {

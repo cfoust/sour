@@ -83,7 +83,7 @@ func (a *AssetSource) ResolveAsset(id int) opt.Option[string] {
 		return opt.None[string]()
 	}
 
-	return opt.Some[string](assets[id])
+	return opt.Some(assets[id])
 }
 
 func (a *AssetSource) ResolveBundle(id string) opt.Option[Bundle] {
@@ -96,7 +96,7 @@ func (a *AssetSource) ResolveBundle(id string) opt.Option[Bundle] {
 			continue
 		}
 
-		return opt.Some[Bundle](bundle)
+		return opt.Some(bundle)
 	}
 
 	return opt.None[Bundle]()
@@ -219,7 +219,7 @@ func (f *FoundMap) GetOGZURL() opt.Option[string] {
 		return opt.None[string]()
 	}
 
-	return opt.Some[string](f.GetBaseURL() + asset.Value)
+	return opt.Some(f.GetBaseURL() + asset.Value)
 }
 
 func (f *FoundMap) GetDesktopURL() opt.Option[string] {
@@ -232,7 +232,7 @@ func (f *FoundMap) GetDesktopURL() opt.Option[string] {
 		return opt.None[string]()
 	}
 
-	return opt.Some[string](
+	return opt.Some(
 		fmt.Sprintf(
 			"%s%s.desktop",
 			f.GetBaseURL(),
@@ -241,15 +241,15 @@ func (f *FoundMap) GetDesktopURL() opt.Option[string] {
 	)
 }
 
-func (m *MapFetcher) FindMap(mapName string) opt.Option[FoundMap] {
-	otherTarget := mapName + ".ogz"
+func (m *MapFetcher) FindMap(needle string) opt.Option[FoundMap] {
+	otherTarget := needle + ".ogz"
 	for _, source := range m.Sources {
 		for _, gameMap := range source.Index.Maps {
-			if gameMap.Name != mapName && gameMap.Name != otherTarget {
+			if gameMap.Name != needle && gameMap.Name != otherTarget && !strings.HasPrefix(gameMap.Id, needle) {
 				continue
 			}
 
-			return opt.Some[FoundMap](FoundMap{
+			return opt.Some(FoundMap{
 				Map:    &gameMap,
 				Source: source,
 			})

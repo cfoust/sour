@@ -373,7 +373,7 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 func (manager *ServerManager) FindPreset(presetName string, isVirtualOk bool) opt.Option[config.ServerPreset] {
 	for _, preset := range manager.presets {
 		if (preset.Name == presetName || (len(presetName) == 0 && preset.Default)) && (isVirtualOk || !preset.Virtual) {
-			return opt.Some[config.ServerPreset](preset)
+			return opt.Some(preset)
 		}
 	}
 

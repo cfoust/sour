@@ -44,8 +44,6 @@ type GameServer struct {
 
 	Hidden bool
 
-	Editing *EditingState
-
 	// Valid while the server is running and healthy
 	Context context.Context
 	cancel  context.CancelFunc
@@ -308,21 +306,21 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 				logger.Debug().Str("type", message.Type().String()).Msg("broadcast")
 				server.broadcasts <- message
 			}
-		case edit := <-server.rawEdits:
-			packet := edit.Packet
-			decoded, err := game.Read(packet.Data, false)
-			if err != nil {
-				logger.Warn().Err(err).Msg("failed to decode map edit")
-				continue
-			}
+		//case edit := <-server.rawEdits:
+			//packet := edit.Packet
+			//decoded, err := game.Read(packet.Data, false)
+			//if err != nil {
+				//logger.Warn().Err(err).Msg("failed to decode map edit")
+				//continue
+			//}
 
-			for _, message := range decoded {
-				server.Mutex.Lock()
-				if server.Editing != nil {
-					server.Editing.Process(edit.Client, message)
-				}
-				server.Mutex.Unlock()
-			}
+			//for _, message := range decoded {
+				//server.Mutex.Lock()
+				//if server.Editing != nil {
+					//server.Editing.Process(edit.Client, message)
+				//}
+				//server.Mutex.Unlock()
+			//}
 		case <-ctx.Done():
 			return
 		}
@@ -456,10 +454,6 @@ func (server *GameServer) HandleServerInfo(numClients int, data []byte) error {
 
 func (server *GameServer) HandleMapChange(ctx context.Context, mapName string, mode int32) {
 	server.Mutex.Lock()
-
-	if server.Editing != nil && mode != game.MODE_COOP {
-		// TODO tear down
-	}
 
 	if mode == game.MODE_COOP {
 		// TODO not supported generally, only on homeworlds
