@@ -64,27 +64,8 @@ func (c *Cluster) GoHome(ctx context.Context, client *clients.Client) error {
 		return err
 	}
 
-	gz, err := map_.EncodeOGZ()
-	if err != nil {
-		return err
-	}
-
 	go editing.PollEdits(ctx)
 
-	connected, err := client.ConnectToServer(gameServer, false, true)
-	result := <-connected
-	if result == false || err != nil {
-		return fmt.Errorf("client never joined")
-	}
-
-	p := game.Packet{}
-	p.Put(game.N_SENDMAP)
-	p = append(p, gz...)
-
-	client.Send(game.GamePacket{
-		Channel: 2,
-		Data:    p,
-	})
-
-	return nil
+	_, err = client.ConnectToServer(gameServer, false, true)
+	return err
 }

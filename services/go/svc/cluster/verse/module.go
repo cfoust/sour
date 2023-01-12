@@ -153,6 +153,7 @@ func (v *Verse) NewMap(ctx context.Context, creator string) (*Map, error) {
 		return nil, err
 	}
 
+	defer map_.Destroy()
 	return v.SaveGameMap(ctx, creator, map_)
 }
 

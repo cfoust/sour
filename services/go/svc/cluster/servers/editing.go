@@ -162,6 +162,9 @@ func EditEntity(entities *[]maps.Entity, edit *game.EditEnt) {
 }
 
 func (e *EditingState) Apply(edits []*Edit) error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
 	buffer := make([]byte, 0)
 	for _, edit := range edits {
 		if edit.Message.Type() == game.N_EDITVAR {

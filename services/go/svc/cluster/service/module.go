@@ -610,26 +610,57 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Cl
 	server.Clients.Mutex.Unlock()
 }
 
-func (server *Cluster) SendDesktopMap(ctx context.Context, client *clients.Client) {
-	if server.MapSender.IsHandling(client) {
-		return
+// TODO
+//func (server *Cluster) SendDesktopMap(ctx context.Context, client *clients.Client) {
+//if server.MapSender.IsHandling(client) {
+//return
+//}
+
+//gameServer := client.GetServer()
+//if gameServer == nil {
+//return
+//}
+
+//gameServer.Mutex.Lock()
+//mapName := gameServer.Map
+//isBuilt := gameServer.IsBuiltMap
+//gameServer.Mutex.Unlock()
+
+//if !isBuilt {
+//return
+//}
+
+//server.MapSender.SendMap(ctx, client, mapName)
+//}
+
+func (c *Cluster) SendMap(ctx context.Context, client *clients.Client) error {
+	server := client.GetServer()
+
+	if server.Editing != nil {
+		e := server.Editing
+		err := e.Checkpoint(ctx)
+		if err != nil {
+			return err
+		}
+
+		data, err := e.Map.LoadMapData(ctx)
+		if err != nil {
+			return err
+		}
+
+		p := game.Packet{}
+		p.Put(game.N_SENDMAP)
+		p = append(p, data...)
+
+		client.Send(game.GamePacket{
+			Channel: 2,
+			Data:    p,
+		})
+
+		return nil
 	}
 
-	gameServer := client.GetServer()
-	if gameServer == nil {
-		return
-	}
-
-	gameServer.Mutex.Lock()
-	mapName := gameServer.Map
-	isBuilt := gameServer.IsBuiltMap
-	gameServer.Mutex.Unlock()
-
-	if !isBuilt {
-		return
-	}
-
-	server.MapSender.SendMap(ctx, client, mapName)
+	return nil
 }
 
 func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
@@ -828,8 +859,8 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 					crc := message.Contents().(*game.MapCRC)
 					// The client does not have the map
-					if client.Connection.Type() == clients.ClientTypeENet && crc.Crc == 0 {
-						go server.SendDesktopMap(ctx, client)
+					if crc.Crc == 0 {
+						go server.SendMap(ctx, client)
 					}
 				}
 
