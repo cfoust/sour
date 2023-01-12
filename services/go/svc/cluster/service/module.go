@@ -52,6 +52,7 @@ type Cluster struct {
 	matches       *Matchmaker
 	serverCtx     context.Context
 	serverMessage chan []byte
+	redis         *redis.Client
 }
 
 func NewCluster(
@@ -78,6 +79,7 @@ func NewCluster(
 		manager:       serverManager,
 		startTime:     time.Now(),
 		auth:          auth,
+		redis:         redis,
 	}
 
 	return server

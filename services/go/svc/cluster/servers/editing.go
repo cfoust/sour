@@ -10,7 +10,9 @@ import (
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/maps/worldio"
+	"github.com/cfoust/sour/svc/cluster/verse"
 
+	"github.com/go-redis/redis/v9"
 	"github.com/rs/zerolog/log"
 )
 
@@ -30,14 +32,24 @@ type EditingState struct {
 	Edits []*Edit
 	Map   *maps.GameMap
 	mutex sync.Mutex
+	redis *redis.Client
 }
 
 // Apply all of the edits to the map.
-func (e *EditingState) Checkpoint() error {
+func (e *EditingState) Checkpoint(ctx context.Context) error {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
+
 	err := e.Apply(e.Edits)
 	e.Edits = make([]*Edit, 0)
+
+	hash, err := verse.SaveMap(ctx, e.redis, e.Map)
+	if err != nil {
+		return err
+	}
+
+	log.Info().Msgf("saved map %s", hash)
+
 	return err
 }
 
@@ -153,9 +165,10 @@ func (e *EditingState) Apply(edits []*Edit) error {
 	return nil
 }
 
-func NewEditingState() *EditingState {
+func NewEditingState(redis *redis.Client) *EditingState {
 	return &EditingState{
 		Edits: make([]*Edit, 0),
+		redis: redis,
 	}
 }
 
@@ -166,7 +179,7 @@ func (e *EditingState) PollEdits(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-tick.C:
-			e.Checkpoint()
+			e.Checkpoint(ctx)
 			continue
 		}
 	}

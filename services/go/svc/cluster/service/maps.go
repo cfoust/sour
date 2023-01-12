@@ -20,7 +20,10 @@ import (
 )
 
 func MakeDownloadMap(demoName string) ([]byte, error) {
-	gameMap := maps.NewMap()
+	gameMap, err := maps.NewMap()
+	if err != nil {
+		return nil, err
+	}
 	gameMap.Vars["cloudlayer"] = game.StringVariable("")
 	gameMap.Vars["skyboxcolour"] = game.IntVariable(0)
 
@@ -144,7 +147,6 @@ func (s *SendState) Send() error {
 	ctx := client.ServerSessionContext()
 
 	logger.Info().Msg("sending map to client")
-
 
 	if ctx.Err() != nil {
 		return ctx.Err()

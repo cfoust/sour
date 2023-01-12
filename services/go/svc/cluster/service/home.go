@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/maps"
+	//"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/servers"
+	"github.com/cfoust/sour/svc/cluster/verse"
 
-	"github.com/go-redis/redis/v9"
 	"github.com/rs/zerolog/log"
 )
 
@@ -32,10 +32,16 @@ func (server *Cluster) GoHome(ctx context.Context, client *clients.Client) error
 	gameServer.SendCommand("emptymap")
 
 	// Load the user's world or create a new one
-	editing := servers.NewEditingState()
+	editing := servers.NewEditingState(server.redis)
 	gameServer.Editing = editing
 
-	map_ := maps.NewMap()
+	map_, err := verse.LoadMap(ctx, server.redis, "4a542dfe52028e6547dfc83549812bdad54410bb612fa854daaa053eb09124d8")
+
+	//map_, err := maps.NewMap()
+	//if err != nil {
+		//return err
+	//}
+
 	err = editing.LoadMap(map_)
 	if err != nil {
 		return err

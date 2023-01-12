@@ -14,6 +14,15 @@ const (
 	MAP_KEY = "map-%s"
 )
 
+func HaveMap(ctx context.Context, client *redis.Client, id string) (bool, error) {
+	value, err := client.Exists(ctx, fmt.Sprintf(MAP_KEY, id)).Result()
+	if err != nil {
+		return false, err
+	}
+
+	return value == 1, nil
+}
+
 func SaveMap(ctx context.Context, client *redis.Client, map_ *maps.GameMap) (string, error) {
 	mapData, err := map_.EncodeOGZ()
 	if err != nil {
@@ -22,7 +31,13 @@ func SaveMap(ctx context.Context, client *redis.Client, map_ *maps.GameMap) (str
 
 	hash := fmt.Sprintf("%x", sha256.Sum256(mapData))
 	key := fmt.Sprintf(MAP_KEY, hash)
-	return key, client.Set(
+
+	// No point in setting this if it already is there
+	if exists, _ := HaveMap(ctx, client, hash); exists {
+		return hash, nil
+	}
+
+	return hash, client.Set(
 		ctx,
 		key,
 		mapData,
