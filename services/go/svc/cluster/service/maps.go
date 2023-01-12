@@ -382,7 +382,7 @@ func (m *MapSender) SendMap(ctx context.Context, client *clients.Client, mapName
 
 			// Now we can reconnect the user to their server
 			client.DisconnectFromServer()
-			client.ConnectToServer(server, false, false)
+			client.Connect(server)
 		}
 	}()
 }

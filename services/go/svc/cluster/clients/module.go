@@ -66,7 +66,7 @@ type NetworkClient interface {
 	Host() string
 	Type() ClientType
 	// Tell the client that we've connected
-	Connect(name string, internal bool, owned bool)
+	Connect(name string, isHidden bool, shouldCopy bool)
 	// Messages going to the client
 	Send(packet game.GamePacket) <-chan bool
 	// Messages going to the server
@@ -360,7 +360,15 @@ func (c *Client) SendServerMessage(message string) {
 	c.SendMessage(fmt.Sprintf("%s %s", game.Yellow("sour"), message))
 }
 
-func (c *Client) ConnectToServer(server *servers.GameServer, internal bool, owned bool) (<-chan bool, error) {
+func (c *Client) ConnectToSpace(server *servers.GameServer, id string) (<-chan bool, error) {
+	return c.ConnectToServer(server, id, false, true)
+}
+
+func (c *Client) Connect(server *servers.GameServer) (<-chan bool, error) {
+	return c.ConnectToServer(server, "", false, false)
+}
+
+func (c *Client) ConnectToServer(server *servers.GameServer, target string, shouldCopy bool, isSpace bool) (<-chan bool, error) {
 	if c.Connection.NetworkStatus() == ClientNetworkStatusDisconnected {
 		log.Warn().Msgf("client not connected to cluster but attempted connect")
 		return nil, fmt.Errorf("client not connected to cluster")
@@ -407,7 +415,12 @@ func (c *Client) ConnectToServer(server *servers.GameServer, internal bool, owne
 	c.Mutex.Unlock()
 
 	server.SendConnect(c.Id)
-	c.Connection.Connect(server.Reference(), internal, owned)
+
+	serverName := server.Reference()
+	if target != "" {
+		serverName = target
+	}
+	c.Connection.Connect(serverName, server.Hidden, shouldCopy)
 
 	// Give the client one second to connect.
 	go func() {

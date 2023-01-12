@@ -263,11 +263,11 @@ func (d *Duel) PollDeaths(ctx context.Context) {
 // Free up resources and move clients back to their original servers
 func (d *Duel) Cleanup() {
 	if d.A.GetServer() == d.server && d.oldAServer != nil {
-		d.A.ConnectToServer(d.oldAServer, false, false)
+		d.A.Connect(d.oldAServer)
 	}
 
 	if d.B.GetServer() == d.server && d.oldBServer != nil {
-		d.B.ConnectToServer(d.oldBServer, false, false)
+		d.B.Connect(d.oldBServer)
 	}
 
 	d.Manager.RemoveServer(d.server)
@@ -383,7 +383,7 @@ func (d *Duel) Run(ctx context.Context) {
 		// Store previous server
 		oldServer := client.GetServer()
 
-		connected, err := client.ConnectToServer(gameServer, true, false)
+		connected, err := client.ConnectToServer(gameServer, "", true, false)
 		result := <-connected
 		if result == false || err != nil {
 			logger.Error().Err(err).Msg("client failed to connect")

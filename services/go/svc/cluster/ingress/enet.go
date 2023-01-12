@@ -55,7 +55,7 @@ func (c *ENetClient) Host() string {
 	return ""
 }
 
-func (c *ENetClient) Connect(name string, internal bool, owned bool) {
+func (c *ENetClient) Connect(name string, isHidden bool, shouldCopy bool) {
 }
 
 func (c *ENetClient) ServerChanged(target string) {

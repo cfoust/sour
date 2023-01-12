@@ -162,7 +162,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 		server.lastCreate[client.Connection.Host()] = time.Now()
 		server.hostServers[client.Connection.Host()] = gameServer
 
-		connected, err := client.ConnectToServer(gameServer, false, true)
+		connected, err := client.ConnectToServer(gameServer, "", false, true)
 		go server.GivePrivateMatchHelp(server.serverCtx, client, client.Server)
 
 		go func() {
@@ -205,7 +205,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 				continue
 			}
 
-			_, err := client.ConnectToServer(gameServer, false, false)
+			_, err := client.Connect(gameServer)
 			if err != nil {
 				return true, "", err
 			}
@@ -224,7 +224,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 			if err != nil {
 			    return true, "", err
 			}
-			_, err = client.ConnectToServer(instance.Server, false, false)
+			_, err = client.ConnectToSpace(instance.Server, instance.Space.GetID())
 			return true, "", err
 		}
 

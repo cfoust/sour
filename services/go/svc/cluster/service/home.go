@@ -36,7 +36,7 @@ func (c *Cluster) GoHome(ctx context.Context, client *clients.Client) error {
 	    return err
 	}
 
-	_, err = client.ConnectToServer(instance.Server, false, true)
+	_, err = client.ConnectToSpace(instance.Server, space.GetID())
 
 	message := fmt.Sprintf(
 		"Welcome to your home space (%s).",

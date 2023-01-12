@@ -164,12 +164,12 @@ func (c *WSClient) Destroy() {
 	c.status = clients.ClientNetworkStatusDisconnected
 }
 
-func (c *WSClient) Connect(name string, internal bool, owned bool) {
+func (c *WSClient) Connect(name string, isHidden bool, shouldCopy bool) {
 	packet := ServerConnectedMessage{
 		Op:       ServerConnectedOp,
 		Server:   name,
-		Internal: internal,
-		Owned:    owned,
+		Internal: isHidden,
+		Owned:    shouldCopy,
 	}
 
 	bytes, _ := cbor.Marshal(packet)
