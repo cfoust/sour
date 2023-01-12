@@ -315,6 +315,19 @@ void sendtocluster(int chan, ENetPacket *packet)
     }
 }
 
+void sendedit(int client, ENetPacket *packet)
+{
+    if (socketCtl.isConnected() && clients.length() > 0) {
+        packetbuf p(MAXTRANS);
+        putuint(p, SERVER_EVENT_EDIT);
+        putint(p, client);
+        putuint(p, packet->dataLength);
+        p.put(packet->data, packet->dataLength);
+        ENetPacket *newPacket = p.finalize();
+        socketCtl.send((char*) newPacket->data, newPacket->dataLength);
+    }
+}
+
 void sendpacket(int n, int chan, ENetPacket *packet, int exclude)
 {
     #ifdef QDEBUG

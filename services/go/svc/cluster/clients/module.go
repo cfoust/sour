@@ -380,7 +380,7 @@ func (c *Client) ConnectToServer(server *servers.GameServer, internal bool, owne
 
 		// Remove all the other clients from this client's perspective
 		c.manager.Mutex.Lock()
-		for client, _ := range c.manager.State {
+		for client := range c.manager.State {
 			if client == c || client.GetServer() != c.Server {
 				continue
 			}
@@ -484,7 +484,7 @@ func (c *ClientManager) newClientID() (uint16, error) {
 		truncated := uint16(number.Uint64())
 
 		taken := false
-		for client, _ := range c.State {
+		for client := range c.State {
 			if client.Id == truncated {
 				taken = true
 			}
@@ -534,7 +534,7 @@ func (c *ClientManager) AddClient(networkClient NetworkClient) error {
 func (c *ClientManager) RemoveClient(networkClient NetworkClient) {
 	c.Mutex.Lock()
 
-	for client, _ := range c.State {
+	for client := range c.State {
 		if client.Connection != networkClient {
 			continue
 		}
@@ -554,7 +554,7 @@ func (c *ClientManager) ReceiveClients() <-chan *Client {
 func (c *ClientManager) FindClient(id uint16) *Client {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
-	for client, _ := range c.State {
+	for client := range c.State {
 		if client.Id != uint16(id) {
 			continue
 		}

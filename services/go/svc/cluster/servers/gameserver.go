@@ -20,6 +20,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type MapEdit struct {
+	Client int32
+	Packet game.GamePacket
+}
+
 type GameServer struct {
 	Status ServerStatus
 	Id     string
@@ -67,6 +72,7 @@ type GameServer struct {
 	description string
 
 	rawBroadcasts chan game.GamePacket
+	rawEdits      chan MapEdit
 	broadcasts    chan game.Message
 	subscribers   []chan game.Message
 
@@ -300,16 +306,22 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 
 			for _, message := range decoded {
 				logger.Debug().Str("type", message.Type().String()).Msg("broadcast")
-
-				if game.IsEditMessage(message.Type()) {
-					server.Mutex.Lock()
-					if server.Editing != nil {
-						server.Editing.Process(message)
-					}
-					server.Mutex.Unlock()
-				}
-
 				server.broadcasts <- message
+			}
+		case edit := <-server.rawEdits:
+			packet := edit.Packet
+			decoded, err := game.Read(packet.Data, false)
+			if err != nil {
+				logger.Warn().Err(err).Msg("failed to decode map edit")
+				continue
+			}
+
+			for _, message := range decoded {
+				server.Mutex.Lock()
+				if server.Editing != nil {
+					server.Editing.Process(edit.Client, message)
+				}
+				server.Mutex.Unlock()
 			}
 		case <-ctx.Done():
 			return
@@ -632,6 +644,30 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 						Client: id,
 						Reason: reason,
 						Text:   reasonText,
+					}
+					continue
+				}
+
+				if eventType == SERVER_EVENT_EDIT {
+					sender, ok := p.GetInt()
+					if !ok {
+						break
+					}
+
+					numBytes, ok := p.GetUint()
+					if !ok {
+						break
+					}
+
+					data := p[:numBytes]
+					p = p[len(data):]
+
+					server.rawEdits <- MapEdit{
+						Packet: game.GamePacket{
+							Data:    data,
+							Channel: 1,
+						},
+						Client: sender,
 					}
 					continue
 				}

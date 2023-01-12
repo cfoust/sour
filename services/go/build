@@ -12,6 +12,8 @@ fi
 # build the game server first
 (cd svc/cluster/servers/qserv && cmake . && make)
 
+killall qserv 2>/dev/null || true
+
 # then the go stuff
 go build -o cluster svc/cluster/main.go
 go build -o sourdump cmd/sourdump/main.go

@@ -72,6 +72,7 @@ const (
 	// When the server becomes aware of a client's name
 	SERVER_EVENT_NAME
 	SERVER_EVENT_SERVER_INFO_REPLY
+	SERVER_EVENT_EDIT
 )
 
 func (e ServerEvent) String() string {
@@ -445,6 +446,7 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		mapRequests:   make(chan MapRequest, 10),
 		packets:       manager.packets,
 		rawBroadcasts: make(chan game.GamePacket, 10),
+		rawEdits:      make(chan MapEdit, 10),
 		send:          make(chan []byte, 1),
 		subscribers:   make([]chan game.Message, 0),
 		names:         manager.names,

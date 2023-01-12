@@ -943,7 +943,7 @@ int processedits(ucharbuf &p)
 {
     static char text[MAXTRANS];
     int type;
-    editinfo *edit;
+    editinfo *edit = NULL;
 
     while(p.remaining()) {
         int type = getint(p);
@@ -1006,7 +1006,12 @@ int processedits(ucharbuf &p)
                 }
                 case N_EDITM: { int mat = getint(p), filter = getint(p); if(sel.validate()) mpeditmat(mat, filter, sel, false); break; }
                 case N_FLIP: if(sel.validate()) mpflip(sel, false); break;
-                case N_COPY: if(sel.validate()) mpcopy(edit, sel, false); break;
+                case N_COPY: {
+                    if(sel.validate()) {
+                        mpcopy(edit, sel, false);
+                    }
+                    break;
+                }
                 case N_PASTE: if(sel.validate()) mppaste(edit, sel, false); break;
                 case N_ROTATE: { int dir = getint(p); if(sel.validate()) mprotate(dir, sel, false); break; }
                 case N_REPLACE:
@@ -1092,11 +1097,23 @@ int processedits(ucharbuf &p)
     return 0;
 }
 
-bool apply_messages(MapState *state, int _worldsize, void *data, size_t len)
+void setup_state(MapState *state)
 {
     worldroot = state->root;
     vslots = state->vslots;
     slots = state->slots;
+}
+
+void teardown_state(MapState *state)
+{
+    state->root = worldroot;
+    state->vslots = vslots;
+    state->slots = slots;
+}
+
+bool apply_messages(MapState *state, int _worldsize, void *data, size_t len)
+{
+    setup_state(state);
 
     setworldsize(_worldsize);
 
@@ -1106,9 +1123,55 @@ bool apply_messages(MapState *state, int _worldsize, void *data, size_t len)
         return false;
     }
 
-    state->root = worldroot;
-    // vslots and slots are never reassigned
+    teardown_state(state);
     return true;
+}
+
+editinfo *store_copy(MapState *state, void *data, size_t len)
+{
+    ucharbuf p((uchar*)data, len);
+    getint(p); // type
+    selinfo sel;
+    sel.o.x = getint(p); sel.o.y = getint(p); sel.o.z = getint(p);
+    sel.s.x = getint(p); sel.s.y = getint(p); sel.s.z = getint(p);
+    sel.grid = getint(p); sel.orient = getint(p);
+    sel.cx = getint(p); sel.cxs = getint(p); sel.cy = getint(p), sel.cys = getint(p);
+    sel.corner = getint(p);
+    if(!sel.validate()) return NULL;
+    editinfo *edit = NULL;
+    setup_state(state);
+    mpcopy(edit, sel, false);
+    teardown_state(state);
+    return edit;
+}
+
+bool apply_paste(MapState *state, editinfo *info, void *data, size_t len)
+{
+    ucharbuf p((uchar*)data, len);
+    getint(p); // type
+    selinfo sel;
+    sel.o.x = getint(p); sel.o.y = getint(p); sel.o.z = getint(p);
+    sel.s.x = getint(p); sel.s.y = getint(p); sel.s.z = getint(p);
+    sel.grid = getint(p); sel.orient = getint(p);
+    sel.cx = getint(p); sel.cxs = getint(p); sel.cy = getint(p), sel.cys = getint(p);
+    sel.corner = getint(p);
+    if(!sel.validate()) return false;
+    setup_state(state);
+    mppaste(info, sel, false);
+    teardown_state(state);
+    return true;
+}
+
+void free_state(MapState *state)
+{
+    freeocta(state->root);
+    state->slots->setsize(0);
+    state->vslots->setsize(0);
+}
+
+void free_edit(editinfo *info)
+{
+    freeeditinfo(info);
 }
 
 bool load_texture_index(void *data, size_t len, MapState *state)

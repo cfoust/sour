@@ -17,23 +17,27 @@ import (
 
 type Edit struct {
 	Time    time.Time
+	Sender  int32
 	Message game.Message
 }
 
-func NewEdit(message game.Message) *Edit {
+func NewEdit(sender int32, message game.Message) *Edit {
 	return &Edit{
 		Time:    time.Now(),
+		Sender:  sender,
 		Message: message,
 	}
 }
 
 type EditingState struct {
-	Edits   []*Edit
-	GameMap *maps.GameMap
-	Map     *verse.Map
-	Space   *verse.Space
-	mutex   sync.Mutex
-	verse   *verse.Verse
+	Clipboards map[int32]worldio.Editinfo
+	Edits      []*Edit
+	GameMap    *maps.GameMap
+	Map        *verse.Map
+	Space      *verse.Space
+
+	mutex sync.Mutex
+	verse *verse.Verse
 }
 
 const (
@@ -54,19 +58,19 @@ func (e *EditingState) Checkpoint(ctx context.Context) error {
 
 	creator, err := e.Map.GetCreator(ctx)
 	if err != nil {
-	    return err
+		return err
 	}
 
 	if e.Space != nil {
 		creator, err = e.Space.GetOwner(ctx)
 		if err != nil {
-		    return err
+			return err
 		}
 	}
 
 	newMap, err := e.verse.SaveGameMap(ctx, creator, e.GameMap)
 	if err != nil {
-	    return err
+		return err
 	}
 
 	// Expire the old map after a day
@@ -77,7 +81,7 @@ func (e *EditingState) Checkpoint(ctx context.Context) error {
 	if e.Space != nil {
 		err = e.Space.SetMapID(ctx, newMap.GetID())
 		if err != nil {
-		    return err
+			return err
 		}
 		log.Info().Msgf("saved map %s for space %s", newMap.GetID(), e.Space.GetID())
 	} else {
@@ -87,9 +91,9 @@ func (e *EditingState) Checkpoint(ctx context.Context) error {
 	return err
 }
 
-func (e *EditingState) Process(message game.Message) {
+func (e *EditingState) Process(sender int32, message game.Message) {
 	e.mutex.Lock()
-	e.Edits = append(e.Edits, NewEdit(message))
+	e.Edits = append(e.Edits, NewEdit(sender, message))
 	e.mutex.Unlock()
 }
 
@@ -175,6 +179,44 @@ func (e *EditingState) Apply(edits []*Edit) error {
 			continue
 		}
 
+		if edit.Message.Type() == game.N_NEWMAP {
+			e.GameMap.Entities = make([]maps.Entity, 0)
+		}
+
+		if edit.Message.Type() == game.N_COPY {
+			data := edit.Message.Data()
+			info := worldio.Store_copy(
+				e.GameMap.C,
+				uintptr(unsafe.Pointer(&(data)[0])),
+				int64(len(data)),
+			)
+			if info.Swigcptr() == 0 {
+				log.Warn().Msg("failed to store copy")
+				continue
+			}
+
+			e.Clipboards[edit.Sender] = info
+			continue
+		}
+
+		if edit.Message.Type() == game.N_PASTE {
+			data := edit.Message.Data()
+
+			info, ok := e.Clipboards[edit.Sender]
+			if !ok {
+				log.Warn().Msgf("client %d had nothing in clipboard")
+				continue
+			}
+
+			worldio.Apply_paste(
+				e.GameMap.C,
+				info,
+				uintptr(unsafe.Pointer(&(data)[0])),
+				int64(len(data)),
+			)
+			continue
+		}
+
 		buffer = append(buffer, edit.Message.Data()...)
 	}
 
@@ -192,19 +234,16 @@ func (e *EditingState) Apply(edits []*Edit) error {
 		return fmt.Errorf("applying changes failed")
 	}
 
-	err := e.GameMap.ToFile("../test.ogz")
-	if err != nil {
-		log.Warn().Err(err).Msgf("failed to save map")
-	}
 	return nil
 }
 
 func NewEditingState(verse *verse.Verse, space *verse.Space, map_ *verse.Map) *EditingState {
 	return &EditingState{
-		Edits: make([]*Edit, 0),
-		verse: verse,
-		Map: map_,
-		Space: space,
+		Edits:      make([]*Edit, 0),
+		Clipboards: make(map[int32]worldio.Editinfo),
+		verse:      verse,
+		Map:        map_,
+		Space:      space,
 	}
 }
 

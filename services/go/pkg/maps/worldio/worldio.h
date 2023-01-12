@@ -34,6 +34,10 @@ size_t partial_save_world(
 
 bool load_texture_index(void *data, size_t len, MapState *state);
 
+editinfo *store_copy(MapState *state, void *data, size_t len);
+bool apply_paste(MapState *state, editinfo *info, void *data, size_t len);
+void free_state(MapState *state);
+void free_edit(editinfo *info);
 
 int getnumvslots(MapState *state);
 VSlot *getvslotindex(MapState *state, int i);
