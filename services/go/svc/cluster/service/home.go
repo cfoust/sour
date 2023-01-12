@@ -13,8 +13,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (server *Cluster) GoHome(ctx context.Context, client *clients.Client) error {
-	gameServer, err := server.manager.NewServer(ctx, "", true)
+func (c *Cluster) GoHome(ctx context.Context, client *clients.Client) error {
+	gameServer, err := c.manager.NewServer(ctx, "", true)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create home server")
 		return err
@@ -31,16 +31,33 @@ func (server *Cluster) GoHome(ctx context.Context, client *clients.Client) error
 	// New empty map
 	gameServer.SendCommand("emptymap")
 
+	var space *verse.Space
+	user := client.GetUser()
+	if user == nil {
+		space, err = c.verse.NewSpace(ctx, "")
+		if err != nil {
+		    return err
+		}
+	} else {
+		space, err = user.Verse.GetHomeSpace(ctx)
+		if err != nil {
+		    return err
+		}
+	}
+
+	verseMap, err := space.GetMap(ctx)
+	if err != nil {
+		return err
+	}
+
+	map_, err := verseMap.LoadGameMap(ctx)
+	if err != nil {
+		return err
+	}
+
 	// Load the user's world or create a new one
-	editing := servers.NewEditingState(server.redis)
+	editing := servers.NewEditingState(c.verse, space, verseMap)
 	gameServer.Editing = editing
-
-	map_, err := verse.LoadMap(ctx, server.redis, "4a542dfe52028e6547dfc83549812bdad54410bb612fa854daaa053eb09124d8")
-
-	//map_, err := maps.NewMap()
-	//if err != nil {
-		//return err
-	//}
 
 	err = editing.LoadMap(map_)
 	if err != nil {

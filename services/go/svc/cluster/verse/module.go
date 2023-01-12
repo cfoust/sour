@@ -51,6 +51,21 @@ type Verse struct {
 	redis *redis.Client
 }
 
+func NewVerse(redis *redis.Client) *Verse {
+	return &Verse{
+		redis: redis,
+	}
+}
+
+func (v *Verse) have(ctx context.Context, key string) (bool, error) {
+	value, err := v.redis.Exists(ctx, key).Result()
+	if err != nil {
+		return false, err
+	}
+
+	return value == 1, nil
+}
+
 type entity struct {
 	redis *redis.Client
 	verse *Verse
@@ -115,6 +130,23 @@ func (s *Map) save(ctx context.Context, data mapMeta) error {
 	return saveJSON(ctx, s.redis, s.metaKey(), data)
 }
 
+func (s *Map) GetCreator(ctx context.Context) (string, error) {
+	meta, err := s.load(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return meta.Creator, nil
+}
+
+func (s *Map) Expire(ctx context.Context, when time.Duration) error {
+	pipe := s.redis.Pipeline()
+	pipe.Expire(ctx, s.dataKey(), when)
+	pipe.Expire(ctx, s.metaKey(), when)
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
 func (v *Verse) NewMap(ctx context.Context, creator string) (*Map, error) {
 	map_, err := maps.NewMap()
 	if err != nil {
@@ -125,12 +157,7 @@ func (v *Verse) NewMap(ctx context.Context, creator string) (*Map, error) {
 }
 
 func (v *Verse) HaveMap(ctx context.Context, id string) (bool, error) {
-	value, err := v.redis.Exists(ctx, fmt.Sprintf(MAP_DATA_KEY, id)).Result()
-	if err != nil {
-		return false, err
-	}
-
-	return value == 1, nil
+	return v.have(ctx, fmt.Sprintf(MAP_DATA_KEY, id))
 }
 
 func (v *Verse) GetMap(ctx context.Context, id string) (*Map, error) {
@@ -314,12 +341,7 @@ func (v *Verse) NewSpace(ctx context.Context, creator string) (*Space, error) {
 }
 
 func (v *Verse) HaveSpace(ctx context.Context, id string) (bool, error) {
-	value, err := v.redis.Exists(ctx, fmt.Sprintf(SPACE_KEY, id)).Result()
-	if err != nil {
-		return false, err
-	}
-
-	return value == 1, nil
+	return v.have(ctx, fmt.Sprintf(SPACE_KEY, id))
 }
 
 func (v *Verse) LoadSpace(ctx context.Context, id string) (*Space, error) {
@@ -347,4 +369,107 @@ type User struct {
 type userMeta struct {
 	// Space ID
 	Home string
+}
+
+func (u *User) key() string {
+	return fmt.Sprintf(USER_KEY, u.id)
+}
+
+func (u *User) load(ctx context.Context) (*userMeta, error) {
+	var jsonUser userMeta
+	err := loadJSON(ctx, u.redis, u.key(), &jsonUser)
+	if err != nil {
+		return nil, err
+	}
+
+	return &jsonUser, nil
+}
+
+func (u *User) save(ctx context.Context, data userMeta) error {
+	return saveJSON(ctx, u.redis, u.key(), data)
+}
+
+func (u *User) GetHomeID(ctx context.Context) (string, error) {
+	meta, err := u.load(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return meta.Home, nil
+}
+
+func (u *User) GetHomeSpace(ctx context.Context) (*Space, error) {
+	id, err := u.GetHomeID(ctx)
+	if err != nil {
+	    return nil, err
+	}
+
+	return u.verse.LoadSpace(ctx, id)
+}
+
+func (v *Verse) NewUser(ctx context.Context, id string) (*User, error) {
+	user := User{
+		id: id,
+		entity: entity{
+			redis: v.redis,
+			verse: v,
+		},
+	}
+
+	space, err := v.NewSpace(ctx, id)
+	if err != nil {
+	    return nil, err
+	}
+
+	err = user.save(ctx, userMeta{
+		Home: space.GetID(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (v *Verse) HaveUser(ctx context.Context, id string) (bool, error) {
+	return v.have(ctx, fmt.Sprintf(USER_KEY, id))
+}
+
+func (v *Verse) GetUser(ctx context.Context, id string) (*User, error) {
+	exists, err := v.HaveUser(ctx, id)
+	if err != nil {
+	    return nil, err
+	}
+
+	if !exists {
+		return nil, redis.Nil
+	}
+
+	user := User{
+		id: id,
+		entity: entity{
+			redis: v.redis,
+			verse: v,
+		},
+	}
+
+	_, err = user.load(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (v *Verse) GetOrCreateUser(ctx context.Context, id string) (*User, error) {
+	exists, err := v.HaveUser(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if !exists {
+		return v.NewUser(ctx, id)
+	}
+
+	return v.GetUser(ctx, id)
 }

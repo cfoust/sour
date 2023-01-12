@@ -12,7 +12,6 @@ import (
 	"github.com/cfoust/sour/pkg/maps/worldio"
 	"github.com/cfoust/sour/svc/cluster/verse"
 
-	"github.com/go-redis/redis/v9"
 	"github.com/rs/zerolog/log"
 )
 
@@ -29,26 +28,54 @@ func NewEdit(message game.Message) *Edit {
 }
 
 type EditingState struct {
-	Edits []*Edit
-	Map   *maps.GameMap
-	mutex sync.Mutex
-	redis *redis.Client
+	Edits   []*Edit
+	GameMap *maps.GameMap
+	Map     *verse.Map
+	Space   *verse.Space
+	mutex   sync.Mutex
+	verse   *verse.Verse
 }
+
+const (
+	MAP_EXPIRE = time.Hour * 24
+)
 
 // Apply all of the edits to the map.
 func (e *EditingState) Checkpoint(ctx context.Context) error {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
+	if len(e.Edits) == 0 {
+		return nil
+	}
+
 	err := e.Apply(e.Edits)
 	e.Edits = make([]*Edit, 0)
 
-	hash, err := verse.SaveMap(ctx, e.redis, e.Map)
+	creator, err := e.Map.GetCreator(ctx)
 	if err != nil {
-		return err
+	    return err
 	}
 
-	log.Info().Msgf("saved map %s", hash)
+	newMap, err := e.verse.SaveGameMap(ctx, creator, e.GameMap)
+	if err != nil {
+	    return err
+	}
+
+	// Expire the old map after a day
+	e.Map.Expire(ctx, MAP_EXPIRE)
+
+	e.Map = newMap
+
+	if e.Space != nil {
+		err = e.Space.SetMapID(ctx, newMap.GetID())
+		if err != nil {
+		    return err
+		}
+		log.Info().Msgf("saved map %s for space %s", newMap.GetID(), e.Space.GetID())
+	} else {
+		log.Info().Msgf("saved map %s", newMap.GetID())
+	}
 
 	return err
 }
@@ -62,7 +89,7 @@ func (e *EditingState) Process(message game.Message) {
 func (e *EditingState) LoadMap(map_ *maps.GameMap) error {
 	e.mutex.Lock()
 	e.Edits = make([]*Edit, 0)
-	e.Map = map_
+	e.GameMap = map_
 	e.mutex.Unlock()
 
 	return nil
@@ -128,7 +155,7 @@ func (e *EditingState) Apply(edits []*Edit) error {
 	for _, edit := range edits {
 		if edit.Message.Type() == game.N_EDITVAR {
 			varEdit := edit.Message.Contents().(*game.EditVar)
-			err := e.Map.Vars.Set(varEdit.Key, varEdit.Value)
+			err := e.GameMap.Vars.Set(varEdit.Key, varEdit.Value)
 			if err != nil {
 				log.Warn().Err(err).Msgf("setting map variable failed %s=%+v", varEdit.Key, varEdit.Value)
 			}
@@ -137,7 +164,7 @@ func (e *EditingState) Apply(edits []*Edit) error {
 
 		if edit.Message.Type() == game.N_EDITENT {
 			entEdit := edit.Message.Contents().(*game.EditEnt)
-			EditEntity(&e.Map.Entities, entEdit)
+			EditEntity(&e.GameMap.Entities, entEdit)
 			continue
 		}
 
@@ -149,8 +176,8 @@ func (e *EditingState) Apply(edits []*Edit) error {
 	}
 
 	result := worldio.Apply_messages(
-		e.Map.C,
-		int(e.Map.Header.WorldSize),
+		e.GameMap.C,
+		int(e.GameMap.Header.WorldSize),
 		uintptr(unsafe.Pointer(&(buffer)[0])),
 		int64(len(buffer)),
 	)
@@ -158,17 +185,19 @@ func (e *EditingState) Apply(edits []*Edit) error {
 		return fmt.Errorf("applying changes failed")
 	}
 
-	err := e.Map.ToFile("../test.ogz")
+	err := e.GameMap.ToFile("../test.ogz")
 	if err != nil {
 		log.Warn().Err(err).Msgf("failed to save map")
 	}
 	return nil
 }
 
-func NewEditingState(redis *redis.Client) *EditingState {
+func NewEditingState(verse *verse.Verse, space *verse.Space, map_ *verse.Map) *EditingState {
 	return &EditingState{
 		Edits: make([]*Edit, 0),
-		redis: redis,
+		verse: verse,
+		Map: map_,
+		Space: space,
 	}
 }
 

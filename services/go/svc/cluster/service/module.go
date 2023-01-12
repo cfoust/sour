@@ -14,6 +14,7 @@ import (
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/servers"
+	"github.com/cfoust/sour/svc/cluster/verse"
 
 	"github.com/go-redis/redis/v9"
 	"github.com/rs/zerolog/log"
@@ -53,6 +54,7 @@ type Cluster struct {
 	serverCtx     context.Context
 	serverMessage chan []byte
 	redis         *redis.Client
+	verse         *verse.Verse
 }
 
 func NewCluster(
@@ -80,6 +82,7 @@ func NewCluster(
 		startTime:     time.Now(),
 		auth:          auth,
 		redis:         redis,
+		verse:         verse.NewVerse(redis),
 	}
 
 	return server
@@ -661,33 +664,34 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 				continue
 			}
 
+			logger = logger.With().Str("id", user.Discord.Id).Logger()
+
 			client.Mutex.Lock()
 			client.User = user
 			client.Mutex.Unlock()
 
-			err := client.HydrateELOState(ctx, user)
+			verseUser, err := server.verse.GetOrCreateUser(clientCtx, client.User.GetID())
+			if err != nil {
+				logger.Error().Err(err).Msg("failed to get verse state for user")
+				continue
+			}
+			user.Verse = verseUser
+
+			err = client.HydrateELOState(ctx, user)
 			if err == nil {
 				server.GreetClient(clientCtx, client)
 				continue
 			}
 
 			if err != redis.Nil {
-				log.Error().
-					Err(err).
-					Uint16("client", client.Id).
-					Str("id", user.Discord.Id).
-					Msg("failed to hydrate state for user")
+				logger.Error().Err(err).Msg("failed to hydrate state for user")
 				continue
 			}
 
 			// We save the initialized state that was there already
 			err = client.SaveELOState(ctx)
 			if err != nil {
-				log.Error().
-					Err(err).
-					Uint16("client", client.Id).
-					Str("id", user.Discord.Id).
-					Msg("failed to save elo state for user")
+				logger.Error().Err(err).Msg("failed to save elo state for user")
 			}
 			server.GreetClient(clientCtx, client)
 		case msg := <-toServer:

@@ -16,6 +16,7 @@ import (
 	"github.com/cfoust/sour/svc/cluster/auth/crypto"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/state"
+	"github.com/cfoust/sour/svc/cluster/verse"
 )
 
 const (
@@ -49,6 +50,11 @@ type KeyPair struct {
 type User struct {
 	Discord DiscordUser
 	Keys    KeyPair
+	Verse   *verse.User
+}
+
+func (u *User) GetID() string {
+	return u.Discord.Id
 }
 
 func GenerateSeed() (string, error) {
