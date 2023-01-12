@@ -6,7 +6,7 @@ cd "$SCRIPT_DIR/../"
 
 set -e
 
-cd "$SCRIPT_DIR/src/web"
+cd "$SCRIPT_DIR/src"
 
 # When you restart the container, this is not there
 if ! [ -f "/emsdk/upstream/emscripten/cache/wasm/libz.a" ]; then

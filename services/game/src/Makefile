@@ -136,7 +136,6 @@ default: all
 all: client server
 
 enet/libenet.a:
-	cp -r ../enet enet
 	$(EMMAKE) $(MAKE) -C enet CC='$(CC)' AR='$(AR)'
 libenet: enet/libenet.a
 
@@ -181,14 +180,14 @@ client.o:	libenet $(CLIENT_OBJS)
 TOTAL_MEMORY = 301989888 # May need to adjust this for very large levels
 
 client: client.o
-	cd .. ; cd .. ; $(CXX) $(CXXFLAGS) -s USE_WEBGL2=1 -s FULL_ES3=1 src/web/client.o -o sauerbraten.js -lidbfs.js -s DISABLE_EXCEPTION_CATCHING=1 -s EXPORTED_FUNCTIONS="['_free','_main', '__Z7conoutfiPKcz', '__Z12injectserverPciPhi', '__ZN4game18setplayermodelinfoEPKcS1_S1_S1_S1_S1_S1_S1_S1_S1_S1_S1_b', '__Z14renderprogressfPKcjb', '__Z7executePKc', '__Z10executestrPKc', '_setforcecamera', '_bb_splash', '_bb_playsoundname', '__Z17really_load_worldPKcS0_']" src/web/enet/libenet.a -s TOTAL_MEMORY=$(TOTAL_MEMORY) -Oz -s NO_EXIT_RUNTIME=1 -s FORCE_FILESYSTEM=1 -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["cwrap"]' --profiling -s ERROR_ON_UNDEFINED_SYMBOLS=0 # --closure 1 -s IGNORE_CLOSURE_COMPILER_ERRORS=1
+	cd .. ; $(CXX) $(CXXFLAGS) -s USE_WEBGL2=1 -s FULL_ES3=1 src/client.o -o sauerbraten.js -lidbfs.js -s DISABLE_EXCEPTION_CATCHING=1 -s EXPORTED_FUNCTIONS="['_free','_main', '__Z7conoutfiPKcz', '__Z12injectserverPciPhi', '__ZN4game18setplayermodelinfoEPKcS1_S1_S1_S1_S1_S1_S1_S1_S1_S1_S1_b', '__Z14renderprogressfPKcjb', '__Z7executePKc', '__Z10executestrPKc', '_setforcecamera', '_bb_splash', '_bb_playsoundname', '__Z17really_load_worldPKcS0_']" src/enet/libenet.a -s TOTAL_MEMORY=$(TOTAL_MEMORY) -Oz -s NO_EXIT_RUNTIME=1 -s FORCE_FILESYSTEM=1 -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["cwrap"]' --profiling -s ERROR_ON_UNDEFINED_SYMBOLS=0 # --closure 1 -s IGNORE_CLOSURE_COMPILER_ERRORS=1
 
 server.bc:	libenet $(SERVER_OBJS)
 	$(CXX) $(CXXFLAGS) -o server.bc $(SERVER_OBJS) $(SERVER_LIBS)  
 
 server:	server.bc
-	cd .. ; cd .. ; $(CXX) $(CXXFLAGS) src/web/server.bc -o server.debug.html -s EXPORTED_FUNCTIONS="['_main']" -O3 --closure 0 src/web/enet/.libs/libenet.a
-	cd .. ; cd .. ; $(CXX) $(CXXFLAGS) src/web/server.bc -o server.html -s EXPORTED_FUNCTIONS="['_main']" -O3 src/web/enet/.libs/libenet.a
+	cd .. ; cd .. ; $(CXX) $(CXXFLAGS) src/server.bc -o server.debug.html -s EXPORTED_FUNCTIONS="['_main']" -O3 --closure 0 src/enet/.libs/libenet.a
+	cd .. ; cd .. ; $(CXX) $(CXXFLAGS) src/server.bc -o server.html -s EXPORTED_FUNCTIONS="['_main']" -O3 src/enet/.libs/libenet.a
 
 master: libenet $(MASTER_OBJS)
 	$(CXX) $(CXXFLAGS) -o sauer_master $(MASTER_OBJS) $(MASTER_LIBS)  
@@ -216,20 +215,6 @@ depend:
 
 engine/engine.h.gch: shared/cube.h.gch
 fpsgame/game.h.gch: shared/cube.h.gch
-
-shared/%.h: ../shared/%.h
-	cp $< $@
-engine/%.h: ../engine/%.h
-	cp $< $@
-fpsgame/%.h: ../fpsgame/%.h
-	cp $< $@
-
-shared/%.cpp: ../shared/%.cpp
-	cp $< $@
-engine/%.cpp: ../engine/%.cpp
-	cp $< $@
-fpsgame/%.cpp: ../fpsgame/%.cpp
-	cp $< $@
 
 # DO NOT DELETE
 
