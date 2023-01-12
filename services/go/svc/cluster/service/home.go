@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	//"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/verse"
 )

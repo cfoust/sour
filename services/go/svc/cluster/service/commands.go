@@ -213,8 +213,23 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 			return true, "", nil
 		}
 
+		// Look for a space
+		space, err := server.spaces.SearchSpace(ctx, target)
+		if err != nil {
+		    return true, "", err
+		}
+
+		if space != nil {
+			instance, err := server.spaces.StartSpace(ctx, target)
+			if err != nil {
+			    return true, "", err
+			}
+			_, err = client.ConnectToServer(instance.Server, false, false)
+			return true, "", err
+		}
+
 		logger.Warn().Msgf("could not find server: %s", target)
-		return true, "", fmt.Errorf("failed to find server %s", target)
+		return true, "", fmt.Errorf("failed to find server or space matching %s", target)
 
 	case "duel":
 		duelType := ""

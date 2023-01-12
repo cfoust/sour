@@ -103,13 +103,14 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 		return instance, nil
 	}
 
-	gameServer, err := s.servers.NewServer(ctx, "", true)
+	serverCtx := context.Background()
+	gameServer, err := s.servers.NewServer(serverCtx, "", true)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to create server for space")
 		return nil, err
 	}
 
-	err = gameServer.StartAndWait(ctx)
+	err = gameServer.StartAndWait(serverCtx)
 	if err != nil {
 		return nil, err
 	}
