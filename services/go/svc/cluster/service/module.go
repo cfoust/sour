@@ -636,7 +636,6 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Cl
 func (c *Cluster) SendMap(ctx context.Context, client *clients.Client) error {
 	server := client.GetServer()
 
-	log.Info().Msg("sending map to client")
 	if server.Editing != nil {
 		e := server.Editing
 		err := e.Checkpoint(ctx)
@@ -657,7 +656,6 @@ func (c *Cluster) SendMap(ctx context.Context, client *clients.Client) error {
 			Channel: 2,
 			Data:    p,
 		})
-		log.Info().Msg("sent game packet")
 
 		return nil
 	}

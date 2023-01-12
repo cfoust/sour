@@ -35,6 +35,7 @@ type EditingState struct {
 	GameMap    *maps.GameMap
 	Map        *verse.Map
 	Space      *verse.Space
+	OpenEdit   bool
 
 	mutex sync.Mutex
 	verse *verse.Verse
@@ -43,6 +44,19 @@ type EditingState struct {
 const (
 	MAP_EXPIRE = time.Hour * 24
 )
+
+func (e *EditingState) IsOpenEdit() bool {
+	e.mutex.Lock()
+	val := e.OpenEdit
+	e.mutex.Unlock()
+	return val
+}
+
+func (e *EditingState) SetOpenEdit(val bool) {
+	e.mutex.Lock()
+	e.OpenEdit = val
+	e.mutex.Unlock()
+}
 
 // Apply all of the edits to the map.
 func (e *EditingState) Checkpoint(ctx context.Context) error {
@@ -245,6 +259,7 @@ func (e *EditingState) Apply(edits []*Edit) error {
 
 func NewEditingState(verse *verse.Verse, space *verse.Space, map_ *verse.Map) *EditingState {
 	return &EditingState{
+		OpenEdit:   false,
 		Edits:      make([]*Edit, 0),
 		Clipboards: make(map[int32]worldio.Editinfo),
 		verse:      verse,
