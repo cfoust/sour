@@ -669,7 +669,7 @@ func (c *Cluster) SendMap(ctx context.Context, client *clients.Client) error {
 	return nil
 }
 
-func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
+func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 	toServer := client.Connection.ReceivePackets()
 	commands := client.Connection.ReceiveCommands()
 	authentication := client.ReceiveAuthentication()
@@ -681,7 +681,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 	logger := log.With().Uint16("client", client.Id).Logger()
 
 	go func() {
-		err := RecordSession(client.Connection.SessionContext(), server.settings.SessionDirectory, client)
+		err := RecordSession(client.Connection.SessionContext(), c.settings.SessionDirectory, client)
 		if err != nil {
 			logger.Warn().Err(err).Msg("failed to record client session")
 		}
@@ -697,7 +697,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 			return
 		case user := <-authentication:
 			if user == nil {
-				server.GreetClient(clientCtx, client)
+				c.GreetClient(clientCtx, client)
 				continue
 			}
 
@@ -707,7 +707,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 			client.User = user
 			client.Mutex.Unlock()
 
-			verseUser, err := server.verse.GetOrCreateUser(clientCtx, client.User.GetID())
+			verseUser, err := c.verse.GetOrCreateUser(clientCtx, client.User.GetID())
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to get verse state for user")
 				continue
@@ -716,7 +716,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 			err = client.HydrateELOState(ctx, user)
 			if err == nil {
-				server.GreetClient(clientCtx, client)
+				c.GreetClient(clientCtx, client)
 				continue
 			}
 
@@ -730,7 +730,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to save elo state for user")
 			}
-			server.GreetClient(clientCtx, client)
+			c.GreetClient(clientCtx, client)
 		case msg := <-toServer:
 			data := msg.Data
 
@@ -764,8 +764,8 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 				if message.Type() == game.N_TEXT {
 					text := message.Contents().(*game.Text).Text
 
-					if text == "a" && server.MapSender.IsHandling(client) {
-						server.MapSender.TriggerSend(ctx, client)
+					if text == "a" && c.MapSender.IsHandling(client) {
+						c.MapSender.TriggerSend(ctx, client)
 						continue
 					}
 
@@ -776,7 +776,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 						// Only send this packet after we've checked
 						// whether the cluster should handle it
 						go func() {
-							handled, response, err := server.RunCommandWithTimeout(clientCtx, command, client)
+							handled, response, err := c.RunCommandWithTimeout(clientCtx, command, client)
 
 							if !handled {
 								passthrough(message)
@@ -798,7 +798,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 						continue
 					} else {
 						// We do our own chat, don't pass on to the server
-						server.ForwardGlobalChat(clientCtx, client, text)
+						c.ForwardGlobalChat(clientCtx, client, text)
 						continue
 					}
 				}
@@ -830,8 +830,8 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 					p.Put(*connect)
 					client.Server.SendData(client.Id, uint32(msg.Channel), p)
 
-					if description == server.authDomain && client.GetUser() == nil {
-						server.DoAuthChallenge(ctx, client, name)
+					if description == c.authDomain && client.GetUser() == nil {
+						c.DoAuthChallenge(ctx, client, name)
 					}
 					continue
 				}
@@ -839,8 +839,8 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 				if message.Type() == game.N_AUTHANS {
 					answerMessage := message.Contents().(*game.AuthAns)
 
-					if answerMessage.Description == server.authDomain && client.Challenge != nil {
-						server.HandleChallengeAnswer(
+					if answerMessage.Description == c.authDomain && client.Challenge != nil {
+						c.HandleChallengeAnswer(
 							ctx,
 							client,
 							client.Challenge,
@@ -858,6 +858,35 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 					//}
 				}
 
+				if game.IsOwnerOnly(message.Type()) {
+					server := client.GetServer()
+					instance := c.spaces.FindInstance(server)
+					if instance != nil {
+						space := instance.Space
+						owner, err := space.GetOwner(ctx)
+						if err != nil {
+						    continue
+						}
+
+						isOwner := false
+
+						// No one owns this -- it's an unauthenticated client
+						if owner == "" {
+							isOwner = true
+						}
+
+						if client.User != nil && client.User.Verse != nil {
+							isOwner = client.User.Verse.GetID() == owner
+						}
+
+						if !instance.Editing.IsOpenEdit() && !isOwner {
+							client.ConnectToSpace(server, space.GetID())
+							client.SendServerMessage("You cannot edit this space.")
+							continue
+						}
+					}
+				}
+
 				if message.Type() == game.N_MAPCRC {
 					client.RestoreMessages()
 
@@ -865,7 +894,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 					// The client does not have the map
 					if crc.Crc == 0 {
 						go func() {
-							err := server.SendMap(ctx, client)
+							err := c.SendMap(ctx, client)
 							if err != nil {
 								logger.Warn().Err(err).Msg("failed to send map to client")
 							}
@@ -873,9 +902,9 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 					}
 				}
 
-				if message.Type() == game.N_GETDEMO && server.MapSender.IsHandling(client) {
+				if message.Type() == game.N_GETDEMO && c.MapSender.IsHandling(client) {
 					demo := message.Contents().(*game.GetDemo)
-					server.MapSender.SendDemo(ctx, client, demo.Tag)
+					c.MapSender.SendDemo(ctx, client, demo.Tag)
 					continue
 				}
 
@@ -891,7 +920,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 			outChannel := request.Response
 
 			go func() {
-				handled, response, err := server.RunCommandWithTimeout(clientCtx, command, client)
+				handled, response, err := c.RunCommandWithTimeout(clientCtx, command, client)
 				outChannel <- clients.CommandResult{
 					Handled:  handled,
 					Err:      err,
@@ -899,7 +928,7 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 				}
 			}()
 		case <-disconnect:
-			server.NotifyClientChange(ctx, client, false)
+			c.NotifyClientChange(ctx, client, false)
 			client.DisconnectFromServer()
 		}
 	}

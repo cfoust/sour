@@ -31,6 +31,12 @@ func IsEditMessage(code MessageCode) bool {
 	return false
 }
 
+// If a server is not in "open edit" mode and we receive one of these messages
+// from a user who is not the owner, we disconnect and reconnect them.
+func IsOwnerOnly(code MessageCode) bool {
+	return IsEditMessage(code) || code == N_EDITMODE
+}
+
 type Selection struct {
 	O      IVec
 	S      IVec

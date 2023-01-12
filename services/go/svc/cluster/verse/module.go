@@ -424,6 +424,10 @@ func (u *User) key() string {
 	return fmt.Sprintf(USER_KEY, u.id)
 }
 
+func (u *User) GetID() string {
+	return u.id
+}
+
 func (u *User) load(ctx context.Context) (*userMeta, error) {
 	var jsonUser userMeta
 	err := loadJSON(ctx, u.redis, u.key(), &jsonUser)
