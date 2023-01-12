@@ -5,7 +5,6 @@ import (
 )
 
 var EDIT_MESSAGES = []MessageCode{
-	N_CLIPBOARD,
 	N_COPY,
 	N_DELCUBE,
 	N_EDITENT,

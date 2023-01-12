@@ -185,11 +185,13 @@ func (e *EditingState) Apply(edits []*Edit) error {
 
 		if edit.Message.Type() == game.N_COPY {
 			data := edit.Message.Data()
+			worldio.M.Lock()
 			info := worldio.Store_copy(
 				e.GameMap.C,
 				uintptr(unsafe.Pointer(&(data)[0])),
 				int64(len(data)),
 			)
+			worldio.M.Unlock()
 			if info.Swigcptr() == 0 {
 				log.Warn().Msg("failed to store copy")
 				continue
@@ -208,12 +210,14 @@ func (e *EditingState) Apply(edits []*Edit) error {
 				continue
 			}
 
+			worldio.M.Lock()
 			worldio.Apply_paste(
 				e.GameMap.C,
 				info,
 				uintptr(unsafe.Pointer(&(data)[0])),
 				int64(len(data)),
 			)
+			worldio.M.Unlock()
 			continue
 		}
 
@@ -224,12 +228,14 @@ func (e *EditingState) Apply(edits []*Edit) error {
 		return nil
 	}
 
+	worldio.M.Lock()
 	result := worldio.Apply_messages(
 		e.GameMap.C,
 		int(e.GameMap.Header.WorldSize),
 		uintptr(unsafe.Pointer(&(buffer)[0])),
 		int64(len(buffer)),
 	)
+	worldio.M.Unlock()
 	if !result {
 		return fmt.Errorf("applying changes failed")
 	}
@@ -244,6 +250,14 @@ func NewEditingState(verse *verse.Verse, space *verse.Space, map_ *verse.Map) *E
 		verse:      verse,
 		Map:        map_,
 		Space:      space,
+	}
+}
+
+func (e *EditingState) Destroy() {
+	e.GameMap.Destroy()
+
+	for _, info := range e.Clipboards {
+		worldio.Free_edit(info)
 	}
 }
 

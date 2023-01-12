@@ -391,6 +391,12 @@ type GameMap struct {
 	C         worldio.MapState
 }
 
+func (m *GameMap) Destroy() {
+	worldio.M.Lock()
+	worldio.Free_state(m.C)
+	worldio.M.Unlock()
+}
+
 // This is generated using:
 // sourdump -type cfg -index default.textures data/default_map_settings.cfg
 // (that is not the full command, you should be able to infer it though)
@@ -398,11 +404,13 @@ type GameMap struct {
 var DEFAULT_MAP_SLOTS []byte
 
 func LoadDefaultSlots(map_ *GameMap) error {
+	worldio.M.Lock()
 	loadOk := worldio.Load_texture_index(
 		uintptr(unsafe.Pointer(&(DEFAULT_MAP_SLOTS)[0])),
 		int64(len(DEFAULT_MAP_SLOTS)),
 		map_.C,
 	)
+	worldio.M.Unlock()
 	if !loadOk {
 		return fmt.Errorf("failed to load texture index")
 	}
@@ -411,6 +419,9 @@ func LoadDefaultSlots(map_ *GameMap) error {
 }
 
 func NewMap() (*GameMap, error) {
+	worldio.M.Lock()
+	c := worldio.Empty_world(12)
+	worldio.M.Unlock()
 	map_ := GameMap{
 		Header: Header{
 			Version:    game.MAP_VERSION,
@@ -422,7 +433,7 @@ func NewMap() (*GameMap, error) {
 		WorldRoot: EmptyMap(1024),
 		Vars:      make(map[string]game.Variable),
 		VSlots:    make([]*VSlot, 0),
-		C:         worldio.Empty_world(12),
+		C:         c,
 	}
 
 	if err := LoadDefaultSlots(&map_); err != nil {
