@@ -185,6 +185,42 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 
 		return true, "", nil
 
+	case "openedit":
+		gameServer := client.GetServer()
+		instance := server.spaces.FindInstance(gameServer)
+		if instance == nil {
+			return true, "", fmt.Errorf("you are not in a space")
+		}
+
+		user := client.User
+		if user == nil || user.Verse == nil {
+			return true, "", fmt.Errorf("you are not logged in")
+		}
+
+		space := instance.Space
+		owner, err := space.GetOwner(ctx)
+		if err != nil {
+			return true, "", fmt.Errorf("failed to get owner")
+		}
+
+		if user.Verse.GetID() == owner {
+			editing := instance.Editing
+			current := editing.IsOpenEdit()
+			editing.SetOpenEdit(!current)
+
+			canEdit := editing.IsOpenEdit()
+
+			if canEdit {
+				server.AnnounceInServer(ctx, gameServer, "editing is now enabled")
+			} else {
+				server.AnnounceInServer(ctx, gameServer, "editing is now disabled")
+			}
+
+			return true, "", nil
+		}
+
+		return true, "", fmt.Errorf("you are not the owner")
+
 	case "join":
 		if len(args) != 2 {
 			return true, "", errors.New("join takes a single argument")

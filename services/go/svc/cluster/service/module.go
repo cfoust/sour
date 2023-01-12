@@ -554,6 +554,22 @@ func (server *Cluster) NotifyNameChange(ctx context.Context, client *clients.Cli
 	server.Clients.Mutex.Unlock()
 }
 
+func (c *Cluster) AnnounceInServer(ctx context.Context, server *servers.GameServer, message string) {
+	c.Clients.Mutex.Lock()
+
+	for client := range c.Clients.State {
+		otherServer := client.GetServer()
+
+		if server != otherServer {
+			continue
+		}
+
+		client.SendServerMessage(message)
+	}
+
+	c.Clients.Mutex.Unlock()
+}
+
 func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Client, message string) {
 	server.Clients.Mutex.Lock()
 

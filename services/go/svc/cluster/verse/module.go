@@ -154,6 +154,7 @@ func (v *Verse) NewMap(ctx context.Context, creator string) (*Map, error) {
 	}
 
 	defer map_.Destroy()
+
 	return v.SaveGameMap(ctx, creator, map_)
 }
 
@@ -205,6 +206,13 @@ func (v *Verse) SaveGameMap(ctx context.Context, creator string, gameMap *maps.G
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if creator == "" {
+		err = map_.Expire(ctx, time.Hour * 24)
+		if err != nil {
+		    return nil, err
+		}
 	}
 
 	return &map_, nil
