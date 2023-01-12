@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cfoust/sour/pkg/game"
 	//"github.com/cfoust/sour/pkg/maps"
@@ -33,15 +34,21 @@ func (c *Cluster) GoHome(ctx context.Context, client *clients.Client) error {
 
 	var space *verse.Space
 	user := client.GetUser()
+	isLoggedIn := user != nil
 	if user == nil {
 		space, err = c.verse.NewSpace(ctx, "")
 		if err != nil {
-		    return err
+			return err
+		}
+
+		err = space.Expire(ctx, time.Hour*4)
+		if err != nil {
+			return err
 		}
 	} else {
 		space, err = user.Verse.GetHomeSpace(ctx)
 		if err != nil {
-		    return err
+			return err
 		}
 	}
 
@@ -67,5 +74,16 @@ func (c *Cluster) GoHome(ctx context.Context, client *clients.Client) error {
 	go editing.PollEdits(ctx)
 
 	_, err = client.ConnectToServer(gameServer, false, true)
+
+	message := fmt.Sprintf(
+		"Welcome to your home space (%s).",
+		space.GetID(),
+	)
+
+	if isLoggedIn {
+		client.SendServerMessage(message)
+	} else {
+		client.SendServerMessage(message + " Because you are not logged in, it will be deleted in 4 hours.")
+	}
 	return err
 }

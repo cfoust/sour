@@ -636,6 +636,7 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Cl
 func (c *Cluster) SendMap(ctx context.Context, client *clients.Client) error {
 	server := client.GetServer()
 
+	log.Info().Msg("sending map to client")
 	if server.Editing != nil {
 		e := server.Editing
 		err := e.Checkpoint(ctx)
@@ -656,6 +657,7 @@ func (c *Cluster) SendMap(ctx context.Context, client *clients.Client) error {
 			Channel: 2,
 			Data:    p,
 		})
+		log.Info().Msg("sent game packet")
 
 		return nil
 	}
@@ -826,8 +828,6 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 					if description == server.authDomain && client.GetUser() == nil {
 						server.DoAuthChallenge(ctx, client, name)
-					} else {
-						server.GreetClient(clientCtx, client)
 					}
 					continue
 				}
@@ -860,7 +860,12 @@ func (server *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 					crc := message.Contents().(*game.MapCRC)
 					// The client does not have the map
 					if crc.Crc == 0 {
-						go server.SendMap(ctx, client)
+						go func() {
+							err := server.SendMap(ctx, client)
+							if err != nil {
+								logger.Warn().Err(err).Msg("failed to send map to client")
+							}
+						}()
 					}
 				}
 
