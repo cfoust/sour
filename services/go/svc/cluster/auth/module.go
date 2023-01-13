@@ -298,17 +298,17 @@ func (d *DiscordService) EnsureAuthKey(ctx context.Context, id string) (*KeyPair
 	return pair, nil
 }
 
-func (d *DiscordService) CheckRefreshToken(ctx context.Context, token string) error {
+func (d *DiscordService) CheckRefreshToken(ctx context.Context, token string) (string, error) {
 	needsRefresh, err := d.State.TokenNeedsRefresh(
 		ctx,
 		token,
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if !needsRefresh {
-		return nil
+		return token, nil
 	}
 
 	refresh, err := d.State.GetRefreshForToken(
@@ -316,17 +316,17 @@ func (d *DiscordService) CheckRefreshToken(ctx context.Context, token string) er
 		token,
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	bundle, err := d.RefreshAccessToken(refresh)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	user, err := d.GetUser(bundle.AccessToken)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = d.State.SetTokenForId(
@@ -336,7 +336,7 @@ func (d *DiscordService) CheckRefreshToken(ctx context.Context, token string) er
 		bundle.ExpiresIn,
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = d.SaveTokenBundle(
@@ -344,10 +344,10 @@ func (d *DiscordService) CheckRefreshToken(ctx context.Context, token string) er
 		bundle,
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return bundle.AccessToken, nil
 }
 
 func (d *DiscordService) FetchUser(ctx context.Context, token string) (*User, error) {
@@ -368,12 +368,12 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*Us
 	token, err := d.State.GetTokenForCode(ctx, code)
 
 	if err == nil {
-		err = d.CheckRefreshToken(ctx, token)
+		newToken, err := d.CheckRefreshToken(ctx, token)
 		if err != nil {
 			return nil, err
 		}
 
-		return d.FetchUser(ctx, token)
+		return d.FetchUser(ctx, newToken)
 	}
 
 	if err != nil && err != state.Nil {
@@ -432,10 +432,10 @@ func (d *DiscordService) AuthenticateId(ctx context.Context, id string) (*User, 
 		return nil, err
 	}
 
-	err = d.CheckRefreshToken(ctx, token)
+	newToken, err := d.CheckRefreshToken(ctx, token)
 	if err != nil {
 		return nil, err
 	}
 
-	return d.FetchUser(ctx, token)
+	return d.FetchUser(ctx, newToken)
 }
