@@ -61,7 +61,7 @@ func main() {
 	var discord *auth.DiscordService = nil
 	discordSettings := sourConfig.Discord
 	if discordSettings.Enabled {
-		log.Info().Msg("initializing Discord authentication")
+		log.Info().Msg("Discord authentication enabled")
 		discord = auth.NewDiscordService(
 			discordSettings,
 			state,

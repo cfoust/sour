@@ -2422,8 +2422,6 @@ namespace server {
     void _changemap(const char *s, int mode)
     {
         //can cause excess flood on loop i mapchange for IRC
-        out(ECHO_CONSOLE, "Map changed to: %s | Modenum: %d", s, mode);
-        out(ECHO_CONSOLE, "Gamespeed is: %d", defaultgamespeed);
         stopdemo();
         pausegame(false);
         changegamespeed(defaultgamespeed);

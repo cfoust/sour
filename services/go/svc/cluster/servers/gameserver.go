@@ -741,8 +741,6 @@ func (server *GameServer) Wait() {
 		return
 	}
 
-	logger.Info().Msg("server started")
-
 	stdoutEOF := make(chan bool, 1)
 	stderrEOF := make(chan bool, 1)
 
@@ -819,7 +817,6 @@ func (server *GameServer) Wait() {
 }
 
 func (server *GameServer) Start(ctx context.Context) error {
-	logger := server.Log()
 	tick := time.NewTicker(250 * time.Millisecond)
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*10)
@@ -837,7 +834,6 @@ func (server *GameServer) Start(ctx context.Context) error {
 			conn, err := Connect(server.path)
 
 			if err == nil {
-				logger.Info().Msg("connected")
 				server.Mutex.Lock()
 				server.Status = ServerStarted
 				server.socket = conn
