@@ -90,7 +90,17 @@ const pushURLState = (url: string) => {
     location: { search: params },
   } = window
 
-  window.history.pushState({}, '', `${url}${params}`)
+  // We only want to keep 'mods', everything else goes
+  const parsedParams = new URLSearchParams(params)
+  const newParams = new URLSearchParams()
+  if (parsedParams.has('mods')) {
+    const value = parsedParams.get('mods')
+    if (value != null) {
+      newParams.set('mods', value)
+    }
+  }
+
+  window.history.pushState({}, '', `${url}${newParams.toString()}`)
 }
 
 const clearURLState = () => pushURLState('/')
@@ -126,7 +136,7 @@ function App() {
     ws.send(CBOR.encode(message))
   }, [])
 
-  const { loadAsset, getMod } = useAssets(setState)
+  const { loadAsset, getMod, onReady: onReadyAssets } = useAssets(setState)
   const {
     state: authState,
     receiveMessage: receiveAuthMessage,
@@ -135,6 +145,9 @@ function App() {
 
   React.useEffect(() => {
     ;(async () => {
+      // Not a mod but I'm lazy
+      await loadAsset(LoadRequestType.Mod, 'environment')
+
       // Load the basic required data for the game
       await loadAsset(LoadRequestType.Mod, 'base')
 
@@ -385,6 +398,7 @@ function App() {
 
     let cachedServers: Maybe<any> = null
     Module.onGameReady = () => {
+      onReadyAssets()
       Module.FS_createPath(`/`, 'packages', true, true)
       Module.FS_createPath(`/packages`, 'base', true, true)
 

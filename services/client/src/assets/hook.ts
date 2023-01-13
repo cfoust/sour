@@ -314,6 +314,7 @@ export default function useAssets(
 ): {
   loadAsset: (type: LoadRequestType, target: string) => Promise<Maybe<Layer>>
   getMod: (id: string) => Maybe<GameMod>
+  onReady: () => void
 } {
   const assetWorkerRef = React.useRef<Worker>()
   const requestStateRef = React.useRef<AssetRequest[]>([])
@@ -353,6 +354,14 @@ export default function useAssets(
       if (assetWorker == null) return null
 
       const request = addRequest(target)
+      if (target === 'environment') {
+        assetWorker.postMessage({
+          op: AssetRequestType.Environment,
+          assetSources: CONFIG.assets,
+        })
+        return request.promiseSet.promise
+      }
+
       assetWorker.postMessage({
         op: AssetRequestType.Load,
         type,
@@ -365,18 +374,18 @@ export default function useAssets(
     []
   )
 
+  const onReady = React.useCallback(() => {
+    const { current: index } = bundleIndexRef
+    if (index == null) return
+    BananaBread.execute(buildModMenu(index))
+  }, [])
+
   React.useEffect(() => {
     const worker = new Worker(
       // @ts-ignore
       new URL('./worker.ts', import.meta.url),
       { type: 'module' }
     )
-
-    addRequest('environment')
-    worker.postMessage({
-      op: AssetRequestType.Environment,
-      assetSources: CONFIG.assets,
-    })
 
     worker.onmessage = (evt) => {
       const { data } = evt
@@ -443,8 +452,6 @@ export default function useAssets(
 
           if (result.type === ResultType.Index) {
             const { index } = result
-            const modMenu = buildModMenu(index)
-            BananaBread.execute(modMenu)
             bundleIndexRef.current = index
 
             const lookup: ModLookup = {}
@@ -666,7 +673,11 @@ export default function useAssets(
       },
       loadWorld: (target: string) => loadMapData(target),
       receiveMap: (map: string, oldMap: string) => {
-        if (oldMap != null && oldMap.length > 0 && !oldMap.startsWith('getmap_')) {
+        if (
+          oldMap != null &&
+          oldMap.length > 0 &&
+          !oldMap.startsWith('getmap_')
+        ) {
           targetMap = map
           loadMapData(oldMap)
         } else {
@@ -676,5 +687,5 @@ export default function useAssets(
     }
   }, [])
 
-  return { loadAsset, getMod }
+  return { loadAsset, getMod, onReady }
 }
