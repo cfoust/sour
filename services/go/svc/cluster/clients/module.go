@@ -59,7 +59,7 @@ const (
 	ClientStatusDisconnected
 )
 
-type NetworkClient interface {
+type Connection interface {
 	// Lasts for the duration of the client's connection to its ingress.
 	SessionContext() context.Context
 	NetworkStatus() ClientNetworkStatus
@@ -102,7 +102,7 @@ type Client struct {
 	ELO       *ELOState
 	Server    *servers.GameServer
 
-	Connection NetworkClient
+	Connection Connection
 
 	// The ID of the client on the Sauer server
 	ClientNum int32
@@ -512,7 +512,7 @@ func (c *ClientManager) newClientID() (uint16, error) {
 	return 0, errors.New("Failed to assign client ID")
 }
 
-func (c *ClientManager) AddClient(networkClient NetworkClient) error {
+func (c *ClientManager) AddClient(networkClient Connection) error {
 	id, err := c.newClientID()
 	if err != nil {
 		return err
@@ -544,7 +544,7 @@ func (c *ClientManager) AddClient(networkClient NetworkClient) error {
 	return nil
 }
 
-func (c *ClientManager) RemoveClient(networkClient NetworkClient) {
+func (c *ClientManager) RemoveClient(networkClient Connection) {
 	c.Mutex.Lock()
 
 	for client := range c.State {

@@ -907,6 +907,7 @@ func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 					client.RestoreMessages()
 
 					crc := message.Contents().(*game.MapCRC)
+					log.Info().Msgf("crc %+v", crc)
 					// The client does not have the map
 					if crc.Crc == 0 {
 						go func() {
