@@ -124,6 +124,30 @@ func (s *SpaceManager) FindInstance(server *gameServers.GameServer) *SpaceInstan
 	return nil
 }
 
+func (s *SpaceManager) WatchServer(ctx context.Context, server *gameServers.GameServer) {
+
+	select {
+	case <-ctx.Done():
+		return
+	case <-server.Context.Done():
+		s.mutex.Lock()
+
+		deleteId := ""
+		for id, instance := range s.instances {
+			if instance.Server == server {
+				deleteId = id
+			}
+		}
+
+		if deleteId != "" {
+			delete(s.instances, deleteId)
+		}
+
+		s.mutex.Unlock()
+		return
+	}
+}
+
 func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstance, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -159,6 +183,8 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 	if desc == "" {
 		desc = game.Blue(space.GetID())
 	}
+
+	go s.WatchServer(ctx, gameServer)
 
 	gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", desc))
 	gameServer.SendCommand("publicserver 1")
