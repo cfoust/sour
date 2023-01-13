@@ -11,7 +11,6 @@ import (
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
-	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/servers"
 	"github.com/cfoust/sour/svc/cluster/service"
 	"github.com/cfoust/sour/svc/cluster/state"
@@ -84,7 +83,7 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to start server manager")
 	}
 
-	newClients := make(chan clients.Connection)
+	newClients := make(chan ingress.Connection)
 
 	wsIngress := ingress.NewWSIngress(newClients, discord)
 
@@ -94,7 +93,7 @@ func main() {
 	cluster.StartServers(ctx)
 
 	for _, enetConfig := range clusterConfig.Ingress.Desktop {
-		enetIngress := ingress.NewENetIngress(cluster.Clients)
+		enetIngress := ingress.NewENetIngress(newClients)
 		enetIngress.Serve(enetConfig.Port)
 		enetIngress.InitialCommand = fmt.Sprintf("join %s", enetConfig.Target)
 		go enetIngress.Poll(ctx)
@@ -123,7 +122,7 @@ func main() {
 
 		enet = append(enet, enetIngress)
 	}
-	go cluster.PollClients(ctx)
+	go cluster.PollUsers(ctx)
 	go cluster.PollDuels(ctx)
 
 	errc := make(chan error, 1)

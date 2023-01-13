@@ -13,7 +13,6 @@ import (
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/assets"
-	"github.com/cfoust/sour/svc/cluster/clients"
 
 	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog/log"
@@ -77,7 +76,7 @@ say a
 
 type SendState struct {
 	Mutex  sync.Mutex
-	Client *clients.Client
+	User *User
 	Maps   *assets.MapFetcher
 	Sender *MapSender
 	Path   string
@@ -88,7 +87,7 @@ type SendState struct {
 }
 
 func (s *SendState) SendClient(data []byte, channel int) <-chan bool {
-	return s.Client.Send(game.GamePacket{
+	return s.User.GetClient().Send(game.GamePacket{
 		Channel: uint8(channel),
 		Data:    data,
 	})
@@ -105,9 +104,9 @@ func (s *SendState) MoveClient(x float64, y float64) error {
 	p := game.Packet{}
 	err := p.Put(
 		game.N_POS,
-		uint(s.Client.GetClientNum()),
+		uint(s.User.GetClient().GetClientNum()),
 		game.PhysicsState{
-			LifeSequence: s.Client.GetLifeSequence(),
+			LifeSequence: s.User.GetClient().GetLifeSequence(),
 			O: game.Vec{
 				X: x,
 				Y: y,
@@ -127,7 +126,7 @@ func (s *SendState) SendPause(state bool) error {
 	p.Put(
 		game.N_PAUSEGAME,
 		state,
-		s.Client.GetClientNum(),
+		s.User.GetClient().GetClientNum(),
 	)
 	s.SendClient(p, 1)
 	return nil
@@ -142,9 +141,10 @@ func (s *SendState) TriggerSend() {
 }
 
 func (s *SendState) Send() error {
-	client := s.Client
+	user := s.User
+	client := s.User.GetClient()
 	logger := client.Logger()
-	ctx := client.ServerSessionContext()
+	ctx := user.ServerSessionContext()
 
 	logger.Info().Msg("sending map to client")
 
@@ -211,7 +211,7 @@ func (s *SendState) Send() error {
 		return ctx.Err()
 	}
 
-	client.SendServerMessage("You are missing this map. Please run '/do $maptitle' to download it.")
+	user.SendServerMessage("You are missing this map. Please run '/do $maptitle' to download it.")
 
 	select {
 	case <-s.userAccepted:
@@ -221,7 +221,7 @@ func (s *SendState) Send() error {
 
 	logger.Info().Msg("user accepted download")
 
-	s.Client.GetServer().SendCommand(fmt.Sprintf("forcerespawn %d", s.Client.GetClientNum()))
+	s.User.GetServer().SendCommand(fmt.Sprintf("forcerespawn %d", s.User.GetClient().GetClientNum()))
 	time.Sleep(1 * time.Second)
 	s.MoveClient(512+10, 512+10)
 	time.Sleep(1 * time.Second)
@@ -284,7 +284,7 @@ func (s *SendState) Send() error {
 }
 
 type MapSender struct {
-	Clients    map[*clients.Client]*SendState
+	Users    map[*User]*SendState
 	Maps       *assets.MapFetcher
 	Mutex      sync.Mutex
 	workingDir string
@@ -292,7 +292,7 @@ type MapSender struct {
 
 func NewMapSender(maps *assets.MapFetcher) *MapSender {
 	return &MapSender{
-		Clients: make(map[*clients.Client]*SendState),
+		Users: make(map[*User]*SendState),
 		Maps:    maps,
 	}
 }
@@ -314,16 +314,16 @@ func (m *MapSender) Start() error {
 }
 
 // Whether a map is being sent to this client.
-func (m *MapSender) IsHandling(client *clients.Client) bool {
+func (m *MapSender) IsHandling(user *User) bool {
 	m.Mutex.Lock()
-	_, handling := m.Clients[client]
+	_, handling := m.Users[user]
 	m.Mutex.Unlock()
 	return handling
 }
 
-func (m *MapSender) SendDemo(ctx context.Context, client *clients.Client, tag int) {
+func (m *MapSender) SendDemo(ctx context.Context, user *User, tag int) {
 	m.Mutex.Lock()
-	state, handling := m.Clients[client]
+	state, handling := m.Users[user]
 	m.Mutex.Unlock()
 
 	if !handling {
@@ -333,9 +333,9 @@ func (m *MapSender) SendDemo(ctx context.Context, client *clients.Client, tag in
 	state.SendDemo(tag)
 }
 
-func (m *MapSender) TriggerSend(ctx context.Context, client *clients.Client) {
+func (m *MapSender) TriggerSend(ctx context.Context, user *User) {
 	m.Mutex.Lock()
-	state, handling := m.Clients[client]
+	state, handling := m.Users[user]
 	m.Mutex.Unlock()
 
 	if !handling {
@@ -345,11 +345,11 @@ func (m *MapSender) TriggerSend(ctx context.Context, client *clients.Client) {
 	state.TriggerSend()
 }
 
-func (m *MapSender) SendMap(ctx context.Context, client *clients.Client, mapName string) {
-	logger := client.Logger()
+func (m *MapSender) SendMap(ctx context.Context, user *User, mapName string) {
+	logger := user.Logger()
 	logger.Info().Str("map", mapName).Msg("sending map")
 	state := &SendState{
-		Client:        client,
+		User:        user,
 		Map:           mapName,
 		Maps:          m.Maps,
 		Sender:        m,
@@ -358,9 +358,9 @@ func (m *MapSender) SendMap(ctx context.Context, client *clients.Client, mapName
 	}
 
 	m.Mutex.Lock()
-	m.Clients[client] = state
+	m.Users[user] = state
 	m.Mutex.Unlock()
-	server := client.GetServer()
+	server := user.GetServer()
 
 	out := make(chan error)
 	go func() {
@@ -368,7 +368,7 @@ func (m *MapSender) SendMap(ctx context.Context, client *clients.Client, mapName
 	}()
 	go func() {
 		select {
-		case <-client.ServerSessionContext().Done():
+		case <-user.ServerSessionContext().Done():
 			return
 		case err := <-out:
 			if err != nil {
@@ -377,12 +377,12 @@ func (m *MapSender) SendMap(ctx context.Context, client *clients.Client, mapName
 			}
 
 			m.Mutex.Lock()
-			delete(m.Clients, client)
+			delete(m.Users, user)
 			m.Mutex.Unlock()
 
 			// Now we can reconnect the user to their server
-			client.DisconnectFromServer()
-			client.Connect(server)
+			user.DisconnectFromServer()
+			user.Connect(server)
 		}
 	}()
 }

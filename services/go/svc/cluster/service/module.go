@@ -760,8 +760,8 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				if message.Type() == game.N_TEXT {
 					text := message.Contents().(*game.Text).Text
 
-					if text == "a" && c.MapSender.IsHandling(client) {
-						c.MapSender.TriggerSend(ctx, client)
+					if text == "a" && c.MapSender.IsHandling(user) {
+						c.MapSender.TriggerSend(ctx, user)
 						continue
 					}
 
@@ -772,7 +772,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 						// Only send this packet after we've checked
 						// whether the cluster should handle it
 						go func() {
-							handled, response, err := c.RunCommandWithTimeout(clientCtx, command, client)
+							handled, response, err := c.RunCommandWithTimeout(clientCtx, command, user)
 
 							if !handled {
 								passthrough(message)
@@ -899,9 +899,9 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					}
 				}
 
-				if message.Type() == game.N_GETDEMO && c.MapSender.IsHandling(client) {
+				if message.Type() == game.N_GETDEMO && c.MapSender.IsHandling(user) {
 					demo := message.Contents().(*game.GetDemo)
-					c.MapSender.SendDemo(ctx, client, demo.Tag)
+					c.MapSender.SendDemo(ctx, user, demo.Tag)
 					continue
 				}
 
@@ -917,7 +917,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			outChannel := request.Response
 
 			go func() {
-				handled, response, err := c.RunCommandWithTimeout(clientCtx, command, client)
+				handled, response, err := c.RunCommandWithTimeout(clientCtx, command, user)
 				outChannel <- ingress.CommandResult{
 					Handled:  handled,
 					Err:      err,

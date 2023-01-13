@@ -8,22 +8,24 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/svc/cluster/clients"
+	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
 	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog/log"
 )
 
-func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client *clients.Client, gameServer *servers.GameServer) {
+func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, user *User, gameServer *servers.GameServer) {
 	tick := time.NewTicker(30 * time.Second)
 
 	message := fmt.Sprintf("This is your private server. Have other players join by saying '#join %s' in any Sour server.", gameServer.Id)
-	if client.Connection.Type() == clients.ClientTypeWS {
+
+	client := user.GetClient()
+	if client.Connection.Type() == ingress.ClientTypeWS {
 		message = fmt.Sprintf("This is your private server. Have other players join by saying '#join %s' in any Sour server or by sending the link in your URL bar. (We also copied it for you!)", gameServer.Id)
 	}
 
-	sessionContext := client.ServerSessionContext()
+	sessionContext := user.ServerSessionContext()
 
 	for {
 		gameServer.Mutex.Lock()
@@ -31,7 +33,7 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client *clients
 		gameServer.Mutex.Unlock()
 
 		if numClients < 2 {
-			client.SendServerMessage(message)
+			user.SendServerMessage(message)
 		} else {
 			return
 		}
@@ -97,9 +99,11 @@ func (server *Cluster) inferCreateParams(args []string) (*CreateParams, error) {
 	return &params, nil
 }
 
-func (server *Cluster) RunCommand(ctx context.Context, command string, client *clients.Client) (handled bool, response string, err error) {
-	logger := log.With().Uint16("client", client.Id).Str("command", command).Logger()
+func (server *Cluster) RunCommand(ctx context.Context, command string, user *User) (handled bool, response string, err error) {
+	logger := user.Logger().With().Str("command", command).Logger()
 	logger.Info().Msg("running command")
+
+	client := user.GetClient()
 
 	args := strings.Split(command, " ")
 
@@ -162,8 +166,8 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 		server.lastCreate[client.Connection.Host()] = time.Now()
 		server.hostServers[client.Connection.Host()] = gameServer
 
-		connected, err := client.ConnectToServer(gameServer, "", false, true)
-		go server.GivePrivateMatchHelp(server.serverCtx, client, client.Server)
+		connected, err := user.ConnectToServer(gameServer, "", false, true)
+		go server.GivePrivateMatchHelp(server.serverCtx, user, user.Server)
 
 		go func() {
 			ctx, cancel := context.WithTimeout(client.Connection.SessionContext(), time.Second*10)
@@ -186,14 +190,13 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 		return true, "", nil
 
 	case "openedit":
-		gameServer := client.GetServer()
+		gameServer := user.GetServer()
 		instance := server.spaces.FindInstance(gameServer)
 		if instance == nil {
 			return true, "", fmt.Errorf("you are not in a space")
 		}
 
-		user := client.User
-		if user == nil || user.Verse == nil {
+		if user.Verse == nil {
 			return true, "", fmt.Errorf("you are not logged in")
 		}
 
@@ -229,7 +232,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 		target := args[1]
 
 		client.Mutex.Lock()
-		if client.Server != nil && client.Server.IsReference(target) {
+		if user.Server != nil && user.Server.IsReference(target) {
 			logger.Info().Msg("client already connected to target")
 			client.Mutex.Unlock()
 			break
@@ -241,7 +244,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 				continue
 			}
 
-			_, err := client.Connect(gameServer)
+			_, err := user.Connect(gameServer)
 			if err != nil {
 				return true, "", err
 			}
@@ -260,7 +263,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 			if err != nil {
 			    return true, "", err
 			}
-			_, err = client.ConnectToSpace(instance.Server, instance.Space.GetID())
+			_, err = user.ConnectToSpace(instance.Server, instance.Space.GetID())
 			return true, "", err
 		}
 
@@ -273,7 +276,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 			duelType = args[1]
 		}
 
-		err := server.matches.Queue(client, duelType)
+		err := server.matches.Queue(user, duelType)
 		if err != nil {
 			// Theoretically, there might also just not be a default, but whatever.
 			return true, "", fmt.Errorf("duel type '%s' does not exist", duelType)
@@ -282,11 +285,11 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 		return true, "", nil
 
 	case "stopduel":
-		server.matches.Dequeue(client)
+		server.matches.Dequeue(user)
 		return true, "", nil
 
 	case "home":
-		server.GoHome(server.serverCtx, client)
+		server.GoHome(server.serverCtx, user)
 		return true, "", nil
 
 	case "help":
@@ -298,7 +301,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 		}
 
 		for _, message := range messages {
-			client.SendServerMessage(message)
+			user.SendServerMessage(message)
 		}
 
 		return true, "", nil
@@ -307,16 +310,16 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 	return false, "", nil
 }
 
-func (server *Cluster) RunCommandWithTimeout(ctx context.Context, command string, client *clients.Client) (handled bool, response string, err error) {
+func (server *Cluster) RunCommandWithTimeout(ctx context.Context, command string, user *User) (handled bool, response string, err error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 
-	resultChannel := make(chan clients.CommandResult)
+	resultChannel := make(chan ingress.CommandResult)
 
 	defer cancel()
 
 	go func() {
-		handled, response, err := server.RunCommand(ctx, command, client)
-		resultChannel <- clients.CommandResult{
+		handled, response, err := server.RunCommand(ctx, command, user)
+		resultChannel <- ingress.CommandResult{
 			Handled:  handled,
 			Err:      err,
 			Response: response,

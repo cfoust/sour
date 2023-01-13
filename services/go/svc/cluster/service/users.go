@@ -341,9 +341,8 @@ func NewUserOrchestrator(redis *redis.Client, duels []config.DuelType) *UserOrch
 }
 
 func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
-
 	select {
-	case <-user.Client.Connection.SessionContext().Done():
+	case <-user.Context().Done():
 		user.DisconnectFromServer()
 		return
 	case <-ctx.Done():
