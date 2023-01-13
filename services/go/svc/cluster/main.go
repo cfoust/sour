@@ -83,9 +83,9 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to start server manager")
 	}
 
-	newClients := make(chan ingress.Connection)
+	newConnections := make(chan ingress.Connection)
 
-	wsIngress := ingress.NewWSIngress(newClients, discord)
+	wsIngress := ingress.NewWSIngress(newConnections, discord)
 
 	enet := make([]*ingress.ENetIngress, 0)
 	infoServices := make([]*servers.ServerInfoService, 0)
@@ -93,7 +93,7 @@ func main() {
 	cluster.StartServers(ctx)
 
 	for _, enetConfig := range clusterConfig.Ingress.Desktop {
-		enetIngress := ingress.NewENetIngress(newClients)
+		enetIngress := ingress.NewENetIngress(newConnections)
 		enetIngress.Serve(enetConfig.Port)
 		enetIngress.InitialCommand = fmt.Sprintf("join %s", enetConfig.Target)
 		go enetIngress.Poll(ctx)
@@ -122,7 +122,7 @@ func main() {
 
 		enet = append(enet, enetIngress)
 	}
-	go cluster.PollUsers(ctx)
+	go cluster.PollUsers(ctx, newConnections)
 	go cluster.PollDuels(ctx)
 
 	errc := make(chan error, 1)

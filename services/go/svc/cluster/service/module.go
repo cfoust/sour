@@ -931,13 +931,16 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 	}
 }
 
-func (server *Cluster) PollUsers(ctx context.Context) {
+func (server *Cluster) PollUsers(ctx context.Context, newConnections chan ingress.Connection) {
 	newClients := server.Clients.ReceiveClients()
 
 	for {
 		select {
+		case connection := <-newConnections:
+			server.Clients.AddClient(connection)
 		case client := <-newClients:
 			user := server.Users.AddUser(ctx, client)
+			log.Info().Msgf("got user")
 			go server.PollUser(ctx, user)
 		case <-ctx.Done():
 			return
