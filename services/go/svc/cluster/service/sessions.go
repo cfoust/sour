@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/svc/cluster/clients"
 )
 
 type RecordedPacket struct {
@@ -54,9 +53,9 @@ func WriteFile(path string, data []byte) error {
 	return nil
 }
 
-func RecordSession(ctx context.Context, directory string, client *clients.Client) error {
-	logger := client.Logger()
-	to, from := client.ReceiveIntercept()
+func RecordSession(ctx context.Context, directory string, user *User) error {
+	logger := user.Logger()
+	to, from := user.ReceiveIntercept()
 
 	messages := make([]RecordedPacket, 0)
 	start := time.Now()
@@ -66,7 +65,7 @@ func RecordSession(ctx context.Context, directory string, client *clients.Client
 		fmt.Sprintf(
 			"%s-%s.dmo",
 			start.Format("2006.01.02.03.04.05"),
-			client.Connection.Host(),
+			user.Connection.Host(),
 		),
 	)
 

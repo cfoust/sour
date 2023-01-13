@@ -87,7 +87,7 @@ type SendState struct {
 }
 
 func (s *SendState) SendClient(data []byte, channel int) <-chan bool {
-	return s.User.GetClient().Send(game.GamePacket{
+	return s.User.Send(game.GamePacket{
 		Channel: uint8(channel),
 		Data:    data,
 	})
@@ -104,9 +104,9 @@ func (s *SendState) MoveClient(x float64, y float64) error {
 	p := game.Packet{}
 	err := p.Put(
 		game.N_POS,
-		uint(s.User.GetClient().GetClientNum()),
+		uint(s.User.GetClientNum()),
 		game.PhysicsState{
-			LifeSequence: s.User.GetClient().GetLifeSequence(),
+			LifeSequence: s.User.GetLifeSequence(),
 			O: game.Vec{
 				X: x,
 				Y: y,
@@ -126,7 +126,7 @@ func (s *SendState) SendPause(state bool) error {
 	p.Put(
 		game.N_PAUSEGAME,
 		state,
-		s.User.GetClient().GetClientNum(),
+		s.User.GetClientNum(),
 	)
 	s.SendClient(p, 1)
 	return nil
@@ -142,8 +142,7 @@ func (s *SendState) TriggerSend() {
 
 func (s *SendState) Send() error {
 	user := s.User
-	client := s.User.GetClient()
-	logger := client.Logger()
+	logger := user.Logger()
 	ctx := user.ServerSessionContext()
 
 	logger.Info().Msg("sending map to client")
@@ -175,7 +174,7 @@ func (s *SendState) Send() error {
 		return fmt.Errorf("could not find map")
 	}
 
-	logger = client.Logger().With().Str("map", map_.Value.Map.Name).Logger()
+	logger = user.Logger().With().Str("map", map_.Value.Map.Name).Logger()
 
 	fakeMap, err := MakeDownloadMap(map_.Value.Map.Bundle)
 	if err != nil {
@@ -221,7 +220,7 @@ func (s *SendState) Send() error {
 
 	logger.Info().Msg("user accepted download")
 
-	s.User.GetServer().SendCommand(fmt.Sprintf("forcerespawn %d", s.User.GetClient().GetClientNum()))
+	s.User.GetServer().SendCommand(fmt.Sprintf("forcerespawn %d", s.User.GetClientNum()))
 	time.Sleep(1 * time.Second)
 	s.MoveClient(512+10, 512+10)
 	time.Sleep(1 * time.Second)

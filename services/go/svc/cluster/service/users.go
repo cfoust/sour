@@ -20,8 +20,8 @@ import (
 )
 
 type User struct {
+	clients.Client
 	Name      string
-	Client    *clients.Client
 	Auth      *auth.AuthUser
 	Verse     *verse.User
 	Challenge *auth.Challenge
@@ -76,13 +76,6 @@ func (u *User) GetServer() *servers.GameServer {
 	return server
 }
 
-func (u *User) GetClient() *clients.Client {
-	u.Mutex.Lock()
-	client := u.Client
-	u.Mutex.Unlock()
-	return client
-}
-
 func (u *User) ServerSessionContext() context.Context {
 	u.Mutex.Lock()
 	ctx := u.serverSessionCtx
@@ -96,8 +89,7 @@ func (u *User) GetServerName() string {
 	if server != nil {
 		serverName = server.GetFormattedReference()
 	} else {
-		client := u.GetClient()
-		if client.Connection.Type() == ingress.ClientTypeWS {
+		if u.Connection.Type() == ingress.ClientTypeWS {
 			serverName = "web"
 		}
 	}
@@ -214,13 +206,12 @@ func (u *User) Connect(server *servers.GameServer) (<-chan bool, error) {
 }
 
 func (u *User) ConnectToServer(server *servers.GameServer, target string, shouldCopy bool, isSpace bool) (<-chan bool, error) {
-	client := u.GetClient()
-	if client.Connection.NetworkStatus() == ingress.NetworkStatusDisconnected {
+	if u.Connection.NetworkStatus() == ingress.NetworkStatusDisconnected {
 		log.Warn().Msgf("client not connected to cluster but attempted connect")
 		return nil, fmt.Errorf("client not connected to cluster")
 	}
 
-	client.DelayMessages()
+	u.DelayMessages()
 
 	connected := make(chan bool, 1)
 
@@ -229,7 +220,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 
 	u.Mutex.Lock()
 	if u.Server != nil {
-		u.Server.SendDisconnect(client.Id)
+		u.Server.SendDisconnect(u.Id)
 		u.cancel()
 
 		// Remove all the other clients from this client's perspective
@@ -237,8 +228,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 		clients, ok := u.o.Servers[u.Server]
 		if ok {
 			for _, otherUser := range clients {
-				otherClient := otherUser.GetClient()
-				if client == otherClient {
+				if u == otherUser {
 					continue
 				}
 
@@ -246,8 +236,8 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 				otherUser.Mutex.Lock()
 				packet := game.Packet{}
 				packet.PutInt(int32(game.N_CDIS))
-				packet.PutInt(int32(otherClient.Num))
-				client.Connection.Send(game.GamePacket{
+				packet.PutInt(int32(otherUser.Num))
+				u.Connection.Send(game.GamePacket{
 					Channel: 1,
 					Data:    packet,
 				})
@@ -258,19 +248,19 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 	}
 	u.Server = server
 	server.Connecting <- true
-	client.Status = clients.ClientStatusConnecting
-	sessionCtx, cancel := context.WithCancel(client.Connection.SessionContext())
+	u.Status = clients.ClientStatusConnecting
+	sessionCtx, cancel := context.WithCancel(u.Connection.SessionContext())
 	u.serverSessionCtx = sessionCtx
 	u.cancel = cancel
 	u.Mutex.Unlock()
 
-	server.SendConnect(client.Id)
+	server.SendConnect(u.Id)
 
 	serverName := server.Reference()
 	if target != "" {
 		serverName = target
 	}
-	client.Connection.Connect(serverName, server.Hidden, shouldCopy)
+	u.Connection.Connect(serverName, server.Hidden, shouldCopy)
 
 	// Give the client one second to connect.
 	go func() {
@@ -283,7 +273,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 		}()
 
 		for {
-			if client.GetStatus() == clients.ClientStatusConnected {
+			if u.GetStatus() == clients.ClientStatusConnected {
 				connected <- true
 				return
 			}
@@ -291,11 +281,11 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 			select {
 			case <-tick.C:
 				continue
-			case <-client.Connection.SessionContext().Done():
+			case <-u.Connection.SessionContext().Done():
 				connected <- false
 				return
 			case <-connectCtx.Done():
-				client.RestoreMessages()
+				u.RestoreMessages()
 				connected <- false
 				return
 			}
@@ -353,8 +343,8 @@ func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
 func (u *UserOrchestrator) AddUser(ctx context.Context, client *clients.Client) *User {
 	u.Mutex.Lock()
 	user := User{
+		Client: *client,
 		Name:   "unnamed",
-		Client: client,
 		o:      u,
 	}
 	u.Users = append(u.Users, &user)

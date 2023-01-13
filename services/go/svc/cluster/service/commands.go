@@ -20,8 +20,7 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, user *User, gam
 
 	message := fmt.Sprintf("This is your private server. Have other players join by saying '#join %s' in any Sour server.", gameServer.Id)
 
-	client := user.GetClient()
-	if client.Connection.Type() == ingress.ClientTypeWS {
+	if user.Connection.Type() == ingress.ClientTypeWS {
 		message = fmt.Sprintf("This is your private server. Have other players join by saying '#join %s' in any Sour server or by sending the link in your URL bar. (We also copied it for you!)", gameServer.Id)
 	}
 
@@ -103,8 +102,6 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 	logger := user.Logger().With().Str("command", command).Logger()
 	logger.Info().Msg("running command")
 
-	client := user.GetClient()
-
 	args := strings.Split(command, " ")
 
 	if len(args) == 0 {
@@ -124,12 +121,12 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 		server.createMutex.Lock()
 		defer server.createMutex.Unlock()
 
-		lastCreate, hasLastCreate := server.lastCreate[client.Connection.Host()]
+		lastCreate, hasLastCreate := server.lastCreate[user.Connection.Host()]
 		if hasLastCreate && (time.Now().Sub(lastCreate)) < CREATE_SERVER_COOLDOWN {
 			return true, "", errors.New("too soon since last server create")
 		}
 
-		existingServer, hasExistingServer := server.hostServers[client.Connection.Host()]
+		existingServer, hasExistingServer := server.hostServers[user.Connection.Host()]
 		if hasExistingServer {
 			server.manager.RemoveServer(existingServer)
 		}
@@ -163,14 +160,14 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 			gameServer.SendCommand(fmt.Sprintf("setmap %s", params.Map.Value))
 		}
 
-		server.lastCreate[client.Connection.Host()] = time.Now()
-		server.hostServers[client.Connection.Host()] = gameServer
+		server.lastCreate[user.Connection.Host()] = time.Now()
+		server.hostServers[user.Connection.Host()] = gameServer
 
 		connected, err := user.ConnectToServer(gameServer, "", false, true)
 		go server.GivePrivateMatchHelp(server.serverCtx, user, user.Server)
 
 		go func() {
-			ctx, cancel := context.WithTimeout(client.Connection.SessionContext(), time.Second*10)
+			ctx, cancel := context.WithTimeout(user.Connection.SessionContext(), time.Second*10)
 			defer cancel()
 
 			select {
@@ -179,8 +176,8 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 					return
 				}
 
-				clientNum := client.GetClientNum()
-				gameServer.SendCommand(fmt.Sprintf("grantmaster %d", clientNum))
+				
+				gameServer.SendCommand(fmt.Sprintf("grantmaster %d", user.GetClientNum()))
 			case <-ctx.Done():
 				log.Info().Msgf("context finished")
 				return
@@ -231,13 +228,13 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 
 		target := args[1]
 
-		client.Mutex.Lock()
+		user.Mutex.Lock()
 		if user.Server != nil && user.Server.IsReference(target) {
-			logger.Info().Msg("client already connected to target")
-			client.Mutex.Unlock()
+			logger.Info().Msg("user already connected to target")
+			user.Mutex.Unlock()
 			break
 		}
-		client.Mutex.Unlock()
+		user.Mutex.Unlock()
 
 		for _, gameServer := range server.manager.Servers {
 			if !gameServer.IsReference(target) || !gameServer.IsRunning() {
