@@ -44,7 +44,9 @@ func main() {
 
 	state := state.NewStateService(sourConfig.Redis)
 
-	maps := assets.NewMapFetcher()
+	maps := assets.NewAssetFetcher(state.Client)
+	go maps.PollDownloads(ctx)
+
 	sender := service.NewMapSender(maps)
 	err = maps.FetchIndices(clusterConfig.Assets)
 	if err != nil {

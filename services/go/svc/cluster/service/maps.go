@@ -77,7 +77,7 @@ say a
 type SendState struct {
 	Mutex  sync.Mutex
 	User *User
-	Maps   *assets.MapFetcher
+	Maps   *assets.AssetFetcher
 	Sender *MapSender
 	Path   string
 	Map    string
@@ -284,12 +284,12 @@ func (s *SendState) Send() error {
 
 type MapSender struct {
 	Users    map[*User]*SendState
-	Maps       *assets.MapFetcher
+	Maps       *assets.AssetFetcher
 	Mutex      sync.Mutex
 	workingDir string
 }
 
-func NewMapSender(maps *assets.MapFetcher) *MapSender {
+func NewMapSender(maps *assets.AssetFetcher) *MapSender {
 	return &MapSender{
 		Users: make(map[*User]*SendState),
 		Maps:    maps,

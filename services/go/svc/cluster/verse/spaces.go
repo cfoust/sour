@@ -78,10 +78,10 @@ type SpaceManager struct {
 	verse     *Verse
 	servers   *gameServers.ServerManager
 	mutex     sync.Mutex
-	maps      *assets.MapFetcher
+	maps      *assets.AssetFetcher
 }
 
-func NewSpaceManager(verse *Verse, servers *gameServers.ServerManager, maps *assets.MapFetcher) *SpaceManager {
+func NewSpaceManager(verse *Verse, servers *gameServers.ServerManager, maps *assets.AssetFetcher) *SpaceManager {
 	return &SpaceManager{
 		verse:     verse,
 		servers:   servers,

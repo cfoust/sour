@@ -59,12 +59,13 @@ type Cluster struct {
 	redis     *redis.Client
 	spaces    *verse.SpaceManager
 	verse     *verse.Verse
+	assets    *assets.AssetFetcher
 }
 
 func NewCluster(
 	ctx context.Context,
 	serverManager *servers.ServerManager,
-	maps *assets.MapFetcher,
+	maps *assets.AssetFetcher,
 	sender *MapSender,
 	settings config.ClusterSettings,
 	authDomain string,
@@ -90,6 +91,7 @@ func NewCluster(
 		redis:         redis,
 		verse:         v,
 		spaces:        verse.NewSpaceManager(v, serverManager, maps),
+		assets:        maps,
 	}
 
 	return server
@@ -657,7 +659,7 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *User, mess
 //server.MapSender.SendMap(ctx, client, mapName)
 //}
 
-func (c *Cluster) SendMap(ctx context.Context, user *User) error {
+func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 	server := user.GetServer()
 
 	instance := c.spaces.FindInstance(server)
@@ -685,6 +687,21 @@ func (c *Cluster) SendMap(ctx context.Context, user *User) error {
 
 		return nil
 	}
+
+	data, err := c.assets.FetchMapBytes(ctx, name)
+	if err != nil {
+		return err
+	}
+
+	p := game.Packet{}
+	p.Put(game.N_SENDMAP)
+	p = append(p, data...)
+	user.Send(game.GamePacket{
+		Channel: 2,
+		Data:    p,
+	})
+
+	log.Info().Msgf("Sent map %s (%d) to client", name, len(data))
 
 	return nil
 }
@@ -907,7 +924,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					// The client does not have the map
 					if crc.Crc == 0 {
 						go func() {
-							err := c.SendMap(ctx, user)
+							err := c.SendMap(ctx, user, crc.Map)
 							if err != nil {
 								logger.Warn().Err(err).Msg("failed to send map to client")
 							}

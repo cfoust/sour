@@ -137,7 +137,7 @@ type ServerManager struct {
 	Mutex   sync.Mutex
 
 	presets []config.ServerPreset
-	Maps    *assets.MapFetcher
+	Maps    *assets.AssetFetcher
 
 	serverDescription string
 	serverPath        string
@@ -179,7 +179,7 @@ func (manager *ServerManager) GetServerInfo() *ServerInfo {
 	return &info
 }
 
-func NewServerManager(maps *assets.MapFetcher, serverDescription string, presets []config.ServerPreset) *ServerManager {
+func NewServerManager(maps *assets.AssetFetcher, serverDescription string, presets []config.ServerPreset) *ServerManager {
 	return &ServerManager{
 		Servers:           make([]*GameServer, 0),
 		Maps:              maps,
@@ -335,33 +335,23 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 		select {
 		case request := <-requests:
 			server.SetStatus(ServerLoadingMap)
-
-			map_ := manager.Maps.FindMap(request.Map)
-
-			if opt.IsNone(map_) {
-				server.SendMapResponse(request.Map, request.Mode, "", false)
-				continue
-			}
-
 			logger := log.With().Str("map", request.Map).Int32("mode", request.Mode).Logger()
 
-			ogz := map_.Value.GetOGZURL()
-			if opt.IsNone(ogz) {
-				continue
+			data, err := manager.Maps.FetchMapBytes(ctx, request.Map)
+			if err != nil {
+			    logger.Error().Err(err).Msg("failed to download map")
+			    server.SendMapResponse(request.Map, request.Mode, "", false)
+			    continue
 			}
 
-			url := ogz.Value
-
-			logger.Info().Str("url", url).Msg("downloading map")
 			path := filepath.Join(manager.workingDir, fmt.Sprintf("packages/base/%s.ogz", request.Map))
-			err := assets.DownloadFile(url, path)
+			err = assets.WriteBytes(data, path)
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to download map")
 				server.SendMapResponse(request.Map, request.Mode, "", false)
 				continue
 			}
 
-			logger.Info().Str("destination", path).Msg("downloaded map")
 			server.SendMapResponse(request.Map, request.Mode, path, true)
 			continue
 		case <-ctx.Done():

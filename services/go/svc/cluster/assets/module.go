@@ -1,15 +1,17 @@
 package assets
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/go-redis/redis/v9"
 	"github.com/repeale/fp-go/option"
-	"github.com/rs/zerolog/log"
 )
 
 type IndexAsset struct {
@@ -102,14 +104,49 @@ func (a *AssetSource) ResolveBundle(id string) opt.Option[Bundle] {
 	return opt.None[Bundle]()
 }
 
-type MapFetcher struct {
-	Sources []*AssetSource
+type FetchResult struct {
+	Data []byte
+	Err  error
 }
 
-func NewMapFetcher() *MapFetcher {
-	return &MapFetcher{
-		Sources: make([]*AssetSource, 0),
+type FetchJob struct {
+	Asset  string
+	Result chan FetchResult
+}
+
+type AssetFetcher struct {
+	jobs    chan FetchJob
+	sources []*AssetSource
+	redis   *redis.Client
+}
+
+func NewAssetFetcher(redis *redis.Client) *AssetFetcher {
+	return &AssetFetcher{
+		sources: make([]*AssetSource, 0),
+		jobs:    make(chan FetchJob),
+		redis:   redis,
 	}
+}
+
+func WriteBytes(data []byte, path string) error {
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	out, err = os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = out.Write(data)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func DownloadFile(url string, path string) error {
@@ -179,7 +216,7 @@ func GetURLBase(url string) string {
 	return url[lastSlash+1:]
 }
 
-func (m *MapFetcher) FetchIndices(assetSources []string) error {
+func (m *AssetFetcher) FetchIndices(assetSources []string) error {
 	sources := make([]*AssetSource, 0)
 
 	for _, url := range assetSources {
@@ -188,16 +225,120 @@ func (m *MapFetcher) FetchIndices(assetSources []string) error {
 			return err
 		}
 
-		log.Info().Str("source", url).Msg("fetched asset index")
 		sources = append(sources, &AssetSource{
 			Index: index,
 			Base:  CleanSourcePath(url),
 		})
 	}
 
-	m.Sources = sources
+	m.sources = sources
 
 	return nil
+}
+
+func (m *AssetFetcher) GetAssetURL(id string) opt.Option[string] {
+	for _, source := range m.sources {
+		for _, asset := range source.Index.Assets {
+			if asset == id {
+				return opt.Some(fmt.Sprintf("%s%s", source.Base, asset))
+			}
+		}
+	}
+
+	return opt.None[string]()
+}
+
+var AssetMissing = fmt.Errorf("asset not found")
+
+func DownloadBytes(url string) ([]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Check server response
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
+const (
+	ASSET_KEY    = "assets-%s"
+	ASSET_EXPIRY = time.Duration(1 * time.Hour)
+)
+
+func (m *AssetFetcher) getAsset(ctx context.Context, id string) ([]byte, error) {
+	key := fmt.Sprintf(ASSET_KEY, id)
+	data, err := m.redis.Get(ctx, key).Bytes()
+	if err != nil && err != redis.Nil {
+		return nil, err
+	}
+
+	if err == nil {
+		return data, nil
+	}
+
+	url := m.GetAssetURL(id)
+	if opt.IsNone(url) {
+		return nil, AssetMissing
+	}
+
+	data, err = DownloadBytes(url.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.redis.Set(ctx, key, data, ASSET_EXPIRY).Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func (m *AssetFetcher) PollDownloads(ctx context.Context) {
+	for {
+		select {
+		case job := <-m.jobs:
+			data, err := m.getAsset(ctx, job.Asset)
+			job.Result <- FetchResult{
+				Data: data,
+				Err:  err,
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (m *AssetFetcher) FetchAsset(ctx context.Context, source *AssetSource, offset int) ([]byte, error) {
+	resolved := source.ResolveAsset(offset)
+	if opt.IsNone(resolved) {
+		return nil, AssetMissing
+	}
+
+	out := make(chan FetchResult)
+	m.jobs <- FetchJob{
+		Asset:  resolved.Value,
+		Result: out,
+	}
+
+	result := <-out
+	return result.Data, result.Err
+}
+
+func (m *AssetFetcher) FetchMapBytes(ctx context.Context, needle string) ([]byte, error) {
+	map_ := m.FindMap(needle)
+
+	if opt.IsNone(map_) {
+		return nil, AssetMissing
+	}
+
+	foundMap := map_.Value
+	return m.FetchAsset(ctx, foundMap.Source, foundMap.Map.Ogz)
 }
 
 type FoundMap struct {
@@ -241,9 +382,9 @@ func (f *FoundMap) GetDesktopURL() opt.Option[string] {
 	)
 }
 
-func (m *MapFetcher) FindMap(needle string) opt.Option[FoundMap] {
+func (m *AssetFetcher) FindMap(needle string) opt.Option[FoundMap] {
 	otherTarget := needle + ".ogz"
-	for _, source := range m.Sources {
+	for _, source := range m.sources {
 		for _, gameMap := range source.Index.Maps {
 			if gameMap.Name != needle && gameMap.Name != otherTarget && !strings.HasPrefix(gameMap.Id, needle) {
 				continue
