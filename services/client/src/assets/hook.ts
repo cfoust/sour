@@ -102,6 +102,7 @@ export async function pushLayer(
   assets: AssetData[],
   type: LoadRequestType
 ): Promise<Layer> {
+  BananaBread.setLoading(true)
   const data: Record<string, AssetData> = {}
   for (const asset of assets) {
     const { path } = asset
@@ -154,6 +155,7 @@ export async function pushLayer(
 
   layers = [...before, newLayer, ...after]
 
+  BananaBread.setLoading(false)
   return newLayer
 }
 
@@ -494,6 +496,7 @@ export default function useAssets(
     let mapLayer: Maybe<Layer> = null
 
     const loadMapData = async (map: string) => {
+      BananaBread.setLoading(true)
       if (loadingMap === map) return
       loadingMap = map
 
@@ -505,6 +508,7 @@ export default function useAssets(
       const layer = await loadAsset(LoadRequestType.Map, map)
       if (layer == null) {
         console.error(`failed to load data for map ${map}`)
+        BananaBread.execute('disconnect')
         return
       }
 
@@ -513,6 +517,7 @@ export default function useAssets(
       const loadMap = (realMap: string) => {
         mapLayer = layer
         loadingMap = null
+        BananaBread.setLoading(false)
         if (targetMap == null) {
           BananaBread.loadWorld(realMap)
         } else {

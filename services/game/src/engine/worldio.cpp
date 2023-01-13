@@ -1030,19 +1030,22 @@ bool load_world_failed;
 bool loading_map_file = false; 
 bool async_loading_map = false; 
 
+void set_loading_world(bool flag)
+{
+    loading_map_file = flag;
+}
+
 bool load_world(const char *mname, const char *cname) {
     EM_ASM({
         Module.assets.loadWorld(UTF8ToString($0))
     }, mname);
 	renderprogress(0, "fetching map data...");
-	loading_map_file = true;
 	async_loading_map = true;
     return false;
 }
 
 bool really_load_world(const char *mname, const char *cname)        // still supports all map formats that have existed since the earliest cube betas!
 {
-	loading_map_file = false;
     load_world_mname = mname ? newstring(mname) : mname;
     load_world_cname = cname ? newstring(cname) : cname;
 

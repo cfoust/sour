@@ -9,6 +9,7 @@ var BananaBread = {
     BananaBread.renderprogress = Module.cwrap('_Z14renderprogressfPKcjb', null, ['number', 'string']);
     BananaBread.injectServer = Module.cwrap('_Z12injectserverPciPhi', null, ['string', 'number', 'number', 'number'])
     BananaBread.loadWorld = Module.cwrap('_Z17really_load_worldPKcS0_', null, ['string', 'string'])
+    BananaBread.setLoading = Module.cwrap('_Z17set_loading_worldb', null, ['number'])
 
     BananaBread.conoutf = Module.cwrap('_Z7conoutfiPKcz', null, ['number', 'string']);
 
