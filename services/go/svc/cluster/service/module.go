@@ -11,9 +11,9 @@ import (
 	"github.com/cfoust/sour/pkg/mmr"
 	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/auth"
-	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
+	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
 	"github.com/cfoust/sour/svc/cluster/verse"
 
@@ -253,7 +253,6 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			if user == nil {
 				continue
 			}
-
 
 			user.Mutex.Lock()
 			if user.Server != nil {
@@ -883,9 +882,20 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					}
 
 					space := user.GetSpace()
-					if space != nil && !isOwner && !space.IsOpenEdit() {
-						user.ConnectToSpace(space.Server, space.GetID())
-						user.SendServerMessage("You cannot edit this space.")
+					if space != nil {
+						canEditSpace := isOwner || space.IsOpenEdit()
+						if !canEditSpace {
+							user.ConnectToSpace(space.Server, space.GetID())
+							user.SendServerMessage("You cannot edit this space.")
+							continue
+						}
+					}
+
+					server := user.GetServer()
+					// For now, users can't edit on named servers (ie the lobby)
+					if server != nil && server.Alias != "" {
+						user.Connect(server)
+						user.SendServerMessage("You cannot edit this server.")
 						continue
 					}
 				}
