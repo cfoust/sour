@@ -83,8 +83,26 @@ func (u *User) ServerSessionContext() context.Context {
 	return ctx
 }
 
+func (u *User) GetSpace() *verse.SpaceInstance {
+	u.Mutex.Lock()
+	space := u.Space
+	u.Mutex.Unlock()
+	return space
+}
+
+// SPAAAAAAAAACE
+func (u *User) IsInSpace() bool {
+	return u.GetSpace() != nil
+}
+
 func (u *User) GetServerName() string {
 	serverName := "???"
+
+	if u.IsInSpace() {
+		space := u.GetSpace()
+		return space.GetID()
+	}
+
 	server := u.GetServer()
 	if server != nil {
 		serverName = server.GetFormattedReference()
@@ -93,8 +111,6 @@ func (u *User) GetServerName() string {
 			serverName = "web"
 		}
 	}
-
-	// TODO space
 
 	return serverName
 }
@@ -114,15 +130,7 @@ func (u *User) SendServerMessage(message string) {
 }
 
 func (u *User) Reference() string {
-	// TODO space
-	u.Mutex.Lock()
-	server := u.Server
-	reference := u.Name
-	if server != nil {
-		reference = fmt.Sprintf("%s (%s)", u.Name, server.Reference())
-	}
-	u.Mutex.Unlock()
-	return reference
+	return fmt.Sprintf("%s (%s)", u.GetName(), u.GetServerName())
 }
 
 func (u *User) GetName() string {
@@ -215,8 +223,9 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 
 	connected := make(chan bool, 1)
 
-	log.Info().Str("server", server.Reference()).
-		Msg("client connecting to server")
+	logger := u.Logger()
+
+	logger.Info().Str("server", server.Reference()).Msg("connecting to server")
 
 	u.Mutex.Lock()
 	if u.Server != nil {
@@ -303,6 +312,7 @@ func (u *User) DisconnectFromServer() error {
 		u.Server.SendDisconnect(u.Client.Id)
 	}
 	u.Server = nil
+	u.Space = nil
 	u.Client.Status = clients.ClientStatusDisconnected
 	if u.cancel != nil {
 		u.cancel()
@@ -358,7 +368,7 @@ func (u *UserOrchestrator) FindUser(id uint16) *User {
 	u.Mutex.Lock()
 	defer u.Mutex.Unlock()
 	for _, user := range u.Users {
-		if user.Client.Id != uint16(id) {
+		if user.Id != uint16(id) {
 			continue
 		}
 

@@ -79,7 +79,6 @@ Outer:
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info().Msg("client done")
 			break Outer
 		case msg := <-to:
 			messages = append(messages, NewPacket(false, msg))
@@ -87,8 +86,6 @@ Outer:
 			messages = append(messages, NewPacket(true, msg))
 		}
 	}
-
-	logger.Info().Msg("client done")
 
 	if !shouldSave {
 		return nil

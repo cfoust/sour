@@ -15,12 +15,44 @@ import (
 )
 
 type SpaceInstance struct {
-	Space   *Space
+	spaceMeta
+
+	id      string
+	Space   *UserSpace
 	Editing *EditingState
 	Server  *gameServers.GameServer
 	// Lasts for the lifetime of the instance, it's copied from the game
 	// server's
 	Context context.Context
+}
+
+func (s *SpaceInstance) GetID() string {
+	return s.id
+}
+
+func (s *SpaceInstance) GetOwner(ctx context.Context) (string, error) {
+	if s.Space != nil {
+		return s.Space.GetOwner(ctx)
+	}
+	return s.Owner, nil
+}
+
+func (s *SpaceInstance) GetDescription(ctx context.Context) (string, error) {
+	if s.Space != nil {
+		return s.Space.GetDescription(ctx)
+	}
+	return s.Description, nil
+}
+
+func (s *SpaceInstance) GetMap(ctx context.Context) (string, error) {
+	if s.Space != nil {
+		map_, err := s.Space.GetMap(ctx)
+		if err != nil {
+			return "", err
+		}
+		return map_.GetID(), nil
+	}
+	return s.Map, nil
 }
 
 func (s *SpaceInstance) PollEdits(ctx context.Context) {
@@ -58,7 +90,7 @@ func (s *SpaceManager) Logger() zerolog.Logger {
 	return log.With().Str("service", "spaces").Logger()
 }
 
-func (s *SpaceManager) SearchSpace(ctx context.Context, id string) (*Space, error) {
+func (s *SpaceManager) SearchSpace(ctx context.Context, id string) (*UserSpace, error) {
 	// Search for a user's space matching this ID
 	space, _ := s.verse.FindSpace(ctx, id)
 	if space != nil {

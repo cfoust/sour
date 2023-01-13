@@ -33,7 +33,7 @@ type EditingState struct {
 	Edits      []*Edit
 	GameMap    *maps.GameMap
 	Map        *Map
-	Space      *Space
+	Space      *UserSpace
 	OpenEdit   bool
 
 	mutex sync.Mutex
@@ -256,7 +256,7 @@ func (e *EditingState) Apply(edits []*Edit) error {
 	return nil
 }
 
-func NewEditingState(verse *Verse, space *Space, map_ *Map) *EditingState {
+func NewEditingState(verse *Verse, space *UserSpace, map_ *Map) *EditingState {
 	return &EditingState{
 		OpenEdit:   false,
 		Edits:      make([]*Edit, 0),

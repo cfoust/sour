@@ -254,15 +254,20 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
-			logger := user.Logger()
 
 			user.Mutex.Lock()
 			if user.Server != nil {
-				logger.Info().Msg("connected to server")
-				user.Client.Status = clients.ClientStatusConnected
-				user.Client.Num = join.ClientNum
+				instance := server.spaces.FindInstance(user.Server)
+				if instance != nil {
+					user.Space = instance
+				}
+				user.Status = clients.ClientStatusConnected
+				user.Num = join.ClientNum
 			}
 			user.Mutex.Unlock()
+
+			logger := user.Logger()
+			logger.Info().Msg("connected to server")
 
 		case event := <-names:
 			user := server.Users.FindUser(uint16(event.Client))
@@ -271,12 +276,12 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
-			logger := user.Logger()
-
 			user.Mutex.Lock()
 			user.Name = event.Name
-			logger.Info().Msg("client has new name")
 			user.Mutex.Unlock()
+
+			logger := user.Logger()
+			logger.Info().Msg("client has new name")
 			server.NotifyNameChange(ctx, user, event.Name)
 
 		case event := <-forceDisconnects:
@@ -883,7 +888,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					user.RestoreMessages()
 
 					crc := message.Contents().(*game.MapCRC)
-					log.Info().Msgf("crc %+v", crc)
 					// The client does not have the map
 					if crc.Crc == 0 {
 						go func() {

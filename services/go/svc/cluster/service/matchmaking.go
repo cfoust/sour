@@ -205,7 +205,7 @@ func (d *Duel) Respawn(ctx context.Context, user *User) {
 	if d.Type.ForceRespawn == config.RespawnTypeAll {
 		d.server.SendCommand("forcerespawn -1")
 	} else if d.Type.ForceRespawn == config.RespawnTypeDead {
-		d.server.SendCommand(fmt.Sprintf("forcerespawn %d", user.Client.GetClientNum()))
+		d.server.SendCommand(fmt.Sprintf("forcerespawn %d", user.GetClientNum()))
 	}
 
 	if d.Type.PauseOnDeath {
@@ -286,7 +286,7 @@ func (d *Duel) MonitorClient(
 	case <-ctx.Done():
 		return
 	case <-user.ServerSessionContext().Done():
-		logger.Info().Msgf("client %d disconnected from server, ending match", user.Client.Id)
+		logger.Info().Msgf("client %d disconnected from server, ending match", user.Id)
 		matchResult <- d.getLeaveWinner(user)
 		cancelMatch()
 		return

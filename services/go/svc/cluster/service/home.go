@@ -10,7 +10,7 @@ import (
 
 func (c *Cluster) GoHome(ctx context.Context, user *User) error {
 	var err error
-	var space *verse.Space
+	var space *verse.UserSpace
 	authUser := user.GetAuth()
 	isLoggedIn := authUser != nil
 	if authUser == nil {
