@@ -254,9 +254,10 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
+			logger := user.Logger()
+
 			user.Mutex.Lock()
 			if user.Server != nil {
-				logger := user.Logger()
 				logger.Info().Msg("connected to server")
 				user.Client.Status = clients.ClientStatusConnected
 				user.Client.Num = join.ClientNum
@@ -270,9 +271,10 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
+			logger := user.Logger()
+
 			user.Mutex.Lock()
 			user.Name = event.Name
-			logger := user.Logger()
 			logger.Info().Msg("client has new name")
 			user.Mutex.Unlock()
 			server.NotifyNameChange(ctx, user, event.Name)
@@ -934,7 +936,6 @@ func (server *Cluster) PollUsers(ctx context.Context, newConnections chan ingres
 			server.Clients.AddClient(connection)
 		case client := <-newClients:
 			user := server.Users.AddUser(ctx, client)
-			log.Info().Msgf("got user")
 			go server.PollUser(ctx, user)
 		case <-ctx.Done():
 			return
