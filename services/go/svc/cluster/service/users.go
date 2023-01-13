@@ -405,6 +405,7 @@ func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
 	select {
 	case <-user.Context().Done():
 		user.DisconnectFromServer()
+		u.RemoveUser(user)
 		return
 	case <-ctx.Done():
 		return
@@ -423,6 +424,32 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, client *clients.Client) 
 
 	go u.PollUser(ctx, &user)
 	return &user
+}
+
+func (u *UserOrchestrator) RemoveUser(user *User) {
+	u.Mutex.Lock()
+
+	newUsers := make([]*User, 0)
+	for _, other := range u.Users {
+		if other == user {
+			continue
+		}
+		newUsers = append(newUsers, other)
+	}
+
+	for server, users := range u.Servers {
+		serverUsers := make([]*User, 0)
+		for _, other := range users {
+			if other == user {
+				continue
+			}
+			serverUsers = append(serverUsers, other)
+		}
+
+		u.Servers[server] = serverUsers
+	}
+
+	u.Mutex.Unlock()
 }
 
 func (u *UserOrchestrator) FindUser(id uint16) *User {
