@@ -638,7 +638,7 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 			// First prune the list of any clients that are gone
 			cleaned := make([]*QueuedClient, 0)
 			for _, queued := range m.queue {
-				if queued.Client.Connection.NetworkStatus() == clients.ClientNetworkStatusDisconnected {
+				if queued.Client.Connection.NetworkStatus() == clients.NetworkStatusDisconnected {
 					log.Info().Uint16("client", queued.Client.Id).Msg("pruning disconnected client")
 					continue
 				}

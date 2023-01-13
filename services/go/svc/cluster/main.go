@@ -11,6 +11,7 @@ import (
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
+	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/servers"
 	"github.com/cfoust/sour/svc/cluster/service"
 	"github.com/cfoust/sour/svc/cluster/state"
@@ -83,7 +84,9 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to start server manager")
 	}
 
-	wsIngress := ingress.NewWSIngress(cluster.Clients, discord)
+	newClients := make(chan clients.Connection)
+
+	wsIngress := ingress.NewWSIngress(newClients, discord)
 
 	enet := make([]*ingress.ENetIngress, 0)
 	infoServices := make([]*servers.ServerInfoService, 0)

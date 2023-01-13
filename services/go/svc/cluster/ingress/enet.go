@@ -8,7 +8,6 @@ import (
 	"github.com/cfoust/sour/pkg/enet"
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/auth"
-	"github.com/cfoust/sour/svc/cluster/clients"
 
 	"github.com/rs/zerolog/log"
 )
@@ -21,25 +20,25 @@ type PacketACK struct {
 type ENetClient struct {
 	peer   *enet.Peer
 	host   *enet.Host
-	status clients.ClientNetworkStatus
+	status NetworkStatus
 
 	context context.Context
 	cancel  context.CancelFunc
 
 	toClient       chan PacketACK
 	toServer       chan game.GamePacket
-	commands       chan clients.ClusterCommand
-	authentication chan *auth.User
+	commands       chan ClusterCommand
+	authentication chan *auth.AuthUser
 	disconnect     chan bool
 }
 
 func NewENetClient() *ENetClient {
 	return &ENetClient{
-		status:         clients.ClientNetworkStatusConnected,
-		toClient:       make(chan PacketACK, clients.CLIENT_MESSAGE_LIMIT),
-		toServer:       make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
-		commands:       make(chan clients.ClusterCommand, clients.CLIENT_MESSAGE_LIMIT),
-		authentication: make(chan *auth.User),
+		status:         NetworkStatusConnected,
+		toClient:       make(chan PacketACK, CLIENT_MESSAGE_LIMIT),
+		toServer:       make(chan game.GamePacket, CLIENT_MESSAGE_LIMIT),
+		commands:       make(chan ClusterCommand, CLIENT_MESSAGE_LIMIT),
+		authentication: make(chan *auth.AuthUser),
 		disconnect:     make(chan bool, 1),
 	}
 }
@@ -65,16 +64,16 @@ func (c *ENetClient) SessionContext() context.Context {
 	return c.context
 }
 
-func (c *ENetClient) NetworkStatus() clients.ClientNetworkStatus {
+func (c *ENetClient) NetworkStatus() NetworkStatus {
 	return c.status
 }
 
 func (c *ENetClient) Destroy() {
-	c.status = clients.ClientNetworkStatusDisconnected
+	c.status = NetworkStatusDisconnected
 }
 
-func (c *ENetClient) Type() clients.ClientType {
-	return clients.ClientTypeENet
+func (c *ENetClient) Type() ClientType {
+	return ClientTypeENet
 }
 
 func (c *ENetClient) Send(packet game.GamePacket) <-chan bool {
@@ -100,11 +99,11 @@ func (c *ENetClient) ReceivePackets() <-chan game.GamePacket {
 	return c.toServer
 }
 
-func (c *ENetClient) ReceiveCommands() <-chan clients.ClusterCommand {
+func (c *ENetClient) ReceiveCommands() <-chan ClusterCommand {
 	return c.commands
 }
 
-func (c *ENetClient) ReceiveAuthentication() <-chan *auth.User {
+func (c *ENetClient) ReceiveAuthentication() <-chan *auth.AuthUser {
 	return c.authentication
 }
 
@@ -145,18 +144,18 @@ func (c *ENetClient) Disconnect(reason int, message string) {
 }
 
 type ENetIngress struct {
+	newClients chan Connection
 	// Run when a client joins
 	InitialCommand string
-	manager        *clients.ClientManager
 	clients        map[*ENetClient]struct{}
 	host           *enet.Host
 	mutex          sync.Mutex
 }
 
-func NewENetIngress(manager *clients.ClientManager) *ENetIngress {
+func NewENetIngress(newClients chan Connection) *ENetIngress {
 	return &ENetIngress{
-		manager: manager,
-		clients: make(map[*ENetClient]struct{}),
+		newClients: newClients,
+		clients:    make(map[*ENetClient]struct{}),
 	}
 }
 
@@ -173,7 +172,7 @@ func (server *ENetIngress) FindClientForPeer(peer *enet.Peer) *ENetClient {
 	var target *ENetClient = nil
 
 	server.mutex.Lock()
-	for client, _ := range server.clients {
+	for client := range server.clients {
 		if client.peer == nil || peer.CPeer != client.peer.CPeer {
 			continue
 		}
@@ -214,17 +213,14 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 				client.cancel = cancel
 				client.host = server.host
 
-				err := server.manager.AddClient(client)
-				if err != nil {
-					log.Error().Err(err).Msg("failed to accept enet client")
-				}
+				server.newClients <- client
 
 				server.AddClient(client)
 
 				log.Info().Msg("client joined (desktop)")
 
 				if len(server.InitialCommand) > 0 {
-					client.commands <- clients.ClusterCommand{
+					client.commands <- ClusterCommand{
 						Command: server.InitialCommand,
 					}
 				}
@@ -256,8 +252,6 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 				target.cancel()
 				server.RemoveClient(target)
 				target.disconnect <- true
-
-				server.manager.RemoveClient(target)
 				break
 			}
 		case <-ctx.Done():

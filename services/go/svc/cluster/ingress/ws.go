@@ -11,7 +11,6 @@ import (
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/auth"
-	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/watcher"
 
 	"github.com/fxamacker/cbor/v2"
@@ -123,11 +122,11 @@ type GenericMessage struct {
 
 type WSClient struct {
 	host           string
-	status         clients.ClientNetworkStatus
+	status         NetworkStatus
 	toClient       chan game.GamePacket
 	toServer       chan game.GamePacket
-	commands       chan clients.ClusterCommand
-	authentication chan *auth.User
+	commands       chan ClusterCommand
+	authentication chan *auth.AuthUser
 	disconnect     chan bool
 	send           chan []byte
 	closeSlow      func()
@@ -138,12 +137,12 @@ type WSClient struct {
 
 func NewWSClient() *WSClient {
 	return &WSClient{
-		status:         clients.ClientNetworkStatusConnected,
-		toClient:       make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
-		toServer:       make(chan game.GamePacket, clients.CLIENT_MESSAGE_LIMIT),
-		commands:       make(chan clients.ClusterCommand, clients.CLIENT_MESSAGE_LIMIT),
-		authentication: make(chan *auth.User),
-		send:           make(chan []byte, clients.CLIENT_MESSAGE_LIMIT),
+		status:         NetworkStatusConnected,
+		toClient:       make(chan game.GamePacket, CLIENT_MESSAGE_LIMIT),
+		toServer:       make(chan game.GamePacket, CLIENT_MESSAGE_LIMIT),
+		commands:       make(chan ClusterCommand, CLIENT_MESSAGE_LIMIT),
+		authentication: make(chan *auth.AuthUser),
+		send:           make(chan []byte, CLIENT_MESSAGE_LIMIT),
 		disconnect:     make(chan bool, 1),
 	}
 }
@@ -156,12 +155,12 @@ func (c *WSClient) SessionContext() context.Context {
 	return c.context
 }
 
-func (c *WSClient) NetworkStatus() clients.ClientNetworkStatus {
+func (c *WSClient) NetworkStatus() NetworkStatus {
 	return c.status
 }
 
 func (c *WSClient) Destroy() {
-	c.status = clients.ClientNetworkStatusDisconnected
+	c.status = NetworkStatusDisconnected
 }
 
 func (c *WSClient) Connect(name string, isHidden bool, shouldCopy bool) {
@@ -176,8 +175,8 @@ func (c *WSClient) Connect(name string, isHidden bool, shouldCopy bool) {
 	c.send <- bytes
 }
 
-func (c *WSClient) Type() clients.ClientType {
-	return clients.ClientTypeWS
+func (c *WSClient) Type() ClientType {
+	return ClientTypeWS
 }
 
 func (c *WSClient) Send(packet game.GamePacket) <-chan bool {
@@ -192,11 +191,11 @@ func (c *WSClient) ReceivePackets() <-chan game.GamePacket {
 	return c.toServer
 }
 
-func (c *WSClient) ReceiveCommands() <-chan clients.ClusterCommand {
+func (c *WSClient) ReceiveCommands() <-chan ClusterCommand {
 	return c.commands
 }
 
-func (c *WSClient) ReceiveAuthentication() <-chan *auth.User {
+func (c *WSClient) ReceiveAuthentication() <-chan *auth.AuthUser {
 	return c.authentication
 }
 
@@ -225,7 +224,7 @@ func (c *WSClient) Disconnect(reason int, message string) {
 }
 
 type WSIngress struct {
-	manager       *clients.ClientManager
+	newClients    chan Connection
 	clients       map[*WSClient]struct{}
 	mutex         sync.Mutex
 	serverWatcher *watcher.Watcher
@@ -233,9 +232,9 @@ type WSIngress struct {
 	auth          *auth.DiscordService
 }
 
-func NewWSIngress(manager *clients.ClientManager, auth *auth.DiscordService) *WSIngress {
+func NewWSIngress(newClients chan Connection, auth *auth.DiscordService) *WSIngress {
 	return &WSIngress{
-		manager:       manager,
+		newClients:    newClients,
 		clients:       make(map[*WSClient]struct{}),
 		serverWatcher: watcher.NewWatcher(),
 		auth:          auth,
@@ -292,15 +291,13 @@ func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code
 
 func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, host string) error {
 	client := NewWSClient()
-	err := server.manager.AddClient(client)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to accept ws client")
-	}
 
 	clientCtx, cancel := context.WithCancel(ctx)
 
 	client.context = clientCtx
 	client.cancel = cancel
+
+	server.newClients <- client
 
 	defer cancel()
 
@@ -335,8 +332,6 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 			}
 		}
 	}()
-
-	defer server.manager.RemoveClient(client)
 
 	// Write the first broadcast on connect so they don't have to wait 5s
 	broadcast, err := server.BuildBroadcast()
@@ -377,10 +372,10 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 				logger.Info().Str("target", target).
 					Msg("client attempting connect")
 
-				client.commands <- clients.ClusterCommand{
+				client.commands <- ClusterCommand{
 					Command: fmt.Sprintf("join %s", target),
 					// We don't care here
-					Response: make(chan clients.CommandResult),
+					Response: make(chan CommandResult),
 				}
 			}
 
@@ -404,8 +399,8 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 			if err := cbor.Unmarshal(msg, &commandMessage); err == nil &&
 				commandMessage.Op == CommandOp {
 
-				resultChannel := make(chan clients.CommandResult)
-				client.commands <- clients.ClusterCommand{
+				resultChannel := make(chan CommandResult)
+				client.commands <- ClusterCommand{
 					Command:  commandMessage.Command,
 					Response: resultChannel,
 				}

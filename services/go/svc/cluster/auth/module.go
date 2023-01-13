@@ -16,7 +16,6 @@ import (
 	"github.com/cfoust/sour/svc/cluster/auth/crypto"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/state"
-	"github.com/cfoust/sour/svc/cluster/verse"
 )
 
 const (
@@ -47,13 +46,12 @@ type KeyPair struct {
 	Private string
 }
 
-type User struct {
+type AuthUser struct {
 	Discord DiscordUser
 	Keys    KeyPair
-	Verse   *verse.User
 }
 
-func (u *User) GetID() string {
+func (u *AuthUser) GetID() string {
 	return u.Discord.Id
 }
 
@@ -350,7 +348,7 @@ func (d *DiscordService) CheckRefreshToken(ctx context.Context, token string) (s
 	return bundle.AccessToken, nil
 }
 
-func (d *DiscordService) FetchUser(ctx context.Context, token string) (*User, error) {
+func (d *DiscordService) FetchUser(ctx context.Context, token string) (*AuthUser, error) {
 	discordUser, err := d.GetUser(token)
 	if err != nil {
 		return nil, err
@@ -361,10 +359,10 @@ func (d *DiscordService) FetchUser(ctx context.Context, token string) (*User, er
 		return nil, err
 	}
 
-	return &User{Discord: *discordUser, Keys: *pair}, err
+	return &AuthUser{Discord: *discordUser, Keys: *pair}, err
 }
 
-func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*User, error) {
+func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*AuthUser, error) {
 	token, err := d.State.GetTokenForCode(ctx, code)
 
 	if err == nil {
@@ -423,7 +421,7 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*Us
 	return d.FetchUser(ctx, bundle.AccessToken)
 }
 
-func (d *DiscordService) AuthenticateId(ctx context.Context, id string) (*User, error) {
+func (d *DiscordService) AuthenticateId(ctx context.Context, id string) (*AuthUser, error) {
 	token, err := d.State.GetTokenForId(
 		ctx,
 		id,
