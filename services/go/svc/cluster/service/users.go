@@ -69,6 +69,53 @@ func (u *User) Logger() zerolog.Logger {
 	return logger
 }
 
+func (u *User) GetID() string {
+	u.Mutex.Lock()
+	auth := u.Auth
+	u.Mutex.Unlock()
+
+	if auth == nil {
+		return ""
+	}
+
+	return auth.GetID()
+}
+
+func (u *User) IsLoggedIn() bool {
+	u.Mutex.Lock()
+	auth := u.Auth
+	u.Mutex.Unlock()
+
+	return auth != nil
+}
+
+func (u *User) GetVerse() *verse.User {
+	u.Mutex.Lock()
+	user := u.Verse
+	u.Mutex.Unlock()
+	return user
+}
+
+func (u *User) IsAtHome(ctx context.Context) (bool, error) {
+	space := u.GetSpace()
+	if space == nil {
+		return false, nil
+	}
+
+	user := u.GetVerse()
+	home, err := user.GetHomeID(ctx)
+	if err != nil {
+	    return false, err
+	}
+
+	isOwner, err := u.IsOwner(ctx)
+	if err != nil {
+	    return false, err
+	}
+
+	return isOwner && space.GetID() == home, nil
+}
+
 func (u *User) GetServer() *servers.GameServer {
 	u.Mutex.Lock()
 	server := u.Server
@@ -88,6 +135,20 @@ func (u *User) GetSpace() *verse.SpaceInstance {
 	space := u.Space
 	u.Mutex.Unlock()
 	return space
+}
+
+func (u *User) IsOwner(ctx context.Context) (bool, error) {
+	space := u.GetSpace()
+	if space == nil {
+		return false, nil
+	}
+
+	owner, err := space.GetOwner(ctx)
+	if err != nil {
+	    return false, err
+	}
+
+	return owner == u.GetID(), nil
 }
 
 // SPAAAAAAAAACE

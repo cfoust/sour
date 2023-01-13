@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/cfoust/sour/svc/cluster/verse"
@@ -11,9 +10,9 @@ import (
 func (c *Cluster) GoHome(ctx context.Context, user *User) error {
 	var err error
 	var space *verse.UserSpace
-	authUser := user.GetAuth()
-	isLoggedIn := authUser != nil
-	if authUser == nil {
+
+	isLoggedIn := user.IsLoggedIn()
+	if !isLoggedIn {
 		space, err = c.verse.NewSpace(ctx, "")
 		if err != nil {
 			return err
@@ -37,16 +36,5 @@ func (c *Cluster) GoHome(ctx context.Context, user *User) error {
 
 	_, err = user.ConnectToSpace(instance.Server, space.GetID())
 
-	message := fmt.Sprintf(
-		"welcome to your home (space %s).",
-		space.GetID(),
-	)
-
-	if isLoggedIn {
-		user.SendServerMessage(message)
-		user.SendServerMessage("editing by others is disabled. say #openedit to enable it.")
-	} else {
-		user.SendServerMessage(message + " Because you are not logged in, it will be deleted in 4 hours.")
-	}
 	return err
 }

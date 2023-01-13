@@ -26,6 +26,10 @@ type SpaceInstance struct {
 	Context context.Context
 }
 
+func (s *SpaceInstance) IsOpenEdit() bool {
+	return s.Editing.IsOpenEdit()
+}
+
 func (s *SpaceInstance) GetID() string {
 	return s.id
 }

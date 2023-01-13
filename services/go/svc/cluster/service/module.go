@@ -269,6 +269,27 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			logger := user.Logger()
 			logger.Info().Msg("connected to server")
 
+			isHome, err := user.IsAtHome(ctx)
+			if err != nil {
+				logger.Warn().Err(err).Msg("failed seeing if user was at home")
+				continue
+			}
+
+			if isHome {
+				space := user.GetSpace()
+				message := fmt.Sprintf(
+					"welcome to your home (space %s).",
+					space.GetID(),
+				)
+
+				if user.IsLoggedIn() {
+					user.SendServerMessage(message)
+					user.SendServerMessage("editing by others is disabled. say #edit to enable it.")
+				} else {
+					user.SendServerMessage(message + " anyone can edit it. because you are not logged in, it will be deleted in 4 hours")
+				}
+			}
+
 		case event := <-names:
 			user := server.Users.FindUser(uint16(event.Client))
 
@@ -856,31 +877,16 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				}
 
 				if game.IsOwnerOnly(message.Type()) {
-					server := user.GetServer()
-					instance := c.spaces.FindInstance(server)
-					if instance != nil {
-						space := instance.Space
-						owner, err := space.GetOwner(ctx)
-						if err != nil {
-							continue
-						}
+					isOwner, err := user.IsOwner(ctx)
+					if err != nil {
+						continue
+					}
 
-						isOwner := false
-
-						// No one owns this -- it's an unauthenticated client
-						if owner == "" {
-							isOwner = true
-						}
-
-						if user.Auth != nil && user.Verse != nil {
-							isOwner = user.Verse.GetID() == owner
-						}
-
-						if !instance.Editing.IsOpenEdit() && !isOwner {
-							user.ConnectToSpace(server, space.GetID())
-							user.SendServerMessage("You cannot edit this space.")
-							continue
-						}
+					space := user.GetSpace()
+					if space != nil && !isOwner && !space.IsOpenEdit() {
+						user.ConnectToSpace(space.Server, space.GetID())
+						user.SendServerMessage("You cannot edit this space.")
+						continue
 					}
 				}
 

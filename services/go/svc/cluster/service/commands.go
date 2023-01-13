@@ -176,7 +176,6 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 					return
 				}
 
-				
 				gameServer.SendCommand(fmt.Sprintf("grantmaster %d", user.GetClientNum()))
 			case <-ctx.Done():
 				log.Info().Msgf("context finished")
@@ -186,40 +185,30 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 
 		return true, "", nil
 
-	case "openedit":
-		gameServer := user.GetServer()
-		instance := server.spaces.FindInstance(gameServer)
-		if instance == nil {
-			return true, "", fmt.Errorf("you are not in a space")
-		}
-
-		if user.Verse == nil {
-			return true, "", fmt.Errorf("you are not logged in")
-		}
-
-		space := instance.Space
-		owner, err := space.GetOwner(ctx)
+	case "edit":
+		isOwner, err := user.IsOwner(ctx)
 		if err != nil {
-			return true, "", fmt.Errorf("failed to get owner")
+			return true, "", err
 		}
 
-		if user.Verse.GetID() == owner {
-			editing := instance.Editing
-			current := editing.IsOpenEdit()
-			editing.SetOpenEdit(!current)
-
-			canEdit := editing.IsOpenEdit()
-
-			if canEdit {
-				server.AnnounceInServer(ctx, gameServer, "editing is now enabled")
-			} else {
-				server.AnnounceInServer(ctx, gameServer, "editing is now disabled")
-			}
-
-			return true, "", nil
+		if !isOwner {
+			return true, "", fmt.Errorf("this is not your space")
 		}
 
-		return true, "", fmt.Errorf("you are not the owner")
+		space := user.GetSpace()
+		editing := space.Editing
+		current := editing.IsOpenEdit()
+		editing.SetOpenEdit(!current)
+
+		canEdit := editing.IsOpenEdit()
+
+		if canEdit {
+			server.AnnounceInServer(ctx, space.Server, "editing is now enabled")
+		} else {
+			server.AnnounceInServer(ctx, space.Server, "editing is now disabled")
+		}
+
+		return true, "", nil
 
 	case "join":
 		if len(args) != 2 {
@@ -252,13 +241,13 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 		// Look for a space
 		space, err := server.spaces.SearchSpace(ctx, target)
 		if err != nil {
-		    return true, "", err
+			return true, "", err
 		}
 
 		if space != nil {
 			instance, err := server.spaces.StartSpace(ctx, target)
 			if err != nil {
-			    return true, "", err
+				return true, "", err
 			}
 			_, err = user.ConnectToSpace(instance.Server, instance.Space.GetID())
 			return true, "", err
