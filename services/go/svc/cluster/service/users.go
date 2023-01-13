@@ -23,6 +23,7 @@ type User struct {
 	Name      string
 	Client    *clients.Client
 	Auth      *auth.AuthUser
+	Verse     *verse.User
 	Challenge *auth.Challenge
 	ELO       *ELOState
 
@@ -37,12 +38,17 @@ type User struct {
 	serverSessionCtx context.Context
 	cancel           context.CancelFunc
 
-	mutex sync.Mutex
+	Mutex sync.Mutex
 	o     *UserOrchestrator
 }
 
+// Valid for the duration of the user's session on the cluster.
+func (u *User) Context() context.Context {
+	return u.Client.Connection.SessionContext()
+}
+
 func (u *User) Logger() zerolog.Logger {
-	u.mutex.Lock()
+	u.Mutex.Lock()
 	logger := log.With().Uint16("client", u.Client.Id).Str("name", u.Name).Logger()
 
 	if u.Auth != nil {
@@ -58,29 +64,29 @@ func (u *User) Logger() zerolog.Logger {
 	if u.Server != nil {
 		logger = logger.With().Str("server", u.Server.Reference()).Logger()
 	}
-	u.mutex.Unlock()
+	u.Mutex.Unlock()
 
 	return logger
 }
 
 func (u *User) GetServer() *servers.GameServer {
-	u.mutex.Lock()
+	u.Mutex.Lock()
 	server := u.Server
-	u.mutex.Unlock()
+	u.Mutex.Unlock()
 	return server
 }
 
 func (u *User) GetClient() *clients.Client {
-	u.mutex.Lock()
+	u.Mutex.Lock()
 	client := u.Client
-	u.mutex.Unlock()
+	u.Mutex.Unlock()
 	return client
 }
 
 func (u *User) ServerSessionContext() context.Context {
-	u.mutex.Lock()
+	u.Mutex.Lock()
 	ctx := u.serverSessionCtx
-	u.mutex.Unlock()
+	u.Mutex.Unlock()
 	return ctx
 }
 
@@ -101,20 +107,48 @@ func (u *User) GetServerName() string {
 	return serverName
 }
 
+func (u *User) GetFormattedName() string {
+	name := u.GetName()
+
+	if u.Auth != nil {
+		name = game.Blue(name)
+	}
+
+	return name
+}
+
+func (u *User) SendServerMessage(message string) {
+	u.Client.SendMessage(fmt.Sprintf("%s %s", game.Yellow("sour"), message))
+}
+
 func (u *User) Reference() string {
-	// TODO
-	u.mutex.Lock()
+	// TODO space
+	u.Mutex.Lock()
 	server := u.Server
 	reference := u.Name
 	if server != nil {
 		reference = fmt.Sprintf("%s (%s)", u.Name, server.Reference())
 	}
-	u.mutex.Unlock()
+	u.Mutex.Unlock()
 	return reference
 }
 
+func (u *User) GetName() string {
+	u.Mutex.Lock()
+	name := u.Name
+	u.Mutex.Unlock()
+	return name
+}
+
+func (u *User) GetAuth() *auth.AuthUser {
+	u.Mutex.Lock()
+	auth := u.Auth
+	u.Mutex.Unlock()
+	return auth
+}
+
 func (u *User) AnnounceELO() {
-	u.mutex.Lock()
+	u.Mutex.Lock()
 	result := "ratings: "
 	for _, duel := range u.o.Duels {
 		name := duel.Name
@@ -128,19 +162,19 @@ func (u *User) AnnounceELO() {
 			game.Red(fmt.Sprint(state.Losses)),
 		)
 	}
-	u.mutex.Unlock()
+	u.Mutex.Unlock()
 
-	u.Client.SendServerMessage(result)
+	u.SendServerMessage(result)
 }
 
-func (c *User) HydrateELOState(ctx context.Context, user *auth.AuthUser) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (u *User) HydrateELOState(ctx context.Context, authUser *auth.AuthUser) error {
+	u.Mutex.Lock()
+	defer u.Mutex.Unlock()
 
-	elo := NewELOState(c.o.Duels)
+	elo := NewELOState(u.o.Duels)
 
-	for _, duel := range c.o.Duels {
-		state, err := LoadELOState(ctx, c.o.redis, user.Discord.Id, duel.Name)
+	for _, duel := range u.o.Duels {
+		state, err := LoadELOState(ctx, u.o.redis, authUser.Discord.Id, duel.Name)
 		if err != nil {
 			return err
 		}
@@ -148,7 +182,7 @@ func (c *User) HydrateELOState(ctx context.Context, user *auth.AuthUser) error {
 		elo.Ratings[duel.Name] = state
 	}
 
-	c.ELO = elo
+	u.ELO = elo
 
 	return nil
 }
@@ -158,8 +192,8 @@ func (u *User) SaveELOState(ctx context.Context) error {
 		return nil
 	}
 
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
+	u.Mutex.Lock()
+	defer u.Mutex.Unlock()
 
 	for matchType, state := range u.ELO.Ratings {
 		err := state.SaveState(ctx, u.o.redis, u.Auth.Discord.Id, matchType)
@@ -193,13 +227,13 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 	log.Info().Str("server", server.Reference()).
 		Msg("client connecting to server")
 
-	u.mutex.Lock()
+	u.Mutex.Lock()
 	if u.Server != nil {
 		u.Server.SendDisconnect(client.Id)
 		u.cancel()
 
 		// Remove all the other clients from this client's perspective
-		u.o.mutex.Lock()
+		u.o.Mutex.Lock()
 		clients, ok := u.o.Servers[u.Server]
 		if ok {
 			for _, otherUser := range clients {
@@ -209,7 +243,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 				}
 
 				// Send N_CDIS
-				otherUser.mutex.Lock()
+				otherUser.Mutex.Lock()
 				packet := game.Packet{}
 				packet.PutInt(int32(game.N_CDIS))
 				packet.PutInt(int32(otherClient.Num))
@@ -217,10 +251,10 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 					Channel: 1,
 					Data:    packet,
 				})
-				otherUser.mutex.Unlock()
+				otherUser.Mutex.Unlock()
 			}
 		}
-		u.o.mutex.Unlock()
+		u.o.Mutex.Unlock()
 	}
 	u.Server = server
 	server.Connecting <- true
@@ -228,7 +262,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 	sessionCtx, cancel := context.WithCancel(client.Connection.SessionContext())
 	u.serverSessionCtx = sessionCtx
 	u.cancel = cancel
-	u.mutex.Unlock()
+	u.Mutex.Unlock()
 
 	server.SendConnect(client.Id)
 
@@ -273,17 +307,17 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 
 // Mark the client's status as disconnected and cancel its session context.
 // Called both when the client disconnects from ingress AND when the server kicks them out.
-func (c *User) DisconnectFromServer() error {
-	c.mutex.Lock()
-	if c.Server != nil {
-		c.Server.SendDisconnect(c.Client.Id)
+func (u *User) DisconnectFromServer() error {
+	u.Mutex.Lock()
+	if u.Server != nil {
+		u.Server.SendDisconnect(u.Client.Id)
 	}
-	c.Server = nil
-	c.Client.Status = clients.ClientStatusDisconnected
-	if c.cancel != nil {
-		c.cancel()
+	u.Server = nil
+	u.Client.Status = clients.ClientStatusDisconnected
+	if u.cancel != nil {
+		u.cancel()
 	}
-	c.mutex.Unlock()
+	u.Mutex.Unlock()
 
 	return nil
 }
@@ -292,8 +326,9 @@ type UserOrchestrator struct {
 	Duels   []config.DuelType
 	Users   []*User
 	Servers map[*servers.GameServer][]*User
-	redis   *redis.Client
-	mutex   sync.Mutex
+	Mutex   sync.Mutex
+
+	redis *redis.Client
 }
 
 func NewUserOrchestrator(redis *redis.Client, duels []config.DuelType) *UserOrchestrator {
@@ -316,15 +351,30 @@ func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
 	}
 }
 
-func (u *UserOrchestrator) AddUser(ctx context.Context, client *clients.Client) {
-	u.mutex.Lock()
+func (u *UserOrchestrator) AddUser(ctx context.Context, client *clients.Client) *User {
+	u.Mutex.Lock()
 	user := User{
 		Name:   "unnamed",
 		Client: client,
 		o:      u,
 	}
 	u.Users = append(u.Users, &user)
-	u.mutex.Unlock()
+	u.Mutex.Unlock()
 
 	go u.PollUser(ctx, &user)
+	return &user
+}
+
+func (u *UserOrchestrator) FindUser(id uint16) *User {
+	u.Mutex.Lock()
+	defer u.Mutex.Unlock()
+	for _, user := range u.Users {
+		if user.Client.Id != uint16(id) {
+			continue
+		}
+
+		return user
+	}
+
+	return nil
 }

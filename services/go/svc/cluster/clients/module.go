@@ -3,7 +3,6 @@ package clients
 import (
 	"crypto/rand"
 	"errors"
-	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -52,11 +51,7 @@ type Client struct {
 
 	Intercept Intercept
 
-	// XXX This is nasty but to make the API nice, Clients have to be able
-	// to see the list of clients. This could/should be refactored someday.
-	manager *ClientManager
-
-	mutex sync.Mutex
+	Mutex sync.Mutex
 }
 
 func (c *Client) Logger() zerolog.Logger {
@@ -73,46 +68,46 @@ func (c *Client) ReceiveAuthentication() <-chan *auth.AuthUser {
 }
 
 func (c *Client) GetStatus() ClientStatus {
-	c.mutex.Lock()
+	c.Mutex.Lock()
 	status := c.Status
-	c.mutex.Unlock()
+	c.Mutex.Unlock()
 	return status
 }
 
 func (c *Client) GetClientNum() int32 {
-	c.mutex.Lock()
+	c.Mutex.Lock()
 	num := c.Num
-	c.mutex.Unlock()
+	c.Mutex.Unlock()
 	return num
 }
 
 func (c *Client) GetLifeSequence() int {
-	c.mutex.Lock()
+	c.Mutex.Lock()
 	num := c.LifeSequence
-	c.mutex.Unlock()
+	c.Mutex.Unlock()
 	return num
 }
 
 func (c *Client) DelayMessages() {
-	c.mutex.Lock()
+	c.Mutex.Lock()
 	c.delayMessages = true
-	c.mutex.Unlock()
+	c.Mutex.Unlock()
 }
 
 func (c *Client) RestoreMessages() {
-	c.mutex.Lock()
+	c.Mutex.Lock()
 	c.delayMessages = false
-	c.mutex.Unlock()
+	c.Mutex.Unlock()
 	c.sendQueuedMessages()
 }
 
 func (c *Client) sendQueuedMessages() {
-	c.mutex.Lock()
+	c.Mutex.Lock()
 	for _, message := range c.messageQueue {
 		c.sendMessage(message)
 	}
 	c.messageQueue = make([]string, 0)
-	c.mutex.Unlock()
+	c.Mutex.Unlock()
 }
 
 
@@ -136,17 +131,13 @@ func (c *Client) ReceiveIntercept() (<-chan game.GamePacket, <-chan game.GamePac
 }
 
 func (c *Client) SendMessage(message string) {
-	c.mutex.Lock()
+	c.Mutex.Lock()
 	if c.delayMessages {
 		c.messageQueue = append(c.messageQueue, message)
 	} else {
 		c.sendMessage(message)
 	}
-	c.mutex.Unlock()
-}
-
-func (c *Client) SendServerMessage(message string) {
-	c.SendMessage(fmt.Sprintf("%s %s", game.Yellow("sour"), message))
+	c.Mutex.Unlock()
 }
 
 type ClientManager struct {
@@ -195,7 +186,6 @@ func (c *ClientManager) AddClient(networkClient ingress.Connection) error {
 		Id:               id,
 		Connection:       networkClient,
 		Status:           ClientStatusDisconnected,
-		manager:          c,
 		delayMessages:    false,
 		messageQueue:     make([]string, 0),
 		Authentication:   make(chan *auth.AuthUser, 1),
@@ -231,18 +221,4 @@ func (c *ClientManager) RemoveClient(networkClient ingress.Connection) {
 
 func (c *ClientManager) ReceiveClients() <-chan *Client {
 	return c.newClients
-}
-
-func (c *ClientManager) FindClient(id uint16) *Client {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	for client := range c.State {
-		if client.Id != uint16(id) {
-			continue
-		}
-
-		return client
-	}
-
-	return nil
 }

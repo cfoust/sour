@@ -11,6 +11,7 @@ import (
 	"github.com/cfoust/sour/pkg/mmr"
 	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/auth"
+	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/servers"
@@ -50,6 +51,7 @@ type Cluster struct {
 
 	// Services
 	Clients   *clients.ClientManager
+	Users     *UserOrchestrator
 	MapSender *MapSender
 	auth      *auth.DiscordService
 	manager   *servers.ServerManager
@@ -69,9 +71,10 @@ func NewCluster(
 	auth *auth.DiscordService,
 	redis *redis.Client,
 ) *Cluster {
-	clients := clients.NewClientManager(redis, settings.Matchmaking.Duel)
+	clients := clients.NewClientManager()
 	v := verse.NewVerse(redis)
 	server := &Cluster{
+		Users:         NewUserOrchestrator(redis, settings.Matchmaking.Duel),
 		MapSender:     sender,
 		serverCtx:     ctx,
 		settings:      settings,
@@ -79,7 +82,7 @@ func NewCluster(
 		hostServers:   make(map[string]*servers.GameServer),
 		lastCreate:    make(map[string]time.Time),
 		Clients:       clients,
-		matches:       NewMatchmaker(serverManager, clients, settings.Matchmaking.Duel),
+		matches:       NewMatchmaker(serverManager, settings.Matchmaking.Duel),
 		serverMessage: make(chan []byte, 1),
 		manager:       serverManager,
 		startTime:     time.Now(),
@@ -120,7 +123,6 @@ func (server *Cluster) GetTeamInfo() *servers.TeamInfo {
 func (server *Cluster) GetClientInfo() []*servers.ClientExtInfo {
 	info := make([]*servers.ClientExtInfo, 0)
 
-	server.Clients.Mutex.Lock()
 	server.manager.Mutex.Lock()
 
 	for _, gameServer := range server.manager.Servers {
@@ -128,19 +130,13 @@ func (server *Cluster) GetClientInfo() []*servers.ClientExtInfo {
 		for _, client := range clients {
 			newClient := *client
 
-			// Replace with clientID
-			for client := range server.Clients.State {
-				if client.GetServer() == gameServer && int(client.GetClientNum()) == newClient.Client {
-					newClient.Client = int(client.Id)
-				}
-			}
+			// TODO do we still want client ids here?
 
 			info = append(info, &newClient)
 		}
 	}
 
 	server.manager.Mutex.Unlock()
-	server.Clients.Mutex.Unlock()
 
 	return info
 }
@@ -215,18 +211,18 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 				message += " because they disconnected"
 			}
 
-			server.Clients.Mutex.Lock()
-			for client := range server.Clients.State {
-				if client == winner || client == loser {
+			server.Users.Mutex.Lock()
+			for _, user := range server.Users.Users {
+				if user == winner || user == loser {
 					continue
 				}
-				client.SendServerMessage(message)
+				user.SendServerMessage(message)
 			}
-			server.Clients.Mutex.Unlock()
+			server.Users.Mutex.Unlock()
 		case queue := <-queues:
-			server.Clients.Mutex.Lock()
-			for client := range server.Clients.State {
-				if client == queue.Client {
+			server.Users.Mutex.Lock()
+			for _, client := range server.Users.Users {
+				if client == queue.User {
 					continue
 				}
 
@@ -236,7 +232,7 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 					queue.Type,
 				))
 			}
-			server.Clients.Mutex.Unlock()
+			server.Users.Mutex.Unlock()
 		case <-ctx.Done():
 			return
 		}
@@ -252,71 +248,68 @@ func (server *Cluster) PollServers(ctx context.Context) {
 	for {
 		select {
 		case join := <-connects:
-			client := server.Clients.FindClient(uint16(join.Client))
+			user := server.Users.FindUser(uint16(join.Client))
 
-			if client == nil {
+			if user == nil {
 				continue
 			}
 
-			client.Mutex.Lock()
-			if client.Server != nil {
-				log.Info().
-					Uint16("client", client.Id).
-					Int32("clientNum", join.ClientNum).
-					Str("server", client.Server.Reference()).
-					Msg("connected to server")
-				client.Status = clients.ClientStatusConnected
-				client.ClientNum = join.ClientNum
+			user.Mutex.Lock()
+			if user.Server != nil {
+				logger := user.Logger()
+				logger.Info().Msg("connected to server")
+				user.Client.Status = clients.ClientStatusConnected
+				user.Client.Num = join.ClientNum
 			}
-			client.Mutex.Unlock()
+			user.Mutex.Unlock()
 
 		case event := <-names:
-			client := server.Clients.FindClient(uint16(event.Client))
+			user := server.Users.FindUser(uint16(event.Client))
 
-			if client == nil {
+			if user == nil {
 				continue
 			}
 
-			client.Mutex.Lock()
-			client.Name = event.Name
-			log.Info().
-				Uint16("client", client.Id).
-				Str("name", client.Name).
-				Msg("client has new name")
-			client.Mutex.Unlock()
-			server.NotifyNameChange(ctx, client, event.Name)
+			user.Mutex.Lock()
+			user.Name = event.Name
+			logger := user.Logger()
+			logger.Info().Msg("client has new name")
+			user.Mutex.Unlock()
+			server.NotifyNameChange(ctx, user, event.Name)
 
 		case event := <-forceDisconnects:
 			log.Info().Msgf("client forcibly disconnected %d %s", event.Reason, event.Text)
 
-			client := server.Clients.FindClient(uint16(event.Client))
+			user := server.Users.FindUser(uint16(event.Client))
 
-			if client == nil {
+			if user == nil {
 				continue
 			}
 
-			client.DisconnectFromServer()
+			user.DisconnectFromServer()
 
 			// TODO ideally we would move clients back to the lobby if they
 			// were not kicked for violent reasons
-			client.Connection.Disconnect(int(event.Reason), event.Text)
+			user.GetClient().Connection.Disconnect(int(event.Reason), event.Text)
 		case packet := <-gamePackets:
-			client := server.Clients.FindClient(uint16(packet.Client))
+			user := server.Users.FindUser(uint16(packet.Client))
 
-			if client == nil {
+			if user == nil {
 				continue
 			}
 
-			if client.GetServer() != packet.Server {
+			if user.GetServer() != packet.Server {
 				continue
 			}
+
+			logger := user.Logger()
+			client := user.GetClient()
 
 			parseData := packet.Packet.Data
 			messages, err := game.Read(parseData, false)
 			if err != nil {
-				log.Debug().
+				logger.Debug().
 					Err(err).
-					Uint16("client", client.Id).
 					Msg("cluster -> client (failed to decode message)")
 
 				// Forward it anyway
@@ -334,9 +327,8 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			// (arbitrary message passing between clients) and took
 			// me too many hours of debugging
 			if len(messages) > 0 && messages[0].Type() == game.N_CLIENT {
-				log.Debug().
+				logger.Debug().
 					Str("type", game.N_CLIENT.String()).
-					Uint16("client", client.Id).
 					Msgf("cluster -> client (%d messages)", len(messages)-1)
 
 				client.Send(game.GamePacket{
@@ -348,9 +340,8 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			// As opposed to client -> server, we don't actually need to do any filtering
 			// so we won't repackage the messages individually
 			for _, message := range messages {
-				log.Debug().
+				logger.Debug().
 					Str("type", message.Type().String()).
-					Uint16("client", client.Id).
 					Msg("cluster -> client")
 
 				// Inject the auth domain to N_SERVINFO so the
@@ -410,16 +401,17 @@ type DestPacket struct {
 	Dest    *servers.GameServer
 }
 
-func (server *Cluster) DoAuthChallenge(ctx context.Context, client *clients.Client, id string) {
+func (server *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) {
 	if server.auth == nil {
 		return
 	}
 
 	pair, err := server.auth.GetAuthKey(ctx, id)
 
+	logger := user.Logger()
+
 	if err != nil || pair == nil {
-		log.Warn().
-			Uint16("client", client.Id).
+		logger.Warn().
 			Err(err).
 			Msg("no key for client to do auth challenge")
 		return
@@ -427,16 +419,15 @@ func (server *Cluster) DoAuthChallenge(ctx context.Context, client *clients.Clie
 
 	challenge, err := auth.GenerateChallenge(id, pair.Public)
 	if err != nil {
-		log.Warn().
-			Uint16("client", client.Id).
+		logger.Warn().
 			Err(err).
 			Msg("failed to generate auth challenge")
 		return
 	}
 
-	client.Mutex.Lock()
-	client.Challenge = challenge
-	client.Mutex.Unlock()
+	user.Mutex.Lock()
+	user.Challenge = challenge
+	user.Mutex.Unlock()
 
 	p := game.Packet{}
 	p.PutInt(int32(game.N_AUTHCHAL))
@@ -446,7 +437,7 @@ func (server *Cluster) DoAuthChallenge(ctx context.Context, client *clients.Clie
 		Challenge: challenge.Question,
 	}
 	p.Put(challengeMessage)
-	client.Send(game.GamePacket{
+	user.GetClient().Send(game.GamePacket{
 		Channel: 1,
 		Data:    p,
 	})
@@ -454,49 +445,44 @@ func (server *Cluster) DoAuthChallenge(ctx context.Context, client *clients.Clie
 
 func (server *Cluster) HandleChallengeAnswer(
 	ctx context.Context,
-	client *clients.Client,
+	user *User,
 	challenge *auth.Challenge,
 	answer string,
 ) {
+	logger := user.Logger()
 	if !challenge.Check(answer) {
-		log.Warn().Uint16("client", client.Id).Msg("client failed auth challenge")
-		client.SendServerMessage(game.Red("failed to login, please regenerate your key"))
+		logger.Warn().Msg("client failed auth challenge")
+		user.SendServerMessage(game.Red("failed to login, please regenerate your key"))
 		return
 	}
 
-	user, err := server.auth.AuthenticateId(ctx, challenge.Id)
+	authUser, err := server.auth.AuthenticateId(ctx, challenge.Id)
 	if err != nil {
-		log.Warn().Uint16("client", client.Id).Err(err).Msg("could not authenticate by id")
-		client.SendServerMessage(game.Red("failed to login, please regenerate your key"))
+		logger.Warn().Err(err).Msg("could not authenticate by id")
+		user.SendServerMessage(game.Red("failed to login, please regenerate your key"))
 		return
 	}
 
 	// XXX we really need to move all the ENet auth to ingress/enet.go...
-	client.Authentication <- user
+	user.GetClient().Authentication <- authUser
 
-	client.SendServerMessage(game.Blue(fmt.Sprintf("logged in with Discord as %s", user.Discord.Reference())))
-	log.Info().
-		Uint16("client", client.Id).
-		Str("user", user.Discord.Reference()).
-		Msg("logged in with Discord")
+	user.SendServerMessage(game.Blue(fmt.Sprintf("logged in with Discord as %s", authUser.Discord.Reference())))
+	logger = user.Logger()
+	logger.Info().Msg("logged in with Discord")
 }
 
-func (server *Cluster) GreetClient(ctx context.Context, client *clients.Client) {
-	client.AnnounceELO()
-	user := client.GetUser()
-	if user == nil {
-		client.SendServerMessage("You are not logged in. Your rating will not be saved.")
+func (server *Cluster) GreetClient(ctx context.Context, user *User) {
+	user.AnnounceELO()
+	if user.Auth == nil {
+		user.SendServerMessage("You are not logged in. Your rating will not be saved.")
 	}
-	server.NotifyClientChange(ctx, client, true)
+	server.NotifyClientChange(ctx, user, true)
 }
 
-func (server *Cluster) NotifyClientChange(ctx context.Context, client *clients.Client, joined bool) {
-	client.Mutex.Lock()
-	clientServer := client.Server
-	client.Mutex.Unlock()
-
-	name := client.GetFormattedName()
-	serverName := client.GetServerName()
+func (server *Cluster) NotifyClientChange(ctx context.Context, user *User, joined bool) {
+	userServer := user.GetServer()
+	name := user.GetFormattedName()
+	serverName := user.GetServerName()
 
 	event := "join"
 	if !joined {
@@ -506,40 +492,37 @@ func (server *Cluster) NotifyClientChange(ctx context.Context, client *clients.C
 	// To users on another server
 	message := fmt.Sprintf("%s: %s (%s)", event, name, serverName)
 
-	server.Clients.Mutex.Lock()
-	for other := range server.Clients.State {
-		if other == client {
+	server.Users.Mutex.Lock()
+	for _, other := range server.Users.Users {
+		if other == user {
 			continue
 		}
 
 		otherServer := other.GetServer()
 
 		// On the same server, we can just use chat
-		if clientServer == otherServer {
+		if userServer == otherServer {
 			continue
 		}
-		other.SendMessage(message)
+		other.Client.SendMessage(message)
 	}
-	server.Clients.Mutex.Unlock()
+	server.Users.Mutex.Unlock()
 }
 
-func (server *Cluster) NotifyNameChange(ctx context.Context, client *clients.Client, oldName string) {
-	newName := client.GetName()
+func (server *Cluster) NotifyNameChange(ctx context.Context, user *User, oldName string) {
+	newName := user.GetName()
 
 	if newName == oldName {
 		return
 	}
 
-	client.Mutex.Lock()
-	clientServer := client.Server
-	client.Mutex.Unlock()
-
-	serverName := client.GetServerName()
+	clientServer := user.GetServer()
+	serverName := user.GetServerName()
 	message := fmt.Sprintf("%s now known as %s [%s]", oldName, newName, serverName)
 
-	server.Clients.Mutex.Lock()
-	for other := range server.Clients.State {
-		if other == client {
+	server.Users.Mutex.Lock()
+	for _, other := range server.Users.Users {
+		if other == user {
 			continue
 		}
 
@@ -549,35 +532,30 @@ func (server *Cluster) NotifyNameChange(ctx context.Context, client *clients.Cli
 		if clientServer == otherServer {
 			continue
 		}
-		client.SendMessage(message)
+		other.Client.SendMessage(message)
 	}
-	server.Clients.Mutex.Unlock()
+	server.Users.Mutex.Unlock()
 }
 
 func (c *Cluster) AnnounceInServer(ctx context.Context, server *servers.GameServer, message string) {
-	c.Clients.Mutex.Lock()
+	c.Users.Mutex.Lock()
 
-	for client := range c.Clients.State {
-		otherServer := client.GetServer()
-
-		if server != otherServer {
-			continue
-		}
-
-		client.SendServerMessage(message)
+	serverUsers, ok := c.Users.Servers[server]
+	if !ok {
+		return
 	}
 
-	c.Clients.Mutex.Unlock()
+	for _, user := range serverUsers {
+		user.SendServerMessage(message)
+	}
+
+	c.Users.Mutex.Unlock()
 }
 
-func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Client, message string) {
-	server.Clients.Mutex.Lock()
-
+func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *User, message string) {
+	server.Users.Mutex.Lock()
 	senderServer := sender.GetServer()
-
-	sender.Mutex.Lock()
-	senderNum := sender.ClientNum
-	sender.Mutex.Unlock()
+	senderNum := sender.GetClient().GetClientNum()
 
 	name := sender.GetFormattedName()
 
@@ -589,16 +567,18 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Cl
 	// To users on another server
 	otherMessage := fmt.Sprintf("%s [%s]: %s", name, serverName, game.Green(message))
 
-	for client := range server.Clients.State {
-		if client == sender {
+	for _, user := range server.Users.Users {
+		if user == sender {
 			continue
 		}
 
-		otherServer := client.GetServer()
+		otherServer := user.GetServer()
+
+		client := user.GetClient()
 
 		// On the same server, we can just use chat
 		if senderServer == otherServer {
-			if client.Connection.Type() == clients.ClientTypeWS {
+			if client.Connection.Type() == ingress.ClientTypeWS {
 				client.Connection.SendGlobalChat(sameMessage)
 			} else {
 				// We lose the formatting, but that's OK
@@ -627,7 +607,7 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Cl
 
 		client.Connection.SendGlobalChat(otherMessage)
 	}
-	server.Clients.Mutex.Unlock()
+	server.Users.Mutex.Unlock()
 }
 
 // TODO
@@ -653,8 +633,8 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *clients.Cl
 //server.MapSender.SendMap(ctx, client, mapName)
 //}
 
-func (c *Cluster) SendMap(ctx context.Context, client *clients.Client) error {
-	server := client.GetServer()
+func (c *Cluster) SendMap(ctx context.Context, user *User) error {
+	server := user.GetServer()
 
 	instance := c.spaces.FindInstance(server)
 
@@ -674,7 +654,7 @@ func (c *Cluster) SendMap(ctx context.Context, client *clients.Client) error {
 		p.Put(game.N_SENDMAP)
 		p = append(p, data...)
 
-		client.Send(game.GamePacket{
+		user.GetClient().Send(game.GamePacket{
 			Channel: 2,
 			Data:    p,
 		})
@@ -685,7 +665,8 @@ func (c *Cluster) SendMap(ctx context.Context, client *clients.Client) error {
 	return nil
 }
 
-func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
+func (c *Cluster) PollUser(ctx context.Context, user *User) {
+	client := user.GetClient()
 	toServer := client.Connection.ReceivePackets()
 	commands := client.Connection.ReceiveCommands()
 	authentication := client.ReceiveAuthentication()
@@ -694,7 +675,7 @@ func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 	// A context valid JUST for the lifetime of the client
 	clientCtx, cancel := context.WithCancel(ctx)
 
-	logger := log.With().Uint16("client", client.Id).Logger()
+	logger := user.Logger()
 
 	go func() {
 		err := RecordSession(client.Connection.SessionContext(), c.settings.SessionDirectory, client)
@@ -707,32 +688,33 @@ func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 	defer cancel()
 
 	for {
+		logger = user.Logger()
 		select {
 		case <-ctx.Done():
 			cancel()
 			return
-		case user := <-authentication:
-			if user == nil {
-				c.GreetClient(clientCtx, client)
+		case authUser := <-authentication:
+			if authUser == nil {
+				c.GreetClient(clientCtx, user)
 				continue
 			}
 
-			logger = logger.With().Str("id", user.Discord.Id).Logger()
+			logger = logger.With().Str("id", authUser.Discord.Id).Logger()
 
-			client.Mutex.Lock()
-			client.User = user
-			client.Mutex.Unlock()
+			user.Mutex.Lock()
+			user.Auth = authUser
+			user.Mutex.Unlock()
 
-			verseUser, err := c.verse.GetOrCreateUser(clientCtx, client.User.GetID())
+			verseUser, err := c.verse.GetOrCreateUser(clientCtx, user.Auth.GetID())
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to get verse state for user")
 				continue
 			}
 			user.Verse = verseUser
 
-			err = client.HydrateELOState(ctx, user)
+			err = user.HydrateELOState(ctx, authUser)
 			if err == nil {
-				c.GreetClient(clientCtx, client)
+				c.GreetClient(clientCtx, user)
 				continue
 			}
 
@@ -742,11 +724,11 @@ func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 			}
 
 			// We save the initialized state that was there already
-			err = client.SaveELOState(ctx)
+			err = user.SaveELOState(ctx)
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to save elo state for user")
 			}
-			c.GreetClient(clientCtx, client)
+			c.GreetClient(clientCtx, user)
 		case msg := <-toServer:
 			data := msg.Data
 
@@ -754,24 +736,22 @@ func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 			gameMessages, err := game.Read(data, true)
 			if err != nil {
-				log.Error().
-					Err(err).
-					Uint16("client", client.Id).
+				logger.Error().Err(err).
 					Msg("client -> server (failed to decode message)")
 
 				// Forward it anyway
-				client.Mutex.Lock()
-				if client.Server != nil {
-					client.Server.SendData(client.Id, uint32(msg.Channel), msg.Data)
+				user.Mutex.Lock()
+				if user.Server != nil {
+					user.Server.SendData(client.Id, uint32(msg.Channel), msg.Data)
 				}
-				client.Mutex.Unlock()
+				user.Mutex.Unlock()
 				continue
 			}
 
 			passthrough := func(message game.Message) {
 				client.Mutex.Lock()
-				if client.Server != nil {
-					client.Server.SendData(client.Id, uint32(msg.Channel), message.Data())
+				if user.Server != nil {
+					user.Server.SendData(client.Id, uint32(msg.Channel), message.Data())
 				}
 				client.Mutex.Unlock()
 			}
@@ -800,10 +780,10 @@ func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 							}
 
 							if err != nil {
-								client.SendServerMessage(game.Red(err.Error()))
+								user.SendServerMessage(game.Red(err.Error()))
 								return
 							} else if len(response) > 0 {
-								client.SendServerMessage(response)
+								user.SendServerMessage(response)
 								return
 							}
 
@@ -814,7 +794,7 @@ func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 						continue
 					} else {
 						// We do our own chat, don't pass on to the server
-						c.ForwardGlobalChat(clientCtx, client, text)
+						c.ForwardGlobalChat(clientCtx, user, text)
 						continue
 					}
 				}
@@ -844,10 +824,10 @@ func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 					p := game.Packet{}
 					p.PutInt(int32(game.N_CONNECT))
 					p.Put(*connect)
-					client.Server.SendData(client.Id, uint32(msg.Channel), p)
+					user.Server.SendData(client.Id, uint32(msg.Channel), p)
 
-					if description == c.authDomain && client.GetUser() == nil {
-						c.DoAuthChallenge(ctx, client, name)
+					if description == c.authDomain && user.GetAuth() == nil {
+						c.DoAuthChallenge(ctx, user, name)
 					}
 					continue
 				}
@@ -855,11 +835,11 @@ func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 				if message.Type() == game.N_AUTHANS {
 					answerMessage := message.Contents().(*game.AuthAns)
 
-					if answerMessage.Description == c.authDomain && client.Challenge != nil {
+					if answerMessage.Description == c.authDomain && user.Challenge != nil {
 						c.HandleChallengeAnswer(
 							ctx,
-							client,
-							client.Challenge,
+							user,
+							user.Challenge,
 							answerMessage.Answer,
 						)
 						continue
@@ -875,13 +855,13 @@ func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 				}
 
 				if game.IsOwnerOnly(message.Type()) {
-					server := client.GetServer()
+					server := user.GetServer()
 					instance := c.spaces.FindInstance(server)
 					if instance != nil {
 						space := instance.Space
 						owner, err := space.GetOwner(ctx)
 						if err != nil {
-						    continue
+							continue
 						}
 
 						isOwner := false
@@ -891,13 +871,13 @@ func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 							isOwner = true
 						}
 
-						if client.User != nil && client.User.Verse != nil {
-							isOwner = client.User.Verse.GetID() == owner
+						if user.Auth != nil && user.Verse != nil {
+							isOwner = user.Verse.GetID() == owner
 						}
 
 						if !instance.Editing.IsOpenEdit() && !isOwner {
-							client.ConnectToSpace(server, space.GetID())
-							client.SendServerMessage("You cannot edit this space.")
+							user.ConnectToSpace(server, space.GetID())
+							user.SendServerMessage("You cannot edit this space.")
 							continue
 						}
 					}
@@ -911,7 +891,7 @@ func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 					// The client does not have the map
 					if crc.Crc == 0 {
 						go func() {
-							err := c.SendMap(ctx, client)
+							err := c.SendMap(ctx, user)
 							if err != nil {
 								logger.Warn().Err(err).Msg("failed to send map to client")
 							}
@@ -925,11 +905,11 @@ func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 					continue
 				}
 
-				client.Mutex.Lock()
-				if client.Server != nil {
-					client.Server.SendData(client.Id, uint32(msg.Channel), message.Data())
+				user.Mutex.Lock()
+				if user.Server != nil {
+					user.Server.SendData(client.Id, uint32(msg.Channel), message.Data())
 				}
-				client.Mutex.Unlock()
+				user.Mutex.Unlock()
 			}
 
 		case request := <-commands:
@@ -938,26 +918,27 @@ func (c *Cluster) PollClient(ctx context.Context, client *clients.Client) {
 
 			go func() {
 				handled, response, err := c.RunCommandWithTimeout(clientCtx, command, client)
-				outChannel <- clients.CommandResult{
+				outChannel <- ingress.CommandResult{
 					Handled:  handled,
 					Err:      err,
 					Response: response,
 				}
 			}()
 		case <-disconnect:
-			c.NotifyClientChange(ctx, client, false)
-			client.DisconnectFromServer()
+			c.NotifyClientChange(ctx, user, false)
+			user.DisconnectFromServer()
 		}
 	}
 }
 
-func (server *Cluster) PollClients(ctx context.Context) {
+func (server *Cluster) PollUsers(ctx context.Context) {
 	newClients := server.Clients.ReceiveClients()
 
 	for {
 		select {
 		case client := <-newClients:
-			go server.PollClient(ctx, client)
+			user := server.Users.AddUser(ctx, client)
+			go server.PollUser(ctx, user)
 		case <-ctx.Done():
 			return
 		}
