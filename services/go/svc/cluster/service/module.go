@@ -276,6 +276,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
+			log.Info().Msgf("isHome %t", isHome)
 			if isHome {
 				space := user.GetSpace()
 				message := fmt.Sprintf(
@@ -744,7 +745,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			user.Auth = authUser
 			user.Mutex.Unlock()
 
-			verseUser, err := c.verse.GetOrCreateUser(userCtx, user.Auth.GetID())
+			verseUser, err := c.verse.GetOrCreateUser(userCtx, authUser)
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to get verse state for user")
 				continue

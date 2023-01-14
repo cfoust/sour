@@ -9,8 +9,10 @@ import (
 	"math"
 	"math/big"
 	"time"
+	"strings"
 
 	"github.com/cfoust/sour/pkg/maps"
+	"github.com/cfoust/sour/svc/cluster/auth"
 
 	"github.com/go-redis/redis/v9"
 )
@@ -209,9 +211,9 @@ func (v *Verse) SaveGameMap(ctx context.Context, creator string, gameMap *maps.G
 	}
 
 	if creator == "" {
-		err = map_.Expire(ctx, time.Hour * 24)
+		err = map_.Expire(ctx, time.Hour*24)
 		if err != nil {
-		    return nil, err
+			return nil, err
 		}
 	}
 
@@ -472,7 +474,7 @@ func (u *User) GetHomeSpace(ctx context.Context) (*UserSpace, error) {
 	return u.verse.LoadSpace(ctx, id)
 }
 
-func (v *Verse) NewUser(ctx context.Context, id string) (*User, error) {
+func (v *Verse) NewUser(ctx context.Context, id string, discord *auth.DiscordUser) (*User, error) {
 	user := User{
 		id: id,
 		entity: entity{
@@ -489,6 +491,19 @@ func (v *Verse) NewUser(ctx context.Context, id string) (*User, error) {
 	err = user.save(ctx, userMeta{
 		Home: space.GetID(),
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	name := discord.Username
+
+	if strings.HasSuffix(name, "s") {
+		name += "'"
+	} else {
+		name += "'s"
+	}
+
+	err = space.SetDescription(ctx, fmt.Sprintf("%s home", name))
 	if err != nil {
 		return nil, err
 	}
@@ -526,14 +541,15 @@ func (v *Verse) GetUser(ctx context.Context, id string) (*User, error) {
 	return &user, nil
 }
 
-func (v *Verse) GetOrCreateUser(ctx context.Context, id string) (*User, error) {
+func (v *Verse) GetOrCreateUser(ctx context.Context, info *auth.AuthUser) (*User, error) {
+	id := info.GetID()
 	exists, err := v.HaveUser(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
 	if !exists {
-		return v.NewUser(ctx, id)
+		return v.NewUser(ctx, id, &info.Discord)
 	}
 
 	return v.GetUser(ctx, id)
