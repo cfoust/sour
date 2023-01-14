@@ -187,6 +187,10 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 		return true, "", nil
 
 	case "alias":
+		if !user.IsLoggedIn() {
+			return true, "", fmt.Errorf("you must be logged in to make an alias for a space")
+		}
+
 		isOwner, err := user.IsOwner(ctx)
 		if err != nil {
 			return true, "", err
