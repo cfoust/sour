@@ -22,12 +22,12 @@ import (
 )
 
 type RawEdit struct {
-	Client int32
+	Client ingress.ClientID
 	Packet game.GamePacket
 }
 
 type MapEdit struct {
-	Client  int32
+	Client  ingress.ClientID
 	Message game.Message
 }
 
@@ -671,7 +671,7 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 							Data:    data,
 							Channel: 1,
 						},
-						Client: sender,
+						Client: ingress.ClientID(sender),
 					}
 					continue
 				}

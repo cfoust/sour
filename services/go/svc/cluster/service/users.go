@@ -105,12 +105,12 @@ func (u *User) IsAtHome(ctx context.Context) (bool, error) {
 	user := u.GetVerse()
 	home, err := user.GetHomeID(ctx)
 	if err != nil {
-	    return false, err
+		return false, err
 	}
 
 	isOwner, err := u.IsOwner(ctx)
 	if err != nil {
-	    return false, err
+		return false, err
 	}
 
 	return isOwner && space.GetID() == home, nil
@@ -145,7 +145,7 @@ func (u *User) IsOwner(ctx context.Context) (bool, error) {
 
 	owner, err := space.GetOwner(ctx)
 	if err != nil {
-	    return false, err
+		return false, err
 	}
 
 	return owner == u.GetID(), nil
@@ -297,6 +297,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 		u.o.Mutex.Lock()
 		users, ok := u.o.Servers[u.Server]
 		if ok {
+			newUsers := make([]*User, 0)
 			for _, otherUser := range users {
 				if u == otherUser {
 					continue
@@ -312,10 +313,18 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 					Data:    packet,
 				})
 				otherUser.Mutex.Unlock()
+				newUsers = append(newUsers, otherUser)
 			}
+			u.o.Servers[u.Server] = newUsers
 		}
 		u.o.Mutex.Unlock()
 	}
+
+	space := u.Space
+	if space != nil {
+		space.Editing.ClearClipboard(u.Id)
+	}
+
 	u.Server = server
 	server.Connecting <- true
 	u.Status = clients.ClientStatusConnecting
@@ -344,6 +353,20 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 
 		for {
 			if u.GetStatus() == clients.ClientStatusConnected {
+				u.o.Mutex.Lock()
+				users, ok := u.o.Servers[server]
+				newUsers := make([]*User, 0)
+				if ok {
+					for _, otherUser := range users {
+						if u == otherUser {
+							continue
+						}
+
+						newUsers = append(newUsers, otherUser)
+					}
+				}
+				u.o.Servers[u.Server] = newUsers
+				u.o.Mutex.Unlock()
 				connected <- true
 				return
 			}

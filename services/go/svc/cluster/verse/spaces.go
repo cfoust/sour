@@ -124,12 +124,14 @@ func (s *SpaceManager) FindInstance(server *gameServers.GameServer) *SpaceInstan
 	return nil
 }
 
-func (s *SpaceManager) WatchServer(ctx context.Context, server *gameServers.GameServer) {
+func (s *SpaceManager) WatchServer(ctx context.Context, space *SpaceInstance, server *gameServers.GameServer) {
 
 	select {
 	case <-ctx.Done():
 		return
 	case <-server.Context.Done():
+		space.Editing.Checkpoint(ctx)
+
 		s.mutex.Lock()
 
 		deleteId := ""
@@ -184,8 +186,6 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 		desc = game.Blue(space.GetID())
 	}
 
-	go s.WatchServer(ctx, gameServer)
-
 	gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", desc))
 	gameServer.SendCommand("publicserver 1")
 	gameServer.SendCommand("emptymap")
@@ -214,6 +214,8 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 		Server:  gameServer,
 		Context: gameServer.Context,
 	}
+
+	go s.WatchServer(ctx, &instance, gameServer)
 
 	go instance.PollEdits(gameServer.Context)
 
