@@ -236,12 +236,14 @@ func (u *User) HydrateELOState(ctx context.Context, authUser *auth.AuthUser) err
 
 	for _, duel := range u.o.Duels {
 		state, err := LoadELOState(ctx, u.o.redis, authUser.Discord.Id, duel.Name)
-		if err != redis.Nil {
-			return err
-		}
 
 		if err == nil {
 			elo.Ratings[duel.Name] = state
+			continue
+		}
+
+		if err != redis.Nil {
+			return err
 		}
 	}
 
