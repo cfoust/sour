@@ -10,6 +10,7 @@ import (
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/ingress"
+	"github.com/cfoust/sour/svc/cluster/servers"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -30,15 +31,15 @@ type Intercept struct {
 }
 
 type Client struct {
-	Id    uint16
+	Id ingress.ClientID
 
 	// Whether the client is connected (or connecting) to a game server
-	Status    ClientStatus
+	Status ClientStatus
 
 	Connection ingress.Connection
 
 	// The ID of the client on the Sauer server
-	Num int32
+	Num servers.ClientNum
 	// Each time a player dies, they're given a number (probably for
 	// anti-hacking?)
 	LifeSequence int
@@ -55,7 +56,7 @@ type Client struct {
 }
 
 func (c *Client) Logger() zerolog.Logger {
-	return log.With().Uint16("client", c.Id).Logger()
+	return log.With().Uint32("client", uint32(c.Id)).Logger()
 }
 
 func (c *Client) ReceiveAuthentication() <-chan *auth.AuthUser {
@@ -74,7 +75,7 @@ func (c *Client) GetStatus() ClientStatus {
 	return status
 }
 
-func (c *Client) GetClientNum() int32 {
+func (c *Client) GetClientNum() servers.ClientNum {
 	c.Mutex.Lock()
 	num := c.Num
 	c.Mutex.Unlock()
@@ -109,7 +110,6 @@ func (c *Client) sendQueuedMessages() {
 	c.messageQueue = make([]string, 0)
 	c.Mutex.Unlock()
 }
-
 
 func (c *Client) sendMessage(message string) {
 	packet := game.Packet{}
@@ -153,12 +153,12 @@ func NewClientManager() *ClientManager {
 	}
 }
 
-func (c *ClientManager) newClientID() (uint16, error) {
+func (c *ClientManager) newClientID() (ingress.ClientID, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	for attempts := 0; attempts < math.MaxUint16; attempts++ {
 		number, _ := rand.Int(rand.Reader, big.NewInt(math.MaxUint16))
-		truncated := uint16(number.Uint64())
+		truncated := ingress.ClientID(number.Uint64())
 
 		taken := false
 		for client := range c.State {
@@ -183,12 +183,12 @@ func (c *ClientManager) AddClient(networkClient ingress.Connection) error {
 	}
 
 	client := Client{
-		Id:               id,
-		Connection:       networkClient,
-		Status:           ClientStatusDisconnected,
-		delayMessages:    false,
-		messageQueue:     make([]string, 0),
-		Authentication:   make(chan *auth.AuthUser, 1),
+		Id:             id,
+		Connection:     networkClient,
+		Status:         ClientStatusDisconnected,
+		delayMessages:  false,
+		messageQueue:   make([]string, 0),
+		Authentication: make(chan *auth.AuthUser, 1),
 		Intercept: Intercept{
 			To:   make(chan game.GamePacket, 1000),
 			From: make(chan game.GamePacket, 1000),

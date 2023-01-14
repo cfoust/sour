@@ -60,9 +60,7 @@ type Duel struct {
 func (d *Duel) Logger() zerolog.Logger {
 	logger := log.With().
 		Str("nameA", d.A.Reference()).
-		Uint16("idA", d.A.Client.Id).
 		Str("nameB", d.B.Reference()).
-		Uint16("idB", d.B.Client.Id).
 		Logger()
 
 	if d.server != nil {

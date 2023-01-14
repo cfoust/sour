@@ -49,7 +49,7 @@ func (u *User) Context() context.Context {
 
 func (u *User) Logger() zerolog.Logger {
 	u.Mutex.Lock()
-	logger := log.With().Uint16("client", u.Client.Id).Str("name", u.Name).Logger()
+	logger := log.With().Uint32("client", uint32(u.Client.Id)).Str("name", u.Name).Logger()
 
 	if u.Auth != nil {
 		discord := u.Auth.Discord
@@ -295,9 +295,9 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 
 		// Remove all the other clients from this client's perspective
 		u.o.Mutex.Lock()
-		clients, ok := u.o.Servers[u.Server]
+		users, ok := u.o.Servers[u.Server]
 		if ok {
-			for _, otherUser := range clients {
+			for _, otherUser := range users {
 				if u == otherUser {
 					continue
 				}
@@ -452,11 +452,11 @@ func (u *UserOrchestrator) RemoveUser(user *User) {
 	u.Mutex.Unlock()
 }
 
-func (u *UserOrchestrator) FindUser(id uint16) *User {
+func (u *UserOrchestrator) FindUser(id ingress.ClientID) *User {
 	u.Mutex.Lock()
 	defer u.Mutex.Unlock()
 	for _, user := range u.Users {
-		if user.Id != uint16(id) {
+		if user.Id != id {
 			continue
 		}
 

@@ -243,14 +243,14 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 
 func (server *Cluster) PollServers(ctx context.Context) {
 	connects := server.manager.ReceiveConnects()
-	forceDisconnects := server.manager.ReceiveDisconnects()
+	forceDisconnects := server.manager.ReceiveKicks()
 	gamePackets := server.manager.ReceivePackets()
 	names := server.manager.ReceiveNames()
 
 	for {
 		select {
 		case join := <-connects:
-			user := server.Users.FindUser(uint16(join.Client))
+			user := server.Users.FindUser(join.Client)
 
 			if user == nil {
 				continue
@@ -263,7 +263,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 					user.Space = instance
 				}
 				user.Status = clients.ClientStatusConnected
-				user.Num = join.ClientNum
+				user.Num = join.Num
 			}
 			user.Mutex.Unlock()
 
@@ -292,7 +292,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			}
 
 		case event := <-names:
-			user := server.Users.FindUser(uint16(event.Client))
+			user := server.Users.FindUser(event.Client)
 
 			if user == nil {
 				continue
@@ -307,13 +307,14 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			server.NotifyNameChange(ctx, user, event.Name)
 
 		case event := <-forceDisconnects:
-			log.Info().Msgf("client forcibly disconnected %d %s", event.Reason, event.Text)
-
-			user := server.Users.FindUser(uint16(event.Client))
+			user := server.Users.FindUser(event.Client)
 
 			if user == nil {
 				continue
 			}
+
+			logger := user.Logger()
+			logger.Info().Msgf("user forcibly disconnected %d %s", event.Reason, event.Text)
 
 			user.DisconnectFromServer()
 
@@ -321,7 +322,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			// were not kicked for violent reasons
 			user.Connection.Disconnect(int(event.Reason), event.Text)
 		case packet := <-gamePackets:
-			user := server.Users.FindUser(uint16(packet.Client))
+			user := server.Users.FindUser(packet.Client)
 
 			if user == nil {
 				continue

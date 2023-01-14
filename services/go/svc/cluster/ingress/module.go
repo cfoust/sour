@@ -7,6 +7,9 @@ import (
 	"github.com/cfoust/sour/svc/cluster/auth"
 )
 
+// A unique identifier for this client for the lifetime of their session.
+type ClientID uint32
+
 type ClientType uint8
 
 const (

@@ -276,7 +276,7 @@ func (e *EditingState) Destroy() {
 }
 
 func (e *EditingState) SavePeriodically(ctx context.Context) {
-	tick := time.NewTicker(5 * time.Second)
+	tick := time.NewTicker(5 * time.Minute)
 	for {
 		select {
 		case <-ctx.Done():
