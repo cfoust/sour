@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/assets"
 	gameServers "github.com/cfoust/sour/svc/cluster/servers"
 
@@ -15,12 +14,55 @@ import (
 )
 
 type SpaceInstance struct {
-	Space   *Space
+	spaceMeta
+
+	id      string
+	Space   *UserSpace
 	Editing *EditingState
 	Server  *gameServers.GameServer
 	// Lasts for the lifetime of the instance, it's copied from the game
 	// server's
 	Context context.Context
+}
+
+func (s *SpaceInstance) IsOpenEdit() bool {
+	return s.Editing.IsOpenEdit()
+}
+
+func (s *SpaceInstance) GetID() string {
+	return s.id
+}
+
+func (s *SpaceInstance) GetOwner(ctx context.Context) (string, error) {
+	if s.Space != nil {
+		return s.Space.GetOwner(ctx)
+	}
+	return s.Owner, nil
+}
+
+func (s *SpaceInstance) GetDescription(ctx context.Context) (string, error) {
+	if s.Space != nil {
+		return s.Space.GetDescription(ctx)
+	}
+	return s.Description, nil
+}
+
+func (s *SpaceInstance) GetAlias(ctx context.Context) (string, error) {
+	if s.Space != nil {
+		return s.Space.GetAlias(ctx)
+	}
+	return s.Alias, nil
+}
+
+func (s *SpaceInstance) GetMap(ctx context.Context) (string, error) {
+	if s.Space != nil {
+		map_, err := s.Space.GetMap(ctx)
+		if err != nil {
+			return "", err
+		}
+		return map_.GetID(), nil
+	}
+	return s.Map, nil
 }
 
 func (s *SpaceInstance) PollEdits(ctx context.Context) {
@@ -42,10 +84,10 @@ type SpaceManager struct {
 	verse     *Verse
 	servers   *gameServers.ServerManager
 	mutex     sync.Mutex
-	maps      *assets.MapFetcher
+	maps      *assets.AssetFetcher
 }
 
-func NewSpaceManager(verse *Verse, servers *gameServers.ServerManager, maps *assets.MapFetcher) *SpaceManager {
+func NewSpaceManager(verse *Verse, servers *gameServers.ServerManager, maps *assets.AssetFetcher) *SpaceManager {
 	return &SpaceManager{
 		verse:     verse,
 		servers:   servers,
@@ -58,7 +100,7 @@ func (s *SpaceManager) Logger() zerolog.Logger {
 	return log.With().Str("service", "spaces").Logger()
 }
 
-func (s *SpaceManager) SearchSpace(ctx context.Context, id string) (*Space, error) {
+func (s *SpaceManager) SearchSpace(ctx context.Context, id string) (*UserSpace, error) {
 	// Search for a user's space matching this ID
 	space, _ := s.verse.FindSpace(ctx, id)
 	if space != nil {
@@ -86,6 +128,32 @@ func (s *SpaceManager) FindInstance(server *gameServers.GameServer) *SpaceInstan
 	}
 
 	return nil
+}
+
+func (s *SpaceManager) WatchServer(ctx context.Context, space *SpaceInstance, server *gameServers.GameServer) {
+
+	select {
+	case <-ctx.Done():
+		return
+	case <-server.Context.Done():
+		space.Editing.Checkpoint(ctx)
+
+		s.mutex.Lock()
+
+		deleteId := ""
+		for id, instance := range s.instances {
+			if instance.Server == server {
+				deleteId = id
+			}
+		}
+
+		if deleteId != "" {
+			delete(s.instances, deleteId)
+		}
+
+		s.mutex.Unlock()
+		return
+	}
 }
 
 func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstance, error) {
@@ -120,10 +188,6 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 		return nil, err
 	}
 
-	if desc == "" {
-		desc = game.Blue(space.GetID())
-	}
-
 	gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", desc))
 	gameServer.SendCommand("publicserver 1")
 	gameServer.SendCommand("emptymap")
@@ -152,6 +216,10 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 		Server:  gameServer,
 		Context: gameServer.Context,
 	}
+
+	instance.id = space.GetID()
+
+	go s.WatchServer(ctx, &instance, gameServer)
 
 	go instance.PollEdits(gameServer.Context)
 

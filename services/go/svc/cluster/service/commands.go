@@ -8,22 +8,24 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/svc/cluster/clients"
+	"github.com/cfoust/sour/svc/cluster/ingress"
+	"github.com/cfoust/sour/svc/cluster/verse"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
 	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog/log"
 )
 
-func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client *clients.Client, gameServer *servers.GameServer) {
+func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, user *User, gameServer *servers.GameServer) {
 	tick := time.NewTicker(30 * time.Second)
 
 	message := fmt.Sprintf("This is your private server. Have other players join by saying '#join %s' in any Sour server.", gameServer.Id)
-	if client.Connection.Type() == clients.ClientTypeWS {
+
+	if user.Connection.Type() == ingress.ClientTypeWS {
 		message = fmt.Sprintf("This is your private server. Have other players join by saying '#join %s' in any Sour server or by sending the link in your URL bar. (We also copied it for you!)", gameServer.Id)
 	}
 
-	sessionContext := client.ServerSessionContext()
+	sessionContext := user.ServerSessionContext()
 
 	for {
 		gameServer.Mutex.Lock()
@@ -31,7 +33,7 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, client *clients
 		gameServer.Mutex.Unlock()
 
 		if numClients < 2 {
-			client.SendServerMessage(message)
+			user.SendServerMessage(message)
 		} else {
 			return
 		}
@@ -97,8 +99,8 @@ func (server *Cluster) inferCreateParams(args []string) (*CreateParams, error) {
 	return &params, nil
 }
 
-func (server *Cluster) RunCommand(ctx context.Context, command string, client *clients.Client) (handled bool, response string, err error) {
-	logger := log.With().Uint16("client", client.Id).Str("command", command).Logger()
+func (server *Cluster) RunCommand(ctx context.Context, command string, user *User) (handled bool, response string, err error) {
+	logger := user.Logger().With().Str("command", command).Logger()
 	logger.Info().Msg("running command")
 
 	args := strings.Split(command, " ")
@@ -120,12 +122,12 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 		server.createMutex.Lock()
 		defer server.createMutex.Unlock()
 
-		lastCreate, hasLastCreate := server.lastCreate[client.Connection.Host()]
+		lastCreate, hasLastCreate := server.lastCreate[user.Connection.Host()]
 		if hasLastCreate && (time.Now().Sub(lastCreate)) < CREATE_SERVER_COOLDOWN {
 			return true, "", errors.New("too soon since last server create")
 		}
 
-		existingServer, hasExistingServer := server.hostServers[client.Connection.Host()]
+		existingServer, hasExistingServer := server.hostServers[user.Connection.Host()]
 		if hasExistingServer {
 			server.manager.RemoveServer(existingServer)
 		}
@@ -159,14 +161,14 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 			gameServer.SendCommand(fmt.Sprintf("setmap %s", params.Map.Value))
 		}
 
-		server.lastCreate[client.Connection.Host()] = time.Now()
-		server.hostServers[client.Connection.Host()] = gameServer
+		server.lastCreate[user.Connection.Host()] = time.Now()
+		server.hostServers[user.Connection.Host()] = gameServer
 
-		connected, err := client.ConnectToServer(gameServer, "", false, true)
-		go server.GivePrivateMatchHelp(server.serverCtx, client, client.Server)
+		connected, err := user.ConnectToServer(gameServer, "", false, true)
+		go server.GivePrivateMatchHelp(server.serverCtx, user, user.Server)
 
 		go func() {
-			ctx, cancel := context.WithTimeout(client.Connection.SessionContext(), time.Second*10)
+			ctx, cancel := context.WithTimeout(user.Connection.SessionContext(), time.Second*10)
 			defer cancel()
 
 			select {
@@ -175,8 +177,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 					return
 				}
 
-				clientNum := client.GetClientNum()
-				gameServer.SendCommand(fmt.Sprintf("grantmaster %d", clientNum))
+				gameServer.SendCommand(fmt.Sprintf("grantmaster %d", user.GetClientNum()))
 			case <-ctx.Done():
 				log.Info().Msgf("context finished")
 				return
@@ -185,42 +186,107 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 
 		return true, "", nil
 
-	case "openedit":
-		gameServer := client.GetServer()
-		instance := server.spaces.FindInstance(gameServer)
-		if instance == nil {
-			return true, "", fmt.Errorf("you are not in a space")
-		}
-
-		user := client.User
-		if user == nil || user.Verse == nil {
-			return true, "", fmt.Errorf("you are not logged in")
-		}
-
-		space := instance.Space
-		owner, err := space.GetOwner(ctx)
+	case "alias":
+		isOwner, err := user.IsOwner(ctx)
 		if err != nil {
-			return true, "", fmt.Errorf("failed to get owner")
+			return true, "", err
 		}
 
-		if user.Verse.GetID() == owner {
-			editing := instance.Editing
-			current := editing.IsOpenEdit()
-			editing.SetOpenEdit(!current)
-
-			canEdit := editing.IsOpenEdit()
-
-			if canEdit {
-				server.AnnounceInServer(ctx, gameServer, "editing is now enabled")
-			} else {
-				server.AnnounceInServer(ctx, gameServer, "editing is now disabled")
-			}
-
-			return true, "", nil
+		if !isOwner {
+			return true, "", fmt.Errorf("this is not your space")
 		}
 
-		return true, "", fmt.Errorf("you are not the owner")
+		instance := user.GetSpace()
+		space := instance.Space
 
+		if len(command) < 7 {
+			return true, "", fmt.Errorf("alias too short")
+		}
+
+		alias := command[6:]
+		if !verse.IsValidAlias(alias) {
+			return true, "", fmt.Errorf("aliases must consist of lowercase letters, numbers, or hyphens")
+		}
+
+		if len(alias) > 16 {
+			return true, "", fmt.Errorf("alias too long")
+		}
+
+		// Ensure the alias does not match any maps in our asset indices, either
+		found := server.assets.FindMap(alias)
+		if opt.IsSome(found) {
+			return true, "", fmt.Errorf("alias taken by a pre-built map")
+		}
+
+		err = space.SetAlias(ctx, alias)
+		if err != nil {
+			return true, "", err
+		}
+
+		server.AnnounceInServer(ctx, instance.Server, fmt.Sprintf("space alias set to %s", alias))
+		return true, "", nil
+
+	case "desc":
+		isOwner, err := user.IsOwner(ctx)
+		if err != nil {
+			return true, "", err
+		}
+
+		if !isOwner {
+			return true, "", fmt.Errorf("this is not your space")
+		}
+
+		instance := user.GetSpace()
+		space := instance.Space
+		server := instance.Server
+
+		if len(command) < 6 {
+			return true, "", fmt.Errorf("description too short")
+		}
+
+		description := command[5:]
+		if len(description) > 32 {
+			description = description[:32]
+		}
+
+		err = space.SetDescription(ctx, description)
+		if err != nil {
+			return true, "", err
+		}
+
+		server.SendCommand(fmt.Sprintf("serverdesc \"%s\"", description))
+		server.SendCommand("refreshserverinfo")
+		return true, "", nil
+
+
+	case "edit":
+		isOwner, err := user.IsOwner(ctx)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to change edit state")
+			return true, "", err
+		}
+
+		if !isOwner {
+			return true, "", fmt.Errorf("this is not your space")
+		}
+
+		space := user.GetSpace()
+		editing := space.Editing
+		current := editing.IsOpenEdit()
+		editing.SetOpenEdit(!current)
+
+		canEdit := editing.IsOpenEdit()
+
+		if canEdit {
+			server.AnnounceInServer(ctx, space.Server, "editing is now enabled")
+		} else {
+			server.AnnounceInServer(ctx, space.Server, "editing is now disabled")
+		}
+
+		return true, "", nil
+
+	case "go":
+		fallthrough
 	case "join":
 		if len(args) != 2 {
 			return true, "", errors.New("join takes a single argument")
@@ -228,39 +294,51 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 
 		target := args[1]
 
-		client.Mutex.Lock()
-		if client.Server != nil && client.Server.IsReference(target) {
-			logger.Info().Msg("client already connected to target")
-			client.Mutex.Unlock()
+		user.Mutex.Lock()
+		if user.Server != nil && user.Server.IsReference(target) {
+			logger.Info().Msg("user already connected to target")
+			user.Mutex.Unlock()
 			break
 		}
-		client.Mutex.Unlock()
+		user.Mutex.Unlock()
 
 		for _, gameServer := range server.manager.Servers {
 			if !gameServer.IsReference(target) || !gameServer.IsRunning() {
 				continue
 			}
 
-			_, err := client.Connect(gameServer)
+			_, err := user.Connect(gameServer)
 			if err != nil {
 				return true, "", err
 			}
 
 			return true, "", nil
-		}
-
+		} 
 		// Look for a space
 		space, err := server.spaces.SearchSpace(ctx, target)
 		if err != nil {
-		    return true, "", err
+			return true, "", err
 		}
 
 		if space != nil {
 			instance, err := server.spaces.StartSpace(ctx, target)
 			if err != nil {
-			    return true, "", err
+				return true, "", err
 			}
-			_, err = client.ConnectToSpace(instance.Server, instance.Space.GetID())
+
+			// Appears in the user's URL bar
+			serverName := instance.Space.GetID()
+
+			alias, err := space.GetAlias(ctx)
+			if err != nil {
+				return true, "", err
+			}
+
+			if alias != "" {
+				serverName = alias
+			}
+
+			_, err = user.ConnectToSpace(instance.Server, serverName)
 			return true, "", err
 		}
 
@@ -273,7 +351,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 			duelType = args[1]
 		}
 
-		err := server.matches.Queue(client, duelType)
+		err := server.matches.Queue(user, duelType)
 		if err != nil {
 			// Theoretically, there might also just not be a default, but whatever.
 			return true, "", fmt.Errorf("duel type '%s' does not exist", duelType)
@@ -282,11 +360,11 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 		return true, "", nil
 
 	case "stopduel":
-		server.matches.Dequeue(client)
+		server.matches.Dequeue(user)
 		return true, "", nil
 
 	case "home":
-		server.GoHome(server.serverCtx, client)
+		server.GoHome(server.serverCtx, user)
 		return true, "", nil
 
 	case "help":
@@ -298,7 +376,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 		}
 
 		for _, message := range messages {
-			client.SendServerMessage(message)
+			user.SendServerMessage(message)
 		}
 
 		return true, "", nil
@@ -307,16 +385,16 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, client *c
 	return false, "", nil
 }
 
-func (server *Cluster) RunCommandWithTimeout(ctx context.Context, command string, client *clients.Client) (handled bool, response string, err error) {
+func (server *Cluster) RunCommandWithTimeout(ctx context.Context, command string, user *User) (handled bool, response string, err error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 
-	resultChannel := make(chan clients.CommandResult)
+	resultChannel := make(chan ingress.CommandResult)
 
 	defer cancel()
 
 	go func() {
-		handled, response, err := server.RunCommand(ctx, command, client)
-		resultChannel <- clients.CommandResult{
+		handled, response, err := server.RunCommand(ctx, command, user)
+		resultChannel <- ingress.CommandResult{
 			Handled:  handled,
 			Err:      err,
 			Response: response,

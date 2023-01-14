@@ -67,8 +67,6 @@ void SocketChannel::init()
         return;
     }
 
-    printf("[ OK ] Initalizing socket control on %s...\n", socketpath);
-
     result = listen(sockFd, 5);
     if (result == -1) {
         printf("Failed to listen on socket %s\n", socketpath);

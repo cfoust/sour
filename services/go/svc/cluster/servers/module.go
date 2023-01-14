@@ -21,11 +21,16 @@ import (
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/config"
+	"github.com/cfoust/sour/svc/cluster/ingress"
 
 	"github.com/repeale/fp-go"
 	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog/log"
 )
+
+// Sauerbraten servers assign each client a number.
+// NOT the same thing as ClientID.
+type ClientNum int32
 
 //go:embed qserv/qserv
 var QSERV_EXECUTABLE []byte
@@ -103,31 +108,35 @@ const (
 	SERVER_MAX_IDLE_TIME = time.Duration(10 * time.Minute)
 )
 
-type ForceDisconnect struct {
-	Client uint32
-	Reason int32
-	Text   string
-}
-
 type MapRequest struct {
 	Map  string
 	Mode int32
 }
 
 type ClientPacket struct {
-	Client uint32
+	Client ingress.ClientID
 	Packet game.GamePacket
 	Server *GameServer
 }
 
 type ClientJoin struct {
-	Client uint32
-	// Sauerbraten server clients each get their own identifiers as well
-	ClientNum int32
+	Client ingress.ClientID
+	Num    ClientNum
+}
+
+type ClientKick struct {
+	Client ingress.ClientID
+	Reason int32
+	Text   string
+}
+
+type ClientLeave struct {
+	Client ingress.ClientID
+	Num    ClientNum
 }
 
 type ClientName struct {
-	Client uint32
+	Client ingress.ClientID
 	Name   string
 }
 
@@ -137,21 +146,21 @@ type ServerManager struct {
 	Mutex   sync.Mutex
 
 	presets []config.ServerPreset
-	Maps    *assets.MapFetcher
+	Maps    *assets.AssetFetcher
 
 	serverDescription string
 	serverPath        string
 	// The working directory of all of the servers
 	workingDir string
 
-	connects    chan ClientJoin
-	names       chan ClientName
-	disconnects chan ForceDisconnect
-	packets     chan ClientPacket
+	connects chan ClientJoin
+	names    chan ClientName
+	kicks    chan ClientKick
+	packets  chan ClientPacket
 }
 
-func (manager *ServerManager) ReceiveDisconnects() <-chan ForceDisconnect {
-	return manager.disconnects
+func (manager *ServerManager) ReceiveKicks() <-chan ClientKick {
+	return manager.kicks
 }
 
 func (manager *ServerManager) ReceivePackets() <-chan ClientPacket {
@@ -179,14 +188,14 @@ func (manager *ServerManager) GetServerInfo() *ServerInfo {
 	return &info
 }
 
-func NewServerManager(maps *assets.MapFetcher, serverDescription string, presets []config.ServerPreset) *ServerManager {
+func NewServerManager(maps *assets.AssetFetcher, serverDescription string, presets []config.ServerPreset) *ServerManager {
 	return &ServerManager{
 		Servers:           make([]*GameServer, 0),
 		Maps:              maps,
 		serverDescription: serverDescription,
 		presets:           presets,
 		packets:           make(chan ClientPacket, 100),
-		disconnects:       make(chan ForceDisconnect, 100),
+		kicks:             make(chan ClientKick, 100),
 		names:             make(chan ClientName, 100),
 		connects:          make(chan ClientJoin, 100),
 	}
@@ -335,33 +344,23 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 		select {
 		case request := <-requests:
 			server.SetStatus(ServerLoadingMap)
-
-			map_ := manager.Maps.FindMap(request.Map)
-
-			if opt.IsNone(map_) {
-				server.SendMapResponse(request.Map, request.Mode, "", false)
-				continue
-			}
-
 			logger := log.With().Str("map", request.Map).Int32("mode", request.Mode).Logger()
 
-			ogz := map_.Value.GetOGZURL()
-			if opt.IsNone(ogz) {
-				continue
-			}
-
-			url := ogz.Value
-
-			logger.Info().Str("url", url).Msg("downloading map")
-			path := filepath.Join(manager.workingDir, fmt.Sprintf("packages/base/%s.ogz", request.Map))
-			err := assets.DownloadFile(url, path)
+			data, err := manager.Maps.FetchMapBytes(ctx, request.Map)
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to download map")
 				server.SendMapResponse(request.Map, request.Mode, "", false)
 				continue
 			}
 
-			logger.Info().Str("destination", path).Msg("downloaded map")
+			path := filepath.Join(manager.workingDir, fmt.Sprintf("packages/base/%s.ogz", request.Map))
+			err = assets.WriteBytes(data, path)
+			if err != nil {
+				logger.Error().Err(err).Msg("failed to download map")
+				server.SendMapResponse(request.Map, request.Mode, "", false)
+				continue
+			}
+
 			server.SendMapResponse(request.Map, request.Mode, path, true)
 			continue
 		case <-ctx.Done():
@@ -438,11 +437,11 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		cancel:        cancel,
 		Connecting:    make(chan bool, 1),
 		LastEvent:     time.Now(),
-		ClientInfo:    make(map[uint16]*ClientExtInfo),
+		ClientInfo:    make(map[ingress.ClientID]*ClientExtInfo),
 		NumClients:    0,
 		broadcasts:    make(chan game.Message, 10),
 		connects:      manager.connects,
-		disconnects:   manager.disconnects,
+		kicks:         manager.kicks,
 		mapRequests:   make(chan MapRequest, 10),
 		packets:       manager.packets,
 		rawBroadcasts: make(chan game.GamePacket, 10),

@@ -1,53 +1,19 @@
 package clients
 
 import (
-	"context"
 	"crypto/rand"
 	"errors"
-	"fmt"
 	"math"
 	"math/big"
 	"sync"
-	"time"
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/auth"
-	"github.com/cfoust/sour/svc/cluster/config"
+	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
-	"github.com/go-redis/redis/v9"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-)
-
-const (
-	CLIENT_MESSAGE_LIMIT int = 16
-)
-
-type CommandResult struct {
-	Handled  bool
-	Err      error
-	Response string
-}
-
-type ClusterCommand struct {
-	Command  string
-	Response chan CommandResult
-}
-
-type ClientType uint8
-
-const (
-	ClientTypeWS = iota
-	ClientTypeENet
-)
-
-// The status of the client's connection to the cluster.
-type ClientNetworkStatus uint8
-
-const (
-	ClientNetworkStatusConnected = iota
-	ClientNetworkStatusDisconnected
 )
 
 // The status of the client's connection to their game server.
@@ -59,53 +25,21 @@ const (
 	ClientStatusDisconnected
 )
 
-type NetworkClient interface {
-	// Lasts for the duration of the client's connection to its ingress.
-	SessionContext() context.Context
-	NetworkStatus() ClientNetworkStatus
-	Host() string
-	Type() ClientType
-	// Tell the client that we've connected
-	Connect(name string, isHidden bool, shouldCopy bool)
-	// Messages going to the client
-	Send(packet game.GamePacket) <-chan bool
-	// Messages going to the server
-	ReceivePackets() <-chan game.GamePacket
-	// Clients can issue commands out-of-band
-	// Commands sent in ordinary game packets are interpreted anyway
-	ReceiveCommands() <-chan ClusterCommand
-	// When the client disconnects on its own
-	ReceiveDisconnect() <-chan bool
-	// When the client authenticates
-	ReceiveAuthentication() <-chan *auth.User
-	// WS clients can put chat in the chat bar; ENet clients cannot
-	SendGlobalChat(message string)
-	// Forcibly disconnect this client
-	Disconnect(reason int, message string)
-	Destroy()
-}
-
 type Intercept struct {
 	From chan game.GamePacket
 	To   chan game.GamePacket
 }
 
 type Client struct {
-	Id    uint16
-	Mutex sync.Mutex
+	Id ingress.ClientID
 
-	Name string
 	// Whether the client is connected (or connecting) to a game server
-	Status    ClientStatus
-	User      *auth.User
-	Challenge *auth.Challenge
-	ELO       *ELOState
-	Server    *servers.GameServer
+	Status ClientStatus
 
-	Connection NetworkClient
+	Connection ingress.Connection
 
 	// The ID of the client on the Sauer server
-	ClientNum int32
+	Num servers.ClientNum
 	// Each time a player dies, they're given a number (probably for
 	// anti-hacking?)
 	LifeSequence int
@@ -114,48 +48,20 @@ type Client struct {
 	delayMessages bool
 	messageQueue  []string
 
-	// Created when the user connects to a server and canceled when they
-	// leave, regardless of reason (network or being disconnected by the
-	// server)
-	// This is NOT the same thing as Client.Connection.SessionContext(), which refers to
-	// the lifecycle of the client's ingress connection
-	serverSessionCtx context.Context
-	cancel           context.CancelFunc
-
-	Authentication chan *auth.User
+	Authentication chan *auth.AuthUser
 
 	Intercept Intercept
 
-	// XXX This is nasty but to make the API nice, Clients have to be able
-	// to see the list of clients. This could/should be refactored someday.
-	manager *ClientManager
+	Mutex sync.Mutex
 }
 
 func (c *Client) Logger() zerolog.Logger {
-	c.Mutex.Lock()
-	logger := log.With().Uint16("client", c.Id).Str("name", c.Name).Logger()
-
-	if c.User != nil {
-		discord := c.User.Discord
-		logger = logger.With().
-			Str("discord", fmt.Sprintf(
-				"%s#%s",
-				discord.Username,
-				discord.Discriminator,
-			)).Logger()
-	}
-
-	if c.Server != nil {
-		logger = logger.With().Str("server", c.Server.Reference()).Logger()
-	}
-	c.Mutex.Unlock()
-
-	return logger
+	return log.With().Uint32("client", uint32(c.Id)).Logger()
 }
 
-func (c *Client) ReceiveAuthentication() <-chan *auth.User {
+func (c *Client) ReceiveAuthentication() <-chan *auth.AuthUser {
 	// WS clients do their own auth (for now)
-	if c.Connection.Type() == ClientTypeWS {
+	if c.Connection.Type() == ingress.ClientTypeWS {
 		return c.Connection.ReceiveAuthentication()
 	}
 
@@ -169,9 +75,9 @@ func (c *Client) GetStatus() ClientStatus {
 	return status
 }
 
-func (c *Client) GetClientNum() int32 {
+func (c *Client) GetClientNum() servers.ClientNum {
 	c.Mutex.Lock()
-	num := c.ClientNum
+	num := c.Num
 	c.Mutex.Unlock()
 	return num
 }
@@ -181,59 +87,6 @@ func (c *Client) GetLifeSequence() int {
 	num := c.LifeSequence
 	c.Mutex.Unlock()
 	return num
-}
-
-func (c *Client) GetName() string {
-	c.Mutex.Lock()
-	name := c.Name
-	c.Mutex.Unlock()
-	return name
-}
-
-func (c *Client) GetFormattedName() string {
-	name := c.GetName()
-	user := c.GetUser()
-
-	if user != nil {
-		name = game.Blue(name)
-	}
-
-	return name
-}
-
-func (c *Client) GetServerName() string {
-	serverName := "???"
-	server := c.GetServer()
-	if server != nil {
-		serverName = server.GetFormattedReference()
-	} else {
-		if c.Connection.Type() == ClientTypeWS {
-			serverName = "web"
-		}
-	}
-
-	return serverName
-}
-
-func (c *Client) GetUser() *auth.User {
-	c.Mutex.Lock()
-	user := c.User
-	c.Mutex.Unlock()
-	return user
-}
-
-func (c *Client) ServerSessionContext() context.Context {
-	c.Mutex.Lock()
-	ctx := c.serverSessionCtx
-	c.Mutex.Unlock()
-	return ctx
-}
-
-func (c *Client) GetServer() *servers.GameServer {
-	c.Mutex.Lock()
-	server := c.Server
-	c.Mutex.Unlock()
-	return server
 }
 
 func (c *Client) DelayMessages() {
@@ -258,17 +111,6 @@ func (c *Client) sendQueuedMessages() {
 	c.Mutex.Unlock()
 }
 
-func (c *Client) Reference() string {
-	c.Mutex.Lock()
-	server := c.Server
-	reference := c.Name
-	if server != nil {
-		reference = fmt.Sprintf("%s (%s)", c.Name, server.Reference())
-	}
-	c.Mutex.Unlock()
-	return reference
-}
-
 func (c *Client) sendMessage(message string) {
 	packet := game.Packet{}
 	packet.PutInt(int32(game.N_SERVMSG))
@@ -279,46 +121,6 @@ func (c *Client) sendMessage(message string) {
 	})
 }
 
-func (c *Client) AnnounceELO() {
-	c.Mutex.Lock()
-	result := "ratings: "
-	for _, duel := range c.manager.Duels {
-		name := duel.Name
-		state := c.ELO.Ratings[name]
-		result += fmt.Sprintf(
-			"%s %d (%s-%s-%s) ",
-			name,
-			state.Rating,
-			game.Green(fmt.Sprint(state.Wins)),
-			game.Yellow(fmt.Sprint(state.Draws)),
-			game.Red(fmt.Sprint(state.Losses)),
-		)
-	}
-	c.Mutex.Unlock()
-
-	c.SendServerMessage(result)
-}
-
-func (c *Client) HydrateELOState(ctx context.Context, user *auth.User) error {
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
-
-	elo := NewELOState(c.manager.Duels)
-
-	for _, duel := range c.manager.Duels {
-		state, err := LoadELOState(ctx, c.manager.redis, user.Discord.Id, duel.Name)
-		if err != nil {
-			return err
-		}
-
-		elo.Ratings[duel.Name] = state
-	}
-
-	c.ELO = elo
-
-	return nil
-}
-
 func (c *Client) Send(packet game.GamePacket) <-chan bool {
 	c.Intercept.To <- packet
 	return c.Connection.Send(packet)
@@ -326,24 +128,6 @@ func (c *Client) Send(packet game.GamePacket) <-chan bool {
 
 func (c *Client) ReceiveIntercept() (<-chan game.GamePacket, <-chan game.GamePacket) {
 	return c.Intercept.To, c.Intercept.From
-}
-
-func (c *Client) SaveELOState(ctx context.Context) error {
-	if c.User == nil {
-		return nil
-	}
-
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
-
-	for matchType, state := range c.ELO.Ratings {
-		err := state.SaveState(ctx, c.manager.redis, c.User.Discord.Id, matchType)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (c *Client) SendMessage(message string) {
@@ -356,145 +140,25 @@ func (c *Client) SendMessage(message string) {
 	c.Mutex.Unlock()
 }
 
-func (c *Client) SendServerMessage(message string) {
-	c.SendMessage(fmt.Sprintf("%s %s", game.Yellow("sour"), message))
-}
-
-func (c *Client) ConnectToSpace(server *servers.GameServer, id string) (<-chan bool, error) {
-	return c.ConnectToServer(server, id, false, true)
-}
-
-func (c *Client) Connect(server *servers.GameServer) (<-chan bool, error) {
-	return c.ConnectToServer(server, "", false, false)
-}
-
-func (c *Client) ConnectToServer(server *servers.GameServer, target string, shouldCopy bool, isSpace bool) (<-chan bool, error) {
-	if c.Connection.NetworkStatus() == ClientNetworkStatusDisconnected {
-		log.Warn().Msgf("client not connected to cluster but attempted connect")
-		return nil, fmt.Errorf("client not connected to cluster")
-	}
-
-	c.DelayMessages()
-
-	connected := make(chan bool, 1)
-
-	log.Info().Str("server", server.Reference()).
-		Msg("client connecting to server")
-
-	c.Mutex.Lock()
-	if c.Server != nil {
-		c.Server.SendDisconnect(c.Id)
-		c.cancel()
-
-		// Remove all the other clients from this client's perspective
-		c.manager.Mutex.Lock()
-		for client := range c.manager.State {
-			if client == c || client.GetServer() != c.Server {
-				continue
-			}
-
-			// Send N_CDIS
-			client.Mutex.Lock()
-			packet := game.Packet{}
-			packet.PutInt(int32(game.N_CDIS))
-			packet.PutInt(int32(client.ClientNum))
-			c.Connection.Send(game.GamePacket{
-				Channel: 1,
-				Data:    packet,
-			})
-			client.Mutex.Unlock()
-		}
-		c.manager.Mutex.Unlock()
-	}
-	c.Server = server
-	server.Connecting <- true
-	c.Status = ClientStatusConnecting
-	sessionCtx, cancel := context.WithCancel(c.Connection.SessionContext())
-	c.serverSessionCtx = sessionCtx
-	c.cancel = cancel
-	c.Mutex.Unlock()
-
-	server.SendConnect(c.Id)
-
-	serverName := server.Reference()
-	if target != "" {
-		serverName = target
-	}
-	c.Connection.Connect(serverName, server.Hidden, shouldCopy)
-
-	// Give the client one second to connect.
-	go func() {
-		tick := time.NewTicker(50 * time.Millisecond)
-		connectCtx, cancel := context.WithTimeout(sessionCtx, time.Second*1)
-
-		defer cancel()
-		defer func() {
-			<-server.Connecting
-		}()
-
-		for {
-			if c.GetStatus() == ClientStatusConnected {
-				connected <- true
-				return
-			}
-
-			select {
-			case <-tick.C:
-				continue
-			case <-c.Connection.SessionContext().Done():
-				connected <- false
-				return
-			case <-connectCtx.Done():
-				c.RestoreMessages()
-				connected <- false
-				return
-			}
-		}
-	}()
-
-	return connected, nil
-}
-
-// Mark the client's status as disconnected and cancel its session context.
-// Called both when the client disconnects from ingress AND when the server kicks them out.
-func (c *Client) DisconnectFromServer() error {
-	c.Mutex.Lock()
-	if c.Server != nil {
-		c.Server.SendDisconnect(c.Id)
-	}
-	c.Server = nil
-	c.Status = ClientStatusDisconnected
-	if c.cancel != nil {
-		c.cancel()
-	}
-	c.Mutex.Unlock()
-
-	return nil
-}
-
 type ClientManager struct {
-	Duels      []config.DuelType
 	State      map[*Client]struct{}
-	Mutex      sync.Mutex
-	redis      *redis.Client
+	mutex      sync.Mutex
 	newClients chan *Client
 }
 
-func NewClientManager(redis *redis.Client, duels []config.DuelType) *ClientManager {
+func NewClientManager() *ClientManager {
 	return &ClientManager{
-		Duels:      duels,
-		redis:      redis,
 		State:      make(map[*Client]struct{}),
 		newClients: make(chan *Client, 16),
 	}
 }
 
-func (c *ClientManager) newClientID() (uint16, error) {
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
+func (c *ClientManager) newClientID() (ingress.ClientID, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	for attempts := 0; attempts < math.MaxUint16; attempts++ {
 		number, _ := rand.Int(rand.Reader, big.NewInt(math.MaxUint16))
-		truncated := uint16(number.Uint64())
+		truncated := ingress.ClientID(number.Uint64())
 
 		taken := false
 		for client := range c.State {
@@ -512,68 +176,49 @@ func (c *ClientManager) newClientID() (uint16, error) {
 	return 0, errors.New("Failed to assign client ID")
 }
 
-func (c *ClientManager) AddClient(networkClient NetworkClient) error {
+func (c *ClientManager) AddClient(networkClient ingress.Connection) error {
 	id, err := c.newClientID()
 	if err != nil {
 		return err
 	}
 
 	client := Client{
-		Id:               id,
-		Name:             "unnamed",
-		ELO:              NewELOState(c.Duels),
-		Connection:       networkClient,
-		Status:           ClientStatusDisconnected,
-		manager:          c,
-		delayMessages:    false,
-		messageQueue:     make([]string, 0),
-		Authentication:   make(chan *auth.User, 1),
-		serverSessionCtx: context.Background(),
+		Id:             id,
+		Connection:     networkClient,
+		Status:         ClientStatusDisconnected,
+		delayMessages:  false,
+		messageQueue:   make([]string, 0),
+		Authentication: make(chan *auth.AuthUser, 1),
 		Intercept: Intercept{
 			To:   make(chan game.GamePacket, 1000),
 			From: make(chan game.GamePacket, 1000),
 		},
 	}
 
-	c.Mutex.Lock()
+	c.mutex.Lock()
 	c.State[&client] = struct{}{}
-	c.Mutex.Unlock()
+	c.mutex.Unlock()
 
 	c.newClients <- &client
 
 	return nil
 }
 
-func (c *ClientManager) RemoveClient(networkClient NetworkClient) {
-	c.Mutex.Lock()
+func (c *ClientManager) RemoveClient(networkClient ingress.Connection) {
+	c.mutex.Lock()
 
 	for client := range c.State {
 		if client.Connection != networkClient {
 			continue
 		}
 
-		client.DisconnectFromServer()
 		delete(c.State, client)
 		break
 	}
 
-	c.Mutex.Unlock()
+	c.mutex.Unlock()
 }
 
 func (c *ClientManager) ReceiveClients() <-chan *Client {
 	return c.newClients
-}
-
-func (c *ClientManager) FindClient(id uint16) *Client {
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
-	for client := range c.State {
-		if client.Id != uint16(id) {
-			continue
-		}
-
-		return client
-	}
-
-	return nil
 }

@@ -44,7 +44,9 @@ func main() {
 
 	state := state.NewStateService(sourConfig.Redis)
 
-	maps := assets.NewMapFetcher()
+	maps := assets.NewAssetFetcher(state.Client)
+	go maps.PollDownloads(ctx)
+
 	sender := service.NewMapSender(maps)
 	err = maps.FetchIndices(clusterConfig.Assets)
 	if err != nil {
@@ -59,7 +61,7 @@ func main() {
 	var discord *auth.DiscordService = nil
 	discordSettings := sourConfig.Discord
 	if discordSettings.Enabled {
-		log.Info().Msg("initializing Discord authentication")
+		log.Info().Msg("Discord authentication enabled")
 		discord = auth.NewDiscordService(
 			discordSettings,
 			state,
@@ -83,7 +85,9 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to start server manager")
 	}
 
-	wsIngress := ingress.NewWSIngress(cluster.Clients, discord)
+	newConnections := make(chan ingress.Connection)
+
+	wsIngress := ingress.NewWSIngress(newConnections, discord)
 
 	enet := make([]*ingress.ENetIngress, 0)
 	infoServices := make([]*servers.ServerInfoService, 0)
@@ -91,7 +95,7 @@ func main() {
 	cluster.StartServers(ctx)
 
 	for _, enetConfig := range clusterConfig.Ingress.Desktop {
-		enetIngress := ingress.NewENetIngress(cluster.Clients)
+		enetIngress := ingress.NewENetIngress(newConnections)
 		enetIngress.Serve(enetConfig.Port)
 		enetIngress.InitialCommand = fmt.Sprintf("join %s", enetConfig.Target)
 		go enetIngress.Poll(ctx)
@@ -120,7 +124,7 @@ func main() {
 
 		enet = append(enet, enetIngress)
 	}
-	go cluster.PollClients(ctx)
+	go cluster.PollUsers(ctx, newConnections)
 	go cluster.PollDuels(ctx)
 
 	errc := make(chan error, 1)

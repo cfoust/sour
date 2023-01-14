@@ -10,17 +10,18 @@ import (
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/maps/worldio"
+	"github.com/cfoust/sour/svc/cluster/ingress"
 
 	"github.com/rs/zerolog/log"
 )
 
 type Edit struct {
 	Time    time.Time
-	Sender  int32
+	Sender  ingress.ClientID
 	Message game.Message
 }
 
-func NewEdit(sender int32, message game.Message) *Edit {
+func NewEdit(sender ingress.ClientID, message game.Message) *Edit {
 	return &Edit{
 		Time:    time.Now(),
 		Sender:  sender,
@@ -29,11 +30,11 @@ func NewEdit(sender int32, message game.Message) *Edit {
 }
 
 type EditingState struct {
-	Clipboards map[int32]worldio.Editinfo
+	Clipboards map[ingress.ClientID]worldio.Editinfo
 	Edits      []*Edit
 	GameMap    *maps.GameMap
 	Map        *Map
-	Space      *Space
+	Space      *UserSpace
 	OpenEdit   bool
 
 	mutex sync.Mutex
@@ -104,7 +105,13 @@ func (e *EditingState) Checkpoint(ctx context.Context) error {
 	return err
 }
 
-func (e *EditingState) Process(sender int32, message game.Message) {
+func (e *EditingState) ClearClipboard(sender ingress.ClientID) {
+	e.mutex.Lock()
+	delete(e.Clipboards, sender)
+	e.mutex.Unlock()
+}
+
+func (e *EditingState) Process(sender ingress.ClientID, message game.Message) {
 	e.mutex.Lock()
 	e.Edits = append(e.Edits, NewEdit(sender, message))
 	e.mutex.Unlock()
@@ -210,7 +217,9 @@ func (e *EditingState) Apply(edits []*Edit) error {
 				continue
 			}
 
+			e.mutex.Lock()
 			e.Clipboards[edit.Sender] = info
+			e.mutex.Unlock()
 			continue
 		}
 
@@ -256,11 +265,11 @@ func (e *EditingState) Apply(edits []*Edit) error {
 	return nil
 }
 
-func NewEditingState(verse *Verse, space *Space, map_ *Map) *EditingState {
+func NewEditingState(verse *Verse, space *UserSpace, map_ *Map) *EditingState {
 	return &EditingState{
 		OpenEdit:   false,
 		Edits:      make([]*Edit, 0),
-		Clipboards: make(map[int32]worldio.Editinfo),
+		Clipboards: make(map[ingress.ClientID]worldio.Editinfo),
 		verse:      verse,
 		Map:        map_,
 		Space:      space,
@@ -276,7 +285,7 @@ func (e *EditingState) Destroy() {
 }
 
 func (e *EditingState) SavePeriodically(ctx context.Context) {
-	tick := time.NewTicker(5 * time.Second)
+	tick := time.NewTicker(5 * time.Minute)
 	for {
 		select {
 		case <-ctx.Done():

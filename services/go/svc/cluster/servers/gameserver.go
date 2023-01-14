@@ -15,18 +15,19 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/svc/cluster/ingress"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 type RawEdit struct {
-	Client int32
+	Client ingress.ClientID
 	Packet game.GamePacket
 }
 
 type MapEdit struct {
-	Client int32
+	Client  ingress.ClientID
 	Message game.Message
 }
 
@@ -40,7 +41,7 @@ type GameServer struct {
 
 	// Everything we get from serverinfo
 	Info       ServerInfo
-	ClientInfo map[uint16]*ClientExtInfo
+	ClientInfo map[ingress.ClientID]*ClientExtInfo
 	Uptime     ServerUptime
 	Teams      TeamInfo
 	Map        string
@@ -82,10 +83,10 @@ type GameServer struct {
 
 	mapRequests chan MapRequest
 
-	names       chan ClientName
-	connects    chan ClientJoin
-	disconnects chan ForceDisconnect
-	packets     chan ClientPacket
+	names    chan ClientName
+	connects chan ClientJoin
+	kicks    chan ClientKick
+	packets  chan ClientPacket
 }
 
 func (server *GameServer) ReceiveMapRequests() <-chan MapRequest {
@@ -124,7 +125,7 @@ func (server *GameServer) sendMessage(data []byte) {
 	server.send <- p
 }
 
-func (server *GameServer) SendData(clientId uint16, channel uint32, data []byte) {
+func (server *GameServer) SendData(clientId ingress.ClientID, channel uint32, data []byte) {
 	p := game.Packet{}
 	p.PutUint(SOCKET_EVENT_RECEIVE)
 	p.PutUint(uint32(clientId))
@@ -134,14 +135,14 @@ func (server *GameServer) SendData(clientId uint16, channel uint32, data []byte)
 	server.sendMessage(p)
 }
 
-func (server *GameServer) SendConnect(clientId uint16) {
+func (server *GameServer) SendConnect(clientId ingress.ClientID) {
 	p := game.Packet{}
 	p.PutUint(SOCKET_EVENT_CONNECT)
 	p.PutUint(uint32(clientId))
 	server.sendMessage(p)
 }
 
-func (server *GameServer) SendDisconnect(clientId uint16) {
+func (server *GameServer) SendDisconnect(clientId ingress.ClientID) {
 	p := game.Packet{}
 	p.PutUint(SOCKET_EVENT_DISCONNECT)
 	p.PutUint(uint32(clientId))
@@ -326,7 +327,7 @@ func (server *GameServer) DecodeMessages(ctx context.Context) {
 
 			for _, message := range decoded {
 				server.mapEdits <- MapEdit{
-					Client: edit.Client,
+					Client:  edit.Client,
 					Message: message,
 				}
 			}
@@ -433,7 +434,7 @@ func (server *GameServer) HandleServerInfo(numClients int, data []byte) error {
 				}
 
 				server.Mutex.Lock()
-				server.ClientInfo[uint16(clientInfo.Client)] = clientInfo
+				server.ClientInfo[ingress.ClientID(clientInfo.Client)] = clientInfo
 				server.Mutex.Unlock()
 			}
 		case EXT_TEAMSCORE:
@@ -603,8 +604,8 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 					}
 
 					server.connects <- ClientJoin{
-						Client:    id,
-						ClientNum: clientNum,
+						Client: ingress.ClientID(id),
+						Num:    ClientNum(clientNum),
 					}
 					continue
 				}
@@ -621,7 +622,7 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 					}
 
 					server.names <- ClientName{
-						Client: id,
+						Client: ingress.ClientID(id),
 						Name:   name,
 					}
 					continue
@@ -643,8 +644,8 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 						break
 					}
 
-					server.disconnects <- ForceDisconnect{
-						Client: id,
+					server.kicks <- ClientKick{
+						Client: ingress.ClientID(id),
 						Reason: reason,
 						Text:   reasonText,
 					}
@@ -670,7 +671,7 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 							Data:    data,
 							Channel: 1,
 						},
-						Client: sender,
+						Client: ingress.ClientID(sender),
 					}
 					continue
 				}
@@ -709,7 +710,7 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 				p = p[len(data):]
 
 				server.packets <- ClientPacket{
-					Client: id,
+					Client: ingress.ClientID(id),
 					Packet: game.GamePacket{
 						Data:    data,
 						Channel: uint8(chan_),
@@ -740,8 +741,6 @@ func (server *GameServer) Wait() {
 		logger.Error().Err(err).Msg("failed to start server")
 		return
 	}
-
-	logger.Info().Msg("server started")
 
 	stdoutEOF := make(chan bool, 1)
 	stderrEOF := make(chan bool, 1)
@@ -819,7 +818,6 @@ func (server *GameServer) Wait() {
 }
 
 func (server *GameServer) Start(ctx context.Context) error {
-	logger := server.Log()
 	tick := time.NewTicker(250 * time.Millisecond)
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*10)
@@ -837,7 +835,6 @@ func (server *GameServer) Start(ctx context.Context) error {
 			conn, err := Connect(server.path)
 
 			if err == nil {
-				logger.Info().Msg("connected")
 				server.Mutex.Lock()
 				server.Status = ServerStarted
 				server.socket = conn

@@ -8,20 +8,24 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/cfoust/sour/pkg/maps"
+	"github.com/cfoust/sour/svc/cluster/auth"
 
 	"github.com/go-redis/redis/v9"
 )
 
 const (
-	PREFIX       = "verse-"
-	MAP_PREFIX   = PREFIX + "map-"
-	MAP_META_KEY = MAP_PREFIX + "meta-%s"
-	MAP_DATA_KEY = MAP_PREFIX + "data-%s"
-	SPACE_KEY    = PREFIX + "space-%s"
-	USER_KEY     = PREFIX + "user-%s"
+	PREFIX             = "verse-"
+	MAP_PREFIX         = PREFIX + "map-"
+	MAP_META_KEY       = MAP_PREFIX + "meta-%s"
+	MAP_DATA_KEY       = MAP_PREFIX + "data-%s"
+	SPACE_KEY          = PREFIX + "space-%s"
+	USER_KEY           = PREFIX + "user-%s"
+	ALIAS_TO_SPACE_KEY = PREFIX + "alias-to-space-%s"
 )
 
 func loadJSON(ctx context.Context, client *redis.Client, key string, v any) error {
@@ -209,35 +213,44 @@ func (v *Verse) SaveGameMap(ctx context.Context, creator string, gameMap *maps.G
 	}
 
 	if creator == "" {
-		err = map_.Expire(ctx, time.Hour * 24)
+		err = map_.Expire(ctx, time.Hour*24)
 		if err != nil {
-		    return nil, err
+			return nil, err
 		}
 	}
 
 	return &map_, nil
 }
 
-type Space struct {
+var (
+	SPACE_ALIAS_REGEX = regexp.MustCompile(`^[a-z0-9-_.:]+$`)
+)
+
+func IsValidAlias(alias string) bool {
+	return SPACE_ALIAS_REGEX.MatchString(alias)
+}
+
+type UserSpace struct {
 	entity
 	id string
 }
 
 type spaceMeta struct {
+	Alias       string
 	Owner       string
 	Map         string
 	Description string
 }
 
-func (s *Space) GetID() string {
+func (s *UserSpace) GetID() string {
 	return s.id
 }
 
-func (s *Space) key() string {
+func (s *UserSpace) key() string {
 	return fmt.Sprintf(SPACE_KEY, s.id)
 }
 
-func (s *Space) load(ctx context.Context) (*spaceMeta, error) {
+func (s *UserSpace) load(ctx context.Context) (*spaceMeta, error) {
 	var jsonSpace spaceMeta
 	err := loadJSON(ctx, s.redis, s.key(), &jsonSpace)
 	if err != nil {
@@ -247,15 +260,19 @@ func (s *Space) load(ctx context.Context) (*spaceMeta, error) {
 	return &jsonSpace, nil
 }
 
-func (s *Space) save(ctx context.Context, data spaceMeta) error {
+func (s *UserSpace) save(ctx context.Context, data spaceMeta) error {
 	return saveJSON(ctx, s.redis, s.key(), data)
 }
 
-func (s *Space) Expire(ctx context.Context, when time.Duration) error {
+func (s *UserSpace) Expire(ctx context.Context, when time.Duration) error {
 	return s.redis.Expire(ctx, s.key(), when).Err()
 }
 
-func (s *Space) GetOwner(ctx context.Context) (string, error) {
+func (s *UserSpace) GetMeta(ctx context.Context) (*spaceMeta, error) {
+	return s.load(ctx)
+}
+
+func (s *UserSpace) GetOwner(ctx context.Context) (string, error) {
 	meta, err := s.load(ctx)
 	if err != nil {
 		return "", err
@@ -264,7 +281,16 @@ func (s *Space) GetOwner(ctx context.Context) (string, error) {
 	return meta.Owner, nil
 }
 
-func (s *Space) SetOwner(ctx context.Context, owner string) error {
+func (s *UserSpace) GetAlias(ctx context.Context) (string, error) {
+	meta, err := s.load(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return meta.Alias, nil
+}
+
+func (s *UserSpace) SetOwner(ctx context.Context, owner string) error {
 	meta, err := s.load(ctx)
 	if err != nil {
 		return err
@@ -273,7 +299,40 @@ func (s *Space) SetOwner(ctx context.Context, owner string) error {
 	return s.save(ctx, *meta)
 }
 
-func (s *Space) GetDescription(ctx context.Context) (string, error) {
+func (s *UserSpace) SetAlias(ctx context.Context, alias string) error {
+	// First check if the alias is taken
+	value, err := s.redis.Exists(ctx, fmt.Sprintf(ALIAS_TO_SPACE_KEY, alias)).Result()
+	if err != nil && err != redis.Nil {
+		return err
+	}
+
+	if value == 1 {
+		return fmt.Errorf("target alias already taken")
+	}
+
+	meta, err := s.load(ctx)
+	if err != nil {
+		return err
+	}
+
+	pipe := s.redis.Pipeline()
+
+	// Free up this space's current alias
+	if meta.Alias != "" {
+		pipe.Del(ctx, fmt.Sprintf(ALIAS_TO_SPACE_KEY, meta.Alias))
+	}
+
+	pipe.Set(ctx, fmt.Sprintf(ALIAS_TO_SPACE_KEY, alias), s.GetID(), 0)
+	_, err = pipe.Exec(ctx)
+	if err != nil {
+		return err
+	}
+
+	meta.Alias = alias
+	return s.save(ctx, *meta)
+}
+
+func (s *UserSpace) GetDescription(ctx context.Context) (string, error) {
 	meta, err := s.load(ctx)
 	if err != nil {
 		return "", err
@@ -282,7 +341,7 @@ func (s *Space) GetDescription(ctx context.Context) (string, error) {
 	return meta.Description, nil
 }
 
-func (s *Space) SetDescription(ctx context.Context, description string) error {
+func (s *UserSpace) SetDescription(ctx context.Context, description string) error {
 	meta, err := s.load(ctx)
 	if err != nil {
 		return err
@@ -291,7 +350,7 @@ func (s *Space) SetDescription(ctx context.Context, description string) error {
 	return s.save(ctx, *meta)
 }
 
-func (s *Space) GetMapID(ctx context.Context) (string, error) {
+func (s *UserSpace) GetMapID(ctx context.Context) (string, error) {
 	meta, err := s.load(ctx)
 	if err != nil {
 		return "", err
@@ -300,7 +359,7 @@ func (s *Space) GetMapID(ctx context.Context) (string, error) {
 	return meta.Map, nil
 }
 
-func (s *Space) GetMap(ctx context.Context) (*Map, error) {
+func (s *UserSpace) GetMap(ctx context.Context) (*Map, error) {
 	id, err := s.GetMapID(ctx)
 	if err != nil {
 		return nil, err
@@ -309,7 +368,7 @@ func (s *Space) GetMap(ctx context.Context) (*Map, error) {
 	return s.verse.GetMap(ctx, id)
 }
 
-func (s *Space) SetMapID(ctx context.Context, id string) error {
+func (s *UserSpace) SetMapID(ctx context.Context, id string) error {
 	meta, err := s.load(ctx)
 	if err != nil {
 		return err
@@ -338,7 +397,7 @@ func (v *Verse) NewSpaceID(ctx context.Context) (string, error) {
 	}
 }
 
-func (v *Verse) NewSpace(ctx context.Context, creator string) (*Space, error) {
+func (v *Verse) NewSpace(ctx context.Context, creator string) (*UserSpace, error) {
 	id, err := v.NewSpaceID(ctx)
 	if err != nil {
 		return nil, err
@@ -349,7 +408,7 @@ func (v *Verse) NewSpace(ctx context.Context, creator string) (*Space, error) {
 		return nil, err
 	}
 
-	space := Space{
+	space := UserSpace{
 		id: id,
 		entity: entity{
 			redis: v.redis,
@@ -373,8 +432,8 @@ func (v *Verse) HaveSpace(ctx context.Context, id string) (bool, error) {
 	return v.have(ctx, fmt.Sprintf(SPACE_KEY, id))
 }
 
-func (v *Verse) LoadSpace(ctx context.Context, id string) (*Space, error) {
-	space := Space{
+func (v *Verse) LoadSpace(ctx context.Context, id string) (*UserSpace, error) {
+	space := UserSpace{
 		id: id,
 		entity: entity{
 			redis: v.redis,
@@ -391,20 +450,31 @@ func (v *Verse) LoadSpace(ctx context.Context, id string) (*Space, error) {
 }
 
 // Find a space by a prefix
-func (v *Verse) FindSpace(ctx context.Context, prefix string) (*Space, error) {
+func (v *Verse) FindSpace(ctx context.Context, needle string) (*UserSpace, error) {
 	// Check first if the space name is fully specified
-	fullExists, err := v.HaveSpace(ctx, prefix)
+	fullExists, err := v.HaveSpace(ctx, needle)
 	if err != nil {
 		return nil, err
 	}
 
 	if fullExists {
-		return v.LoadSpace(ctx, prefix)
+		return v.LoadSpace(ctx, needle)
 	}
 
+	// Check aliases
+	aliasSpace, err := v.redis.Get(ctx, fmt.Sprintf(ALIAS_TO_SPACE_KEY, needle)).Result()
+	if err == nil {
+		return v.LoadSpace(ctx, aliasSpace)
+	}
+
+	if err != redis.Nil {
+		return nil, err
+	}
+
+	// Check to see if the needle is a prefix for an existing space
 	keys, err := v.redis.Keys(
 		ctx,
-		fmt.Sprintf(SPACE_KEY, prefix)+"*",
+		fmt.Sprintf(SPACE_KEY, needle)+"*",
 	).Result()
 
 	if len(keys) == 0 {
@@ -459,7 +529,7 @@ func (u *User) GetHomeID(ctx context.Context) (string, error) {
 	return meta.Home, nil
 }
 
-func (u *User) GetHomeSpace(ctx context.Context) (*Space, error) {
+func (u *User) GetHomeSpace(ctx context.Context) (*UserSpace, error) {
 	id, err := u.GetHomeID(ctx)
 	if err != nil {
 		return nil, err
@@ -468,7 +538,7 @@ func (u *User) GetHomeSpace(ctx context.Context) (*Space, error) {
 	return u.verse.LoadSpace(ctx, id)
 }
 
-func (v *Verse) NewUser(ctx context.Context, id string) (*User, error) {
+func (v *Verse) NewUser(ctx context.Context, id string, discord *auth.DiscordUser) (*User, error) {
 	user := User{
 		id: id,
 		entity: entity{
@@ -485,6 +555,19 @@ func (v *Verse) NewUser(ctx context.Context, id string) (*User, error) {
 	err = user.save(ctx, userMeta{
 		Home: space.GetID(),
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	name := discord.Username
+
+	if strings.HasSuffix(name, "s") {
+		name += "'"
+	} else {
+		name += "'s"
+	}
+
+	err = space.SetDescription(ctx, fmt.Sprintf("%s home", name))
 	if err != nil {
 		return nil, err
 	}
@@ -522,14 +605,15 @@ func (v *Verse) GetUser(ctx context.Context, id string) (*User, error) {
 	return &user, nil
 }
 
-func (v *Verse) GetOrCreateUser(ctx context.Context, id string) (*User, error) {
+func (v *Verse) GetOrCreateUser(ctx context.Context, info *auth.AuthUser) (*User, error) {
+	id := info.GetID()
 	exists, err := v.HaveUser(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
 	if !exists {
-		return v.NewUser(ctx, id)
+		return v.NewUser(ctx, id, &info.Discord)
 	}
 
 	return v.GetUser(ctx, id)

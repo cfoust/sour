@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
+	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
 	"github.com/repeale/fp-go/option"
@@ -26,8 +26,8 @@ const (
 )
 
 type DuelResult struct {
-	Winner       *clients.Client
-	Loser        *clients.Client
+	Winner       *User
+	Loser        *User
 	Type         string
 	IsDraw       bool
 	Disconnected bool
@@ -39,12 +39,12 @@ type DuelDone struct {
 }
 
 type Duel struct {
-	Mutex    sync.Mutex
-	Phase    DuelPhase
-	Type     config.DuelType
+	Mutex sync.Mutex
+	Phase DuelPhase
+	Type  config.DuelType
 
-	A        *clients.Client
-	B        *clients.Client
+	A *User
+	B *User
 
 	// The servers A and B were on prior to joining the duel
 	oldAServer *servers.GameServer
@@ -59,10 +59,8 @@ type Duel struct {
 
 func (d *Duel) Logger() zerolog.Logger {
 	logger := log.With().
-		Str("nameA", d.A.GetName()).
-		Uint16("idA", d.A.Id).
-		Str("nameB", d.B.GetName()).
-		Uint16("idB", d.B.Id).
+		Str("nameA", d.A.Reference()).
+		Str("nameB", d.B.Reference()).
 		Logger()
 
 	if d.server != nil {
@@ -155,7 +153,7 @@ func (d *Duel) doCountdown(ctx context.Context, seconds int) {
 	}
 }
 
-func (d *Duel) getLeaveWinner(client *clients.Client) DuelResult {
+func (d *Duel) getLeaveWinner(user *User) DuelResult {
 	d.Mutex.Lock()
 	phase := d.Phase
 	d.Mutex.Unlock()
@@ -170,7 +168,7 @@ func (d *Duel) getLeaveWinner(client *clients.Client) DuelResult {
 		result.IsDraw = true
 	}
 
-	if client == d.A {
+	if user == d.A {
 		result.Winner = d.B
 		result.Loser = d.A
 		return result
@@ -201,11 +199,11 @@ func (d *Duel) setPhase(phase DuelPhase) {
 	d.Mutex.Unlock()
 }
 
-func (d *Duel) Respawn(ctx context.Context, client *clients.Client) {
+func (d *Duel) Respawn(ctx context.Context, user *User) {
 	if d.Type.ForceRespawn == config.RespawnTypeAll {
 		d.server.SendCommand("forcerespawn -1")
 	} else if d.Type.ForceRespawn == config.RespawnTypeDead {
-		d.server.SendCommand(fmt.Sprintf("forcerespawn %d", client.GetClientNum()))
+		d.server.SendCommand(fmt.Sprintf("forcerespawn %d", user.GetClientNum()))
 	}
 
 	if d.Type.PauseOnDeath {
@@ -225,10 +223,10 @@ func (d *Duel) PollDeaths(ctx context.Context) {
 			if msg.Type() == game.N_DIED {
 				died := msg.Contents().(*game.Died)
 
-				var killed *clients.Client
+				var killed *User
 
-				numA := int(d.A.GetClientNum())
-				numB := int(d.B.GetClientNum())
+				numA := int(d.A.Client.GetClientNum())
+				numB := int(d.B.Client.GetClientNum())
 
 				if died.Client == numA {
 					killed = d.A
@@ -275,7 +273,7 @@ func (d *Duel) Cleanup() {
 
 func (d *Duel) MonitorClient(
 	ctx context.Context,
-	client *clients.Client,
+	user *User,
 	oldServer *servers.GameServer,
 	cancelMatch context.CancelFunc,
 	matchResult chan DuelResult,
@@ -285,9 +283,9 @@ func (d *Duel) MonitorClient(
 	select {
 	case <-ctx.Done():
 		return
-	case <-client.ServerSessionContext().Done():
-		logger.Info().Msgf("client %d disconnected from server, ending match", client.Id)
-		matchResult <- d.getLeaveWinner(client)
+	case <-user.ServerSessionContext().Done():
+		logger.Info().Msgf("client %d disconnected from server, ending match", user.Id)
+		matchResult <- d.getLeaveWinner(user)
 		cancelMatch()
 		return
 	}
@@ -315,18 +313,18 @@ func (d *Duel) Run(ctx context.Context) {
 	}()
 
 	// If any client disconnects from the CLUSTER, end the match
-	for _, client := range []*clients.Client{d.A, d.B} {
-		go func(client *clients.Client) {
+	for _, user := range []*User{d.A, d.B} {
+		go func(user *User) {
 			select {
 			case <-matchContext.Done():
 				return
-			case <-client.Connection.SessionContext().Done():
-				logger.Info().Msgf("client %d disconnected from cluster, ending match", client.Id)
-				matchResult <- d.getLeaveWinner(client)
+			case <-user.Context().Done():
+				logger.Info().Msgf("user %s disconnected from cluster, ending match", user.Reference())
+				matchResult <- d.getLeaveWinner(user)
 				cancelMatch()
 				return
 			}
-		}(client)
+		}(user)
 	}
 
 	failure := func() {
@@ -379,11 +377,11 @@ func (d *Duel) Run(ctx context.Context) {
 	}
 
 	// Move the clients to the new server
-	for _, client := range []*clients.Client{d.A, d.B} {
+	for _, user := range []*User{d.A, d.B} {
 		// Store previous server
-		oldServer := client.GetServer()
+		oldServer := user.GetServer()
 
-		connected, err := client.ConnectToServer(gameServer, "", true, false)
+		connected, err := user.ConnectToServer(gameServer, "", true, false)
 		result := <-connected
 		if result == false || err != nil {
 			logger.Error().Err(err).Msg("client failed to connect")
@@ -391,7 +389,7 @@ func (d *Duel) Run(ctx context.Context) {
 			return
 		}
 
-		go d.MonitorClient(matchContext, client, oldServer, cancelMatch, matchResult)
+		go d.MonitorClient(matchContext, user, oldServer, cancelMatch, matchResult)
 	}
 
 	if matchContext.Err() != nil {
@@ -484,13 +482,13 @@ func (d *Duel) Run(ctx context.Context) {
 }
 
 type DuelQueue struct {
-	Client *clients.Client
-	Type   string
+	User *User
+	Type string
 }
 
 type QueuedClient struct {
 	JoinTime time.Time
-	Client   *clients.Client
+	User     *User
 	Type     string
 	// Valid for the duration of the client being in the queue
 	Context context.Context
@@ -500,7 +498,6 @@ type QueuedClient struct {
 type Matchmaker struct {
 	duelTypes  []config.DuelType
 	manager    *servers.ServerManager
-	clients    *clients.ClientManager
 	duels      []*Duel
 	queue      []*QueuedClient
 	queueEvent chan bool
@@ -509,7 +506,7 @@ type Matchmaker struct {
 	mutex      sync.Mutex
 }
 
-func NewMatchmaker(manager *servers.ServerManager, clients *clients.ClientManager, duelTypes []config.DuelType) *Matchmaker {
+func NewMatchmaker(manager *servers.ServerManager, duelTypes []config.DuelType) *Matchmaker {
 	return &Matchmaker{
 		duelTypes:  duelTypes,
 		queue:      make([]*QueuedClient, 0),
@@ -518,7 +515,6 @@ func NewMatchmaker(manager *servers.ServerManager, clients *clients.ClientManage
 		results:    make(chan DuelResult, 10),
 		queues:     make(chan DuelQueue, 10),
 		manager:    manager,
-		clients:    clients,
 	}
 }
 
@@ -548,14 +544,14 @@ func (m *Matchmaker) NotifyProgress(queued *QueuedClient) {
 		select {
 		case <-tick.C:
 			since := time.Now().Sub(queued.JoinTime).Round(time.Second)
-			queued.Client.SendServerMessage(fmt.Sprintf("you have been queued for %s for %s", queued.Type, since))
+			queued.User.SendServerMessage(fmt.Sprintf("you have been queued for %s for %s", queued.Type, since))
 		case <-queued.Context.Done():
 			return
 		}
 	}
 }
 
-func (m *Matchmaker) Queue(client *clients.Client, typeName string) error {
+func (m *Matchmaker) Queue(user *User, typeName string) error {
 	duelType := m.FindDuelType(typeName)
 
 	if opt.IsNone(duelType) {
@@ -564,31 +560,31 @@ func (m *Matchmaker) Queue(client *clients.Client, typeName string) error {
 
 	m.mutex.Lock()
 	for _, queued := range m.queue {
-		if queued.Client == client && queued.Type == typeName {
-			client.SendServerMessage(fmt.Sprintf("you are already in the queue for %s", typeName))
+		if queued.User == user && queued.Type == typeName {
+			user.SendServerMessage(fmt.Sprintf("you are already in the queue for %s", typeName))
 			return nil
 		}
 	}
 	m.mutex.Unlock()
 
 	m.mutex.Lock()
-	context, cancel := context.WithCancel(client.Connection.SessionContext())
+	context, cancel := context.WithCancel(user.Context())
 	queued := QueuedClient{
 		Type:     duelType.Value.Name,
 		Context:  context,
 		Cancel:   cancel,
-		Client:   client,
+		User:     user,
 		JoinTime: time.Now(),
 	}
 	go m.NotifyProgress(&queued)
 	m.queue = append(m.queue, &queued)
 	m.mutex.Unlock()
-	log.Info().Uint16("client", client.Id).Str("type", queued.Type).Msg("queued for dueling")
-	client.SendServerMessage(fmt.Sprintf("you are now in the queue for %s", queued.Type))
+	log.Info().Str("user", user.Reference()).Str("type", queued.Type).Msg("queued for dueling")
+	user.SendServerMessage(fmt.Sprintf("you are now in the queue for %s", queued.Type))
 
 	m.queues <- DuelQueue{
-		Client: client,
-		Type:   duelType.Value.Name,
+		User: user,
+		Type: duelType.Value.Name,
 	}
 
 	m.queueEvent <- true
@@ -596,13 +592,13 @@ func (m *Matchmaker) Queue(client *clients.Client, typeName string) error {
 	return nil
 }
 
-func (m *Matchmaker) Dequeue(client *clients.Client) {
+func (m *Matchmaker) Dequeue(user *User) {
 	m.mutex.Lock()
 	cleaned := make([]*QueuedClient, 0)
 	for _, queued := range m.queue {
-		if queued.Client == client {
-			log.Info().Uint16("client", client.Id).Str("type", queued.Type).Msg("left duel queue")
-			client.SendServerMessage(fmt.Sprintf("you left the queue for %s", queued.Type))
+		if queued.User == user {
+			log.Info().Str("user", user.Reference()).Str("type", queued.Type).Msg("left duel queue")
+			user.SendServerMessage(fmt.Sprintf("you left the queue for %s", queued.Type))
 			queued.Cancel()
 			continue
 		}
@@ -638,8 +634,9 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 			// First prune the list of any clients that are gone
 			cleaned := make([]*QueuedClient, 0)
 			for _, queued := range m.queue {
-				if queued.Client.Connection.NetworkStatus() == clients.ClientNetworkStatusDisconnected {
-					log.Info().Uint16("client", queued.Client.Id).Msg("pruning disconnected client")
+				if queued.User.Client.Connection.NetworkStatus() == ingress.NetworkStatusDisconnected {
+					logger := queued.User.Logger()
+					logger.Info().Msg("pruning disconnected client")
 					continue
 				}
 				cleaned = append(cleaned, queued)
@@ -647,28 +644,28 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 			m.queue = cleaned
 
 			// Then look to see if we can make any matches
-			matched := make(map[*clients.Client]bool, 0)
+			matched := make(map[*User]bool, 0)
 			for _, queuedA := range m.queue {
 				// We may have already matched this queued
 				// note: can this actually occur?
-				if _, ok := matched[queuedA.Client]; ok {
+				if _, ok := matched[queuedA.User]; ok {
 					continue
 				}
 
 				for _, queuedB := range m.queue {
 					// Same here
-					if _, ok := matched[queuedB.Client]; ok {
+					if _, ok := matched[queuedB.User]; ok {
 						continue
 					}
-					if queuedA.Client == queuedB.Client || queuedA.Type != queuedB.Type {
+					if queuedA.User == queuedB.User || queuedA.Type != queuedB.Type {
 						continue
 					}
 
 					queuedA.Cancel()
 					queuedB.Cancel()
 
-					matched[queuedA.Client] = true
-					matched[queuedB.Client] = true
+					matched[queuedA.User] = true
+					matched[queuedB.User] = true
 
 					duelType := m.FindDuelType(queuedA.Type)
 
@@ -680,8 +677,8 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 					duel := Duel{
 						Type:     duelType.Value,
 						Phase:    DuelPhaseWarmup,
-						A:        queuedA.Client,
-						B:        queuedB.Client,
+						A:        queuedA.User,
+						B:        queuedB.User,
 						Manager:  m.manager,
 						Finished: finished,
 					}
@@ -695,7 +692,7 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 			// Remove the matches we made from the queue
 			cleaned = make([]*QueuedClient, 0)
 			for _, queued := range m.queue {
-				if _, ok := matched[queued.Client]; ok {
+				if _, ok := matched[queued.User]; ok {
 					continue
 				}
 				cleaned = append(cleaned, queued)
