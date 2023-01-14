@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/assets"
 	gameServers "github.com/cfoust/sour/svc/cluster/servers"
 
@@ -182,10 +181,6 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 		return nil, err
 	}
 
-	if desc == "" {
-		desc = game.Blue(space.GetID())
-	}
-
 	gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", desc))
 	gameServer.SendCommand("publicserver 1")
 	gameServer.SendCommand("emptymap")
@@ -214,6 +209,8 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 		Server:  gameServer,
 		Context: gameServer.Context,
 	}
+
+	instance.id = space.GetID()
 
 	go s.WatchServer(ctx, &instance, gameServer)
 
