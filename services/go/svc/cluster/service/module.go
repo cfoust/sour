@@ -276,7 +276,6 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
-			log.Info().Msgf("isHome %t", isHome)
 			if isHome {
 				space := user.GetSpace()
 				message := fmt.Sprintf(

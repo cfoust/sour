@@ -9,6 +9,7 @@ import (
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/ingress"
+	"github.com/cfoust/sour/svc/cluster/verse"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
 	"github.com/repeale/fp-go/option"
@@ -185,9 +186,83 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 
 		return true, "", nil
 
+	case "alias":
+		isOwner, err := user.IsOwner(ctx)
+		if err != nil {
+			return true, "", err
+		}
+
+		if !isOwner {
+			return true, "", fmt.Errorf("this is not your space")
+		}
+
+		instance := user.GetSpace()
+		space := instance.Space
+
+		if len(command) < 7 {
+			return true, "", fmt.Errorf("alias too short")
+		}
+
+		alias := command[6:]
+		if !verse.IsValidAlias(alias) {
+			return true, "", fmt.Errorf("aliases must consist of lowercase letters, numbers, or hyphens")
+		}
+
+		if len(alias) > 16 {
+			return true, "", fmt.Errorf("alias too long")
+		}
+
+		// Ensure the alias does not match any maps in our asset indices, either
+		found := server.assets.FindMap(alias)
+		if opt.IsSome(found) {
+			return true, "", fmt.Errorf("alias taken by a pre-built map")
+		}
+
+		err = space.SetAlias(ctx, alias)
+		if err != nil {
+			return true, "", err
+		}
+
+		server.AnnounceInServer(ctx, instance.Server, fmt.Sprintf("space alias set to %s", alias))
+		return true, "", nil
+
+	case "desc":
+		isOwner, err := user.IsOwner(ctx)
+		if err != nil {
+			return true, "", err
+		}
+
+		if !isOwner {
+			return true, "", fmt.Errorf("this is not your space")
+		}
+
+		instance := user.GetSpace()
+		space := instance.Space
+		server := instance.Server
+
+		if len(command) < 6 {
+			return true, "", fmt.Errorf("description too short")
+		}
+
+		description := command[5:]
+		if len(description) > 32 {
+			description = description[:32]
+		}
+
+		err = space.SetDescription(ctx, description)
+		if err != nil {
+			return true, "", err
+		}
+
+		server.SendCommand(fmt.Sprintf("serverdesc \"%s\"", description))
+		server.SendCommand("refreshserverinfo")
+		return true, "", nil
+
+
 	case "edit":
 		isOwner, err := user.IsOwner(ctx)
 		if err != nil {
+			log.Error().Err(err).Msg("failed to change edit state")
 			return true, "", err
 		}
 
@@ -210,6 +285,8 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 
 		return true, "", nil
 
+	case "go":
+		fallthrough
 	case "join":
 		if len(args) != 2 {
 			return true, "", errors.New("join takes a single argument")
@@ -236,8 +313,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 			}
 
 			return true, "", nil
-		}
-
+		} 
 		// Look for a space
 		space, err := server.spaces.SearchSpace(ctx, target)
 		if err != nil {
@@ -249,7 +325,20 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 			if err != nil {
 				return true, "", err
 			}
-			_, err = user.ConnectToSpace(instance.Server, instance.Space.GetID())
+
+			// Appears in the user's URL bar
+			serverName := instance.Space.GetID()
+
+			alias, err := space.GetAlias(ctx)
+			if err != nil {
+				return true, "", err
+			}
+
+			if alias != "" {
+				serverName = alias
+			}
+
+			_, err = user.ConnectToSpace(instance.Server, serverName)
 			return true, "", err
 		}
 

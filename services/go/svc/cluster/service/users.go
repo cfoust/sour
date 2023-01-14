@@ -187,7 +187,7 @@ func (u *User) GetFormattedName() string {
 }
 
 func (u *User) SendServerMessage(message string) {
-	u.Client.SendMessage(fmt.Sprintf("%s %s", game.Yellow("sour"), message))
+	u.Client.SendMessage(fmt.Sprintf("%s %s", game.Magenta("~>"), message))
 }
 
 func (u *User) Reference() string {
@@ -367,6 +367,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 						newUsers = append(newUsers, otherUser)
 					}
 				}
+				newUsers = append(newUsers, u)
 				u.o.Servers[u.Server] = newUsers
 				u.o.Mutex.Unlock()
 				connected <- true

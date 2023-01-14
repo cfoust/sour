@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"time"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/auth"
@@ -18,12 +19,13 @@ import (
 )
 
 const (
-	PREFIX       = "verse-"
-	MAP_PREFIX   = PREFIX + "map-"
-	MAP_META_KEY = MAP_PREFIX + "meta-%s"
-	MAP_DATA_KEY = MAP_PREFIX + "data-%s"
-	SPACE_KEY    = PREFIX + "space-%s"
-	USER_KEY     = PREFIX + "user-%s"
+	PREFIX             = "verse-"
+	MAP_PREFIX         = PREFIX + "map-"
+	MAP_META_KEY       = MAP_PREFIX + "meta-%s"
+	MAP_DATA_KEY       = MAP_PREFIX + "data-%s"
+	SPACE_KEY          = PREFIX + "space-%s"
+	USER_KEY           = PREFIX + "user-%s"
+	ALIAS_TO_SPACE_KEY = PREFIX + "alias-to-space-%s"
 )
 
 func loadJSON(ctx context.Context, client *redis.Client, key string, v any) error {
@@ -220,12 +222,21 @@ func (v *Verse) SaveGameMap(ctx context.Context, creator string, gameMap *maps.G
 	return &map_, nil
 }
 
+var (
+	SPACE_ALIAS_REGEX = regexp.MustCompile(`^[a-z0-9-_.:]+$`)
+)
+
+func IsValidAlias(alias string) bool {
+	return SPACE_ALIAS_REGEX.MatchString(alias)
+}
+
 type UserSpace struct {
 	entity
 	id string
 }
 
 type spaceMeta struct {
+	Alias       string
 	Owner       string
 	Map         string
 	Description string
@@ -270,12 +281,54 @@ func (s *UserSpace) GetOwner(ctx context.Context) (string, error) {
 	return meta.Owner, nil
 }
 
+func (s *UserSpace) GetAlias(ctx context.Context) (string, error) {
+	meta, err := s.load(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return meta.Alias, nil
+}
+
 func (s *UserSpace) SetOwner(ctx context.Context, owner string) error {
 	meta, err := s.load(ctx)
 	if err != nil {
 		return err
 	}
 	meta.Owner = owner
+	return s.save(ctx, *meta)
+}
+
+func (s *UserSpace) SetAlias(ctx context.Context, alias string) error {
+	// First check if the alias is taken
+	value, err := s.redis.Exists(ctx, fmt.Sprintf(ALIAS_TO_SPACE_KEY, alias)).Result()
+	if err != nil && err != redis.Nil {
+		return err
+	}
+
+	if value == 1 {
+		return fmt.Errorf("target alias already taken")
+	}
+
+	meta, err := s.load(ctx)
+	if err != nil {
+		return err
+	}
+
+	pipe := s.redis.Pipeline()
+
+	// Free up this space's current alias
+	if meta.Alias != "" {
+		pipe.Del(ctx, fmt.Sprintf(ALIAS_TO_SPACE_KEY, meta.Alias))
+	}
+
+	pipe.Set(ctx, fmt.Sprintf(ALIAS_TO_SPACE_KEY, alias), s.GetID(), 0)
+	_, err = pipe.Exec(ctx)
+	if err != nil {
+		return err
+	}
+
+	meta.Alias = alias
 	return s.save(ctx, *meta)
 }
 
@@ -397,20 +450,31 @@ func (v *Verse) LoadSpace(ctx context.Context, id string) (*UserSpace, error) {
 }
 
 // Find a space by a prefix
-func (v *Verse) FindSpace(ctx context.Context, prefix string) (*UserSpace, error) {
+func (v *Verse) FindSpace(ctx context.Context, needle string) (*UserSpace, error) {
 	// Check first if the space name is fully specified
-	fullExists, err := v.HaveSpace(ctx, prefix)
+	fullExists, err := v.HaveSpace(ctx, needle)
 	if err != nil {
 		return nil, err
 	}
 
 	if fullExists {
-		return v.LoadSpace(ctx, prefix)
+		return v.LoadSpace(ctx, needle)
 	}
 
+	// Check aliases
+	aliasSpace, err := v.redis.Get(ctx, fmt.Sprintf(ALIAS_TO_SPACE_KEY, needle)).Result()
+	if err == nil {
+		return v.LoadSpace(ctx, aliasSpace)
+	}
+
+	if err != redis.Nil {
+		return nil, err
+	}
+
+	// Check to see if the needle is a prefix for an existing space
 	keys, err := v.redis.Keys(
 		ctx,
-		fmt.Sprintf(SPACE_KEY, prefix)+"*",
+		fmt.Sprintf(SPACE_KEY, needle)+"*",
 	).Result()
 
 	if len(keys) == 0 {

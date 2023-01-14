@@ -47,6 +47,13 @@ func (s *SpaceInstance) GetDescription(ctx context.Context) (string, error) {
 	return s.Description, nil
 }
 
+func (s *SpaceInstance) GetAlias(ctx context.Context) (string, error) {
+	if s.Space != nil {
+		return s.Space.GetAlias(ctx)
+	}
+	return s.Alias, nil
+}
+
 func (s *SpaceInstance) GetMap(ctx context.Context) (string, error) {
 	if s.Space != nil {
 		map_, err := s.Space.GetMap(ctx)
