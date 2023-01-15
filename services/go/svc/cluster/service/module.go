@@ -701,6 +701,29 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 	return nil
 }
 
+func (c *Cluster) HandleTeleport(ctx context.Context, user *User, destination int) {
+	logger := user.Logger()
+
+	space := user.GetSpace()
+	if space != nil {
+		links, err := space.GetLinks(ctx)
+		if err != nil {
+		    return
+		}
+
+		for _, link := range links {
+			if link.ID == uint8(destination) {
+				logger.Info().Msgf("teleported to %s", link.Destination)
+				go c.RunCommandWithTimeout(
+					user.Context(),
+					fmt.Sprintf("go %s", link.Destination),
+					user,
+				)
+			}
+		}
+	}
+}
+
 func (c *Cluster) PollUser(ctx context.Context, user *User) {
 	toServer := user.Connection.ReceivePackets()
 	commands := user.Connection.ReceiveCommands()
@@ -880,11 +903,9 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				}
 
 				if message.Type() == game.N_TELEPORT {
-					//teleport := message.Contents().(*game.Teleport)
-					//log.Info().Msgf("client %s teleported to %d", client.Reference(), teleport.Destination)
-					//if teleport.Destination == 10 {
-					//go server.RunCommandWithTimeout(clientCtx, "creategame complex", client)
-					//}
+					teleport := message.Contents().(*game.Teleport)
+					//log.Info().Msgf("%+v", teleport)
+					c.HandleTeleport(ctx, user, teleport.Destination)
 				}
 
 				if game.IsOwnerOnly(message.Type()) {

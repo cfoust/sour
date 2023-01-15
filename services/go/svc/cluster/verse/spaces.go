@@ -161,7 +161,9 @@ func (s *SpaceManager) WatchServer(ctx context.Context, space *SpaceInstance, se
 	case <-ctx.Done():
 		return
 	case <-server.Context.Done():
-		space.Editing.Checkpoint(ctx)
+		if space.Editing != nil {
+			space.Editing.Checkpoint(ctx)
+		}
 
 		s.mutex.Lock()
 

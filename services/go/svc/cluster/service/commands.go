@@ -298,6 +298,10 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 
 		target := args[1]
 
+		if target == "home" {
+			return server.RunCommandWithTimeout(ctx, "home", user)
+		}
+
 		user.Mutex.RLock()
 		if user.Server != nil && user.Server.IsReference(target) {
 			logger.Info().Msg("user already connected to target")
