@@ -443,6 +443,7 @@ func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
 func (u *UserOrchestrator) AddUser(ctx context.Context, client *clients.Client) *User {
 	u.Mutex.Lock()
 	user := User{
+		ELO:    NewELOState(u.Duels),
 		Client: *client,
 		Name:   "unnamed",
 		o:      u,
