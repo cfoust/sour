@@ -81,6 +81,10 @@ cluster:
         preset: "insta-duel"
         forceRespawn: "dead"
 
-  servers:
-    - alias: lobby
-      preset: default
+  spaces:
+    - preset: default
+      config:
+        alias: lobby
+        links:
+          - id: 77
+            destination: home

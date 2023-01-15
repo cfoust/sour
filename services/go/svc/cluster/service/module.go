@@ -411,15 +411,8 @@ func (server *Cluster) PollServers(ctx context.Context) {
 
 func (server *Cluster) StartServers(ctx context.Context) {
 	go server.PollServers(ctx)
-	for _, serverConfig := range server.settings.Servers {
-		gameServer, err := server.manager.NewServer(ctx, serverConfig.Preset, true)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to create server")
-		}
-
-		gameServer.Alias = serverConfig.Alias
-
-		go gameServer.Start(ctx)
+	for _, presetSpace := range server.settings.Spaces {
+		server.spaces.StartPresetSpace(ctx, presetSpace)
 	}
 	go server.manager.PruneServers(ctx)
 	go server.matches.Poll(ctx)
@@ -666,7 +659,7 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 
 	instance := c.spaces.FindInstance(server)
 
-	if instance != nil {
+	if instance != nil && instance.Editing != nil {
 		e := instance.Editing
 		err := e.Checkpoint(ctx)
 		if err != nil {

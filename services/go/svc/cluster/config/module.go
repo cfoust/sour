@@ -34,9 +34,20 @@ type ServerPreset struct {
 	Config  string
 }
 
-type ServerConfig struct {
-	Alias  string
+type SpaceLink struct {
+	ID          uint8
+	Destination string
+}
+
+type SpaceConfig struct {
+	Alias       string
+	Description string
+	Links       []SpaceLink
+}
+
+type PresetSpace struct {
 	Preset string
+	Config SpaceConfig
 }
 
 type ENetServerInfo struct {
@@ -75,7 +86,7 @@ type ClusterSettings struct {
 	ServerInfo        ClusterServerInfo
 	Assets            []string
 	Presets           []ServerPreset
-	Servers           []ServerConfig
+	Spaces            []PresetSpace
 	Matchmaking       MatchmakingSettings
 	ServerDescription string
 	Ingress           ClusterIngress

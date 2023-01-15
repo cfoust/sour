@@ -334,7 +334,9 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 
 	space := u.Space
 	if space != nil {
-		space.Editing.ClearClipboard(u.Id)
+		if space.Editing != nil {
+			space.Editing.ClearClipboard(u.Id)
+		}
 		u.Space = nil
 	}
 

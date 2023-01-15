@@ -23,11 +23,22 @@ redis: {
 
 proxy: #Service
 
-#Server: {
-	// An alias replaces the ID of a server. For example, users could run
+#SpaceLink: {
+	id:          uint8
+	destination: string
+}
+
+#SpaceConfig: {
+	alias:       string
+	description: string | *""
+	links: [...#SpaceLink]
+}
+
+#Space: {
+	// An alias replaces the ID of a space. For example, users could run
 	// #join lobby (on desktop) or /join lobby (on the web)
-	alias:  string
 	preset: string
+	config: #SpaceConfig
 }
 
 #ServerPreset: {
@@ -127,7 +138,7 @@ proxy: #Service
 	assets: [...string]
 
 	// These are all of the game servers that will be started when the cluster starts.
-	servers: [...#Server]
+	spaces: [...#Space]
 	matchmaking: #MatchmakingSettings
 	ingress:     #IngressSettings
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cfoust/sour/svc/cluster/assets"
+	"github.com/cfoust/sour/svc/cluster/config"
 	gameServers "github.com/cfoust/sour/svc/cluster/servers"
 
 	"github.com/repeale/fp-go/option"
@@ -26,6 +27,9 @@ type SpaceInstance struct {
 }
 
 func (s *SpaceInstance) IsOpenEdit() bool {
+	if s.Editing == nil {
+		return false
+	}
 	return s.Editing.IsOpenEdit()
 }
 
@@ -90,6 +94,9 @@ func (s *SpaceInstance) PollEdits(ctx context.Context) {
 		case <-s.Context.Done():
 			return
 		case edit := <-edits:
+			if s.Editing == nil {
+				continue
+			}
 			s.Editing.Process(edit.Client, edit.Message)
 			continue
 		}
@@ -243,6 +250,57 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 	go instance.PollEdits(gameServer.Context)
 
 	s.instances[space.GetID()] = &instance
+
+	return &instance, nil
+}
+
+func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.PresetSpace) (*SpaceInstance, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	logger := s.Logger()
+
+	serverCtx := context.Background()
+	gameServer, err := s.servers.NewServer(serverCtx, presetSpace.Preset, true)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to create server for preset")
+		return nil, err
+	}
+
+	err = gameServer.StartAndWait(serverCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	config := presetSpace.Config
+	id := config.Alias
+	gameServer.Alias = id
+
+	instance := SpaceInstance{
+		Server:  gameServer,
+		Context: gameServer.Context,
+	}
+
+	instance.id = id
+
+	links := make([]Link, 0)
+	for _, link := range config.Links {
+		links = append(links, Link{
+			ID:          link.ID,
+			Destination: link.Destination,
+		})
+	}
+	instance.Links = links
+
+	if config.Description != "" {
+		gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
+	}
+
+	go s.WatchServer(ctx, &instance, gameServer)
+
+	s.instances[id] = &instance
+
+	logger.Info().Msgf("started preset %s", id)
 
 	return &instance, nil
 }
