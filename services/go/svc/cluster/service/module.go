@@ -364,6 +364,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 					Channel: channel,
 					Data:    packet.Packet.Data,
 				})
+				continue
 			}
 
 			// As opposed to client -> server, we don't actually need to do any filtering
@@ -904,7 +905,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 						canEditSpace := isOwner || space.IsOpenEdit()
 						if !canEditSpace {
 							user.ConnectToSpace(space.Server, space.GetID())
-							user.SendServerMessage("You cannot edit this space.")
+							user.SendServerMessage("you cannot edit this space.")
 							continue
 						}
 					}
@@ -913,7 +914,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					// For now, users can't edit on named servers (ie the lobby)
 					if server != nil && server.Alias != "" {
 						user.Connect(server)
-						user.SendServerMessage("You cannot edit this server.")
+						user.SendServerMessage("you cannot edit this server.")
 						continue
 					}
 				}
@@ -922,7 +923,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					user.RestoreMessages()
 
 					crc := message.Contents().(*game.MapCRC)
-					log.Info().Msgf("%+v", crc)
 					// The client does not have the map
 					if crc.Crc == 0 {
 						go func() {

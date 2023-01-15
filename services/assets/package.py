@@ -334,7 +334,7 @@ class Packager:
         self.textures = []
 
 
-    def build_asset(self, file: Mapping, compress_images: bool = True) -> Optional[Asset]:
+    def build_asset(self, file: Mapping, compress_images: bool = False) -> Optional[Asset]:
         _in, out = file
         _, extension = path.splitext(_in)
 
@@ -405,7 +405,7 @@ class Packager:
     def build_assets(
         self,
         files: List[Mapping],
-        compress_images: bool = True,
+        compress_images: bool = False,
     ) -> List[Asset]:
         """
         Given a list of files and a destination, build Sour-compatible assets.
@@ -434,7 +434,7 @@ class Packager:
         files: List[Mapping],
         build_web: bool,
         build_desktop: bool,
-        compress_images: bool = True,
+        compress_images: bool = False,
     ) -> Optional[Bundle]:
         assets = self.build_assets(files, compress_images=compress_images)
 
@@ -487,7 +487,7 @@ class Packager:
         image: str = None,
         build_web: bool = True,
         build_desktop: bool = False,
-        compress_images: bool = True,
+        compress_images: bool = False,
     ) -> Optional[Mod]:
         bundle = self.build_bundle(
             skip_root,
@@ -583,6 +583,7 @@ class Packager:
         description: str,
         image: str = None,
         build_desktop: bool = False,
+        compress_images: bool = False,
     ) -> Optional[GameMap]:
         """
         Given a map file, roots, and an output directory, create a Sour bundle for
@@ -593,7 +594,7 @@ class Packager:
         file.
         """
         map_files = dump_sour("map", map_file, roots)
-        assets = self.build_assets(map_files)
+        assets = self.build_assets(map_files, compress_images=compress_images)
 
         base, _ = path.splitext(map_file)
 

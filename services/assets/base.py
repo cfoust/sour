@@ -152,6 +152,7 @@ if __name__ == "__main__":
             base,
             """Base game map %s as it appeared in game version r6481.
             """ % base,
+            compress_images=False,
         )
 
     p.dump_index(args.prefix)
