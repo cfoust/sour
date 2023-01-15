@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/assets"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
@@ -337,6 +338,19 @@ func (manager *ServerManager) PruneServers(ctx context.Context) {
 	}
 }
 
+func (manager *ServerManager) ReadEntities(ctx context.Context, server *GameServer, data []byte) error {
+	map_, err := maps.FromGZ(data)
+	if err != nil {
+	    return err
+	}
+
+	server.Mutex.Lock()
+	server.Entities = map_.Entities
+	server.Mutex.Unlock()
+	map_.Destroy()
+	return nil
+}
+
 func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameServer) {
 	requests := server.ReceiveMapRequests()
 
@@ -362,6 +376,8 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 			}
 
 			server.SendMapResponse(request.Map, request.Mode, path, true)
+
+			go manager.ReadEntities(ctx, server, data)
 			continue
 		case <-ctx.Done():
 			return
@@ -439,6 +455,7 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		LastEvent:     time.Now(),
 		ClientInfo:    make(map[ingress.ClientID]*ClientExtInfo),
 		NumClients:    0,
+		Entities:     make([]maps.Entity, 0),
 		broadcasts:    make(chan game.Message, 10),
 		connects:      manager.connects,
 		kicks:         manager.kicks,

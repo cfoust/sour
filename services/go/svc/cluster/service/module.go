@@ -701,18 +701,26 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 	return nil
 }
 
-func (c *Cluster) HandleTeleport(ctx context.Context, user *User, destination int) {
+func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int) {
 	logger := user.Logger()
 
 	space := user.GetSpace()
-	if space != nil {
+	server := user.GetServer()
+	if server != nil && space != nil {
 		links, err := space.GetLinks(ctx)
 		if err != nil {
 		    return
 		}
 
+		entities := server.GetEntities()
+		if source < 0 || source >= len(entities) {
+			return
+		}
+
+		teleport := entities[source]
+
 		for _, link := range links {
-			if link.ID == uint8(destination) {
+			if link.ID == uint8(teleport.Attr1) {
 				logger.Info().Msgf("teleported to %s", link.Destination)
 				go c.RunCommandWithTimeout(
 					user.Context(),
@@ -905,7 +913,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				if message.Type() == game.N_TELEPORT {
 					teleport := message.Contents().(*game.Teleport)
 					//log.Info().Msgf("%+v", teleport)
-					c.HandleTeleport(ctx, user, teleport.Destination)
+					c.HandleTeleport(ctx, user, teleport.Source)
 				}
 
 				if game.IsOwnerOnly(message.Type()) {

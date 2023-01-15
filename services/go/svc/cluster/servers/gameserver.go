@@ -10,15 +10,16 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/sasha-s/go-deadlock"
 )
 
 type RawEdit struct {
@@ -39,6 +40,8 @@ type GameServer struct {
 
 	NumClients int
 
+	Entities []maps.Entity
+
 	// Everything we get from serverinfo
 	Info       ServerInfo
 	ClientInfo map[ingress.ClientID]*ClientExtInfo
@@ -54,7 +57,7 @@ type GameServer struct {
 	Context context.Context
 	cancel  context.CancelFunc
 
-	Mutex sync.Mutex
+	Mutex deadlock.RWMutex
 
 	// The last time a client connected
 	LastEvent time.Time
@@ -190,6 +193,13 @@ func (server *GameServer) GetStatus() ServerStatus {
 	server.Mutex.Lock()
 	defer server.Mutex.Unlock()
 	return server.Status
+}
+
+func (server *GameServer) GetEntities() []maps.Entity {
+	server.Mutex.RLock()
+	teleports := server.Entities
+	server.Mutex.RUnlock()
+	return teleports
 }
 
 func (server *GameServer) SetStatus(status ServerStatus) {

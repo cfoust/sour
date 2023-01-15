@@ -98,12 +98,20 @@ cluster:
       config:
         alias: lobby
         links:
-          - id: 10
+          - id: 77
             destination: home
-          - id: 194
+          - id: 66
             destination: insta
-          - id: 193
+          - id: 55
             destination: ffa
+          - id: 11
+            destination: home
+          - id: 22
+            destination: home
+          - id: 33
+            destination: home
+          - id: 44
+            destination: home
     - preset: ffa
       config:
         alias: ffa

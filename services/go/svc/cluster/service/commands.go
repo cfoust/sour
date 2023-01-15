@@ -305,7 +305,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 		user.Mutex.RLock()
 		if user.Server != nil && user.Server.IsReference(target) {
 			logger.Info().Msg("user already connected to target")
-			user.Mutex.Unlock()
+			user.Mutex.RUnlock()
 			break
 		}
 		user.Mutex.RUnlock()
