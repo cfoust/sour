@@ -298,13 +298,13 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 
 		target := args[1]
 
-		user.Mutex.Lock()
+		user.Mutex.RLock()
 		if user.Server != nil && user.Server.IsReference(target) {
 			logger.Info().Msg("user already connected to target")
 			user.Mutex.Unlock()
 			break
 		}
-		user.Mutex.Unlock()
+		user.Mutex.RUnlock()
 
 		for _, gameServer := range server.manager.Servers {
 			if !gameServer.IsReference(target) || !gameServer.IsRunning() {

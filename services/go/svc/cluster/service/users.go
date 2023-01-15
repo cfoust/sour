@@ -17,6 +17,7 @@ import (
 	"github.com/go-redis/redis/v9"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/sasha-s/go-deadlock"
 )
 
 type User struct {
@@ -41,7 +42,7 @@ type User struct {
 	serverSessionCtx context.Context
 	cancel           context.CancelFunc
 
-	Mutex sync.Mutex
+	Mutex deadlock.RWMutex
 	o     *UserOrchestrator
 }
 
@@ -51,7 +52,7 @@ func (u *User) Context() context.Context {
 }
 
 func (u *User) Logger() zerolog.Logger {
-	u.Mutex.Lock()
+	u.Mutex.RLock()
 	logger := log.With().Uint32("client", uint32(u.Client.Id)).Str("name", u.Name).Logger()
 
 	if u.Auth != nil {
@@ -67,15 +68,15 @@ func (u *User) Logger() zerolog.Logger {
 	if u.Server != nil {
 		logger = logger.With().Str("server", u.Server.Reference()).Logger()
 	}
-	u.Mutex.Unlock()
+	u.Mutex.RUnlock()
 
 	return logger
 }
 
 func (u *User) GetID() string {
-	u.Mutex.Lock()
+	u.Mutex.RLock()
 	auth := u.Auth
-	u.Mutex.Unlock()
+	u.Mutex.RUnlock()
 
 	if auth == nil {
 		return ""
@@ -85,17 +86,17 @@ func (u *User) GetID() string {
 }
 
 func (u *User) IsLoggedIn() bool {
-	u.Mutex.Lock()
+	u.Mutex.RLock()
 	auth := u.Auth
-	u.Mutex.Unlock()
+	u.Mutex.RUnlock()
 
 	return auth != nil
 }
 
 func (u *User) GetVerse() *verse.User {
-	u.Mutex.Lock()
+	u.Mutex.RLock()
 	user := u.Verse
-	u.Mutex.Unlock()
+	u.Mutex.RUnlock()
 	return user
 }
 
@@ -124,23 +125,23 @@ func (u *User) IsAtHome(ctx context.Context) (bool, error) {
 }
 
 func (u *User) GetServer() *servers.GameServer {
-	u.Mutex.Lock()
+	u.Mutex.RLock()
 	server := u.Server
-	u.Mutex.Unlock()
+	u.Mutex.RUnlock()
 	return server
 }
 
 func (u *User) ServerSessionContext() context.Context {
-	u.Mutex.Lock()
+	u.Mutex.RLock()
 	ctx := u.serverSessionCtx
-	u.Mutex.Unlock()
+	u.Mutex.RUnlock()
 	return ctx
 }
 
 func (u *User) GetSpace() *verse.SpaceInstance {
-	u.Mutex.Lock()
+	u.Mutex.RLock()
 	space := u.Space
-	u.Mutex.Unlock()
+	u.Mutex.RUnlock()
 	return space
 }
 
@@ -202,21 +203,21 @@ func (u *User) Reference() string {
 }
 
 func (u *User) GetName() string {
-	u.Mutex.Lock()
+	u.Mutex.RLock()
 	name := u.Name
-	u.Mutex.Unlock()
+	u.Mutex.RUnlock()
 	return name
 }
 
 func (u *User) GetAuth() *auth.AuthUser {
-	u.Mutex.Lock()
+	u.Mutex.RLock()
 	auth := u.Auth
-	u.Mutex.Unlock()
+	u.Mutex.RUnlock()
 	return auth
 }
 
 func (u *User) AnnounceELO() {
-	u.Mutex.Lock()
+	u.Mutex.RLock()
 	result := "ratings: "
 	for _, duel := range u.o.Duels {
 		name := duel.Name
@@ -230,7 +231,7 @@ func (u *User) AnnounceELO() {
 			game.Red(fmt.Sprint(state.Losses)),
 		)
 	}
-	u.Mutex.Unlock()
+	u.Mutex.RUnlock()
 
 	u.SendServerMessage(result)
 }
@@ -315,7 +316,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 				}
 
 				// Send N_CDIS
-				otherUser.Mutex.Lock()
+				otherUser.Mutex.RLock()
 				packet := game.Packet{}
 				packet.PutInt(int32(game.N_CDIS))
 				packet.PutInt(int32(otherUser.Num))
@@ -323,7 +324,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 					Channel: 1,
 					Data:    packet,
 				})
-				otherUser.Mutex.Unlock()
+				otherUser.Mutex.RUnlock()
 				newUsers = append(newUsers, otherUser)
 			}
 			u.o.Servers[u.Server] = newUsers

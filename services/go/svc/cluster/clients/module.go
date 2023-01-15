@@ -14,6 +14,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/sasha-s/go-deadlock"
 )
 
 // The status of the client's connection to their game server.
@@ -52,7 +53,7 @@ type Client struct {
 
 	Intercept Intercept
 
-	Mutex sync.Mutex
+	Mutex deadlock.RWMutex
 }
 
 func (c *Client) Logger() zerolog.Logger {
@@ -69,23 +70,23 @@ func (c *Client) ReceiveAuthentication() <-chan *auth.AuthUser {
 }
 
 func (c *Client) GetStatus() ClientStatus {
-	c.Mutex.Lock()
+	c.Mutex.RLock()
 	status := c.Status
-	c.Mutex.Unlock()
+	c.Mutex.RUnlock()
 	return status
 }
 
 func (c *Client) GetClientNum() servers.ClientNum {
-	c.Mutex.Lock()
+	c.Mutex.RLock()
 	num := c.Num
-	c.Mutex.Unlock()
+	c.Mutex.RUnlock()
 	return num
 }
 
 func (c *Client) GetLifeSequence() int {
-	c.Mutex.Lock()
+	c.Mutex.RLock()
 	num := c.LifeSequence
-	c.Mutex.Unlock()
+	c.Mutex.RUnlock()
 	return num
 }
 

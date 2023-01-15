@@ -780,20 +780,20 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					Msg("client -> server (failed to decode message)")
 
 				// Forward it anyway
-				user.Mutex.Lock()
+				user.Mutex.RLock()
 				if user.Server != nil {
 					user.Server.SendData(user.Id, uint32(msg.Channel), msg.Data)
 				}
-				user.Mutex.Unlock()
+				user.Mutex.RUnlock()
 				continue
 			}
 
 			passthrough := func(message game.Message) {
-				user.Mutex.Lock()
+				user.Mutex.RLock()
 				if user.Server != nil {
 					user.Server.SendData(user.Id, uint32(msg.Channel), message.Data())
 				}
-				user.Mutex.Unlock()
+				user.Mutex.RUnlock()
 			}
 
 			for _, message := range gameMessages {
@@ -843,13 +843,13 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				// client is connecting, otherwise the server
 				// (rightfully) disconnects us. This solves a
 				// race condition when switching servers.
-				user.Mutex.Lock()
+				user.Mutex.RLock()
 				status := user.Status
 				if status == clients.ClientStatusConnecting && !game.IsConnectingMessage(message.Type()) {
-					user.Mutex.Unlock()
+					user.Mutex.RUnlock()
 					continue
 				}
-				user.Mutex.Unlock()
+				user.Mutex.RUnlock()
 
 				logger.Debug().Str("code", message.Type().String()).Msg("client -> server")
 
@@ -940,11 +940,11 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					continue
 				}
 
-				user.Mutex.Lock()
+				user.Mutex.RLock()
 				if user.Server != nil {
 					user.Server.SendData(user.Id, uint32(msg.Channel), message.Data())
 				}
-				user.Mutex.Unlock()
+				user.Mutex.RUnlock()
 			}
 
 		case request := <-commands:
