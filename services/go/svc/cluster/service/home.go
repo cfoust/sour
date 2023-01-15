@@ -22,6 +22,8 @@ func (c *Cluster) GoHome(ctx context.Context, user *User) error {
 		if err != nil {
 			return err
 		}
+
+		user.TempHomeID = space.GetID()
 	} else {
 		space, err = user.Verse.GetHomeSpace(ctx)
 		if err != nil {

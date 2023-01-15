@@ -27,6 +27,9 @@ type User struct {
 	Challenge *auth.Challenge
 	ELO       *ELOState
 
+	// The user's home ID if they're not authenticated.
+	TempHomeID string
+
 	Server *servers.GameServer
 	Space  *verse.SpaceInstance
 
@@ -103,6 +106,10 @@ func (u *User) IsAtHome(ctx context.Context) (bool, error) {
 	}
 
 	user := u.GetVerse()
+	if user == nil {
+		return space.GetID() == u.TempHomeID, nil
+	}
+
 	home, err := user.GetHomeID(ctx)
 	if err != nil {
 		return false, err
