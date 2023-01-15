@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"time"
+	"fmt"
 
 	"github.com/cfoust/sour/svc/cluster/verse"
 )
@@ -27,7 +28,7 @@ func (c *Cluster) GoHome(ctx context.Context, user *User) error {
 	} else {
 		space, err = user.Verse.GetHomeSpace(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not find home space")
 		}
 	}
 

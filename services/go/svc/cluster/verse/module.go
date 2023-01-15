@@ -23,6 +23,7 @@ const (
 	MAP_PREFIX         = PREFIX + "map-"
 	MAP_META_KEY       = MAP_PREFIX + "meta-%s"
 	MAP_DATA_KEY       = MAP_PREFIX + "data-%s"
+	SPACE_ID_KEY       = PREFIX + "space-id-%s"
 	SPACE_KEY          = PREFIX + "space-%s"
 	USER_KEY           = PREFIX + "user-%s"
 	ALIAS_TO_SPACE_KEY = PREFIX + "alias-to-space-%s"
@@ -235,11 +236,17 @@ type UserSpace struct {
 	id string
 }
 
-type spaceMeta struct {
+type Link struct {
+	ID          uint8
+	Destination string
+}
+
+type SpaceConfig struct {
 	Alias       string
 	Owner       string
 	Map         string
 	Description string
+	Links       []Link
 }
 
 func (s *UserSpace) GetID() string {
@@ -250,53 +257,67 @@ func (s *UserSpace) key() string {
 	return fmt.Sprintf(SPACE_KEY, s.id)
 }
 
-func (s *UserSpace) load(ctx context.Context) (*spaceMeta, error) {
-	var jsonSpace spaceMeta
-	err := loadJSON(ctx, s.redis, s.key(), &jsonSpace)
-	if err != nil {
-		return nil, err
-	}
-
-	return &jsonSpace, nil
+func (s *UserSpace) idKey() string {
+	return fmt.Sprintf(SPACE_ID_KEY, s.id)
 }
 
-func (s *UserSpace) save(ctx context.Context, data spaceMeta) error {
-	return saveJSON(ctx, s.redis, s.key(), data)
+func (s *UserSpace) alias() string {
+	return s.key() + "-alias"
+}
+
+func (s *UserSpace) owner() string {
+	return s.key() + "-owner"
+}
+
+func (s *UserSpace) map_() string {
+	return s.key() + "-map"
+}
+
+func (s *UserSpace) description() string {
+	return s.key() + "-description"
+}
+
+func (s *UserSpace) links() string {
+	return s.key() + "-links"
+}
+
+func (s *UserSpace) init(ctx context.Context, data SpaceConfig) error {
+	pipe := s.redis.Pipeline()
+	pipe.Set(ctx, s.idKey(), "", 0)
+	pipe.Set(ctx, s.alias(), data.Alias, 0)
+	pipe.Set(ctx, s.map_(), data.Map, 0)
+	pipe.Set(ctx, s.description(), data.Description, 0)
+	pipe.Set(ctx, s.owner(), data.Owner, 0)
+	_, err := pipe.Exec(ctx)
+	return err
 }
 
 func (s *UserSpace) Expire(ctx context.Context, when time.Duration) error {
-	return s.redis.Expire(ctx, s.key(), when).Err()
+	pipe := s.redis.Pipeline()
+	pipe.Expire(ctx, s.idKey(), when)
+	pipe.Expire(ctx, s.alias(), when)
+	pipe.Expire(ctx, s.owner(), when)
+	pipe.Expire(ctx, s.map_(), when)
+	pipe.Expire(ctx, s.description(), when)
+	pipe.Expire(ctx, s.links(), when)
+	_, err := pipe.Exec(ctx)
+	return err
 }
 
-func (s *UserSpace) GetMeta(ctx context.Context) (*spaceMeta, error) {
-	return s.load(ctx)
+func (s *UserSpace) getStr(ctx context.Context, key string) (string, error) {
+	return s.redis.Get(ctx, key).Result()
 }
 
 func (s *UserSpace) GetOwner(ctx context.Context) (string, error) {
-	meta, err := s.load(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	return meta.Owner, nil
+	return s.getStr(ctx, s.owner())
 }
 
 func (s *UserSpace) GetAlias(ctx context.Context) (string, error) {
-	meta, err := s.load(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	return meta.Alias, nil
+	return s.getStr(ctx, s.alias())
 }
 
 func (s *UserSpace) SetOwner(ctx context.Context, owner string) error {
-	meta, err := s.load(ctx)
-	if err != nil {
-		return err
-	}
-	meta.Owner = owner
-	return s.save(ctx, *meta)
+	return s.redis.Set(ctx, s.owner(), owner, 0).Err()
 }
 
 func (s *UserSpace) SetAlias(ctx context.Context, alias string) error {
@@ -310,7 +331,7 @@ func (s *UserSpace) SetAlias(ctx context.Context, alias string) error {
 		return fmt.Errorf("target alias already taken")
 	}
 
-	meta, err := s.load(ctx)
+	oldAlias, err := s.GetAlias(ctx)
 	if err != nil {
 		return err
 	}
@@ -318,8 +339,8 @@ func (s *UserSpace) SetAlias(ctx context.Context, alias string) error {
 	pipe := s.redis.Pipeline()
 
 	// Free up this space's current alias
-	if meta.Alias != "" {
-		pipe.Del(ctx, fmt.Sprintf(ALIAS_TO_SPACE_KEY, meta.Alias))
+	if oldAlias != "" {
+		pipe.Del(ctx, fmt.Sprintf(ALIAS_TO_SPACE_KEY, oldAlias))
 	}
 
 	pipe.Set(ctx, fmt.Sprintf(ALIAS_TO_SPACE_KEY, alias), s.GetID(), 0)
@@ -328,35 +349,47 @@ func (s *UserSpace) SetAlias(ctx context.Context, alias string) error {
 		return err
 	}
 
-	meta.Alias = alias
-	return s.save(ctx, *meta)
+	return s.redis.Set(ctx, s.alias(), alias, 0).Err()
 }
 
 func (s *UserSpace) GetDescription(ctx context.Context) (string, error) {
-	meta, err := s.load(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	return meta.Description, nil
+	return s.getStr(ctx, s.description())
 }
 
-func (s *UserSpace) SetDescription(ctx context.Context, description string) error {
-	meta, err := s.load(ctx)
+func (s *UserSpace) AddLink(ctx context.Context, link Link) error {
+	ser, err := json.Marshal(link)
 	if err != nil {
 		return err
 	}
-	meta.Description = description
-	return s.save(ctx, *meta)
+	return s.redis.LPush(ctx, s.links(), ser).Err()
+}
+
+func (s *UserSpace) GetLinks(ctx context.Context) ([]Link, error) {
+	links, err := s.redis.LRange(ctx, s.links(), 0, -1).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]Link, 0)
+	for _, link := range links {
+		var deser Link
+		err := json.Unmarshal([]byte(link), &deser)
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, deser)
+	}
+
+	return out, nil
+}
+
+func (s *UserSpace) SetDescription(ctx context.Context, description string) error {
+	return s.redis.Set(ctx, s.description(), description, 0).Err()
 }
 
 func (s *UserSpace) GetMapID(ctx context.Context) (string, error) {
-	meta, err := s.load(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	return meta.Map, nil
+	return s.getStr(ctx, s.map_())
 }
 
 func (s *UserSpace) GetMap(ctx context.Context) (*Map, error) {
@@ -369,12 +402,7 @@ func (s *UserSpace) GetMap(ctx context.Context) (*Map, error) {
 }
 
 func (s *UserSpace) SetMapID(ctx context.Context, id string) error {
-	meta, err := s.load(ctx)
-	if err != nil {
-		return err
-	}
-	meta.Map = id
-	return s.save(ctx, *meta)
+	return s.redis.Set(ctx, s.map_(), id, 0).Err()
 }
 
 func (v *Verse) NewSpaceID(ctx context.Context) (string, error) {
@@ -416,10 +444,11 @@ func (v *Verse) NewSpace(ctx context.Context, creator string) (*UserSpace, error
 		},
 	}
 
-	err = space.save(ctx, spaceMeta{
+	err = space.init(ctx, SpaceConfig{
 		Map:         map_.GetID(),
 		Owner:       creator,
 		Description: "",
+		Alias:       "",
 	})
 	if err != nil {
 		return nil, err
@@ -429,7 +458,7 @@ func (v *Verse) NewSpace(ctx context.Context, creator string) (*UserSpace, error
 }
 
 func (v *Verse) HaveSpace(ctx context.Context, id string) (bool, error) {
-	return v.have(ctx, fmt.Sprintf(SPACE_KEY, id))
+	return v.have(ctx, fmt.Sprintf(SPACE_ID_KEY, id))
 }
 
 func (v *Verse) LoadSpace(ctx context.Context, id string) (*UserSpace, error) {
@@ -441,9 +470,13 @@ func (v *Verse) LoadSpace(ctx context.Context, id string) (*UserSpace, error) {
 		},
 	}
 
-	_, err := space.load(ctx)
+	exists, err := v.HaveSpace(ctx, id)
 	if err != nil {
-		return nil, err
+	    return nil, err
+	}
+
+	if !exists {
+		return nil, fmt.Errorf("space does not exist")
 	}
 
 	return &space, nil
@@ -471,21 +504,38 @@ func (v *Verse) FindSpace(ctx context.Context, needle string) (*UserSpace, error
 		return nil, err
 	}
 
-	// Check to see if the needle is a prefix for an existing space
-	keys, err := v.redis.Keys(
-		ctx,
-		fmt.Sprintf(SPACE_KEY, needle)+"*",
-	).Result()
+	var cursor uint64
+	var keys []string
+	matches := make([]string, 0)
+	for {
+		keys, cursor, err = v.redis.Scan(
+			ctx,
+			cursor,
+			fmt.Sprintf(SPACE_ID_KEY, needle)+"*",
+			10,
+		).Result()
+		if err != nil {
+			return nil, err
+		}
 
-	if len(keys) == 0 {
+		for _, key := range keys {
+			matches = append(matches, key)
+		}
+
+		if cursor == 0 {
+			break
+		}
+	}
+
+	if len(matches) == 0 {
 		return nil, fmt.Errorf("no keys matching prefix")
 	}
 
-	if len(keys) > 1 {
+	if len(matches) > 1 {
 		return nil, fmt.Errorf("unambiguous reference")
 	}
 
-	return v.LoadSpace(ctx, keys[0])
+	return v.LoadSpace(ctx, matches[0])
 }
 
 type User struct {

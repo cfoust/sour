@@ -3,7 +3,6 @@ package verse
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/cfoust/sour/svc/cluster/assets"
 	gameServers "github.com/cfoust/sour/svc/cluster/servers"
@@ -11,10 +10,11 @@ import (
 	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/sasha-s/go-deadlock"
 )
 
 type SpaceInstance struct {
-	spaceMeta
+	SpaceConfig
 
 	id      string
 	Space   *UserSpace
@@ -49,7 +49,12 @@ func (s *SpaceInstance) GetDescription(ctx context.Context) (string, error) {
 
 func (s *SpaceInstance) GetAlias(ctx context.Context) (string, error) {
 	if s.Space != nil {
-		return s.Space.GetAlias(ctx)
+		alias, err := s.Space.GetAlias(ctx)
+		if err != nil {
+			return "", err
+		}
+		s.Alias = alias
+		return alias, err
 	}
 	return s.Alias, nil
 }
@@ -60,9 +65,22 @@ func (s *SpaceInstance) GetMap(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		s.Map = map_.GetID()
 		return map_.GetID(), nil
 	}
 	return s.Map, nil
+}
+
+func (s *SpaceInstance) GetLinks(ctx context.Context) ([]Link, error) {
+	if s.Space != nil {
+		links, err := s.Space.GetLinks(ctx)
+		if err != nil {
+			return nil, err
+		}
+		s.Links = links
+		return links, nil
+	}
+	return s.Links, nil
 }
 
 func (s *SpaceInstance) PollEdits(ctx context.Context) {
@@ -83,7 +101,7 @@ type SpaceManager struct {
 	instances map[string]*SpaceInstance
 	verse     *Verse
 	servers   *gameServers.ServerManager
-	mutex     sync.Mutex
+	mutex     deadlock.RWMutex
 	maps      *assets.AssetFetcher
 }
 
@@ -118,8 +136,8 @@ func (s *SpaceManager) SearchSpace(ctx context.Context, id string) (*UserSpace, 
 }
 
 func (s *SpaceManager) FindInstance(server *gameServers.GameServer) *SpaceInstance {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
 	for _, instance := range s.instances {
 		if instance.Server == server {
@@ -160,12 +178,13 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	logger := s.Logger()
+
 	space, err := s.SearchSpace(ctx, id)
 	if err != nil {
+		logger.Error().Err(err).Msgf("could not find space %s", id)
 		return nil, err
 	}
-
-	logger := s.Logger()
 
 	if instance, ok := s.instances[space.GetID()]; ok {
 		return instance, nil

@@ -368,8 +368,8 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 		return true, "", nil
 
 	case "home":
-		server.GoHome(server.serverCtx, user)
-		return true, "", nil
+		err := server.GoHome(server.serverCtx, user)
+		return true, "", err
 
 	case "help":
 		messages := []string{
