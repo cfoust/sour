@@ -347,7 +347,8 @@ func (manager *ServerManager) ReadEntities(ctx context.Context, server *GameServ
 	server.Mutex.Lock()
 	server.Entities = map_.Entities
 	server.Mutex.Unlock()
-	map_.Destroy()
+	// TODO this causes "delete twice" segfaults, why?
+	//map_.Destroy()
 	return nil
 }
 

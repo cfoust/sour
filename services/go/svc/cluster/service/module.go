@@ -213,16 +213,16 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 				message += " because they disconnected"
 			}
 
-			server.Users.Mutex.Lock()
+			server.Users.Mutex.RLock()
 			for _, user := range server.Users.Users {
 				if user == winner || user == loser {
 					continue
 				}
 				user.SendServerMessage(message)
 			}
-			server.Users.Mutex.Unlock()
+			server.Users.Mutex.RUnlock()
 		case queue := <-queues:
-			server.Users.Mutex.Lock()
+			server.Users.Mutex.RLock()
 			for _, client := range server.Users.Users {
 				if client == queue.User {
 					continue
@@ -234,7 +234,7 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 					queue.Type,
 				))
 			}
-			server.Users.Mutex.Unlock()
+			server.Users.Mutex.RUnlock()
 		case <-ctx.Done():
 			return
 		}
@@ -500,6 +500,23 @@ func (server *Cluster) GreetClient(ctx context.Context, user *User) {
 		user.SendServerMessage("You are not logged in. Your rating will not be saved.")
 	}
 	server.NotifyClientChange(ctx, user, true)
+
+
+	server.Users.Mutex.RLock()
+	message := "users online: "
+	users := server.Users.Users 
+	for i, other := range users {
+		if other == user {
+			message += "you"
+		} else {
+			message += other.Reference()
+		}
+		if i != len(users) - 1 {
+			message += ", "
+		}
+	}
+	server.Users.Mutex.RUnlock()
+	user.SendServerMessage(message)
 }
 
 func (server *Cluster) NotifyClientChange(ctx context.Context, user *User, joined bool) {
@@ -515,7 +532,7 @@ func (server *Cluster) NotifyClientChange(ctx context.Context, user *User, joine
 	// To users on another server
 	message := fmt.Sprintf("%s: %s (%s)", event, name, serverName)
 
-	server.Users.Mutex.Lock()
+	server.Users.Mutex.RLock()
 	for _, other := range server.Users.Users {
 		if other == user {
 			continue
@@ -529,7 +546,7 @@ func (server *Cluster) NotifyClientChange(ctx context.Context, user *User, joine
 		}
 		other.Client.SendMessage(message)
 	}
-	server.Users.Mutex.Unlock()
+	server.Users.Mutex.RUnlock()
 }
 
 func (server *Cluster) NotifyNameChange(ctx context.Context, user *User, oldName string) {
@@ -543,7 +560,7 @@ func (server *Cluster) NotifyNameChange(ctx context.Context, user *User, oldName
 	serverName := user.GetServerName()
 	message := fmt.Sprintf("%s now known as %s [%s]", oldName, newName, serverName)
 
-	server.Users.Mutex.Lock()
+	server.Users.Mutex.RLock()
 	for _, other := range server.Users.Users {
 		if other == user {
 			continue
@@ -557,11 +574,11 @@ func (server *Cluster) NotifyNameChange(ctx context.Context, user *User, oldName
 		}
 		other.Client.SendMessage(message)
 	}
-	server.Users.Mutex.Unlock()
+	server.Users.Mutex.RUnlock()
 }
 
 func (c *Cluster) AnnounceInServer(ctx context.Context, server *servers.GameServer, message string) {
-	c.Users.Mutex.Lock()
+	c.Users.Mutex.RLock()
 
 	serverUsers, ok := c.Users.Servers[server]
 	if !ok {
@@ -572,11 +589,11 @@ func (c *Cluster) AnnounceInServer(ctx context.Context, server *servers.GameServ
 		user.SendServerMessage(message)
 	}
 
-	c.Users.Mutex.Unlock()
+	c.Users.Mutex.RUnlock()
 }
 
 func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *User, message string) {
-	server.Users.Mutex.Lock()
+	server.Users.Mutex.RLock()
 	senderServer := sender.GetServer()
 	senderNum := sender.GetClientNum()
 
@@ -628,7 +645,7 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *User, mess
 
 		user.Connection.SendGlobalChat(otherMessage)
 	}
-	server.Users.Mutex.Unlock()
+	server.Users.Mutex.RUnlock()
 }
 
 // TODO

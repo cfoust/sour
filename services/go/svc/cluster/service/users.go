@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
@@ -169,6 +168,13 @@ func (u *User) GetServerName() string {
 
 	if u.IsInSpace() {
 		space := u.GetSpace()
+
+		// Cached, but that's OK
+		alias := space.Alias
+		if alias != "" {
+			return alias
+		}
+
 		return space.GetID()
 	}
 
@@ -200,6 +206,10 @@ func (u *User) SendServerMessage(message string) {
 
 func (u *User) Reference() string {
 	return fmt.Sprintf("%s (%s)", u.GetName(), u.GetServerName())
+}
+
+func (u *User) GetFormattedReference() string {
+	return fmt.Sprintf("%s (%s)", u.GetFormattedName(), u.GetServerName())
 }
 
 func (u *User) GetName() string {
@@ -300,14 +310,14 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 
 	logger.Info().Str("server", server.Reference()).Msg("connecting to server")
 
-	u.Mutex.Lock()
-	if u.Server != nil {
-		u.Server.SendDisconnect(u.Id)
+	oldServer := u.GetServer()
+	if oldServer != nil {
+		oldServer.SendDisconnect(u.Id)
 		u.cancel()
 
 		// Remove all the other clients from this client's perspective
 		u.o.Mutex.Lock()
-		users, ok := u.o.Servers[u.Server]
+		users, ok := u.o.Servers[oldServer]
 		if ok {
 			newUsers := make([]*User, 0)
 			for _, otherUser := range users {
@@ -332,14 +342,15 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 		u.o.Mutex.Unlock()
 	}
 
-	space := u.Space
+	space := u.GetSpace()
 	if space != nil {
 		if space.Editing != nil {
 			space.Editing.ClearClipboard(u.Id)
 		}
-		u.Space = nil
 	}
 
+	u.Mutex.Lock()
+	u.Space = nil
 	u.Server = server
 	server.Connecting <- true
 	u.Status = clients.ClientStatusConnecting
@@ -426,7 +437,7 @@ type UserOrchestrator struct {
 	Duels   []config.DuelType
 	Users   []*User
 	Servers map[*servers.GameServer][]*User
-	Mutex   sync.Mutex
+	Mutex   deadlock.RWMutex
 
 	redis *redis.Client
 }

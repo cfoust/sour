@@ -211,12 +211,12 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 		return nil, err
 	}
 
-	desc, err := space.GetDescription(ctx)
+	config, err := space.GetConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", desc))
+	gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
 	gameServer.SendCommand("publicserver 1")
 	gameServer.SendCommand("emptymap")
 
@@ -239,10 +239,11 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 	go editing.SavePeriodically(gameServer.Context)
 
 	instance := SpaceInstance{
-		Space:   space,
-		Editing: editing,
-		Server:  gameServer,
-		Context: gameServer.Context,
+		Space:       space,
+		Editing:     editing,
+		Server:      gameServer,
+		Context:     gameServer.Context,
+		SpaceConfig: *config,
 	}
 
 	instance.id = space.GetID()
@@ -278,13 +279,6 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 	id := config.Alias
 	gameServer.Alias = id
 
-	instance := SpaceInstance{
-		Server:  gameServer,
-		Context: gameServer.Context,
-	}
-
-	instance.id = id
-
 	links := make([]Link, 0)
 	for _, link := range config.Links {
 		links = append(links, Link{
@@ -292,13 +286,27 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 			Destination: link.Destination,
 		})
 	}
-	instance.Links = links
+
+	instance := SpaceInstance{
+		Server:  gameServer,
+		Context: gameServer.Context,
+		SpaceConfig: SpaceConfig{
+			Alias:       config.Alias,
+			Description: config.Description,
+			Links:       links,
+			Owner:       "cluster",
+			Map:         "",
+		},
+	}
+
+	instance.id = id
 
 	if config.Description != "" {
 		gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
 	}
 
 	go s.WatchServer(ctx, &instance, gameServer)
+	log.Info().Msgf("alias %s", gameServer.Alias)
 
 	s.instances[id] = &instance
 

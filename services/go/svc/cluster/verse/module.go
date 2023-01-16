@@ -292,6 +292,32 @@ func (s *UserSpace) init(ctx context.Context, data SpaceConfig) error {
 	return err
 }
 
+func (s *UserSpace) GetConfig(ctx context.Context) (*SpaceConfig, error) {
+	pipe := s.redis.Pipeline()
+	alias, _ := pipe.Get(ctx, s.alias()).Result()
+	map_, _ := pipe.Get(ctx, s.map_()).Result()
+	description, _ := pipe.Get(ctx, s.description()).Result()
+	owner, _ := pipe.Get(ctx, s.owner()).Result()
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO generalize and add to pipeline
+	links, err := s.GetLinks(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SpaceConfig{
+		Alias:       alias,
+		Map:         map_,
+		Description: description,
+		Owner:       owner,
+		Links:       links,
+	}, nil
+}
+
 func (s *UserSpace) Expire(ctx context.Context, when time.Duration) error {
 	pipe := s.redis.Pipeline()
 	pipe.Expire(ctx, s.idKey(), when)
@@ -472,7 +498,7 @@ func (v *Verse) LoadSpace(ctx context.Context, id string) (*UserSpace, error) {
 
 	exists, err := v.HaveSpace(ctx, id)
 	if err != nil {
-	    return nil, err
+		return nil, err
 	}
 
 	if !exists {
