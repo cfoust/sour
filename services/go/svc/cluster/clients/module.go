@@ -2,7 +2,9 @@ package clients
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -33,6 +35,8 @@ type Intercept struct {
 
 type Client struct {
 	Id ingress.ClientID
+
+	Session string
 
 	// Whether the client is connected (or connecting) to a game server
 	Status ClientStatus
@@ -183,8 +187,13 @@ func (c *ClientManager) AddClient(networkClient ingress.Connection) error {
 		return err
 	}
 
+	session := fmt.Sprintf("%x", sha256.Sum256([]byte(
+		fmt.Sprintf("%d-%s", id, networkClient.Host()),
+	)))
+
 	client := Client{
 		Id:             id,
+		Session:        session[:5],
 		Connection:     networkClient,
 		Status:         ClientStatusDisconnected,
 		delayMessages:  false,

@@ -1,6 +1,8 @@
 # This is Sour's default configuration.
 
 cluster:
+  logSessions: true
+
   assets:
     - "http://localhost:1234/assets/.index.json"
 

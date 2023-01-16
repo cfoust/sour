@@ -116,9 +116,8 @@ proxy: #Service
 #ClusterSettings: {
 	#Service
 
-	// The directory in which to save user sessions for debugging purposes.
-	// If empty, the cluster does not save any sessions.
-	sessionDirectory: string | *""
+	// Whether to save demos of user sessions to Redis.
+	logSessions: bool | *false
 
 	// Information used to respond to server info requests
 	serverInfo: {
