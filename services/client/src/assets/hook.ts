@@ -98,11 +98,18 @@ export async function mountFile(path: string, data: Uint8Array): Promise<void> {
 }
 let layers: Layer[] = []
 
+function safeSetLoading(value: boolean) {
+  if (BananaBread == null) return
+  const { setLoading } = BananaBread
+  if (setLoading == null) return
+  setLoading(value)
+}
+
 export async function pushLayer(
   assets: AssetData[],
   type: LoadRequestType
 ): Promise<Layer> {
-  BananaBread.setLoading(true)
+  safeSetLoading(true)
   const data: Record<string, AssetData> = {}
   for (const asset of assets) {
     const { path } = asset
@@ -155,7 +162,7 @@ export async function pushLayer(
 
   layers = [...before, newLayer, ...after]
 
-  BananaBread.setLoading(false)
+  safeSetLoading(false)
   return newLayer
 }
 
