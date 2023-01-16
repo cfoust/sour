@@ -22,7 +22,7 @@ cluster:
         publicserver 1
         serverflagruns 1
         serverbotbalance 1
-        lockmaprotation 0
+        lockmaprotation 1
         ffamaps = [
           complex dust2 turbine
         ]
