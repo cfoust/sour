@@ -6,10 +6,11 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+
+	"github.com/go-redis/redis/v9"
 )
 
 type RecordedPacket struct {
@@ -53,44 +54,7 @@ func WriteFile(path string, data []byte) error {
 	return nil
 }
 
-func RecordSession(ctx context.Context, directory string, user *User) error {
-	logger := user.Logger()
-	to, from := user.ReceiveIntercept()
-
-	messages := make([]RecordedPacket, 0)
-	start := time.Now()
-
-	path := filepath.Join(
-		directory,
-		fmt.Sprintf(
-			"%s-%s.dmo",
-			start.Format("2006.01.02.03.04.05"),
-			user.Connection.Host(),
-		),
-	)
-
-	shouldSave := len(directory) > 0
-
-	if shouldSave {
-		logger.Info().Str("path", path).Msg("logging client session")
-	}
-
-Outer:
-	for {
-		select {
-		case <-ctx.Done():
-			break Outer
-		case msg := <-to:
-			messages = append(messages, NewPacket(false, msg))
-		case msg := <-from:
-			messages = append(messages, NewPacket(true, msg))
-		}
-	}
-
-	if !shouldSave {
-		return nil
-	}
-
+func EncodeDemo(startTime time.Time, messages []RecordedPacket) ([]byte, error) {
 	// Write a valid demo
 	p := game.Buffer{}
 
@@ -103,7 +67,7 @@ Outer:
 
 	for _, message := range messages {
 		packet := message.Packet
-		millis := int32(message.Time.Sub(start).Round(time.Millisecond).Milliseconds())
+		millis := int32(message.Time.Sub(startTime).Round(time.Millisecond).Milliseconds())
 		p.Put(
 			int32(millis),
 			int32(packet.Channel),
@@ -114,15 +78,63 @@ Outer:
 
 	compressed, err := Compress(p)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	return compressed, nil
+}
+
+const (
+	DEMO_KEY = "demo-%s"
+	DEMO_TTL = time.Duration(48 * time.Hour)
+)
+
+func RecordSession(ctx context.Context, redis *redis.Client, shouldSave bool, user *User) error {
+	logger := user.Logger()
+	to, from := user.ReceiveIntercept()
+
+	start := time.Now()
+
+	allMsg := make([]RecordedPacket, 0)
+	toMsg := make([]RecordedPacket, 0)
+
+Outer:
+	for {
+		select {
+		case <-ctx.Done():
+			break Outer
+		case msg := <-to:
+			toMsg = append(toMsg, NewPacket(false, msg))
+			allMsg = append(allMsg, NewPacket(false, msg))
+		case msg := <-from:
+			allMsg = append(allMsg, NewPacket(true, msg))
+		}
 	}
 
-	err = WriteFile(path, compressed)
+	if !shouldSave {
+		return nil
+	}
+
+	allDemo, err := EncodeDemo(start, allMsg)
 	if err != nil {
-		return err
+	    return err
 	}
 
-	logger.Info().Str("path", path).Msg("saved client session")
+	toDemo, err := EncodeDemo(start, toMsg)
+	if err != nil {
+	    return err
+	}
+
+	key := user.Session
+
+	pipe := redis.Pipeline()
+	pipe.Set(ctx, fmt.Sprintf(DEMO_KEY, key), toDemo, 0)
+	pipe.Set(ctx, fmt.Sprintf(DEMO_KEY, key + "-all"), allDemo, 0)
+	_, err = pipe.Exec(ctx)
+	if err != nil {
+	    return err
+	}
+
+	logger.Info().Msg("saved session")
 
 	return nil
 }

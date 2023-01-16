@@ -52,7 +52,11 @@ func (u *User) Context() context.Context {
 
 func (u *User) Logger() zerolog.Logger {
 	u.Mutex.RLock()
-	logger := log.With().Uint32("client", uint32(u.Client.Id)).Str("name", u.Name).Logger()
+	logger := log.With().
+		Uint32("id", uint32(u.Client.Id)).
+		Str("session", u.Client.Session).
+		Str("name", u.Name).
+		Logger()
 
 	if u.Auth != nil {
 		discord := u.Auth.Discord

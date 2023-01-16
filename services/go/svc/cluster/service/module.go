@@ -761,7 +761,12 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 	logger := user.Logger()
 
 	go func() {
-		err := RecordSession(userCtx, c.settings.SessionDirectory, user)
+		err := RecordSession(
+			userCtx,
+			c.redis,
+			c.settings.LogSessions,
+			user,
+		)
 		if err != nil {
 			logger.Warn().Err(err).Msg("failed to record client session")
 		}
