@@ -107,11 +107,12 @@ func FetchServers() ([]Address, error) {
 	var servers []Address
 
 	socket, err := enet.NewConnectSocket("master.sauerbraten.org", 28787)
-	defer socket.DestroySocket()
 	if err != nil {
 		fmt.Println("Error creating socket")
 		return servers, err
 	}
+
+	defer socket.DestroySocket()
 
 	err = socket.SendString("list\n")
 	if err != nil {
