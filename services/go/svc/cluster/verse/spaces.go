@@ -23,7 +23,7 @@ type SpaceInstance struct {
 	Server  *gameServers.GameServer
 	// Lasts for the lifetime of the instance, it's copied from the game
 	// server's
-	Context context.Context
+	Context  context.Context
 }
 
 func (s *SpaceInstance) IsOpenEdit() bool {

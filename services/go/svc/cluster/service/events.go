@@ -143,7 +143,6 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *User, mess
 	server.Users.Mutex.RUnlock()
 }
 
-
 // TODO
 //func (server *Cluster) SendDesktopMap(ctx context.Context, client *clients.Client) {
 //if server.MapSender.IsHandling(client) {
@@ -260,13 +259,14 @@ func (c *Cluster) PollMessages(ctx context.Context, user *User) {
 	}
 
 	chats := user.From.Intercept(game.N_TEXT)
-	blockConnecting := user.From.InterceptWith(func (code game.MessageCode) bool {
+	blockConnecting := user.From.InterceptWith(func(code game.MessageCode) bool {
 		return !game.IsConnectingMessage(code)
 	})
 	connects := user.From.Intercept(game.N_CONNECT)
 	teleports := user.From.Intercept(game.N_TELEPORT)
 	edits := user.From.InterceptWith(game.IsOwnerOnly)
 	crcs := user.From.Intercept(game.N_MAPCRC)
+	demos := user.From.Intercept(game.N_GETDEMO)
 
 	for {
 		logger := user.Logger()
@@ -274,6 +274,14 @@ func (c *Cluster) PollMessages(ctx context.Context, user *User) {
 		select {
 		case <-ctx.Done():
 			return
+		case msg := <-demos.Receive():
+			demo := msg.Message.Contents().(*game.GetDemo)
+			if c.MapSender.IsHandling(user) {
+				c.MapSender.SendDemo(ctx, user, demo.Tag)
+				msg.Drop()
+				continue
+			}
+			msg.Pass()
 		case msg := <-crcs.Receive():
 			msg.Pass()
 			user.RestoreMessages()
@@ -514,16 +522,12 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					}
 				}
 
-				if message.Type() == game.N_GETDEMO && c.MapSender.IsHandling(user) {
-					demo := message.Contents().(*game.GetDemo)
-					c.MapSender.SendDemo(ctx, user, demo.Tag)
+				server := user.GetServer()
+				if server == nil {
 					continue
 				}
 
-				server := user.GetServer()
-				if server != nil {
-					server.SendData(user.Id, uint32(msg.Channel), data)
-				}
+				server.SendData(user.Id, uint32(msg.Channel), data)
 			}
 
 		case request := <-commands:

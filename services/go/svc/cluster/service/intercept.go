@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/cfoust/sour/pkg/game"
 
 	"github.com/sasha-s/go-deadlock"
@@ -99,7 +101,7 @@ func (m *MessageProxy) Process(ctx context.Context, channel uint8, message game.
 	return current.Data(), nil
 }
 
-func (m *MessageProxy) InterceptWith(check func (game.MessageCode) bool) *Handler {
+func (m *MessageProxy) InterceptWith(check func(game.MessageCode) bool) *Handler {
 	handler := Handler{
 		handles: check,
 		recv:    make(chan ProxiedMessage),
@@ -129,12 +131,11 @@ func (m *MessageProxy) Remove(handler *Handler) {
 
 func (m *MessageProxy) getNext(ctx context.Context, shouldSwallow bool, codes ...game.MessageCode) (game.Message, error) {
 	handler := m.Intercept(codes...)
-	defer m.Remove(handler)
-
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case msg := <-handler.Receive():
+		m.Remove(handler)
 		if shouldSwallow {
 			msg.Drop()
 		} else {
@@ -144,12 +145,52 @@ func (m *MessageProxy) getNext(ctx context.Context, shouldSwallow bool, codes ..
 	}
 }
 
+func (m *MessageProxy) getNextTimeout(
+	ctx context.Context,
+	shouldSwallow bool,
+	timeout time.Duration,
+	codes ...game.MessageCode,
+) (game.Message, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	out := make(chan struct {
+		Message game.Message
+		Err     error
+	})
+
+	select {
+	case <-timeoutCtx.Done():
+		return nil, timeoutCtx.Err()
+	case result := <-out:
+		return result.Message, result.Err
+	}
+}
+
+// Wait for a message and drop it.
 func (m *MessageProxy) Next(ctx context.Context, codes ...game.MessageCode) (game.Message, error) {
 	return m.getNext(ctx, true, codes...)
 }
 
+func (m *MessageProxy) NextTimeout(
+	ctx context.Context,
+	timeout time.Duration,
+	codes ...game.MessageCode,
+) (game.Message, error) {
+	return m.getNextTimeout(ctx, true, timeout, codes...)
+}
+
+// Wait for a message, but don't prevent it from being transmitted.
 func (m *MessageProxy) Wait(ctx context.Context, codes ...game.MessageCode) (game.Message, error) {
 	return m.getNext(ctx, false, codes...)
+}
+
+func (m *MessageProxy) WaitTimeout(
+	ctx context.Context,
+	timeout time.Duration,
+	codes ...game.MessageCode,
+) (game.Message, error) {
+	return m.getNextTimeout(ctx, false, timeout, codes...)
 }
 
 func NewMessageProxy(fromClient bool) *MessageProxy {
