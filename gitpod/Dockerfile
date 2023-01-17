@@ -4,6 +4,7 @@ RUN sudo apt-get update && \
   sudo apt-get install -o Dpkg::Options::="--force-confold" -qqy \
     build-essential \
     cmake \
+    graphviz \
     imagemagick \
     inotify-tools \
     libenet-dev \

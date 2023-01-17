@@ -352,7 +352,11 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 				return
 			}
 
-			typ, message, _ := c.Read(ctx)
+			typ, message, err := c.Read(ctx)
+			if err != nil {
+				logger.Error().Err(err).Msg("error reading from websocket")
+				continue
+			}
 			if typ != websocket.MessageBinary {
 				continue
 			}

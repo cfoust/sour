@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime/pprof"
 	"runtime"
+	"runtime/pprof"
 	"time"
 
 	"github.com/cfoust/sour/svc/cluster/assets"
@@ -174,7 +174,7 @@ func main() {
 			log.Fatal().Err(err).Msg("could not create memory profile")
 		}
 		defer f.Close() // error handling omitted for example
-		runtime.GC() // get up-to-date statistics
+		runtime.GC()    // get up-to-date statistics
 		if err := pprof.WriteHeapProfile(f); err != nil {
 			log.Fatal().Err(err).Msg("could not write memory profile")
 		}

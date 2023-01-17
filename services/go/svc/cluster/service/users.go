@@ -463,7 +463,6 @@ func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
 	case <-user.Context().Done():
 		user.DisconnectFromServer()
 		u.RemoveUser(user)
-		log.Info().Msgf("removing user")
 		return
 	case <-ctx.Done():
 		return
