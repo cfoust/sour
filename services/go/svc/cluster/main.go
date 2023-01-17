@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/pprof"
+	"runtime"
 	"time"
 
 	"github.com/cfoust/sour/svc/cluster/assets"
@@ -20,15 +23,28 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	DEBUG = false
-)
-
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
 
+	debug := flag.Bool("debug", false, "Whether to enable debug logging.")
+	cpuProfile := flag.String("cpu", "", "Write cpu profile to `file`.")
+	memProfile := flag.String("memory", "", "Write memory profile to `file`.")
+	flag.Parse()
+
+	if *cpuProfile != "" {
+		f, err := os.Create(*cpuProfile)
+		if err != nil {
+			log.Fatal().Err(err).Msg("could not create CPU profile")
+		}
+		defer f.Close() // error handling omitted for example
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal().Err(err).Msg("could not start CPU profile")
+		}
+		defer pprof.StopCPUProfile()
+	}
+
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	if DEBUG {
+	if *debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 		log.Warn().Msg("debug logging enabled")
 	}
@@ -150,6 +166,18 @@ func main() {
 		log.Printf("failed to serve: %v", err)
 	case sig := <-sigs:
 		log.Printf("terminating: %v", sig)
+	}
+
+	if *memProfile != "" {
+		f, err := os.Create(*memProfile)
+		if err != nil {
+			log.Fatal().Err(err).Msg("could not create memory profile")
+		}
+		defer f.Close() // error handling omitted for example
+		runtime.GC() // get up-to-date statistics
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatal().Err(err).Msg("could not write memory profile")
+		}
 	}
 
 	for _, enetIngress := range enet {
