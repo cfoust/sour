@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -456,6 +455,11 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 }
 
 func (server *WSIngress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Ignore the request, this sometimes happens
+	if r.URL.Path != "/" {
+		return
+	}
+
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		OriginPatterns: []string{"*"},
 	})
@@ -551,26 +555,6 @@ func (server *WSIngress) StartWatcher(ctx context.Context) {
 			}
 		}
 	}()
-}
-
-func (server *WSIngress) Serve(ctx context.Context, port int) error {
-	listen, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
-	if err != nil {
-		log.Error().Err(err).Msg("failed to bind WebSocket port")
-		return err
-	}
-
-	log.Printf("listening on http://%v", listen.Addr())
-
-	httpServer := &http.Server{
-		Handler: server,
-	}
-
-	server.httpServer = httpServer
-
-	go server.StartWatcher(ctx)
-
-	return httpServer.Serve(listen)
 }
 
 func (server *WSIngress) Shutdown(ctx context.Context) {

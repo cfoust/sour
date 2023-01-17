@@ -1109,6 +1109,9 @@ void teardown_state(MapState *state)
     state->root = worldroot;
     state->vslots = vslots;
     state->slots = slots;
+    worldroot = NULL;
+    vslots = NULL;
+    slots = NULL;
 }
 
 bool apply_messages(MapState *state, int _worldsize, void *data, size_t len)
