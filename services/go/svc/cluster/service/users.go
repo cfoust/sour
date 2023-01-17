@@ -41,6 +41,9 @@ type User struct {
 	serverSessionCtx context.Context
 	cancel           context.CancelFunc
 
+	From *MessageProxy
+	To   *MessageProxy
+
 	Mutex deadlock.RWMutex
 	o     *UserOrchestrator
 }
@@ -472,6 +475,8 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, client *clients.Client) 
 		ELO:    NewELOState(u.Duels),
 		Client: *client,
 		Name:   "unnamed",
+		From:   NewMessageProxy(true),
+		To:     NewMessageProxy(false),
 		o:      u,
 	}
 	u.Users = append(u.Users, &user)
