@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cfoust/sour/svc/cluster/assets"
+	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/config"
 	gameServers "github.com/cfoust/sour/svc/cluster/servers"
 

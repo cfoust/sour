@@ -20,7 +20,7 @@ import (
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
-	"github.com/cfoust/sour/svc/cluster/assets"
+	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 
