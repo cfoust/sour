@@ -88,6 +88,10 @@ const (
 	DEMO_TTL = time.Duration(48 * time.Hour)
 )
 
+func (c *Cluster) GetDemo(ctx context.Context, id string) ([]byte, error) {
+	return c.redis.Get(ctx, fmt.Sprintf(DEMO_KEY, id)).Bytes()
+}
+
 func RecordSession(ctx context.Context, redis *redis.Client, shouldSave bool, user *User) error {
 	logger := user.Logger()
 	to, from := user.ReceiveIntercept()
@@ -116,22 +120,22 @@ Outer:
 
 	allDemo, err := EncodeDemo(start, allMsg)
 	if err != nil {
-	    return err
+		return err
 	}
 
 	toDemo, err := EncodeDemo(start, toMsg)
 	if err != nil {
-	    return err
+		return err
 	}
 
 	key := user.Session
 
 	pipe := redis.Pipeline()
-	pipe.Set(ctx, fmt.Sprintf(DEMO_KEY, key), toDemo, 0)
-	pipe.Set(ctx, fmt.Sprintf(DEMO_KEY, key + "-all"), allDemo, 0)
-	_, err = pipe.Exec(ctx)
+	pipe.Set(context.Background(), fmt.Sprintf(DEMO_KEY, key), toDemo, 0)
+	pipe.Set(context.Background(), fmt.Sprintf(DEMO_KEY, key+"-all"), allDemo, 0)
+	_, err = pipe.Exec(context.Background())
 	if err != nil {
-	    return err
+		return err
 	}
 
 	logger.Info().Msg("saved session")

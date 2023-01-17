@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -126,10 +127,18 @@ func main() {
 	}
 	go cluster.PollUsers(ctx, newConnections)
 	go cluster.PollDuels(ctx)
+	go wsIngress.StartWatcher(ctx)
 
 	errc := make(chan error, 1)
 	go func() {
-		errc <- wsIngress.Serve(ctx, clusterConfig.Ingress.Web.Port)
+		mux := http.NewServeMux()
+		mux.Handle("/", wsIngress)
+		mux.Handle("/api/", cluster)
+
+		errc <- http.ListenAndServe(
+			fmt.Sprintf("0.0.0.0:%d", clusterConfig.Ingress.Web.Port),
+			mux,
+		)
 	}()
 
 	sigs := make(chan os.Signal, 1)
@@ -143,7 +152,6 @@ func main() {
 		log.Printf("terminating: %v", sig)
 	}
 
-	wsIngress.Shutdown(ctx)
 	for _, enetIngress := range enet {
 		enetIngress.Shutdown()
 	}
