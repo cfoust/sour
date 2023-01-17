@@ -416,11 +416,12 @@ func (s *ServerInfoService) Handle(request *game.Packet, out chan []byte) error 
 
 func (s *ServerInfoService) UpdateMaster(port int) error {
 	socket, err := enet.NewConnectSocket("master.sauerbraten.org", 28787)
-	defer socket.DestroySocket()
 
 	if err != nil {
 		return fmt.Errorf("error creating socket")
 	}
+
+	defer socket.DestroySocket()
 
 	err = socket.SendString(fmt.Sprintf("regserv %d\n", port))
 	if err != nil {
