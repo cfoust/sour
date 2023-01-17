@@ -10,6 +10,7 @@ import (
 
 type ProxiedMessage struct {
 	Message game.Message
+	Channel uint8
 	drop    chan bool
 	replace chan []byte
 }
@@ -27,21 +28,27 @@ func (p *ProxiedMessage) Replace(data []byte) {
 }
 
 type Handler struct {
-	codes []game.MessageCode
-	recv  chan ProxiedMessage
+	handles func(code game.MessageCode) bool
+	recv    chan ProxiedMessage
 }
 
 func (h *Handler) Receive() <-chan ProxiedMessage {
 	return h.recv
 }
 
-func (h *Handler) Handles(code game.MessageCode) bool {
-	for _, otherCode := range h.codes {
-		if code == otherCode {
-			return true
+func makeCodeSetCheck(codes []game.MessageCode) func(code game.MessageCode) bool {
+	return func(code game.MessageCode) bool {
+		for _, otherCode := range codes {
+			if code == otherCode {
+				return true
+			}
 		}
+		return false
 	}
-	return false
+}
+
+func (h *Handler) Handles(code game.MessageCode) bool {
+	return h.handles(code)
 }
 
 type MessageProxy struct {
@@ -50,19 +57,21 @@ type MessageProxy struct {
 	fromClient bool
 }
 
-func (m *MessageProxy) Process(ctx context.Context, message game.Message) ([]byte, error) {
-
+func (m *MessageProxy) Process(ctx context.Context, channel uint8, message game.Message) ([]byte, error) {
 	current := message
 	drop := make(chan bool)
 	replace := make(chan []byte)
 	m.mutex.Lock()
-	for _, handler := range m.handlers {
+	handlers := m.handlers
+	m.mutex.Unlock()
+	for _, handler := range handlers {
 		if !handler.Handles(message.Type()) {
 			continue
 		}
 
 		handler.recv <- ProxiedMessage{
 			Message: current,
+			Channel: channel,
 			drop:    drop,
 			replace: replace,
 		}
@@ -86,20 +95,23 @@ func (m *MessageProxy) Process(ctx context.Context, message game.Message) ([]byt
 			current = messages[0]
 		}
 	}
-	m.mutex.Unlock()
 
-	return nil, nil
+	return current.Data(), nil
 }
 
-func (m *MessageProxy) Intercept(codes ...game.MessageCode) *Handler {
+func (m *MessageProxy) InterceptWith(check func (game.MessageCode) bool) *Handler {
 	handler := Handler{
-		codes: codes,
-		recv:  make(chan ProxiedMessage),
+		handles: check,
+		recv:    make(chan ProxiedMessage),
 	}
 	m.mutex.Lock()
 	m.handlers = append(m.handlers, &handler)
 	m.mutex.Unlock()
 	return &handler
+}
+
+func (m *MessageProxy) Intercept(codes ...game.MessageCode) *Handler {
+	return m.InterceptWith(makeCodeSetCheck(codes))
 }
 
 func (m *MessageProxy) Remove(handler *Handler) {

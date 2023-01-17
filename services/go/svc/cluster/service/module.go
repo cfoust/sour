@@ -21,15 +21,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Client struct {
-	id   uint16
-	host string
-
-	server     *servers.GameServer
-	sendPacket chan game.GamePacket
-	closeSlow  func()
-}
-
 const (
 	CREATE_SERVER_COOLDOWN = time.Duration(10 * time.Second)
 )
@@ -501,17 +492,16 @@ func (server *Cluster) GreetClient(ctx context.Context, user *User) {
 	}
 	server.NotifyClientChange(ctx, user, true)
 
-
 	server.Users.Mutex.RLock()
 	message := "users online: "
-	users := server.Users.Users 
+	users := server.Users.Users
 	for i, other := range users {
 		if other == user {
 			message += "you"
 		} else {
 			message += other.Reference()
 		}
-		if i != len(users) - 1 {
+		if i != len(users)-1 {
 			message += ", "
 		}
 	}
@@ -726,7 +716,7 @@ func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int) {
 	if server != nil && space != nil {
 		links, err := space.GetLinks(ctx)
 		if err != nil {
-		    return
+			return
 		}
 
 		entities := server.GetEntities()
@@ -745,6 +735,115 @@ func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int) {
 					user,
 				)
 			}
+		}
+	}
+}
+
+func (c *Cluster) PollMessages(ctx context.Context, user *User) {
+	userCtx := user.Context()
+
+	passthrough := func(channel uint8, message game.Message) {
+		server := user.GetServer()
+		if server != nil {
+			server.SendData(
+				user.Id,
+				uint32(channel),
+				message.Data(),
+			)
+		}
+	}
+
+	chats := user.From.Intercept(game.N_TEXT)
+	blockConnecting := user.From.InterceptWith(func (code game.MessageCode) bool {
+		return !game.IsConnectingMessage(code)
+	})
+	connects := user.From.Intercept(game.N_CONNECT)
+	teleports := user.From.Intercept(game.N_TELEPORT)
+
+	for {
+		logger := user.Logger()
+
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-teleports.Receive():
+			message := msg.Message
+			teleport := message.Contents().(*game.Teleport)
+			c.HandleTeleport(ctx, user, teleport.Source)
+			msg.Pass()
+		case msg := <-connects.Receive():
+			message := msg.Message
+			connect := message.Contents().(*game.Connect)
+
+			description := connect.AuthDescription
+			name := connect.AuthName
+
+			connect.AuthDescription = ""
+			connect.AuthName = ""
+			p := game.Packet{}
+			p.PutInt(int32(game.N_CONNECT))
+			p.Put(*connect)
+			msg.Replace(p)
+
+			if description == c.authDomain && user.GetAuth() == nil {
+				c.DoAuthChallenge(ctx, user, name)
+			}
+			continue
+		case msg := <-blockConnecting.Receive():
+			// Skip messages that aren't allowed while the
+			// client is connecting, otherwise the server
+			// (rightfully) disconnects us. This solves a
+			// race condition when switching servers.
+			status := user.GetStatus()
+			if status == clients.ClientStatusConnecting {
+				msg.Drop()
+				continue
+			}
+			msg.Pass()
+		case msg := <-chats.Receive():
+			message := msg.Message
+			text := message.Contents().(*game.Text).Text
+
+			msg.Drop()
+
+			if text == "a" && c.MapSender.IsHandling(user) {
+				c.MapSender.TriggerSend(ctx, user)
+				continue
+			}
+
+			if !strings.HasPrefix(text, "#") {
+				// We do our own chat, don't pass on to the server
+				c.ForwardGlobalChat(userCtx, user, text)
+				continue
+			}
+
+			command := text[1:]
+			logger.Info().Str("command", command).Msg("intercepted command")
+
+			// Only send this packet after we've checked
+			// whether the cluster should handle it
+			go func() {
+				handled, response, err := c.RunCommandWithTimeout(userCtx, command, user)
+
+				if !handled {
+					passthrough(msg.Channel, message)
+					msg.Pass()
+					return
+				}
+
+				if err != nil {
+					user.SendServerMessage(game.Red(err.Error()))
+					return
+				} else if len(response) > 0 {
+					user.SendServerMessage(response)
+					return
+				}
+
+				if command == "help" {
+					passthrough(msg.Channel, message)
+				}
+			}()
+			continue
 		}
 	}
 }
@@ -773,6 +872,8 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 	}()
 
 	defer user.Connection.Destroy()
+
+	go c.PollMessages(ctx, user)
 
 	for {
 		logger = user.Logger()
@@ -824,97 +925,30 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			if err != nil {
 				logger.Error().Err(err).
 					Msg("client -> server (failed to decode message)")
+				server := user.GetServer()
+				if server == nil {
+					continue
+				}
 
 				// Forward it anyway
-				user.Mutex.RLock()
-				if user.Server != nil {
-					user.Server.SendData(user.Id, uint32(msg.Channel), msg.Data)
-				}
-				user.Mutex.RUnlock()
+				server.SendData(user.Id, uint32(msg.Channel), msg.Data)
 				continue
 			}
 
-			passthrough := func(message game.Message) {
-				user.Mutex.RLock()
-				if user.Server != nil {
-					user.Server.SendData(user.Id, uint32(msg.Channel), message.Data())
-				}
-				user.Mutex.RUnlock()
-			}
-
 			for _, message := range gameMessages {
-				if message.Type() == game.N_TEXT {
-					text := message.Contents().(*game.Text).Text
-
-					if text == "a" && c.MapSender.IsHandling(user) {
-						c.MapSender.TriggerSend(ctx, user)
-						continue
-					}
-
-					if strings.HasPrefix(text, "#") {
-						command := text[1:]
-						logger.Info().Str("command", command).Msg("intercepted command")
-
-						// Only send this packet after we've checked
-						// whether the cluster should handle it
-						go func() {
-							handled, response, err := c.RunCommandWithTimeout(userCtx, command, user)
-
-							if !handled {
-								passthrough(message)
-								return
-							}
-
-							if err != nil {
-								user.SendServerMessage(game.Red(err.Error()))
-								return
-							} else if len(response) > 0 {
-								user.SendServerMessage(response)
-								return
-							}
-
-							if command == "help" {
-								passthrough(message)
-							}
-						}()
-						continue
-					} else {
-						// We do our own chat, don't pass on to the server
-						c.ForwardGlobalChat(userCtx, user, text)
-						continue
-					}
-				}
-
-				// Skip messages that aren't allowed while the
-				// client is connecting, otherwise the server
-				// (rightfully) disconnects us. This solves a
-				// race condition when switching servers.
-				user.Mutex.RLock()
-				status := user.Status
-				if status == clients.ClientStatusConnecting && !game.IsConnectingMessage(message.Type()) {
-					user.Mutex.RUnlock()
-					continue
-				}
-				user.Mutex.RUnlock()
-
 				logger.Debug().Str("code", message.Type().String()).Msg("client -> server")
 
-				if message.Type() == game.N_CONNECT {
-					connect := message.Contents().(*game.Connect)
+				data, err := user.From.Process(
+					ctx,
+					msg.Channel,
+					message,
+				)
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to process message")
+					continue
+				}
 
-					description := connect.AuthDescription
-					name := connect.AuthName
-
-					connect.AuthDescription = ""
-					connect.AuthName = ""
-					p := game.Packet{}
-					p.PutInt(int32(game.N_CONNECT))
-					p.Put(*connect)
-					user.Server.SendData(user.Id, uint32(msg.Channel), p)
-
-					if description == c.authDomain && user.GetAuth() == nil {
-						c.DoAuthChallenge(ctx, user, name)
-					}
+				if data == nil {
 					continue
 				}
 
@@ -930,12 +964,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 						)
 						continue
 					}
-				}
-
-				if message.Type() == game.N_TELEPORT {
-					teleport := message.Contents().(*game.Teleport)
-					//log.Info().Msgf("%+v", teleport)
-					c.HandleTeleport(ctx, user, teleport.Source)
 				}
 
 				if game.IsOwnerOnly(message.Type()) {
@@ -984,11 +1012,10 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					continue
 				}
 
-				user.Mutex.RLock()
-				if user.Server != nil {
-					user.Server.SendData(user.Id, uint32(msg.Channel), message.Data())
+				server := user.GetServer()
+				if server != nil {
+					server.SendData(user.Id, uint32(msg.Channel), data)
 				}
-				user.Mutex.RUnlock()
 			}
 
 		case request := <-commands:
