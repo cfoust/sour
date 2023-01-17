@@ -355,7 +355,7 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 			typ, message, err := c.Read(ctx)
 			if err != nil {
 				logger.Error().Err(err).Msg("error reading from websocket")
-				continue
+				return
 			}
 			if typ != websocket.MessageBinary {
 				continue

@@ -23,6 +23,6 @@ wsproxy 28785 &
 nginx -g 'daemon off;' &
 (mkdir -p /redis && cd /redis && redis-server /sour/redis.conf) &
 sleep 1
-cluster &
+cluster $CLUSTER_ARGS &
 
 tail -F /bin/entrypoint
