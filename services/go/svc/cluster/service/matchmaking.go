@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cfoust/sour/pkg/mmr"
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
@@ -700,6 +701,100 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 			m.queue = cleaned
 
 			m.mutex.Unlock()
+		}
+	}
+}
+
+func (server *Cluster) PollDuels(ctx context.Context) {
+	queues := server.matches.ReceiveQueues()
+	results := server.matches.ReceiveResults()
+
+	for {
+		select {
+		case result := <-results:
+			winner := result.Winner
+			loser := result.Loser
+
+			winnerELO, _ := winner.ELO.Ratings[result.Type]
+			loserELO, _ := loser.ELO.Ratings[result.Type]
+
+			calc := mmr.NewElo()
+			var score float64 = 1 // winner wins
+			if result.IsDraw {
+				score = 0.5
+			}
+
+			winnerOutcome, loserOutcome := calc.Outcome(
+				winnerELO.Rating,
+				loserELO.Rating,
+				score,
+			)
+
+			winnerELO.Rating = winnerOutcome.Rating
+			loserELO.Rating = loserOutcome.Rating
+
+			if result.IsDraw {
+				winnerELO.Draws++
+				loserELO.Draws++
+			} else {
+				winnerELO.Wins++
+				loserELO.Losses++
+			}
+
+			winner.SaveELOState(ctx)
+			loser.SaveELOState(ctx)
+
+			if result.IsDraw {
+				message := "the duel ended in a draw, your rating is unchanged"
+				winner.SendServerMessage(message)
+				loser.SendServerMessage(message)
+				continue
+			}
+
+			winner.SendServerMessage(
+				game.Green("you won! ") + winnerOutcome.String(),
+			)
+			loser.SendServerMessage(
+				game.Red("you lost! ") + loserOutcome.String(),
+			)
+
+			message := fmt.Sprintf(
+				"%s (%s) beat %s (%s) in %s",
+				winner.Name,
+				winnerOutcome.String(),
+				loser.Name,
+				loserOutcome.String(),
+				result.Type,
+			)
+
+			if result.Disconnected {
+				message += " because they disconnected"
+			}
+
+			server.Users.Mutex.RLock()
+			for _, user := range server.Users.Users {
+				if user == winner || user == loser {
+					continue
+				}
+				user.SendServerMessage(message)
+			}
+			server.Users.Mutex.RUnlock()
+		case queue := <-queues:
+			server.Users.Mutex.RLock()
+			for _, client := range server.Users.Users {
+				if client == queue.User {
+					continue
+				}
+
+				client.SendServerMessage(fmt.Sprintf(
+					"%s queued for %s",
+					client.Reference(),
+					queue.Type,
+				))
+			}
+			server.Users.Mutex.RUnlock()
+		case <-ctx.Done():
+			return
 		}
 	}
 }
