@@ -266,6 +266,7 @@ func (c *Cluster) PollMessages(ctx context.Context, user *User) {
 	connects := user.From.Intercept(game.N_CONNECT)
 	teleports := user.From.Intercept(game.N_TELEPORT)
 	edits := user.From.InterceptWith(game.IsOwnerOnly)
+	crcs := user.From.Intercept(game.N_MAPCRC)
 
 	for {
 		logger := user.Logger()
@@ -273,6 +274,19 @@ func (c *Cluster) PollMessages(ctx context.Context, user *User) {
 		select {
 		case <-ctx.Done():
 			return
+		case msg := <-crcs.Receive():
+			msg.Pass()
+			user.RestoreMessages()
+			crc := msg.Message.Contents().(*game.MapCRC)
+			// The client does not have the map
+			if crc.Crc == 0 {
+				go func() {
+					err := c.SendMap(ctx, user, crc.Map)
+					if err != nil {
+						logger.Warn().Err(err).Msg("failed to send map to client")
+					}
+				}()
+			}
 		case msg := <-edits.Receive():
 			isOwner, err := user.IsOwner(ctx)
 			if err != nil {
@@ -497,21 +511,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 							answerMessage.Answer,
 						)
 						continue
-					}
-				}
-
-				if message.Type() == game.N_MAPCRC {
-					user.RestoreMessages()
-
-					crc := message.Contents().(*game.MapCRC)
-					// The client does not have the map
-					if crc.Crc == 0 {
-						go func() {
-							err := c.SendMap(ctx, user, crc.Map)
-							if err != nil {
-								logger.Warn().Err(err).Msg("failed to send map to client")
-							}
-						}()
 					}
 				}
 
