@@ -61,7 +61,7 @@ ENetEvent serviceHost(ENetHost* host) {
 
 	int e = 0;
 	do {
-		e = enet_host_service(host, &event, host->peerCount ? 1 : 1000);
+		e = enet_host_service(host, &event, 5);
 	} while (e <= 0 || (event.type == ENET_EVENT_TYPE_RECEIVE && event.packet->dataLength == 0));
 
 	return event;
