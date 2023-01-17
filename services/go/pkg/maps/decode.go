@@ -137,7 +137,7 @@ func LoadPartial(p *game.Buffer, header Header) (worldio.MapState, error) {
 	return state, nil
 }
 
-func Decode(data []byte) (*GameMap, error) {
+func decode(data []byte, skipCubes bool) (*GameMap, error) {
 	p := game.Buffer(data)
 
 	gameMap := GameMap{}
@@ -271,6 +271,10 @@ func Decode(data []byte) (*GameMap, error) {
 
 	gameMap.Entities = entities
 
+	if skipCubes {
+		return &gameMap, nil
+	}
+
 	state, err := LoadPartial(&p, gameMap.Header)
 	if err != nil {
 		return nil, err
@@ -283,7 +287,15 @@ func Decode(data []byte) (*GameMap, error) {
 	return &gameMap, nil
 }
 
-func FromGZ(data []byte) (*GameMap, error) {
+func Decode(data []byte) (*GameMap, error) {
+	return decode(data, false)
+}
+
+func DecodeBasics(data []byte) (*GameMap, error) {
+	return decode(data, true)
+}
+
+func fromGZ(data []byte, skipCubes bool) (*GameMap, error) {
 	buffer := bytes.NewReader(data)
 	gz, err := gzip.NewReader(buffer)
 	defer gz.Close()
@@ -298,7 +310,15 @@ func FromGZ(data []byte) (*GameMap, error) {
 		return nil, err
 	}
 
-	return Decode(rawBytes)
+	return decode(rawBytes, skipCubes)
+}
+
+func FromGZ(data []byte) (*GameMap, error) {
+	return fromGZ(data, false)
+}
+
+func BasicsFromGZ(data []byte) (*GameMap, error) {
+	return fromGZ(data, true)
 }
 
 func FromFile(filename string) (*GameMap, error) {

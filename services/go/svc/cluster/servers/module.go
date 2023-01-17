@@ -339,7 +339,7 @@ func (manager *ServerManager) PruneServers(ctx context.Context) {
 }
 
 func (manager *ServerManager) ReadEntities(ctx context.Context, server *GameServer, data []byte) error {
-	map_, err := maps.FromGZ(data)
+	map_, err := maps.BasicsFromGZ(data)
 	if err != nil {
 	    return err
 	}
@@ -347,8 +347,6 @@ func (manager *ServerManager) ReadEntities(ctx context.Context, server *GameServ
 	server.Mutex.Lock()
 	server.Entities = map_.Entities
 	server.Mutex.Unlock()
-	// TODO this causes "delete twice" segfaults, why?
-	map_.Destroy()
 	return nil
 }
 
