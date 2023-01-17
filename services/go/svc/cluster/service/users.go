@@ -463,6 +463,7 @@ func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
 	case <-user.Context().Done():
 		user.DisconnectFromServer()
 		u.RemoveUser(user)
+		log.Info().Msgf("removing user")
 		return
 	case <-ctx.Done():
 		return
@@ -496,6 +497,7 @@ func (u *UserOrchestrator) RemoveUser(user *User) {
 		}
 		newUsers = append(newUsers, other)
 	}
+	u.Users = newUsers
 
 	for server, users := range u.Servers {
 		serverUsers := make([]*User, 0)
