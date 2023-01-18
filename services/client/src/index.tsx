@@ -16,6 +16,7 @@ import {
   Heading,
   Spacer,
 } from '@chakra-ui/react'
+import { detect } from 'detect-browser'
 
 import type { ThemeConfig } from '@chakra-ui/react'
 
@@ -55,6 +56,21 @@ const colors = {
     800: '#153e75',
     700: '#2a69ac',
   },
+}
+function getBrowser(): {
+  isFirefox: boolean
+} {
+  const result = detect()
+
+  if (result != null) {
+    return {
+      isFirefox: result.name === 'firefox',
+    }
+  }
+
+  return {
+    isFirefox: false,
+  }
 }
 
 const config: ThemeConfig = {
@@ -401,6 +417,12 @@ function App() {
       onReadyAssets()
       Module.FS_createPath(`/`, 'packages', true, true)
       Module.FS_createPath(`/packages`, 'base', true, true)
+
+      const browser = getBrowser()
+      if (browser.isFirefox) {
+        BananaBread.execute('skipparticles 1')
+        BananaBread.execute('glare 0')
+      }
 
       Module.running = true
       setState({

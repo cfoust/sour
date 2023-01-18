@@ -1833,6 +1833,7 @@ void cleanupmotionblur()
     lastmotion = 0;
 }
 
+VARP(skipparticles, 0, 0, 1);
 VARFP(motionblur, 0, 0, 1, { if(!motionblur) cleanupmotionblur(); });
 VARP(motionblurmillis, 1, 5, 1000);
 FVARP(motionblurscale, 0, 0.5f, 1);
@@ -1970,7 +1971,7 @@ void gl_drawframe()
     if(wireframe && editmode) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif
 
-    renderparticles(true);
+    if (!skipparticles) renderparticles(true);
 
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
