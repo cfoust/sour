@@ -59,17 +59,13 @@ const colors = {
 }
 function getBrowser(): {
   isFirefox: boolean
+  isSafari: boolean
 } {
   const result = detect()
 
-  if (result != null) {
-    return {
-      isFirefox: result.name === 'firefox',
-    }
-  }
-
   return {
-    isFirefox: false,
+    isFirefox: result?.name === 'firefox',
+    isSafari: result?.name === 'safari',
   }
 }
 
@@ -419,7 +415,7 @@ function App() {
       Module.FS_createPath(`/packages`, 'base', true, true)
 
       const browser = getBrowser()
-      if (browser.isFirefox) {
+      if (browser.isFirefox || browser.isSafari) {
         BananaBread.execute('skipparticles 1')
         BananaBread.execute('glare 0')
       }

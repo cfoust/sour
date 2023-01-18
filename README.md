@@ -55,8 +55,7 @@ Check out the roadmap below to see what you might be able to help with.
 ### General
 * [ ] Better documentation
   * [ ] Configuration
-* [ ] Fix Sour in browsers other than Chrome
-  * [ ] (Mobile) Safari
+* [ ] Fix Sour in Mobile Safari
 * [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Terraform recipes for deployment
 ### Bugs

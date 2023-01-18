@@ -466,6 +466,7 @@ func (server *WSIngress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		OriginPatterns: []string{"*"},
+		CompressionMode: websocket.CompressionDisabled,
 	})
 
 	if err != nil {
