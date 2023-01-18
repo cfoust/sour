@@ -65,25 +65,17 @@ Check out the roadmap below to see what you might be able to help with.
 ### Assets
 * [ ] Simplify index file format
 ### Sourverse
-* [ ] Server-side map editing state
-* [ ] Rooms vs maps
-  * [ ] Map address: map/12312321
-  * [ ] Room address: room/abcdef0123
-  * [ ] Room and map namespace is shared?
-* [ ] Loading maps from the backend
-* [ ] Allow teleports to rooms, maps, and locations within them
-* [ ] Assign each user a room + map on join
-* [ ] Hub world with portals to rooms
-* [ ] Consent to automatic map sending on desktop
-* [ ] Map browser
+* [ ] Exploration
+* [ ] Allow teleports to locations within rooms
+* [ ] Automatic map sending for non-base assets on desktop
 * [ ] Map usage statistics, favorite maps, etc
 ### Gameplay
 * [ ] Reset master mode when you swap servers
 * [ ] Fix nasty asset base asset sizes for web clients
-* [ ] LRU cache for cluster map fetching
 * [ ] Leaderboard for ELO rankings
 * [ ] Separate the rendering and input loops on web (or at least don't vsync game inputs)
 * [ ] Simple, beautiful main menu
+  * [ ] Map browser
   * [ ] Add `<noscript>` with a plea to enable JavaScript
   * [ ] Ensure page load time isn't horrible
 * [ ] Save demos for every duel
