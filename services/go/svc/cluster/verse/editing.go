@@ -68,6 +68,9 @@ func (e *EditingState) Checkpoint(ctx context.Context) error {
 	}
 
 	err := e.Apply(e.Edits)
+	if err != nil {
+	    return err
+	}
 	e.Edits = make([]*Edit, 0)
 
 	creator, err := e.Map.GetCreator(ctx)

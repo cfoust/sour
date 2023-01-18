@@ -421,8 +421,9 @@ func (server *GameServer) ParseRead(data []byte) {
 				break
 			}
 
-			data := p[:numBytes]
-			p = p[len(data):]
+			data := make([]byte, numBytes)
+			copy(data, p[:numBytes])
+			p = p[numBytes:]
 
 			server.rawEdits <- RawEdit{
 				Packet: game.GamePacket{
