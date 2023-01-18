@@ -81,6 +81,7 @@ type GameServer struct {
 	rawBroadcasts chan game.GamePacket
 	rawEdits      chan RawEdit
 	mapEdits      chan MapEdit
+	pongs         chan time.Time
 	broadcasts    chan game.Message
 	subscribers   []chan game.Message
 
@@ -284,9 +285,204 @@ func (server *GameServer) PollWrites(ctx context.Context) {
 	}
 }
 
+func (server *GameServer) ParseRead(data []byte) {
+	p := game.Packet(data)
+	logger := server.Log()
+
+	for len(p) > 0 {
+		type_, ok := p.GetUint()
+		if !ok {
+			logger.Debug().Uint32("type", type_).Msg("server -> cluster (invalid packet)")
+			break
+		}
+
+		eventType := ServerEvent(type_)
+
+		if eventType != SERVER_EVENT_PONG {
+			//logger.Info().Str("type", eventType.String()).Msg("server -> cluster")
+		}
+
+		if eventType == SERVER_EVENT_REQUEST_MAP {
+			mapName, ok := p.GetString()
+			if !ok {
+				break
+			}
+
+			mode, ok := p.GetInt()
+			if !ok {
+				break
+			}
+
+			server.mapRequests <- MapRequest{
+				Map:  mapName,
+				Mode: mode,
+			}
+			continue
+		}
+
+		if eventType == SERVER_EVENT_HEALTHY {
+			server.SetStatus(ServerHealthy)
+			continue
+		}
+
+		if eventType == SERVER_EVENT_SERVER_INFO_REPLY {
+			numBytes, ok := p.GetUint()
+			if !ok {
+				break
+			}
+
+			reply := p[:numBytes]
+			server.Mutex.Lock()
+			numClients := server.Info.NumClients
+			server.Mutex.Unlock()
+			err := server.HandleServerInfo(int(numClients), reply)
+			p = p[numBytes:]
+
+			if err != nil {
+				log.Error().Err(err).Msg("failed to retrieve")
+			}
+
+			continue
+		}
+
+		if eventType == SERVER_EVENT_PONG {
+			server.pongs <- time.Now()
+			continue
+		}
+
+		if eventType == SERVER_EVENT_CONNECT {
+			id, ok := p.GetUint()
+			if !ok {
+				break
+			}
+
+			clientNum, ok := p.GetInt()
+			if !ok {
+				break
+			}
+
+			server.connects <- ClientJoin{
+				Client: ingress.ClientID(id),
+				Num:    ClientNum(clientNum),
+			}
+			continue
+		}
+
+		if eventType == SERVER_EVENT_NAME {
+			id, ok := p.GetUint()
+			if !ok {
+				break
+			}
+
+			name, ok := p.GetString()
+			if !ok {
+				break
+			}
+
+			server.names <- ClientName{
+				Client: ingress.ClientID(id),
+				Name:   name,
+			}
+			continue
+		}
+
+		if eventType == SERVER_EVENT_DISCONNECT {
+			id, ok := p.GetUint()
+			if !ok {
+				break
+			}
+
+			reason, ok := p.GetInt()
+			if !ok {
+				break
+			}
+
+			reasonText, ok := p.GetString()
+			if !ok {
+				break
+			}
+
+			server.kicks <- ClientKick{
+				Client: ingress.ClientID(id),
+				Reason: reason,
+				Text:   reasonText,
+			}
+			continue
+		}
+
+		if eventType == SERVER_EVENT_EDIT {
+			sender, ok := p.GetInt()
+			if !ok {
+				break
+			}
+
+			numBytes, ok := p.GetUint()
+			if !ok {
+				break
+			}
+
+			data := p[:numBytes]
+			p = p[len(data):]
+
+			server.rawEdits <- RawEdit{
+				Packet: game.GamePacket{
+					Data:    data,
+					Channel: 1,
+				},
+				Client: ingress.ClientID(sender),
+			}
+			continue
+		}
+
+		numBytes, ok := p.GetUint()
+		if !ok {
+			break
+		}
+
+		if eventType == SERVER_EVENT_BROADCAST {
+			chan_, ok := p.GetUint()
+			if !ok {
+				break
+			}
+
+			data := p[:numBytes]
+			p = p[len(data):]
+
+			server.rawBroadcasts <- game.GamePacket{
+				Data:    data,
+				Channel: uint8(chan_),
+			}
+			continue
+		}
+
+		id, ok := p.GetUint()
+		if !ok {
+			break
+		}
+		chan_, ok := p.GetUint()
+		if !ok {
+			break
+		}
+
+		data := p[:numBytes]
+		p = p[len(data):]
+
+		server.packets <- ClientPacket{
+			Client: ingress.ClientID(id),
+			Packet: game.GamePacket{
+				Data:    data,
+				Channel: uint8(chan_),
+			},
+			Server: server,
+		}
+	}
+}
+
 func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 	buffer := make([]byte, 5242880)
 	for {
+		time.Sleep(5 * time.Millisecond)
+
 		if ctx.Err() != nil {
 			log.Error().Err(ctx.Err()).Msg("context error while polling")
 			return
@@ -301,9 +497,7 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 			continue
 		}
 
-		result := make([]byte, numBytes)
-		copy(result, buffer[:numBytes])
-		out <- result
+		server.ParseRead(buffer[:numBytes])
 	}
 }
 
@@ -472,16 +666,6 @@ func (server *GameServer) HandleServerInfo(numClients int, data []byte) error {
 	return nil
 }
 
-func (server *GameServer) HandleMapChange(ctx context.Context, mapName string, mode int32) {
-	server.Mutex.Lock()
-
-	if mode == game.MODE_COOP {
-		// TODO not supported generally, only on homeworlds
-	}
-
-	server.Mutex.Unlock()
-}
-
 func (server *GameServer) PollEvents(ctx context.Context) {
 	pingInterval := 500 * time.Millisecond
 	pingTicker := time.NewTicker(pingInterval)
@@ -517,6 +701,8 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 				return
 			}
 			server.SendPing()
+		case pongTime := <-server.pongs:
+			lastPong = pongTime
 		case <-infoTicker.C:
 			request := game.Packet{}
 			request.PutInt(1234) // random millis
@@ -537,197 +723,6 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 			request.PutInt(0)
 			request.PutInt(EXT_TEAMSCORE)
 			server.RequestServerInfo(request)
-		case msg := <-socketWrites:
-			p := game.Packet(msg)
-
-			for len(p) > 0 {
-				type_, ok := p.GetUint()
-				if !ok {
-					logger.Debug().Uint32("type", type_).Msg("server -> cluster (invalid packet)")
-					break
-				}
-
-				eventType := ServerEvent(type_)
-
-				if eventType != SERVER_EVENT_PONG {
-					//logger.Debug().Str("type", eventType.String()).Msg("server -> cluster")
-				}
-
-				if eventType == SERVER_EVENT_REQUEST_MAP {
-					mapName, ok := p.GetString()
-					if !ok {
-						break
-					}
-
-					mode, ok := p.GetInt()
-					if !ok {
-						break
-					}
-
-					server.HandleMapChange(ctx, mapName, mode)
-					server.mapRequests <- MapRequest{
-						Map:  mapName,
-						Mode: mode,
-					}
-					continue
-				}
-
-				if eventType == SERVER_EVENT_HEALTHY {
-					server.SetStatus(ServerHealthy)
-					continue
-				}
-
-				if eventType == SERVER_EVENT_SERVER_INFO_REPLY {
-					numBytes, ok := p.GetUint()
-					if !ok {
-						break
-					}
-
-					reply := p[:numBytes]
-					server.Mutex.Lock()
-					numClients := server.Info.NumClients
-					server.Mutex.Unlock()
-					err := server.HandleServerInfo(int(numClients), reply)
-					p = p[numBytes:]
-
-					if err != nil {
-						log.Error().Err(err).Msg("failed to retrieve")
-					}
-
-					continue
-				}
-
-				if eventType == SERVER_EVENT_PONG {
-					lastPong = time.Now()
-					continue
-				}
-
-				if eventType == SERVER_EVENT_CONNECT {
-					id, ok := p.GetUint()
-					if !ok {
-						break
-					}
-
-					clientNum, ok := p.GetInt()
-					if !ok {
-						break
-					}
-
-					server.connects <- ClientJoin{
-						Client: ingress.ClientID(id),
-						Num:    ClientNum(clientNum),
-					}
-					continue
-				}
-
-				if eventType == SERVER_EVENT_NAME {
-					id, ok := p.GetUint()
-					if !ok {
-						break
-					}
-
-					name, ok := p.GetString()
-					if !ok {
-						break
-					}
-
-					server.names <- ClientName{
-						Client: ingress.ClientID(id),
-						Name:   name,
-					}
-					continue
-				}
-
-				if eventType == SERVER_EVENT_DISCONNECT {
-					id, ok := p.GetUint()
-					if !ok {
-						break
-					}
-
-					reason, ok := p.GetInt()
-					if !ok {
-						break
-					}
-
-					reasonText, ok := p.GetString()
-					if !ok {
-						break
-					}
-
-					server.kicks <- ClientKick{
-						Client: ingress.ClientID(id),
-						Reason: reason,
-						Text:   reasonText,
-					}
-					continue
-				}
-
-				if eventType == SERVER_EVENT_EDIT {
-					sender, ok := p.GetInt()
-					if !ok {
-						break
-					}
-
-					numBytes, ok := p.GetUint()
-					if !ok {
-						break
-					}
-
-					data := p[:numBytes]
-					p = p[len(data):]
-
-					server.rawEdits <- RawEdit{
-						Packet: game.GamePacket{
-							Data:    data,
-							Channel: 1,
-						},
-						Client: ingress.ClientID(sender),
-					}
-					continue
-				}
-
-				numBytes, ok := p.GetUint()
-				if !ok {
-					break
-				}
-
-				if eventType == SERVER_EVENT_BROADCAST {
-					chan_, ok := p.GetUint()
-					if !ok {
-						break
-					}
-
-					data := p[:numBytes]
-					p = p[len(data):]
-
-					server.rawBroadcasts <- game.GamePacket{
-						Data:    data,
-						Channel: uint8(chan_),
-					}
-					continue
-				}
-
-				id, ok := p.GetUint()
-				if !ok {
-					break
-				}
-				chan_, ok := p.GetUint()
-				if !ok {
-					break
-				}
-
-				data := p[:numBytes]
-				p = p[len(data):]
-
-				server.packets <- ClientPacket{
-					Client: ingress.ClientID(id),
-					Packet: game.GamePacket{
-						Data:    data,
-						Channel: uint8(chan_),
-					},
-					Server: server,
-				}
-			}
 		}
 	}
 }

@@ -341,7 +341,7 @@ func (manager *ServerManager) PruneServers(ctx context.Context) {
 func (manager *ServerManager) ReadEntities(ctx context.Context, server *GameServer, data []byte) error {
 	map_, err := maps.BasicsFromGZ(data)
 	if err != nil {
-	    return err
+		return err
 	}
 
 	server.Mutex.Lock()
@@ -454,14 +454,15 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		LastEvent:     time.Now(),
 		ClientInfo:    make(map[ingress.ClientID]*ClientExtInfo),
 		NumClients:    0,
-		Entities:     make([]maps.Entity, 0),
+		Entities:      make([]maps.Entity, 0),
 		broadcasts:    make(chan game.Message, 10),
 		connects:      manager.connects,
 		kicks:         manager.kicks,
-		mapRequests:   make(chan MapRequest, 10),
+		mapRequests:   make(chan MapRequest),
 		packets:       manager.packets,
-		rawBroadcasts: make(chan game.GamePacket, 10),
-		rawEdits:      make(chan RawEdit, 10),
+		rawBroadcasts: make(chan game.GamePacket),
+		pongs:         make(chan time.Time),
+		rawEdits:      make(chan RawEdit),
 		mapEdits:      make(chan MapEdit, 10),
 		send:          make(chan []byte, 1),
 		subscribers:   make([]chan game.Message, 0),
