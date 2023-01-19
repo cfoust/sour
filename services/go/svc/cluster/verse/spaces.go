@@ -208,11 +208,13 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 
 	err = gameServer.StartAndWait(serverCtx)
 	if err != nil {
+		logger.Error().Err(err).Msg("failed to start server for space")
 		return nil, err
 	}
 
 	config, err := space.GetConfig(ctx)
 	if err != nil {
+		logger.Error().Err(err).Msg("failed to fetch config for space")
 		return nil, err
 	}
 

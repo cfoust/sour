@@ -392,8 +392,12 @@ func (s *UserSpace) AddLink(ctx context.Context, link Link) error {
 
 func (s *UserSpace) GetLinks(ctx context.Context) ([]Link, error) {
 	links, err := s.redis.LRange(ctx, s.links(), 0, -1).Result()
-	if err != nil {
+	if err != redis.Nil && err != nil {
 		return nil, err
+	}
+
+	if err == redis.Nil {
+		links = make([]string, 0)
 	}
 
 	out := make([]Link, 0)

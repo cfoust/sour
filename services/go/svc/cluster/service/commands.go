@@ -373,6 +373,9 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 
 	case "home":
 		err := server.GoHome(server.serverCtx, user)
+		if err != nil {
+		    return true, "", fmt.Errorf("could not go home")
+		}
 		return true, "", err
 
 	case "help":
