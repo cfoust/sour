@@ -9,7 +9,7 @@ set -e
 cd "$SCRIPT_DIR/src"
 
 # When you restart the container, this is not there
-if ! [ -f "$EMSDK/upstream/emscripten/cache/wasm/libz.a" ]; then
+if ! [ -f "$EMSDK/upstream/emscripten/cache/ports/zlib.2.11.zip" ]; then
   emmake make clean
 fi
 
