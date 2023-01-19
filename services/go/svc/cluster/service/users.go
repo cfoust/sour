@@ -173,9 +173,8 @@ func (u *User) IsInSpace() bool {
 func (u *User) GetServerName() string {
 	serverName := "???"
 
-	if u.IsInSpace() {
-		space := u.GetSpace()
-
+	space := u.GetSpace()
+	if space != nil {
 		// Cached, but that's OK
 		alias := space.Alias
 		if alias != "" {
