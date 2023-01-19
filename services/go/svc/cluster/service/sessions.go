@@ -131,8 +131,8 @@ Outer:
 	key := user.Session
 
 	pipe := redis.Pipeline()
-	pipe.Set(context.Background(), fmt.Sprintf(DEMO_KEY, key), toDemo, 0)
-	pipe.Set(context.Background(), fmt.Sprintf(DEMO_KEY, key+"-all"), allDemo, 0)
+	pipe.Set(context.Background(), fmt.Sprintf(DEMO_KEY, key), toDemo, DEMO_TTL)
+	pipe.Set(context.Background(), fmt.Sprintf(DEMO_KEY, key+"-all"), allDemo, DEMO_TTL)
 	_, err = pipe.Exec(context.Background())
 	if err != nil {
 		return err

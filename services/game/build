@@ -9,9 +9,9 @@ set -e
 cd "$SCRIPT_DIR/src"
 
 # When you restart the container, this is not there
-#if ! [ -f "/emsdk/upstream/emscripten/cache/wasm/libz.a" ]; then
-#emmake make clean
-#fi
+if ! [ -f "$EMSDK/upstream/emscripten/cache/wasm/libz.a" ]; then
+  emmake make clean
+fi
 
 emmake make client -j8
 cd "$SCRIPT_DIR"
