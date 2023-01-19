@@ -10,11 +10,13 @@ import (
 	"strings"
 	"time"
 
+	//"github.com/fxamacker/cbor/v2"
 	"github.com/go-redis/redis/v9"
 	"github.com/repeale/fp-go/option"
 )
 
 type IndexAsset struct {
+	_    struct{} `cbor:",toarray"`
 	Id   int
 	Path string
 }
@@ -33,6 +35,7 @@ func (i *IndexAsset) UnmarshalJSON(buf []byte) error {
 }
 
 type Mod struct {
+	_           struct{} `cbor:",toarray"`
 	Id          string
 	Name        string
 	Image       string
@@ -40,6 +43,7 @@ type Mod struct {
 }
 
 type GameMap struct {
+	_           struct{} `cbor:",toarray"`
 	Id          string
 	Name        string
 	Ogz         int
@@ -50,6 +54,7 @@ type GameMap struct {
 }
 
 type Bundle struct {
+	_       struct{} `cbor:",toarray"`
 	Id      string
 	Desktop bool
 	Web     bool
@@ -57,13 +62,16 @@ type Bundle struct {
 }
 
 type Model struct {
+	_    struct{} `cbor:",toarray"`
 	Id   string
 	Name string
 }
 
 type Index struct {
 	Assets   []string
+	Refs     []IndexAsset
 	Textures []IndexAsset
+	Sounds   []IndexAsset
 	Bundles  []Bundle
 	Maps     []GameMap
 	Models   []Model
