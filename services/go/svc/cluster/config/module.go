@@ -46,8 +46,9 @@ type SpaceConfig struct {
 }
 
 type PresetSpace struct {
-	Preset string
-	Config SpaceConfig
+	Preset        string
+	VotingCreates bool
+	Config        SpaceConfig
 }
 
 type ENetServerInfo struct {

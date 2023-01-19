@@ -267,6 +267,7 @@ func (c *Cluster) PollMessages(ctx context.Context, user *User) {
 	edits := user.From.InterceptWith(game.IsOwnerOnly)
 	crcs := user.From.Intercept(game.N_MAPCRC)
 	demos := user.From.Intercept(game.N_GETDEMO)
+	votes := user.From.Intercept(game.N_MAPVOTE)
 
 	for {
 		logger := user.Logger()
@@ -274,6 +275,39 @@ func (c *Cluster) PollMessages(ctx context.Context, user *User) {
 		select {
 		case <-ctx.Done():
 			return
+		case msg := <-votes.Receive():
+			space := user.GetSpace()
+			if space == nil {
+				msg.Pass()
+				continue
+			}
+
+			preset := space.PresetSpace
+			if preset == nil || !preset.VotingCreates {
+				msg.Pass()
+				continue
+			}
+
+			vote := msg.Message.Contents().(*game.MapVote)
+			if vote.Mode < 0 || vote.Mode >= len(MODE_NAMES) {
+				msg.Pass()
+				continue
+			}
+
+			msg.Drop()
+
+			err := c.RunOnBehalf(
+				ctx,
+				fmt.Sprintf(
+					"creategame %s %s",
+					MODE_NAMES[vote.Mode],
+					vote.Map,
+				),
+				user,
+			)
+			if err != nil {
+				logger.Error().Err(err).Msg("failed to create game from vote")
+			}
 		case msg := <-demos.Receive():
 			demo := msg.Message.Contents().(*game.GetDemo)
 			if c.MapSender.IsHandling(user) {
@@ -374,7 +408,6 @@ func (c *Cluster) PollMessages(ctx context.Context, user *User) {
 			}
 
 			command := text[1:]
-			logger.Info().Str("command", command).Msg("intercepted command")
 
 			// Only send this packet after we've checked
 			// whether the cluster should handle it
@@ -388,6 +421,7 @@ func (c *Cluster) PollMessages(ctx context.Context, user *User) {
 				}
 
 				if err != nil {
+					logger.Error().Err(err).Str("command", command).Msg("user command failed")
 					user.SendServerMessage(game.Red(err.Error()))
 					return
 				} else if len(response) > 0 {

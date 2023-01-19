@@ -38,7 +38,9 @@ proxy: #Service
 	// An alias replaces the ID of a space. For example, users could run
 	// #join lobby (on desktop) or /join lobby (on the web)
 	preset: string
-	config: #SpaceConfig
+	// Whether voting on a map should create a game.
+	votingCreates: bool | *true
+	config:        #SpaceConfig
 }
 
 #ServerPreset: {

@@ -9,8 +9,8 @@ import (
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/ingress"
-	"github.com/cfoust/sour/svc/cluster/verse"
 	"github.com/cfoust/sour/svc/cluster/servers"
+	"github.com/cfoust/sour/svc/cluster/verse"
 
 	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog/log"
@@ -49,14 +49,12 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, user *User, gam
 	}
 }
 
-func getModeNames() []string {
-	return []string{
-		"ffa", "coop", "teamplay", "insta", "instateam", "effic", "efficteam", "tac", "tacteam", "capture", "regencapture", "ctf", "instactf", "protect", "instaprotect", "hold", "instahold", "efficctf", "efficprotect", "effichold", "collect", "instacollect", "efficcollect",
-	}
+var MODE_NAMES = []string{
+	"ffa", "coop", "teamplay", "insta", "instateam", "effic", "efficteam", "tac", "tacteam", "capture", "regencapture", "ctf", "instactf", "protect", "instaprotect", "hold", "instahold", "efficctf", "efficprotect", "effichold", "collect", "instacollect", "efficcollect",
 }
 
 func getModeNumber(mode string) opt.Option[int] {
-	for i, name := range getModeNames() {
+	for i, name := range MODE_NAMES {
 		if name == mode {
 			return opt.Some(i)
 		}
@@ -99,6 +97,75 @@ func (server *Cluster) inferCreateParams(args []string) (*CreateParams, error) {
 	return &params, nil
 }
 
+func (server *Cluster) CreateGame(ctx context.Context, params *CreateParams, user *User) error {
+	logger := user.Logger()
+	server.createMutex.Lock()
+	defer server.createMutex.Unlock()
+
+	lastCreate, hasLastCreate := server.lastCreate[user.Connection.Host()]
+	if hasLastCreate && (time.Now().Sub(lastCreate)) < CREATE_SERVER_COOLDOWN {
+		return errors.New("too soon since last server create")
+	}
+
+	existingServer, hasExistingServer := server.hostServers[user.Connection.Host()]
+	if hasExistingServer {
+		server.manager.RemoveServer(existingServer)
+	}
+
+	logger.Info().Msg("starting server")
+
+	presetName := ""
+	if opt.IsSome(params.Preset) {
+		presetName = params.Preset.Value
+	}
+
+	gameServer, err := server.manager.NewServer(server.serverCtx, presetName, false)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to create server")
+		return errors.New("failed to create server")
+	}
+
+	logger = logger.With().Str("server", gameServer.Reference()).Logger()
+
+	err = gameServer.StartAndWait(server.serverCtx)
+	if err != nil {
+		logger.Error().Err(err).Msg("server failed to start")
+		return errors.New("server failed to start")
+	}
+
+	if opt.IsSome(params.Mode) && opt.IsSome(params.Map) {
+		gameServer.SendCommand(fmt.Sprintf("changemap %s %d", params.Map.Value, params.Mode.Value))
+	} else if opt.IsSome(params.Mode) {
+		gameServer.SendCommand(fmt.Sprintf("setmode %d", params.Mode.Value))
+	} else if opt.IsSome(params.Map) {
+		gameServer.SendCommand(fmt.Sprintf("setmap %s", params.Map.Value))
+	}
+
+	server.lastCreate[user.Connection.Host()] = time.Now()
+	server.hostServers[user.Connection.Host()] = gameServer
+
+	connected, err := user.ConnectToServer(gameServer, "", false, true)
+	go server.GivePrivateMatchHelp(server.serverCtx, user, user.Server)
+
+	go func() {
+		ctx, cancel := context.WithTimeout(user.Connection.SessionContext(), time.Second*10)
+		defer cancel()
+
+		select {
+		case status := <-connected:
+			if !status {
+				return
+			}
+
+			gameServer.SendCommand(fmt.Sprintf("grantmaster %d", user.GetClientNum()))
+		case <-ctx.Done():
+			return
+		}
+	}()
+
+	return nil
+}
+
 func (server *Cluster) RunCommand(ctx context.Context, command string, user *User) (handled bool, response string, err error) {
 	logger := user.Logger().With().Str("command", command).Logger()
 	logger.Info().Msg("running command")
@@ -119,72 +186,8 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 			}
 		}
 
-		server.createMutex.Lock()
-		defer server.createMutex.Unlock()
-
-		lastCreate, hasLastCreate := server.lastCreate[user.Connection.Host()]
-		if hasLastCreate && (time.Now().Sub(lastCreate)) < CREATE_SERVER_COOLDOWN {
-			return true, "", errors.New("too soon since last server create")
-		}
-
-		existingServer, hasExistingServer := server.hostServers[user.Connection.Host()]
-		if hasExistingServer {
-			server.manager.RemoveServer(existingServer)
-		}
-
-		logger.Info().Msg("starting server")
-
-		presetName := ""
-		if opt.IsSome(params.Preset) {
-			presetName = params.Preset.Value
-		}
-
-		gameServer, err := server.manager.NewServer(server.serverCtx, presetName, false)
-		if err != nil {
-			logger.Error().Err(err).Msg("failed to create server")
-			return true, "", errors.New("failed to create server")
-		}
-
-		logger = logger.With().Str("server", gameServer.Reference()).Logger()
-
-		err = gameServer.StartAndWait(server.serverCtx)
-		if err != nil {
-			logger.Error().Err(err).Msg("server failed to start")
-			return true, "", errors.New("server failed to start")
-		}
-
-		if opt.IsSome(params.Mode) && opt.IsSome(params.Map) {
-			gameServer.SendCommand(fmt.Sprintf("changemap %s %d", params.Map.Value, params.Mode.Value))
-		} else if opt.IsSome(params.Mode) {
-			gameServer.SendCommand(fmt.Sprintf("setmode %d", params.Mode.Value))
-		} else if opt.IsSome(params.Map) {
-			gameServer.SendCommand(fmt.Sprintf("setmap %s", params.Map.Value))
-		}
-
-		server.lastCreate[user.Connection.Host()] = time.Now()
-		server.hostServers[user.Connection.Host()] = gameServer
-
-		connected, err := user.ConnectToServer(gameServer, "", false, true)
-		go server.GivePrivateMatchHelp(server.serverCtx, user, user.Server)
-
-		go func() {
-			ctx, cancel := context.WithTimeout(user.Connection.SessionContext(), time.Second*10)
-			defer cancel()
-
-			select {
-			case status := <-connected:
-				if !status {
-					return
-				}
-
-				gameServer.SendCommand(fmt.Sprintf("grantmaster %d", user.GetClientNum()))
-			case <-ctx.Done():
-				log.Info().Msgf("context finished")
-				return
-			}
-		}()
-
-		return true, "", nil
+		err := server.CreateGame(ctx, params, user)
+		return true, "", err
 
 	case "alias":
 		if !user.IsLoggedIn() {
@@ -262,7 +265,6 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 		server.SendCommand("refreshserverinfo")
 		return true, "", nil
 
-
 	case "edit":
 		isOwner, err := user.IsOwner(ctx)
 		if err != nil {
@@ -321,7 +323,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 			}
 
 			return true, "", nil
-		} 
+		}
 		// Look for a space
 		space, err := server.spaces.SearchSpace(ctx, target)
 		if err != nil {
@@ -374,7 +376,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 	case "home":
 		err := server.GoHome(server.serverCtx, user)
 		if err != nil {
-		    return true, "", fmt.Errorf("could not go home")
+			return true, "", fmt.Errorf("could not go home")
 		}
 		return true, "", err
 
@@ -420,4 +422,23 @@ func (server *Cluster) RunCommandWithTimeout(ctx context.Context, command string
 		return false, "", errors.New("command timed out")
 	}
 
+}
+
+// Run a command and inform the user of any errors.
+func (c *Cluster) RunOnBehalf(ctx context.Context, command string, user *User) error {
+	logger := user.Logger()
+	userCtx := user.Context()
+	handled, _, err := c.RunCommandWithTimeout(userCtx, command, user)
+
+	if err != nil {
+		logger.Error().Err(err).Str("command", command).Msg("failed to run user command")
+		user.SendServerMessage(game.Red(err.Error()))
+		return err
+	}
+
+	if !handled {
+		return fmt.Errorf("invalid command")
+	}
+
+	return nil
 }

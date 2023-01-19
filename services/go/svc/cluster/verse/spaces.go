@@ -17,13 +17,14 @@ import (
 type SpaceInstance struct {
 	SpaceConfig
 
-	id      string
-	Space   *UserSpace
-	Editing *EditingState
-	Server  *gameServers.GameServer
+	id          string
+	Space       *UserSpace
+	PresetSpace *config.PresetSpace
+	Editing     *EditingState
+	Server      *gameServers.GameServer
 	// Lasts for the lifetime of the instance, it's copied from the game
 	// server's
-	Context  context.Context
+	Context context.Context
 }
 
 func (s *SpaceInstance) IsOpenEdit() bool {
@@ -290,8 +291,9 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 	}
 
 	instance := SpaceInstance{
-		Server:  gameServer,
-		Context: gameServer.Context,
+		Server:      gameServer,
+		Context:     gameServer.Context,
+		PresetSpace: &presetSpace,
 		SpaceConfig: SpaceConfig{
 			Alias:       config.Alias,
 			Description: config.Description,
