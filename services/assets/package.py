@@ -5,6 +5,7 @@ Library for building and managing asset packs for Sour.
 from os import path
 import hashlib
 import json
+import cbor2
 import os
 import re
 import shutil
@@ -318,6 +319,7 @@ class Packager:
     outdir: str
     assets: Set[str]
 
+    refs: List[Asset]
     bundles: List[Bundle]
     maps: List[GameMap]
     models: List[Model]
@@ -327,6 +329,7 @@ class Packager:
     def __init__(self, outdir: str):
         self.outdir = outdir
         self.assets = set()
+        self.refs = []
         self.bundles = []
         self.maps = []
         self.models = []
@@ -400,6 +403,17 @@ class Packager:
             path=out,
             id=hashed
         )
+
+
+    def build_ref(self, file: Mapping, compress_images: bool = False) -> Optional[Asset]:
+        asset = self.build_asset(file, compress_images)
+
+        if not asset:
+            return None
+
+        self.assets.add(asset.id)
+        self.refs.append(asset)
+        return asset
 
 
     def build_assets(
@@ -654,7 +668,7 @@ class Packager:
             self,
             prefix = ''
     ) -> None:
-        index = '%s.index.json' % prefix
+        index = '%s.index.source' % prefix
 
         lookup: Dict[str, int] = {}
         for i, asset in enumerate(self.assets):
@@ -679,11 +693,12 @@ class Packager:
             self.maps
         ))
 
-        with open(path.join(self.outdir, index), 'w') as f:
-            f.write(json.dumps(
+        with open(path.join(self.outdir, index), 'wb') as f:
+            cbor2.dump(
                 {
                     'assets': list(self.assets),
                     'textures': list(map(replace_asset, self.textures)),
+                    'refs': list(map(replace_asset, self.refs)),
                     'bundles': list(map(lambda bundle: IndexBundle(
                         id=bundle.id,
                         desktop=bundle.desktop,
@@ -694,9 +709,8 @@ class Packager:
                     'maps': list(map(lambda _map: _map._asdict(), index_maps)),
                     'mods': list(map(lambda mod: mod._asdict(), self.mods)),
                 },
-                indent=4
-            ))
-
+                f
+            )
 
 
 if __name__ == "__main__": pass
