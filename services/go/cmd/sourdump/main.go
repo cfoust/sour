@@ -8,13 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/repeale/fp-go"
-	"github.com/repeale/fp-go/option"
-
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/min"
 
+	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -282,18 +281,19 @@ func main() {
 
 	var roots min.RootFlags
 
-	flag.Var(&roots, "root", "Specify an explicit asset root directory. Roots are searched in order of appearance.")
+	flag.Var(&roots, "root", "Specify a source for assets. Roots are searched in order of appearance.")
 	parseType := flag.String("type", "map", "The type of the asset to parse, one of 'map', 'model', 'cfg'.")
 	indexPath := flag.String("index", "", "Where to save the index of all texture calls.")
 	flag.Parse()
 
-	absoluteRoots := fp.Map(func(root string) string {
-		absolute, err := filepath.Abs(root)
-		if err != nil {
-			log.Fatal().Err(err)
-		}
-		return absolute
-	})(roots)
+	cache := assets.FSCache("cache/")
+	loaded, err := assets.LoadRoots(cache, roots)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to make filename absolute")
+	}
+	log.Info().Msgf("%+v", loaded)
+
+	absoluteRoots := make([]string, 0)
 
 	args := flag.Args()
 

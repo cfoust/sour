@@ -3,6 +3,7 @@ package assets
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/fxamacker/cbor/v2"
 )
@@ -17,14 +18,14 @@ type Root interface {
 // An FSRoot is just an absolute path on the FS.
 type FSRoot string
 
-func (f *FSRoot) Exists(path string) bool {
+func (f FSRoot) Exists(path string) bool {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		return true
 	}
 	return false
 }
 
-func (f *FSRoot) ReadFile(path string) ([]byte, error) {
+func (f FSRoot) ReadFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
@@ -117,3 +118,21 @@ func (f *RemoteRoot) ReadFile(path string) ([]byte, error) {
 
 var _ Root = (*FSRoot)(nil)
 var _ Root = (*RemoteRoot)(nil)
+
+func LoadRoots(cache Cache, targets []string) ([]Root, error) {
+	roots := make([]Root, 0)
+	for _, target := range targets {
+		if !strings.HasPrefix(target, "http") {
+			roots = append(roots, FSRoot(target))
+			continue
+		}
+
+		root, err := NewRemoteRoot(cache, target, "")
+		if err != nil {
+		    return nil, err
+		}
+		roots = append(roots, root)
+	}
+
+	return roots, nil
+}

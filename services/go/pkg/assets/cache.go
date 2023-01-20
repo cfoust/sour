@@ -19,11 +19,11 @@ type FSCache string
 
 var Missing = fmt.Errorf("not in cache")
 
-func (f *FSCache) getPath(key string) string {
-	return filepath.Join(string(*f), key)
+func (f FSCache) getPath(key string) string {
+	return filepath.Join(string(f), key)
 }
 
-func (f *FSCache) Get(key string) ([]byte, error) {
+func (f FSCache) Get(key string) ([]byte, error) {
 	target := f.getPath(key)
 
 	if !FileExists(target) {
@@ -33,7 +33,7 @@ func (f *FSCache) Get(key string) ([]byte, error) {
 	return os.ReadFile(target)
 }
 
-func (f *FSCache) Set(key string, data []byte) error {
+func (f FSCache) Set(key string, data []byte) error {
 	target := f.getPath(key)
 	return WriteBytes(data, target)
 }
