@@ -312,7 +312,7 @@ func (p *Processor) ProcessModel(path string) ([]*Reference, error) {
 
 	resolved := p.SearchFile(cfgPath)
 
-	if resolved != nil {
+	if resolved == nil {
 		if !hadDefault {
 			return nil, errors.New(fmt.Sprintf("Model %s had neither defaults nor a .cfg", path))
 		}

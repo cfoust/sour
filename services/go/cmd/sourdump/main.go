@@ -344,6 +344,10 @@ func main() {
 	references = min.CrunchReferences(references)
 
 	for _, path := range references {
-		fmt.Printf("%s->%s\n", path.From, path.To)
+		resolved, err := path.From.Resolve()
+		if err != nil {
+			log.Fatal().Err(err).Msgf("could not resolve asset %s", path.From.String())
+		}
+		fmt.Printf("%s->%s\n", resolved, path.To)
 	}
 }
