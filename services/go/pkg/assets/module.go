@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -14,74 +13,6 @@ import (
 	"github.com/go-redis/redis/v9"
 	"github.com/repeale/fp-go/option"
 )
-
-type IndexAsset struct {
-	_    struct{} `cbor:",toarray"`
-	Id   int
-	Path string
-}
-
-// https://eagain.net/articles/go-json-array-to-struct/
-func (i *IndexAsset) UnmarshalJSON(buf []byte) error {
-	tmp := []interface{}{&i.Id, &i.Path}
-	wantLen := len(tmp)
-	if err := json.Unmarshal(buf, &tmp); err != nil {
-		return err
-	}
-	if g, e := len(tmp), wantLen; g != e {
-		return fmt.Errorf("wrong number of fields in IndexAsset: %d != %d", g, e)
-	}
-	return nil
-}
-
-type Mod struct {
-	_           struct{} `cbor:",toarray"`
-	Id          string
-	Name        string
-	Image       string
-	Description string
-}
-
-type GameMap struct {
-	_           struct{} `cbor:",toarray"`
-	Id          string
-	Name        string
-	Ogz         int
-	Bundle      string
-	Assets      []IndexAsset
-	Image       string
-	Description string
-}
-
-type Bundle struct {
-	_       struct{} `cbor:",toarray"`
-	Id      string
-	Desktop bool
-	Web     bool
-	Assets  []IndexAsset
-}
-
-type Model struct {
-	_    struct{} `cbor:",toarray"`
-	Id   string
-	Name string
-}
-
-type Index struct {
-	Assets   []string
-	Refs     []IndexAsset
-	Textures []IndexAsset
-	Sounds   []IndexAsset
-	Bundles  []Bundle
-	Maps     []GameMap
-	Models   []Model
-	Mods     []Mod
-}
-
-type AssetSource struct {
-	Index *Index
-	Base  string
-}
 
 func (a *AssetSource) ResolveAsset(id int) opt.Option[string] {
 	if a.Index == nil {
@@ -136,52 +67,6 @@ func NewAssetFetcher(redis *redis.Client) *AssetFetcher {
 	}
 }
 
-func WriteBytes(data []byte, path string) error {
-	out, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	out, err = os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = out.Write(data)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func DownloadFile(url string, path string) error {
-	out, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	// Check server response
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
-	}
-
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
 
 func FetchIndex(url string) (*Index, error) {
 	resp, err := http.Get(url)
