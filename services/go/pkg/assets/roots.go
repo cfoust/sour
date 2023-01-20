@@ -3,6 +3,7 @@ package assets
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/fxamacker/cbor/v2"
@@ -70,8 +71,8 @@ func NewRemoteRoot(cache Cache, url string, base string) (*RemoteRoot, error) {
 
 	return &RemoteRoot{
 		cache:    cache,
-		url:      url,
-		base:     CleanSourcePath(base),
+		url:      CleanSourcePath(url),
+		base:     base,
 		assets:   assets,
 		idLookup: idLookup,
 		fs:       fs,
@@ -96,21 +97,21 @@ func (f *RemoteRoot) ReadFile(path string) ([]byte, error) {
 
 	cacheData, err := f.cache.Get(id)
 	if err != nil && err != Missing {
-	    return nil, err
+		return nil, err
 	}
 	if err == nil {
 		return cacheData, nil
 	}
 
-	url := fmt.Sprintf("%s%s", f.base, id)
+	url := fmt.Sprintf("%s%s", f.url, id)
 	data, err := DownloadBytes(url)
 	if err != nil {
-	    return nil, err
+		return nil, err
 	}
 
 	err = f.cache.Set(id, data)
 	if err != nil {
-	    return nil, err
+		return nil, err
 	}
 
 	return data, nil
@@ -123,13 +124,17 @@ func LoadRoots(cache Cache, targets []string) ([]Root, error) {
 	roots := make([]Root, 0)
 	for _, target := range targets {
 		if !strings.HasPrefix(target, "http") {
-			roots = append(roots, FSRoot(target))
+			absolute, err := filepath.Abs(target)
+			if err != nil {
+				return nil, err
+			}
+			roots = append(roots, FSRoot(absolute))
 			continue
 		}
 
 		root, err := NewRemoteRoot(cache, target, "")
 		if err != nil {
-		    return nil, err
+			return nil, err
 		}
 		roots = append(roots, root)
 	}

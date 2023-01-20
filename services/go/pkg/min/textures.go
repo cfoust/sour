@@ -2,15 +2,15 @@ package min
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"os"
 
 	"github.com/repeale/fp-go/option"
 
-	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/maps"
 
 	"github.com/rs/zerolog/log"
 )
@@ -179,13 +179,13 @@ func (processor *Processor) Texture(textureType string, name string) {
 	}
 }
 
-func (processor *Processor) FindTexture(texture string) opt.Option[string] {
+func (processor *Processor) FindTexture(texture string) *Reference {
 	for _, extension := range []string{"png", "jpg"} {
 		resolved := processor.SearchFile(
 			filepath.Join("packages", fmt.Sprintf("%s.%s", texture, extension)),
 		)
 
-		if opt.IsSome(resolved) {
+		if resolved != nil {
 			return resolved
 		}
 	}
@@ -194,18 +194,14 @@ func (processor *Processor) FindTexture(texture string) opt.Option[string] {
 		filepath.Join("packages", texture),
 	)
 
-	if opt.IsSome(withoutExtension) {
-		return withoutExtension
-	}
-
-	return opt.None[string]()
+	return withoutExtension
 }
 
-func (processor *Processor) FindCubemap(cubemap string) []string {
+func (processor *Processor) FindCubemap(cubemap string) []*Reference {
 	prefix := filepath.Join("packages", cubemap)
 	wildcard := strings.Index(prefix, "*")
 
-	textures := make([]string, 0)
+	textures := make([]*Reference, 0)
 
 	for _, side := range CUBEMAPSIDES {
 		if wildcard != -1 {
@@ -216,7 +212,11 @@ func (processor *Processor) FindCubemap(cubemap string) []string {
 				prefix[wildcard+1:],
 			)
 
-			textures = append(textures, path)
+			sideFile := processor.SearchFile(path)
+			if sideFile != nil {
+				textures = append(textures, sideFile)
+			}
+
 			continue
 		}
 
@@ -228,8 +228,8 @@ func (processor *Processor) FindCubemap(cubemap string) []string {
 		)
 
 		resolvedJpg := processor.SearchFile(jpgPath)
-		if opt.IsSome(resolvedJpg) {
-			textures = append(textures, jpgPath)
+		if resolvedJpg != nil {
+			textures = append(textures, resolvedJpg)
 			continue
 		}
 
@@ -240,8 +240,8 @@ func (processor *Processor) FindCubemap(cubemap string) []string {
 		)
 
 		resolvedPng := processor.SearchFile(pngPath)
-		if opt.IsSome(resolvedPng) {
-			textures = append(textures, pngPath)
+		if resolvedPng != nil {
+			textures = append(textures, resolvedPng)
 			continue
 		}
 
@@ -314,7 +314,7 @@ func (processor *Processor) SaveTextureIndex(path string) error {
 	//index := TextureIndex{}
 	//err = p.Get(&index)
 	//if err != nil {
-		//return err
+	//return err
 	//}
 
 	out, err := os.Create(path)
