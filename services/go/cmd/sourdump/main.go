@@ -14,7 +14,6 @@ import (
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/min"
 
-	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -136,10 +135,7 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 	for i, model := range processor.Models {
 		if _, ok := modelRefs[int16(i)]; ok {
 			for _, path := range model.Paths {
-				modelPath := processor.SearchFile(path)
-				if modelPath != nil {
-					addFile(modelPath)
-				}
+				addFile(path)
 			}
 		}
 	}
@@ -167,8 +163,8 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 
 const MODEL_DIR = "packages/models"
 
-func DumpModel(roots []string, filename string) ([]min.Mapping, error) {
-	extension := filepath.Ext(filename)
+func DumpModel(roots []assets.Root, ref *min.Reference) ([]min.Mapping, error) {
+	extension := filepath.Ext(ref.Path)
 
 	if extension != ".cfg" {
 		return nil, fmt.Errorf("Model must end in .cfg")
@@ -176,43 +172,36 @@ func DumpModel(roots []string, filename string) ([]min.Mapping, error) {
 
 	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
 
-	normalized := processor.NormalizeFile(filename)
-	if opt.IsNone(normalized) {
-		return nil, fmt.Errorf("Could not normalize model path")
-	}
-
-	relativePath := normalized.Value.Relative
-	if !strings.HasPrefix(relativePath, MODEL_DIR) {
+	if !strings.HasPrefix(ref.Path, MODEL_DIR) {
 		return nil, fmt.Errorf("Model not in model directory")
 	}
 
-	modelName := filepath.Dir(relativePath[len(MODEL_DIR):])
+	modelName := filepath.Dir(ref.Path[len(MODEL_DIR):])
 
 	modelFiles, err := processor.ProcessModel(modelName)
-	if err != nil || opt.IsNone(modelFiles) {
+	if err != nil || modelFiles == nil {
 		return nil, fmt.Errorf("Error processing model")
 	}
 
 	references := make([]min.Mapping, 0)
 
-	var addFile func(file string)
-	addFile = func(file string) {
-		normalized := processor.NormalizeFile(file)
-		if opt.IsNone(normalized) {
-			return
-		}
-		references = append(references, normalized.Value)
+	var addFile func(ref *min.Reference)
+	addFile = func(ref *min.Reference) {
+		references = append(references, min.Mapping{
+			From: ref,
+			To:   ref.Path,
+		})
 	}
 
-	for _, file := range modelFiles.Value {
+	for _, file := range modelFiles {
 		addFile(file)
 	}
 
 	return references, nil
 }
 
-func DumpCFG(roots []string, filename string, indexPath string) ([]min.Mapping, error) {
-	extension := filepath.Ext(filename)
+func DumpCFG(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.Mapping, error) {
+	extension := filepath.Ext(ref.Path)
 
 	if extension != ".cfg" {
 		return nil, fmt.Errorf("cfg must end in .cfg")
@@ -220,27 +209,29 @@ func DumpCFG(roots []string, filename string, indexPath string) ([]min.Mapping, 
 
 	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
 
-	err := processor.ProcessFile(filename)
+	err := processor.ProcessFile(ref)
 	if err != nil {
 		return nil, fmt.Errorf("error processing file")
 	}
 
 	references := make([]min.Mapping, 0)
 
-	var addFile func(file string)
-	addFile = func(file string) {
-		normalized := processor.NormalizeFile(file)
-		if opt.IsNone(normalized) {
-			return
-		}
-		references = append(references, normalized.Value)
+	var addFile func(ref *min.Reference)
+	addFile = func(ref *min.Reference) {
+		references = append(references, min.Mapping{
+			From: ref,
+			To:   ref.Path,
+		})
 	}
 
-	addFile(filename)
+	addFile(ref)
 
 	for _, slot := range processor.Materials {
 		for _, path := range slot.Sts {
-			addFile(path.Name)
+			texture := processor.SearchFile(path.Name)
+			if texture != nil {
+				addFile(texture)
+			}
 		}
 	}
 
@@ -260,7 +251,10 @@ func DumpCFG(roots []string, filename string, indexPath string) ([]min.Mapping, 
 
 	for _, slot := range processor.Slots {
 		for _, path := range slot.Sts {
-			addFile(path.Name)
+			texture := processor.SearchFile(path.Name)
+			if texture != nil {
+				addFile(texture)
+			}
 		}
 	}
 
@@ -350,6 +344,6 @@ func main() {
 	references = min.CrunchReferences(references)
 
 	for _, path := range references {
-		fmt.Printf("%s->%s\n", path.Absolute, path.Relative)
+		fmt.Printf("%s->%s\n", path.From, path.To)
 	}
 }

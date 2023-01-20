@@ -35,9 +35,16 @@ func NewReference(root assets.Root, path string) *Reference {
 
 func (r *Reference) String() string {
 	if r.Root == nil {
-		return fmt.Sprintf("%s root=nil", r.Path)
+		return fmt.Sprintf("%s", r.Path)
 	}
 	return fmt.Sprintf("%s root=!nil", r.Path)
+}
+
+func (r *Reference) Resolve() (string, error) {
+	if r.Root == nil {
+		return r.Path, nil
+	}
+	return r.Root.Reference(r.Path)
 }
 
 func (r *Reference) ReadFile() ([]byte, error) {
@@ -175,7 +182,7 @@ var (
 )
 
 type Model struct {
-	Paths []string
+	Paths []*Reference
 }
 
 const (
@@ -331,24 +338,6 @@ func (processor *Processor) SearchFile(path string) *Reference {
 	}
 
 	return nil
-}
-
-func (processor *Processor) GetRootRelative(path string) opt.Option[string] {
-	for _, root := range processor.Roots {
-		relative, err := filepath.Rel(root, path)
-
-		if err != nil {
-			log.Fatal().Err(err)
-		}
-
-		if strings.Contains(relative, "..") {
-			continue
-		}
-
-		return opt.Some(relative)
-	}
-
-	return opt.None[string]()
 }
 
 func (processor *Processor) ResetSounds() {
@@ -535,12 +524,12 @@ func (processor *Processor) ProcessFile(ref *Reference) error {
 
 			if err != nil {
 				log.Printf("Failed to process model %s", args[1])
-				processor.AddModel(make([]string, 0))
+				processor.AddModel(make([]*Reference, 0))
 				continue
 			}
 
-			if opt.IsSome(textures) {
-				processor.AddModel(textures.Value)
+			if textures != nil {
+				processor.AddModel(textures)
 			}
 
 		case "autograss":
@@ -548,7 +537,11 @@ func (processor *Processor) ProcessFile(ref *Reference) error {
 				break
 			}
 
-			processor.AddFile(NormalizeTexture(args[1]))
+			texture := processor.SearchFile(NormalizeTexture(args[1]))
+
+			if texture != nil {
+				processor.AddFile(texture)
+			}
 
 		case "mapsoundreset":
 			processor.ResetSounds()
@@ -609,7 +602,11 @@ func (processor *Processor) ProcessFile(ref *Reference) error {
 				break
 			}
 
-			processor.AddFile(args[1])
+			file := processor.SearchFile(args[1])
+
+			if file != nil {
+				processor.AddFile(file)
+			}
 
 		case "cloudlayer":
 			if len(args) != 2 {
@@ -619,8 +616,8 @@ func (processor *Processor) ProcessFile(ref *Reference) error {
 			texture := args[1]
 			resolved := processor.FindTexture(texture)
 
-			if opt.IsSome(resolved) {
-				processor.AddFile(resolved.Value)
+			if resolved != nil {
+				processor.AddFile(resolved)
 			}
 
 		case "adaptivesample":

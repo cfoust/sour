@@ -3,7 +3,6 @@ package min
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -19,11 +18,11 @@ func (p *Processor) NormalizeModelPath(modelDir string, path string) string {
 	return filepath.Clean(filepath.Join(modelDir, path))
 }
 
-func (p *Processor) ResolveRelative(modelDir string, file string) opt.Option[string] {
+func (p *Processor) ResolveRelative(modelDir string, file string) *Reference {
 	path := p.NormalizeModelPath(modelDir, file)
 	resolved := p.SearchFile(path)
 
-	if opt.IsSome(resolved) {
+	if resolved != nil {
 		return resolved
 	}
 
@@ -36,34 +35,23 @@ func (p *Processor) ResolveRelative(modelDir string, file string) opt.Option[str
 	return p.SearchFile(parent)
 }
 
-func (p *Processor) ProcessModelFile(modelDir string, modelType string, path string) (opt.Option[[]string], error) {
-	results := make([]string, 0)
+func (p *Processor) ProcessModelFile(modelDir string, modelType string, ref *Reference) ([]*Reference, error) {
+	results := make([]*Reference, 0)
 
-	addFile := func(file string) {
-		results = append(results, file)
-	}
-
-	addRootFile := func(file string) {
-		resolved := p.SearchFile(file)
-
-		if opt.IsNone(resolved) {
-			log.Printf("Failed to find root-relative model path %s", file)
-			return
-		}
-
-		results = append(results, resolved.Value)
+	addFile := func(ref *Reference) {
+		results = append(results, ref)
 	}
 
 	// Some references are relative to the model config
 	addRelative := func(file string) {
 		resolved := p.ResolveRelative(modelDir, file)
 
-		if opt.IsNone(resolved) {
-			log.Printf("Failed to find cfg-relative model path %s (%s)", file, path)
+		if resolved == nil {
+			log.Printf("Failed to find cfg-relative model path %s (%s)", file, ref.Path)
 			return
 		}
 
-		results = append(results, resolved.Value)
+		results = append(results, resolved)
 	}
 
 	// Model textures tend to also come with a DDS counterpart
@@ -94,11 +82,11 @@ func (p *Processor) ProcessModelFile(modelDir string, modelType string, path str
 		}
 	}
 
-	addFile(path)
+	addFile(ref)
 
-	src, err := os.ReadFile(path)
+	src, err := ref.ReadFile()
 	if err != nil {
-		return opt.None[[]string](), errors.New(fmt.Sprintf("Failed to read %s", path))
+		return nil, errors.New(fmt.Sprintf("Failed to read %s", ref.Path))
 	}
 
 	for _, line := range strings.Split(string(src), "\n") {
@@ -124,7 +112,7 @@ func (p *Processor) ProcessModelFile(modelDir string, modelType string, path str
 			// error if it's not found
 			for i := 2; i < len(args); i++ {
 				resolved := p.ResolveRelative(modelDir, args[i])
-				if opt.IsNone(resolved) {
+				if resolved == nil {
 					continue
 				}
 
@@ -146,22 +134,22 @@ func (p *Processor) ProcessModelFile(modelDir string, modelType string, path str
 
 			resolved := p.SearchFile(execPath)
 
-			if opt.IsNone(resolved) {
+			if resolved == nil {
 				log.Printf("Could not find %s", execPath)
 			} else {
 				files, err := p.ProcessModelFile(
 					modelDir,
 					modelType,
-					resolved.Value,
+					resolved,
 				)
 				if err != nil {
-					return opt.None[[]string](), err
+					return nil, err
 				}
-				if opt.IsNone(files) {
+				if files == nil {
 					break
 				}
 
-				results = append(results, files.Value...)
+				results = append(results, files...)
 			}
 
 		case "load":
@@ -190,7 +178,7 @@ func (p *Processor) ProcessModelFile(modelDir string, modelType string, path str
 			}
 
 			for _, texture := range p.FindCubemap(NormalizeTexture(args[3])) {
-				addRootFile(texture)
+				addFile(texture)
 			}
 
 		case "ambient":
@@ -237,11 +225,11 @@ func (p *Processor) ProcessModelFile(modelDir string, modelType string, path str
 		}
 	}
 
-	return opt.Some[[]string](results), nil
+	return results, nil
 }
 
-func (p *Processor) ProcessModel(path string) (opt.Option[[]string], error) {
-	results := make([]string, 0)
+func (p *Processor) ProcessModel(path string) ([]*Reference, error) {
+	results := make([]*Reference, 0)
 
 	modelDir := filepath.Join(
 		"packages/models",
@@ -252,15 +240,15 @@ func (p *Processor) ProcessModel(path string) (opt.Option[[]string], error) {
 	addRelative := func(file string) {
 		resolved := p.ResolveRelative(modelDir, file)
 
-		if opt.IsNone(resolved) {
+		if resolved == nil {
 			log.Printf("Failed to find cfg-relative model path %s (%s)", file, path)
 			return
 		}
 
-		results = append(results, resolved.Value)
+		results = append(results, resolved)
 	}
 
-	_type := Find[string](func(x string) bool {
+	_type := Find(func(x string) bool {
 		// First look for the cfg
 		cfg := fmt.Sprintf(
 			"%s/%s.cfg",
@@ -270,7 +258,7 @@ func (p *Processor) ProcessModel(path string) (opt.Option[[]string], error) {
 
 		resolved := p.SearchFile(cfg)
 
-		if opt.IsSome(resolved) {
+		if resolved != nil {
 			return true
 		}
 
@@ -283,7 +271,7 @@ func (p *Processor) ProcessModel(path string) (opt.Option[[]string], error) {
 
 		resolved = p.SearchFile(tris)
 
-		if opt.IsSome(resolved) {
+		if resolved != nil {
 			return true
 		}
 
@@ -291,7 +279,7 @@ func (p *Processor) ProcessModel(path string) (opt.Option[[]string], error) {
 	})(MODELTYPES)
 
 	if opt.IsNone(_type) {
-		return opt.None[[]string](), errors.New(fmt.Sprintf("Failed to infer type for model %s", path))
+		return nil, errors.New(fmt.Sprintf("Failed to infer type for model %s", path))
 	}
 
 	modelType := _type.Value
@@ -308,7 +296,7 @@ func (p *Processor) ProcessModel(path string) (opt.Option[[]string], error) {
 	for _, _default := range defaultFiles {
 		resolved := p.ResolveRelative(modelDir, _default)
 
-		if opt.IsNone(resolved) {
+		if resolved == nil {
 			continue
 		}
 
@@ -324,33 +312,33 @@ func (p *Processor) ProcessModel(path string) (opt.Option[[]string], error) {
 
 	resolved := p.SearchFile(cfgPath)
 
-	if opt.IsNone(resolved) {
+	if resolved != nil {
 		if !hadDefault {
-			return opt.None[[]string](), errors.New(fmt.Sprintf("Model %s had neither defaults nor a .cfg", path))
+			return nil, errors.New(fmt.Sprintf("Model %s had neither defaults nor a .cfg", path))
 		}
 
-		return opt.Some[[]string](results), nil
+		return results, nil
 	}
 
-	cfgFiles, err := p.ProcessModelFile(modelDir, modelType, resolved.Value)
+	cfgFiles, err := p.ProcessModelFile(modelDir, modelType, resolved)
 	if err != nil {
-		return opt.None[[]string](), err
+		return nil, err
 	}
 
-	if opt.IsNone(cfgFiles) {
-		return opt.None[[]string](), nil
+	if cfgFiles == nil {
+		return nil, fmt.Errorf("no cfg files")
 	}
 
-	results = append(results, cfgFiles.Value...)
+	results = append(results, cfgFiles...)
 
-	return opt.Some[[]string](results), nil
+	return results, nil
 }
 
 func (processor *Processor) ResetModels() {
 	processor.Models = make([]Model, 0)
 }
 
-func (processor *Processor) AddModel(textures []string) {
+func (processor *Processor) AddModel(textures []*Reference) {
 	model := Model{}
 	model.Paths = textures
 	processor.Models = append(processor.Models, model)

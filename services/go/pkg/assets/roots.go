@@ -12,6 +12,7 @@ import (
 type Root interface {
 	Exists(path string) bool
 	ReadFile(path string) ([]byte, error)
+	Reference(path string) (string, error)
 }
 
 // Sourdump can return (id, path) or (path, path) pairs
@@ -28,6 +29,14 @@ func (f FSRoot) Exists(path string) bool {
 
 func (f FSRoot) ReadFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
+}
+
+func (f FSRoot) Reference(path string) (string, error) {
+	if !f.Exists(path) {
+		return "", fmt.Errorf("path %s not found in root", path)
+	}
+
+	return path, nil
 }
 
 type RemoteRoot struct {
@@ -82,6 +91,20 @@ func NewRemoteRoot(cache Cache, url string, base string) (*RemoteRoot, error) {
 func (f *RemoteRoot) Exists(path string) bool {
 	_, ok := f.fs[path]
 	return ok
+}
+
+func (f *RemoteRoot) Reference(path string) (string, error) {
+	index, ok := f.fs[path]
+	if !ok {
+		return "", Missing
+	}
+
+	id, ok := f.idLookup[index]
+	if !ok {
+		return "", Missing
+	}
+
+	return id, nil
 }
 
 func (f *RemoteRoot) ReadFile(path string) ([]byte, error) {
