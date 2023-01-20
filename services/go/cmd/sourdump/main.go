@@ -296,45 +296,23 @@ func resolveTarget(roots []assets.Root, target string) (*min.Reference, error) {
 	}, nil
 }
 
-func main() {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
-
-	var roots min.RootFlags
-
-	flag.Var(&roots, "root", "Specify a source for assets. Roots are searched in order of appearance.")
-	parseType := flag.String("type", "map", "The type of the asset to parse, one of 'map', 'model', 'cfg'.")
-	cacheDir := flag.String("cache", "cache/", "The directory in which to cache assets from remote sources.")
-	indexPath := flag.String("index", "", "Where to save the index of all texture calls.")
-	flag.Parse()
-
-	cache := assets.FSCache(*cacheDir)
-	assetRoots, err := assets.LoadRoots(cache, roots)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to load roots")
-	}
-
-	args := flag.Args()
-
-	if len(args) != 1 {
-		log.Fatal().Msg("You must provide only a single argument.")
-	}
-
-	reference, err := resolveTarget(assetRoots, args[0])
+func Dump(cache assets.Cache, roots []assets.Root, type_ string, indexPath string, target string) {
+	reference, err := resolveTarget(roots, target)
 	if err != nil {
 		log.Fatal().Err(err).Msg("could not resolve target")
 	}
 
 	var references []min.Mapping
 
-	switch *parseType {
+	switch type_ {
 	case "map":
-		references, err = DumpMap(assetRoots, reference, *indexPath)
+		references, err = DumpMap(roots, reference, indexPath)
 	case "model":
-		references, err = DumpModel(assetRoots, reference)
+		references, err = DumpModel(roots, reference)
 	case "cfg":
-		references, err = DumpCFG(assetRoots, reference, *indexPath)
+		references, err = DumpCFG(roots, reference, indexPath)
 	default:
-		log.Fatal().Msgf("invalid type %s", *parseType)
+		log.Fatal().Msgf("invalid type %s", type_)
 	}
 
 	if err != nil || references == nil {
@@ -349,5 +327,77 @@ func main() {
 			log.Fatal().Err(err).Msgf("could not resolve asset %s", path.From.String())
 		}
 		fmt.Printf("%s->%s\n", resolved, path.To)
+	}
+}
+
+func Resolve(cache assets.Cache, roots []assets.Root, outDir string, targets []string) {
+	outCache := assets.FSCache(outDir)
+
+	for _, target := range targets {
+		for _, root := range roots {
+			remoteRoot, ok := root.(*assets.RemoteRoot)
+			if !ok {
+				continue
+			}
+
+			data, err := remoteRoot.ReadAsset(target)
+			if err == assets.Missing {
+				continue
+			}
+			if err != nil {
+				log.Fatal().Err(err).Msgf("could not resolve asset %s", target)
+			}
+
+			err = outCache.Set(target, data)
+			if err != nil {
+				log.Fatal().Err(err).Msgf("could not save asset %s", target)
+			}
+		}
+	}
+}
+
+func main() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
+
+	var roots min.RootFlags
+
+	flag.Var(&roots, "root", "Specify a source for assets. Roots are searched in order of appearance.")
+	cacheDir := flag.String("cache", "cache/", "The directory in which to cache assets from remote sources.")
+
+	dumpCmd := flag.NewFlagSet("dump", flag.ExitOnError)
+	parseType := dumpCmd.String("type", "map", "The type of the asset to parse, one of 'map', 'model', 'cfg'.")
+	indexPath := dumpCmd.String("index", "", "Where to save the index of all texture calls.")
+	flag.Parse()
+
+	resolveCmd := flag.NewFlagSet("resolve", flag.ExitOnError)
+	outDir := resolveCmd.String("outdir", "output/", "The directory in which to save the assets.")
+
+	args := flag.Args()
+
+	if len(args) == 0 {
+		log.Fatal().Msg("You must provide at least one argument.")
+	}
+
+	cache := assets.FSCache(*cacheDir)
+	assetRoots, err := assets.LoadRoots(cache, roots)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to load roots")
+	}
+
+	switch args[0] {
+	case "dump":
+		dumpCmd.Parse(args[1:])
+		args := dumpCmd.Args()
+		if len(args) != 1 {
+			log.Fatal().Msg("You must provide only a single argument.")
+		}
+		Dump(cache, assetRoots, *parseType, *indexPath, args[0])
+	case "resolve":
+		resolveCmd.Parse(args[1:])
+		args := resolveCmd.Args()
+		if len(args) == 0 {
+			log.Fatal().Msg("You must provide at least one asset.")
+		}
+		Resolve(cache, assetRoots, *outDir, args)
 	}
 }

@@ -107,14 +107,8 @@ func (f *RemoteRoot) Reference(path string) (string, error) {
 	return id, nil
 }
 
-func (f *RemoteRoot) ReadFile(path string) ([]byte, error) {
-	index, ok := f.fs[path]
-	if !ok {
-		return nil, Missing
-	}
-
-	id, ok := f.idLookup[index]
-	if !ok {
+func (f *RemoteRoot) ReadAsset(id string) ([]byte, error) {
+	if _, ok := f.assets[id]; !ok {
 		return nil, Missing
 	}
 
@@ -138,6 +132,20 @@ func (f *RemoteRoot) ReadFile(path string) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+func (f *RemoteRoot) ReadFile(path string) ([]byte, error) {
+	index, ok := f.fs[path]
+	if !ok {
+		return nil, Missing
+	}
+
+	id, ok := f.idLookup[index]
+	if !ok {
+		return nil, Missing
+	}
+
+	return f.ReadAsset(id)
 }
 
 var _ Root = (*FSRoot)(nil)
