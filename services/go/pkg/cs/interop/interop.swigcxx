@@ -1,17 +1,16 @@
 %module interop
 %{
+#include <assert.h>
+#include <ctype.h>
+#include <limits.h>
 #include <math.h>
-#include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
-#include <stdarg.h>
-#include <limits.h>
-#include <assert.h>
+#include <string.h>
 #include <time.h>
 
 #include "command.h"
 %}
-%include "command.h"
+%include "wrap.h"
 

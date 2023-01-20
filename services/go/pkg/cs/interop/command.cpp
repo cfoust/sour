@@ -1,12 +1,23 @@
 // command.cpp: implements the parsing and execution of a tiny script language which
 // is largely backwards compatible with the quake console language.
 
-#include <string.h>
-#include <stdlib.h>
-#include <limits.h>
-#include <cstring>
-
 #include "command.h"
+
+//void conoutfv(int type, const char *fmt, va_list args)
+//{
+    //string sf, sp;
+    //vformatstring(sf, fmt, args);
+    //printf("%s\n", sp);
+    //printf("printing! %s\n", sf);
+//}
+
+#define CONSTRLEN 512
+void conoutfv(int type, const char *fmt, va_list args)
+{
+    static char buf[CONSTRLEN];
+    vformatstring(buf, fmt, args, sizeof(buf));
+    printf("%s", buf);
+}
 
 void conoutf(const char *fmt, ...)
 {
@@ -30,6 +41,59 @@ void conoutf(int type, int tag, const char *fmt, ...)
     va_start(args, fmt);
     conoutfv(type | ((tag << CON_TAG_SHIFT) & CON_TAG_MASK), fmt, args);
     va_end(args);
+}
+
+char *path(char *s)
+{
+    for(char *curpart = s;;)
+    {
+        char *endpart = strchr(curpart, '&');
+        if(endpart) *endpart = '\0';
+        if(curpart[0]=='<')
+        {
+            char *file = strrchr(curpart, '>');
+            if(!file) return s;
+            curpart = file+1;
+        }
+        for(char *t = curpart; (t = strpbrk(t, "/\\")); *t++ = PATHDIV);
+        for(char *prevdir = NULL, *curdir = curpart;;)
+        {
+            prevdir = curdir[0]==PATHDIV ? curdir+1 : curdir;
+            curdir = strchr(prevdir, PATHDIV);
+            if(!curdir) break;
+            if(prevdir+1==curdir && prevdir[0]=='.')
+            {
+                memmove(prevdir, curdir+1, strlen(curdir+1)+1);
+                curdir = prevdir;
+            }
+            else if(curdir[1]=='.' && curdir[2]=='.' && curdir[3]==PATHDIV)
+            {
+                if(prevdir+2==curdir && prevdir[0]=='.' && prevdir[1]=='.') continue;
+                memmove(prevdir, curdir+4, strlen(curdir+4)+1);
+                if(prevdir-2 >= curpart && prevdir[-1]==PATHDIV)
+                {
+                    prevdir -= 2;
+                    while(prevdir-1 >= curpart && prevdir[-1] != PATHDIV) --prevdir;
+                }
+                curdir = prevdir;
+            }
+        }
+        if(endpart)
+        {
+            *endpart = '&';
+            curpart = endpart+1;
+        }
+        else break;
+    }
+    return s;
+}
+
+char *path(const char *s, bool copy)
+{
+    static string tmp;
+    copystring(tmp, s);
+    path(tmp);
+    return tmp;
 }
 
 hashnameset<ident> idents; // contains ALL vars/commands/aliases
@@ -754,9 +818,9 @@ bool addcommand(const char *name, identfun fun, const char *args)
         case 's': case 'e': case 'r': if(numargs < MAXARGS) { argmask |= 1<<numargs; numargs++; } break;
         case '1': case '2': case '3': case '4': if(numargs < MAXARGS) fmt -= *fmt-'0'+1; break;
         case 'C': case 'V': limit = false; break;
-        default: fatal("builtin %s declared with illegal type: %s", name, args); break;
+        default: printf("builtin %s declared with illegal type: %s\n", name, args); break;
     }
-    if(limit && numargs > MAXCOMARGS) fatal("builtin %s declared with too many args: %d", name, numargs);
+    if(limit && numargs > MAXCOMARGS) printf("builtin %s declared with too many args: %d\n", name, numargs);
     addident(ident(ID_COMMAND, name, args, argmask, numargs, (void *)fun, flags));
     return false;
 }
@@ -2385,26 +2449,26 @@ bool execidentbool(const char *name, bool noid, bool lookup)
     return id ? executebool(id, NULL, 0, lookup) : noid;
 }
 
-bool execfile(const char *cfgfile, bool msg)
-{
-    string s;
-    copystring(s, cfgfile);
-    char *buf = loadfile(path(s), NULL);
-    if(!buf)
-    {
-        if(msg) conoutf(CON_ERROR, "could not read \"%s\"", cfgfile);
-        return false;
-    }
-    const char *oldsourcefile = sourcefile, *oldsourcestr = sourcestr;
-    sourcefile = cfgfile;
-    sourcestr = buf;
-    execute(buf);
-    sourcefile = oldsourcefile;
-    sourcestr = oldsourcestr;
-    delete[] buf;
-    return true;
-}
-ICOMMAND(exec, "sb", (char *file, int *msg), intret(execfile(file, *msg != 0) ? 1 : 0));
+//bool execfile(const char *cfgfile, bool msg)
+//{
+    //string s;
+    //copystring(s, cfgfile);
+    //char *buf = loadfile(path(s), NULL);
+    //if(!buf)
+    //{
+        //if(msg) conoutf(CON_ERROR, "could not read \"%s\"", cfgfile);
+        //return false;
+    //}
+    //const char *oldsourcefile = sourcefile, *oldsourcestr = sourcestr;
+    //sourcefile = cfgfile;
+    //sourcestr = buf;
+    //execute(buf);
+    //sourcefile = oldsourcefile;
+    //sourcestr = oldsourcestr;
+    //delete[] buf;
+    //return true;
+//}
+//ICOMMAND(exec, "sb", (char *file, int *msg), intret(execfile(file, *msg != 0) ? 1 : 0));
 
 const char *escapestring(const char *s)
 {
@@ -3016,19 +3080,16 @@ void listsplice(const char *s, const char *vals, int *skip, int *count)
 }
 COMMAND(listsplice, "ssii");
 
-void findfile_(char *name)
-{ 
-    string fname;
-    copystring(fname, name);
-    path(fname);
-    intret(
-#ifndef STANDALONE
-        findzipfile(fname) ||
-#endif
-        fileexists(fname, "e") || findfile(fname, "e") ? 1 : 0
-    );
-}
-COMMANDN(findfile, findfile_, "s");
+//void findfile_(char *name)
+//{ 
+    //string fname;
+    //copystring(fname, name);
+    //path(fname);
+    //intret(
+        //fileexists(fname, "e") || findfile(fname, "e") ? 1 : 0
+    //);
+//}
+//COMMANDN(findfile, findfile_, "s");
 
 struct sortitem
 {

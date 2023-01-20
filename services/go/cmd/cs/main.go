@@ -5,5 +5,8 @@ import (
 )
 
 func main() {
-	interop.Execute("test")
+	interop.Execute(`
+set a 2
+echo (a)
+`)
 }
