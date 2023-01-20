@@ -1,4 +1,66 @@
 #define __cdecl
+#define _vsnprintf vsnprintf
+
+#include <assert.h>
+#include <ctype.h>
+#include <limits.h>
+#include <math.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+#ifdef NULL
+#undef NULL
+#endif
+#define NULL 0
+
+#define PATHDIV '/'
+
+typedef unsigned char uchar;
+typedef unsigned short ushort;
+typedef unsigned int uint;
+typedef signed long long int llong;
+typedef unsigned long long int ullong;
+
+#ifdef _DEBUG
+#define ASSERT(c) assert(c)
+#else
+#define ASSERT(c) if(c) {}
+#endif
+
+void *operator new(size_t, bool);
+void *operator new[](size_t, bool);
+inline void *operator new(size_t, void *p) { return p; }
+inline void *operator new[](size_t, void *p) { return p; }
+inline void operator delete(void *, void *) {}
+inline void operator delete[](void *, void *) {}
+
+static inline uint hthash(const char *key)
+{
+    uint h = 5381;
+    for(int i = 0, k; (k = key[i]); i++) h = ((h<<5)+h)^k;    // bernstein k=33 xor
+    return h;
+}
+
+static inline bool htcmp(const char *x, const char *y)
+{
+    return !strcmp(x, y);
+}
+
+#ifdef __GNUC__
+#define PRINTFARGS(fmt, args) __attribute__((format(printf, fmt, args)))
+#else
+#define PRINTFARGS(fmt, args)
+#endif
+
+#define DELETEP(p) if(p) { delete   p; p = 0; }
+#define DELETEA(p) if(p) { delete[] p; p = 0; }
+
+#define rnd(x) ((int)(randomMT()&0x7FFFFFFF)%(x))
+#define rndscale(x) (float((randomMT()&0x7FFFFFFF)*double(x)/double(0x7FFFFFFF)))
+#define detrnd(s, x) ((int)(((((uint)(s))*1103515245+12345)>>16)%(x)))
 
 #define loop(v,m) for(int v = 0; v < int(m); ++v)
 #define loopi(m) loop(i,m)
@@ -15,6 +77,108 @@
 #define loopvk(v)   for(int k = 0; k<(v).length(); k++)
 #define loopvrev(v) for(int i = (v).length()-1; i>=0; i--)
 
+#define defformatstring(d,...) string d; formatstring(d, __VA_ARGS__)
+#define defvformatstring(d,last,fmt) string d; { va_list ap; va_start(ap, last); vformatstring(d, fmt, ap); va_end(ap); }
+
+inline void vformatstring(char *d, const char *fmt, va_list v, int len) { _vsnprintf(d, len, fmt, v); d[len-1] = 0; }
+template<size_t N> inline void vformatstring(char (&d)[N], const char *fmt, va_list v) { vformatstring(d, fmt, v, N); }
+
+inline void nformatstring(char *d, int len, const char *fmt, ...) PRINTFARGS(3, 4);
+inline void nformatstring(char *d, int len, const char *fmt, ...)
+{
+    va_list v;
+    va_start(v, fmt);
+    vformatstring(d, fmt, v, len);
+    va_end(v);
+}
+
+static inline void intformat(char *buf, int v, int len = 20) { nformatstring(buf, len, "%d", v); }
+static inline void floatformat(char *buf, float v, int len = 20) { nformatstring(buf, len, v==int(v) ? "%.1f" : "%.6g", v); }
+
+#define MAXSTRLEN 260
+
+#ifdef __GNUC__
+#define UNUSED __attribute__((unused))
+#else
+#define UNUSED
+#endif
+
+template<class T, class F>
+static inline void quicksort(T *start, T *end, F fun)
+{
+    while(end-start > 10)
+    {
+        T *mid = &start[(end-start)/2], *i = start+1, *j = end-2, pivot;
+        if(fun(*start, *mid)) /* start < mid */
+        {
+            if(fun(end[-1], *start)) { pivot = *start; *start = end[-1]; end[-1] = *mid; } /* end < start < mid */
+            else if(fun(end[-1], *mid)) { pivot = end[-1]; end[-1] = *mid; } /* start <= end < mid */
+            else { pivot = *mid; } /* start < mid <= end */
+        }
+        else if(fun(*start, end[-1])) { pivot = *start; *start = *mid; } /*mid <= start < end */
+        else if(fun(*mid, end[-1])) { pivot = end[-1]; end[-1] = *start; *start = *mid; } /* mid < end <= start */
+        else { pivot = *mid; swap(*start, end[-1]); }  /* end <= mid <= start */
+        *mid = end[-2];
+        do
+        {
+            while(fun(*i, pivot)) if(++i >= j) goto partitioned;
+            while(fun(pivot, *--j)) if(i >= j) goto partitioned;
+            swap(*i, *j);
+        }
+        while(++i < j);
+    partitioned:
+        end[-2] = *i;
+        *i = pivot;
+        
+        if(i-start < end-(i+1))
+        {
+            quicksort(start, i, fun);
+            start = i+1;
+        }
+        else
+        {
+            quicksort(i+1, end, fun);
+            end = i;
+        }
+    }
+    
+    insertionsort(start, end, fun);
+}
+
+template<class T, class F>
+static inline void quicksort(T *buf, int n, F fun)
+{
+    quicksort(buf, buf+n, fun);
+}
+
+template<class T>
+static inline bool compareless(const T &x, const T &y) { return x < y; }
+
+template<class T, class F>
+static inline void insertionsort(T *start, T *end, F fun)
+{
+    for(T *i = start+1; i < end; i++)
+    {
+        if(fun(*i, i[-1]))
+        {
+            T tmp = *i;
+            *i = i[-1];
+            T *j = i-1;
+            for(; j > start && fun(tmp, j[-1]); --j)
+                *j = j[-1];
+            *j = tmp;
+        }
+    }
+    
+}
+
+template<class T>
+static inline void quicksort(T *buf, int n)
+{
+    quicksort(buf, buf+n, compareless<T>);
+}
+
+
 struct sortless
 {
     template<class T> bool operator()(const T &x, const T &y) const { return x < y; }
@@ -27,16 +191,6 @@ struct sortnameless
     template<class T> bool operator()(const T &x, const T &y) const { return sortless()(x.name, y.name); }
     template<class T> bool operator()(T *x, T *y) const { return sortless()(x->name, y->name); }
     template<class T> bool operator()(const T *x, const T *y) const { return sortless()(x->name, y->name); }
-};
-
-template<class T> struct isclass
-{
-    template<class C> static char test(void (C::*)(void));
-    template<class C> static int test(...);
-    enum {
-        yes = sizeof(test<T>(0)) == 1 ? 1 : 0,
-        no = yes^1,
-    };
 };
 
 template<class T>
@@ -53,6 +207,14 @@ template<class T, class U>
 static inline T clamp(T a, U b, U c)
 {
     return max(T(b), min(a, T(c)));
+}
+
+template<class T>
+static inline void swap(T &a, T &b)
+{
+    T t = a;
+    a = b;
+    b = t;
 }
 
 typedef signed char schar;
@@ -245,7 +407,8 @@ template <class T> struct vector
 
     void disown() { buf = NULL; alen = ulen = 0; }
 
-    void shrink(int i) { ASSERT(i<=ulen); if(isclass<T>::no) ulen = i; else while(ulen>i) drop(); }
+    // XXX always isclass=false
+    void shrink(int i) { ASSERT(i<=ulen); if(false) ulen = i; else while(ulen>i) drop(); }
     void setsize(int i) { ASSERT(i<=ulen); ulen = i; }
 
     void deletecontents() { while(!empty()) delete   pop(); }
@@ -450,6 +613,205 @@ template <class T> struct vector
     }
 };
 
+template<class H, class E, class K, class T> struct hashbase
+{
+    typedef E elemtype;
+    typedef K keytype;
+    typedef T datatype;
+
+    enum { CHUNKSIZE = 64 };
+
+    struct chain { E elem; chain *next; };
+    struct chainchunk { chain chains[CHUNKSIZE]; chainchunk *next; };
+
+    int size;
+    int numelems;
+    chain **chains;
+
+    chainchunk *chunks;
+    chain *unused;
+
+    enum { DEFAULTSIZE = 1<<10 };
+
+    hashbase(int size = DEFAULTSIZE)
+      : size(size)
+    {
+        numelems = 0;
+        chunks = NULL;
+        unused = NULL;
+        chains = new chain *[size];
+        memset(chains, 0, size*sizeof(chain *));
+    }
+
+    ~hashbase()
+    {
+        DELETEA(chains);
+        deletechunks();
+    }
+
+    chain *insert(uint h)
+    {
+        if(!unused)
+        {
+            chainchunk *chunk = new chainchunk;
+            chunk->next = chunks;
+            chunks = chunk;
+            loopi(CHUNKSIZE-1) chunk->chains[i].next = &chunk->chains[i+1];
+            chunk->chains[CHUNKSIZE-1].next = unused;
+            unused = chunk->chains;
+        }
+        chain *c = unused;
+        unused = unused->next;
+        c->next = chains[h];
+        chains[h] = c;
+        numelems++;
+        return c;
+    }
+
+    template<class U>
+    T &insert(uint h, const U &key)
+    {
+        chain *c = insert(h);
+        H::setkey(c->elem, key);
+        return H::getdata(c->elem);
+    }
+
+    #define HTFIND(success, fail) \
+        uint h = hthash(key)&(this->size-1); \
+        for(chain *c = this->chains[h]; c; c = c->next) \
+        { \
+            if(htcmp(key, H::getkey(c->elem))) return success H::getdata(c->elem); \
+        } \
+        return (fail);
+
+    template<class U>
+    T *access(const U &key)
+    {
+        HTFIND(&, NULL);
+    }
+
+    template<class U, class V>
+    T &access(const U &key, const V &elem)
+    {
+        HTFIND( , insert(h, key) = elem);
+    }
+
+    template<class U>
+    T &operator[](const U &key)
+    {
+        HTFIND( , insert(h, key));
+    }
+
+    template<class U>
+    T &find(const U &key, T &notfound)
+    {
+        HTFIND( , notfound);
+    }
+
+    template<class U>
+    const T &find(const U &key, const T &notfound)
+    {
+        HTFIND( , notfound);
+    }
+
+    template<class U>
+    bool remove(const U &key)
+    {
+        uint h = hthash(key)&(size-1);
+        for(chain **p = &chains[h], *c = chains[h]; c; p = &c->next, c = c->next)
+        {
+            if(htcmp(key, H::getkey(c->elem)))
+            {
+                *p = c->next;
+                c->elem.~E();
+                new (&c->elem) E;
+                c->next = unused;
+                unused = c;
+                numelems--;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void deletechunks()
+    {
+        for(chainchunk *nextchunk; chunks; chunks = nextchunk)
+        {
+            nextchunk = chunks->next;
+            delete chunks;
+        }
+    }
+
+    void clear()
+    {
+        if(!numelems) return;
+        memset(chains, 0, size*sizeof(chain *));
+        numelems = 0;
+        unused = NULL;
+        deletechunks();
+    }
+
+    static inline chain *enumnext(void *i) { return ((chain *)i)->next; }
+    static inline K &enumkey(void *i) { return H::getkey(((chain *)i)->elem); }
+    static inline T &enumdata(void *i) { return H::getdata(((chain *)i)->elem); }
+};
+
+template<class T> struct hashset : hashbase<hashset<T>, T, T, T>
+{
+    typedef hashbase<hashset<T>, T, T, T> basetype;
+
+    hashset(int size = basetype::DEFAULTSIZE) : basetype(size) {}
+
+    static inline const T &getkey(const T &elem) { return elem; }
+    static inline T &getdata(T &elem) { return elem; }
+    template<class K> static inline void setkey(T &elem, const K &key) {}
+
+    template<class V>
+    T &add(const V &elem)
+    {
+        return basetype::access(elem, elem);
+    }
+};
+
+template<class T> struct hashnameset : hashbase<hashnameset<T>, T, const char *, T>
+{
+    typedef hashbase<hashnameset<T>, T, const char *, T> basetype;
+
+    hashnameset(int size = basetype::DEFAULTSIZE) : basetype(size) {}
+
+    template<class U> static inline const char *getkey(const U &elem) { return elem.name; }
+    template<class U> static inline const char *getkey(U *elem) { return elem->name; }
+    static inline T &getdata(T &elem) { return elem; }
+    template<class K> static inline void setkey(T &elem, const K &key) {}
+
+    template<class V>
+    T &add(const V &elem)
+    {
+        return basetype::access(getkey(elem), elem);
+    }
+};
+
+template<class K, class T> struct hashtableentry
+{
+    K key;
+    T data;
+};
+
+template<class K, class T> struct hashtable : hashbase<hashtable<K, T>, hashtableentry<K, T>, K, T>
+{
+    typedef hashbase<hashtable<K, T>, hashtableentry<K, T>, K, T> basetype;
+    typedef typename basetype::elemtype elemtype;
+
+    hashtable(int size = basetype::DEFAULTSIZE) : basetype(size) {}
+
+    static inline K &getkey(elemtype &elem) { return elem.key; }
+    static inline T &getdata(elemtype &elem) { return elem.data; }
+    template<class U> static inline void setkey(elemtype &elem, const U &key) { elem.key = key; }
+};
+
+#define enumeratekt(ht,k,e,t,f,b) loopi((ht).size) for(void *ec = (ht).chains[i]; ec;) { k &e = (ht).enumkey(ec); t &f = (ht).enumdata(ec); ec = (ht).enumnext(ec); b; }
+#define enumerate(ht,t,e,b)       loopi((ht).size) for(void *ec = (ht).chains[i]; ec;) { t &e = (ht).enumdata(ec); ec = (ht).enumnext(ec); b; }
 
 inline char *copystring(char *d, const char *s, size_t len)
 {
@@ -463,6 +825,12 @@ template<size_t N> inline char *copystring(char (&d)[N], const char *s) { return
 inline char *newstring(size_t l)                { return new char[l+1]; }
 inline char *newstring(const char *s, size_t l) { return copystring(newstring(l), s, l+1); }
 inline char *newstring(const char *s)           { size_t l = strlen(s); char *d = newstring(l); memcpy(d, s, l+1); return d; }
+
+#define PI  (3.1415927f)
+#define PI2 (2*PI)
+#define SQRT2 (1.4142136f)
+#define SQRT3 (1.7320508f)
+#define RAD (PI / 180.0f)
 
 // script binding functionality
 
@@ -506,7 +874,7 @@ enum
 
 enum { ID_VAR, ID_FVAR, ID_SVAR, ID_COMMAND, ID_ALIAS, ID_LOCAL };
 
-enum { IDF_PERSIST = 1<<0, IDF_OVERRIDE = 1<<1, IDF_HEX = 1<<2, IDF_READONLY = 1<<3, IDF_OVERRIDDEN = 1<<4, IDF_UNKNOWN = 1<<5, IDF_ARG = 1<<6 };
+enum { IDF_PERSIST = 1<<0, IDF_OVERRIDE = 1<<1, IDF_HEX = 1<<2, IDF_READONLY = 1<<3, IDF_OVERRIDDEN = 1<<4, IDF_UNKNOWN = 1<<5, IDF_ARG = 1<<6, IDF_EMUVAR = 1<<7 };
 
 struct ident;
 
@@ -560,67 +928,73 @@ typedef void (__cdecl *identfun)();
 
 struct ident
 {
-    int type;           // one of ID_* above
+    uchar type; // one of ID_* above
+    union
+    {
+        uchar valtype; // ID_ALIAS
+        uchar numargs; // ID_COMMAND
+    };
+    ushort flags;
+    int index;
     const char *name;
     union
     {
-        int minval;    // ID_VAR
-        float minvalf; // ID_FVAR
-        int valtype;   // ID_ALIAS
-    };
-    union
-    {
-        int maxval;    // ID_VAR
-        float maxvalf; // ID_FVAR
-        uint *code;    // ID_ALIAS
-    };
-    union
-    {
-        const char *args;    // ID_COMMAND
-        identval val;        // ID_ALIAS
-        identvalptr storage; // ID_VAR, ID_FVAR, ID_SVAR
-    };
-    union
-    {
-        identval overrideval; // ID_VAR, ID_FVAR, ID_SVAR
-        identstack *stack;    // ID_ALIAS
-        uint argmask;         // ID_COMMAND
+        struct // ID_VAR, ID_FVAR, ID_SVAR
+        {
+            union
+            {
+                struct { int minval, maxval; };     // ID_VAR
+                struct { float minvalf, maxvalf; }; // ID_FVAR
+            };
+            identvalptr storage;
+            identval overrideval;
+        };
+        struct // ID_ALIAS
+        {
+            uint *code;
+            identval val;
+            identstack *stack;
+        };
+        struct // ID_COMMAND
+        {
+            const char *args;
+            uint argmask;
+        };
     };
     identfun fun; // ID_VAR, ID_FVAR, ID_SVAR, ID_COMMAND
-    int flags, index;
-
+    
     ident() {}
     // ID_VAR
     ident(int t, const char *n, int m, int x, int *s, void *f = NULL, int flags = 0)
-        : type(t), name(n), minval(m), maxval(x), fun((identfun)f), flags(flags | (m > x ? IDF_READONLY : 0))
+        : type(t), flags(flags | (m > x ? IDF_READONLY : 0)), name(n), minval(m), maxval(x), fun((identfun)f)
     { storage.i = s; }
     // ID_FVAR
     ident(int t, const char *n, float m, float x, float *s, void *f = NULL, int flags = 0)
-        : type(t), name(n), minvalf(m), maxvalf(x), fun((identfun)f), flags(flags | (m > x ? IDF_READONLY : 0))
+        : type(t), flags(flags | (m > x ? IDF_READONLY : 0)), name(n), minvalf(m), maxvalf(x), fun((identfun)f)
     { storage.f = s; }
     // ID_SVAR
     ident(int t, const char *n, char **s, void *f = NULL, int flags = 0)
-        : type(t), name(n), fun((identfun)f), flags(flags)
+        : type(t), flags(flags), name(n), fun((identfun)f)
     { storage.s = s; }
     // ID_ALIAS
     ident(int t, const char *n, char *a, int flags)
-        : type(t), name(n), valtype(VAL_STR), code(NULL), stack(NULL), flags(flags)
+        : type(t), valtype(VAL_STR), flags(flags), name(n), code(NULL), stack(NULL)
     { val.s = a; }
     ident(int t, const char *n, int a, int flags)
-        : type(t), name(n), valtype(VAL_INT), code(NULL), stack(NULL), flags(flags)
+        : type(t), valtype(VAL_INT), flags(flags), name(n), code(NULL), stack(NULL)
     { val.i = a; }
     ident(int t, const char *n, float a, int flags)
-        : type(t), name(n), valtype(VAL_FLOAT), code(NULL), stack(NULL), flags(flags)
+        : type(t), valtype(VAL_FLOAT), flags(flags), name(n), code(NULL), stack(NULL)
     { val.f = a; }
     ident(int t, const char *n, int flags)
-        : type(t), name(n), valtype(VAL_NULL), code(NULL), stack(NULL), flags(flags)
+        : type(t), valtype(VAL_NULL), flags(flags), name(n), code(NULL), stack(NULL)
     {}
     ident(int t, const char *n, const tagval &v, int flags)
-        : type(t), name(n), valtype(v.type), code(NULL), stack(NULL), flags(flags)
+        : type(t), valtype(v.type), flags(flags), name(n), code(NULL), stack(NULL)
     { val = v; }
     // ID_COMMAND
-    ident(int t, const char *n, const char *args, uint argmask, void *f = NULL, int flags = 0)
-        : type(t), name(n), args(args), argmask(argmask), fun((identfun)f), flags(flags)
+    ident(int t, const char *n, const char *args, uint argmask, int numargs, void *f = NULL, int flags = 0)
+        : type(t), numargs(numargs), flags(flags), name(n), args(args), argmask(argmask), fun((identfun)f)
     {}
 
     void changed() { if(fun) fun(); }
@@ -630,13 +1004,13 @@ struct ident
         valtype = v.type;
         val = v;
     }
-
+   
     void setval(const identstack &v)
     {
         valtype = v.valtype;
         val = v.val;
     }
-
+ 
     void forcenull()
     {
         if(valtype==VAL_STR) delete[] val.s;
@@ -790,6 +1164,91 @@ inline void ident::getval(tagval &v) const
 #define ICOMMAND(name, nargs, proto, b) ICOMMANDN(name, ICOMMANDNAME(name), nargs, proto, b)
 #define ICOMMANDSNAME _icmds_
 #define ICOMMANDS(name, nargs, proto, b) ICOMMANDNS(name, ICOMMANDSNAME, nargs, proto, b)
+
+enum
+{
+    CT_PRINT   = 1<<0,
+    CT_SPACE   = 1<<1,
+    CT_DIGIT   = 1<<2,
+    CT_ALPHA   = 1<<3,
+    CT_LOWER   = 1<<4,
+    CT_UPPER   = 1<<5,
+    CT_UNICODE = 1<<6
+};
+
+#define CUBECTYPE(s, p, d, a, A, u, U) \
+    0, U, U, U, U, U, U, U, U, s, s, s, s, s, U, U, \
+    U, U, U, U, U, U, U, U, U, U, U, U, U, U, U, U, \
+    s, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, \
+    d, d, d, d, d, d, d, d, d, d, p, p, p, p, p, p, \
+    p, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, \
+    A, A, A, A, A, A, A, A, A, A, A, p, p, p, p, p, \
+    p, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, \
+    a, a, a, a, a, a, a, a, a, a, a, p, p, p, p, U, \
+    U, u, u, u, u, u, u, u, u, u, u, u, u, u, u, u, \
+    u, u, u, u, u, u, u, u, u, u, u, u, u, u, u, U, \
+    u, U, u, U, u, U, u, U, u, U, u, U, u, U, u, U, \
+    u, U, u, U, u, U, u, U, u, U, u, U, u, U, u, U, \
+    u, U, u, U, u, U, u, U, U, u, U, u, U, u, U, U, \
+    U, U, U, U, U, U, U, U, U, U, U, U, U, U, U, U, \
+    U, U, U, U, u, u, u, u, u, u, u, u, u, u, u, u, \
+    u, u, u, u, u, u, u, u, u, u, u, u, u, u, U, u
+const uchar cubectype[256] =
+{
+    CUBECTYPE(CT_SPACE,
+              CT_PRINT,
+              CT_PRINT|CT_DIGIT,
+              CT_PRINT|CT_ALPHA|CT_LOWER,
+              CT_PRINT|CT_ALPHA|CT_UPPER,
+              CT_PRINT|CT_UNICODE|CT_ALPHA|CT_LOWER,
+              CT_PRINT|CT_UNICODE|CT_ALPHA|CT_UPPER)
+};
+static inline int iscubeprint(uchar c) { return cubectype[c]&CT_PRINT; }
+static inline int iscubespace(uchar c) { return cubectype[c]&CT_SPACE; }
+static inline int iscubealpha(uchar c) { return cubectype[c]&CT_ALPHA; }
+static inline int iscubealnum(uchar c) { return cubectype[c]&(CT_ALPHA|CT_DIGIT); }
+static inline int iscubelower(uchar c) { return cubectype[c]&CT_LOWER; }
+static inline int iscubeupper(uchar c) { return cubectype[c]&CT_UPPER; }
+static inline int iscubepunct(uchar c) { return cubectype[c] == CT_PRINT; }
+static inline int cube2uni(uchar c)
+{ 
+    extern const int cube2unichars[256]; 
+    return cube2unichars[c]; 
+}
+static inline uchar uni2cube(int c)
+{
+    extern const int uni2cubeoffsets[8];
+    extern const uchar uni2cubechars[];
+    return uint(c) <= 0x7FF ? uni2cubechars[uni2cubeoffsets[c>>8] + (c&0xFF)] : 0;
+}
+static inline uchar cubelower(uchar c)
+{
+    extern const uchar cubelowerchars[256];
+    return cubelowerchars[c];
+}
+static inline uchar cubeupper(uchar c)
+{
+    extern const uchar cubeupperchars[256];
+    return cubeupperchars[c];
+}
+
+enum
+{
+    CON_INFO  = 1<<0,
+    CON_WARN  = 1<<1,
+    CON_ERROR = 1<<2,
+    CON_DEBUG = 1<<3,
+    CON_INIT  = 1<<4,
+    CON_ECHO  = 1<<5,
+
+    CON_FLAGS = 0xFFFF,
+    CON_TAG_SHIFT = 16,
+    CON_TAG_MASK = (0x7FFF << CON_TAG_SHIFT)
+};
+
+extern void conoutf(const char *s, ...);
+extern void conoutf(int type, const char *s, ...);
+extern void conoutfv(int type, const char *fmt, va_list args);
 
 // from iengine.h
 extern int variable(const char *name, int min, int cur, int max, int *storage, identfun fun, int flags);
