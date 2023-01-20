@@ -35,6 +35,21 @@ func WriteBytes(data []byte, path string) error {
 	return nil
 }
 
+func DownloadBytes(url string) ([]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Check server response
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
 func DownloadFile(url string, path string) error {
 	out, err := os.Create(path)
 	if err != nil {

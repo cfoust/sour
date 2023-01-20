@@ -3,14 +3,13 @@ package assets
 import (
 	"fmt"
 	"os"
-	"path/filepath"
+
+	"github.com/fxamacker/cbor/v2"
 )
 
 type Root interface {
 	Exists(path string) bool
 	ReadFile(path string) ([]byte, error)
-	// Resolve a path inside of the root to one accessible on the filesystem.
-	Resolve(uri string) (string, error)
 }
 
 // Sourdump can return (id, path) or (path, path) pairs
@@ -29,25 +28,91 @@ func (f *FSRoot) ReadFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
-func (f *FSRoot) Resolve(uri string) (string, error) {
-	if !f.Exists(uri) {
-		return "", fmt.Errorf("file does not exist")
-	}
-
-	return filepath.Abs(uri)
-}
-
 type RemoteRoot struct {
-	url string
+	cache Cache
+	url   string
 	// A path inside of the virtual FS to treat as the "root".
 	base string
+
+	// Quick check for existence
+	assets map[string]struct{}
+
+	// index -> asset id
+	idLookup map[int]string
+
+	// fs path -> asset id
+	fs map[string]int
 }
 
-func NewRemoteRoot(url string, base string) *RemoteRoot {
-	return &RemoteRoot{
-		url:  url,
-		base: base,
+func NewRemoteRoot(cache Cache, url string, base string) (*RemoteRoot, error) {
+	indexData, err := DownloadBytes(url)
+	if err != nil {
+		return nil, err
 	}
+
+	var index Index
+	if err := cbor.Unmarshal(indexData, &index); err != nil {
+		return nil, err
+	}
+
+	assets := make(map[string]struct{})
+	idLookup := make(map[int]string)
+	for i, asset := range index.Assets {
+		assets[asset] = struct{}{}
+		idLookup[i] = asset
+	}
+
+	fs := make(map[string]int)
+	for _, ref := range index.Refs {
+		fs[ref.Path] = ref.Id
+	}
+
+	return &RemoteRoot{
+		cache:    cache,
+		url:      url,
+		base:     CleanSourcePath(base),
+		assets:   assets,
+		idLookup: idLookup,
+		fs:       fs,
+	}, nil
+}
+
+func (f *RemoteRoot) Exists(path string) bool {
+	_, ok := f.fs[path]
+	return ok
+}
+
+func (f *RemoteRoot) ReadFile(path string) ([]byte, error) {
+	index, ok := f.fs[path]
+	if !ok {
+		return nil, Missing
+	}
+
+	id, ok := f.idLookup[index]
+	if !ok {
+		return nil, Missing
+	}
+
+	cacheData, err := f.cache.Get(id)
+	if err != nil && err != Missing {
+	    return nil, err
+	}
+	if err == nil {
+		return cacheData, nil
+	}
+
+	url := fmt.Sprintf("%s%s", f.base, id)
+	data, err := DownloadBytes(url)
+	if err != nil {
+	    return nil, err
+	}
+
+	err = f.cache.Set(id, data)
+	if err != nil {
+	    return nil, err
+	}
+
+	return data, nil
 }
 
 var _ Root = (*FSRoot)(nil)

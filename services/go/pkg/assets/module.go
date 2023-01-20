@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	//"github.com/fxamacker/cbor/v2"
 	"github.com/go-redis/redis/v9"
@@ -66,7 +65,6 @@ func NewAssetFetcher(redis *redis.Client) *AssetFetcher {
 		redis:   redis,
 	}
 }
-
 
 func FetchIndex(url string) (*Index, error) {
 	resp, err := http.Get(url)
@@ -142,26 +140,6 @@ func (m *AssetFetcher) GetAssetURL(id string) opt.Option[string] {
 }
 
 var AssetMissing = fmt.Errorf("asset not found")
-
-func DownloadBytes(url string) ([]byte, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	// Check server response
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad status: %s", resp.Status)
-	}
-
-	return io.ReadAll(resp.Body)
-}
-
-const (
-	ASSET_KEY    = "assets-%s"
-	ASSET_EXPIRY = time.Duration(1 * time.Hour)
-)
 
 func (m *AssetFetcher) getAsset(ctx context.Context, id string) ([]byte, error) {
 	key := fmt.Sprintf(ASSET_KEY, id)
