@@ -369,6 +369,31 @@ func List(cache assets.Cache, roots []assets.Root) {
 	}
 }
 
+func Query(cache assets.Cache, roots []assets.Root, targets []string) {
+	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
+
+	for _, target := range targets {
+		ref := processor.SearchFile(target)
+
+		to := "nil"
+		if ref != nil {
+			resolved, err := ref.Resolve()
+			if err != nil {
+			    log.Fatal().Err(err).Msgf("could not resolve asset %s", target)
+			}
+			_, isRemote := ref.Root.(*assets.RemoteRoot)
+
+			if isRemote {
+				to = fmt.Sprintf("id:%s", resolved)
+			} else {
+				to = fmt.Sprintf("fs:%s", resolved)
+			}
+		}
+
+		fmt.Printf("%s->%s\n", target, to)
+	}
+}
+
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
 
@@ -384,7 +409,9 @@ func main() {
 
 	resolveCmd := flag.NewFlagSet("resolve", flag.ExitOnError)
 	outDir := resolveCmd.String("outdir", "output/", "The directory in which to save the assets.")
+
 	listCmd := flag.NewFlagSet("list", flag.ExitOnError)
+	queryCmd := flag.NewFlagSet("query", flag.ExitOnError)
 
 	args := flag.Args()
 
@@ -420,5 +447,12 @@ func main() {
 			log.Fatal().Msg("`list` takes no arguments.")
 		}
 		List(cache, assetRoots)
+	case "query":
+		queryCmd.Parse(args[1:])
+		args := queryCmd.Args()
+		if len(args) == 0 {
+			log.Fatal().Msg("You must provide at least one path to query.")
+		}
+		Query(cache, assetRoots, args)
 	}
 }

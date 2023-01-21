@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"crypto/sha256"
 
 	"github.com/fxamacker/cbor/v2"
 )
@@ -20,15 +21,19 @@ type Root interface {
 // An FSRoot is just an absolute path on the FS.
 type FSRoot string
 
+func (f FSRoot) getPath(file string) string {
+	return filepath.Join(string(f), file)
+}
+
 func (f FSRoot) Exists(path string) bool {
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
+	if _, err := os.Stat(f.getPath(path)); !os.IsNotExist(err) {
 		return true
 	}
 	return false
 }
 
 func (f FSRoot) ReadFile(path string) ([]byte, error) {
-	return os.ReadFile(path)
+	return os.ReadFile(f.getPath(path))
 }
 
 func (f FSRoot) Reference(path string) (string, error) {
@@ -36,7 +41,7 @@ func (f FSRoot) Reference(path string) (string, error) {
 		return "", fmt.Errorf("path %s not found in root", path)
 	}
 
-	return path, nil
+	return f.getPath(path), nil
 }
 
 type RemoteRoot struct {
@@ -56,9 +61,23 @@ type RemoteRoot struct {
 }
 
 func NewRemoteRoot(cache Cache, url string, base string) (*RemoteRoot, error) {
-	indexData, err := DownloadBytes(url)
+	urlHash := fmt.Sprintf("%x", sha256.Sum256([]byte(url)))
+
+	indexData, err := cache.Get(urlHash)
 	if err != nil {
-		return nil, err
+		if err != Missing {
+			return nil, err
+		}
+
+		indexData, err = DownloadBytes(url)
+		if err != nil {
+			return nil, err
+		}
+
+		err = cache.Set(urlHash, indexData)
+		if err != nil {
+		    return nil, err
+		}
 	}
 
 	var index Index

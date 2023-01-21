@@ -454,7 +454,7 @@ class Packager:
     ) -> List[Asset]:
         """
         Given a list of files and a destination, build Sour-compatible assets.
-        Images are compressed by default, but you can disable this with
+        Images are uncompressed by default, but you can disable this with
         `compress_images`.
         """
 

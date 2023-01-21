@@ -63,8 +63,6 @@ if __name__ == "__main__":
 
     p = package.Packager(outdir)
 
-    search = Path('roots/base/packages')
-
     if args.textures:
         textures: List[str] = []
         TEXTURE_TYPES = [
@@ -74,8 +72,6 @@ if __name__ == "__main__":
         for type_ in TEXTURE_TYPES:
             textures += list(filter(lambda a: a.endswith(f".{type_}"), files))
 
-        print(textures)
-        exit()
         for texture in track(textures, description="building textures"):
             p.build_texture(
                 roots,
@@ -118,7 +114,7 @@ if __name__ == "__main__":
         models: List[str] = []
         for search_path in paths:
             for type_ in MODEL_TYPES:
-                models += list(filter(lambda a: a.endswith(f"{type_}.cfg"), files))
+                models += list(filter(lambda a: a.startswith(search_path) and a.endswith(f"{type_}.cfg"), files))
 
         for model in track(models, description="building models"):
             result = p.build_model(
