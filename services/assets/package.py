@@ -3,6 +3,7 @@ Library for building and managing asset packs for Sour.
 """
 
 from os import path
+from pathlib import Path
 import hashlib
 import json
 import cbor2
@@ -273,7 +274,7 @@ def build_desktop_bundle(outdir: str, bundle: Bundle):
             added.add(_out)
 
 
-def dump_sour(type_: str, target: str, roots: List[str]) -> List[Mapping]:
+def run_sourdump(roots: List[str], args: List[str]) -> str:
     root_args = []
 
     for root in roots:
@@ -283,10 +284,8 @@ def dump_sour(type_: str, target: str, roots: List[str]) -> List[Mapping]:
     result = subprocess.run(
         [
             "./sourdump",
-            "-type",
-            type_,
             *root_args,
-            target,
+            *args,
         ],
         # check=True,
         capture_output=True
@@ -295,8 +294,40 @@ def dump_sour(type_: str, target: str, roots: List[str]) -> List[Mapping]:
     if result.returncode != 0:
         raise Exception(result.stderr)
 
+    return result.stdout.decode('utf-8')
+
+
+def get_root_files(roots: List[str]) -> List[str]:
+
+    files: List[str] = []
+    for root in roots:
+        if root.startswith("http"):
+            out = run_sourdump(roots, [
+                "list",
+            ])
+
+            files = files + out.strip().split("\n")
+            continue
+
+        for file in list(map(lambda a: str(a), Path(root).rglob('*'))):
+            relative = file[len(root)+1:]
+            if not path.isfile(file):
+                continue
+            files.append(relative)
+
+    return files
+
+
+def dump_sour(type_: str, target: str, roots: List[str]) -> List[Mapping]:
+    out = run_sourdump(roots, [
+        "dump",
+        "-type",
+        type_,
+        target,
+    ])
+
     files: List[Mapping] = []
-    for line in result.stdout.decode('utf-8').split('\n'):
+    for line in out.split('\n'):
         parts = line.split('->')
 
         if len(parts) != 2: continue

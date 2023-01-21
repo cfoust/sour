@@ -30,6 +30,7 @@ if __name__ == "__main__":
     parser.add_argument('--textures', action="store_true", help="Include all textures from the base game.")
     parser.add_argument('--models', action="store_true", help="Include all models from the base game.")
     parser.add_argument('--prefix', help="The prefix for the index file.", default="")
+    parser.add_argument('--root', help="The base root for accessing game files.", default="")
     parser.add_argument('--player-models', action="store_true", help="Include only player models from the base game.")
     parser.add_argument('maps', nargs=argparse.REMAINDER)
     args = parser.parse_args()
@@ -38,21 +39,25 @@ if __name__ == "__main__":
         args.textures = True
         args.models = True
 
-    maps = glob.glob('roots/base/packages/base/*.ogz')
-    if args.maps:
-        maps = list(map(lambda a: "roots/base/packages/base/%s.ogz" % a, args.maps))
-
-    maps.append("sour/packages/base/xmwhub.ogz")
-
-    outdir = os.getenv("ASSET_OUTPUT_DIR", "output/")
-    os.makedirs(outdir, exist_ok=True)
+    if not args.root:
+        print("You must provide the base root.")
+        exit(1)
 
     roots = [
         "sour",
-        "roots/base",
+        args.root,
     ]
 
-    roots = list(map(lambda root: path.abspath(root), roots))
+    files = package.get_root_files(roots)
+
+    maps = list(filter(lambda a: a.endswith('.ogz'), files))
+    if args.maps:
+        maps = list(map(lambda a: "packages/base/%s.ogz" % a, args.maps))
+
+    maps.append("packages/base/xmwhub.ogz")
+
+    outdir = os.getenv("ASSET_OUTPUT_DIR", "output/")
+    os.makedirs(outdir, exist_ok=True)
 
     skip_root = roots[1]
 
@@ -67,8 +72,10 @@ if __name__ == "__main__":
             "png",
         ]
         for type_ in TEXTURE_TYPES:
-            textures += list(map(lambda a: str(a), search.rglob(f"*.{type_}")))
+            textures += list(filter(lambda a: a.endswith(f".{type_}"), files))
 
+        print(textures)
+        exit()
         for texture in track(textures, description="building textures"):
             p.build_texture(
                 roots,
@@ -86,34 +93,32 @@ if __name__ == "__main__":
         ]
 
         paths = [
-            "roots/base/packages/models"
+            "packages/models"
         ]
 
         if args.player_models:
             paths = [
-                "roots/base/packages/models/mrfixit",
-                "roots/base/packages/models/mrfixit_blue",
-                "roots/base/packages/models/mrfixit_red",
-                "roots/base/packages/models/snoutx10k",
-                "roots/base/packages/models/snoutx10k_blue",
-                "roots/base/packages/models/snoutx10k_red",
-                "roots/base/packages/models/ogro2",
-                "roots/base/packages/models/ogro2_blue",
-                "roots/base/packages/models/ogro2_red",
-                "roots/base/packages/models/inky",
-                "roots/base/packages/models/inky_blue",
-                "roots/base/packages/models/inky_red",
-                "roots/base/packages/models/captaincannon",
-                "roots/base/packages/models/captaincannon_blue",
-                "roots/base/packages/models/captaincannon_red",
+                "packages/models/mrfixit",
+                "packages/models/mrfixit_blue",
+                "packages/models/mrfixit_red",
+                "packages/models/snoutx10k",
+                "packages/models/snoutx10k_blue",
+                "packages/models/snoutx10k_red",
+                "packages/models/ogro2",
+                "packages/models/ogro2_blue",
+                "packages/models/ogro2_red",
+                "packages/models/inky",
+                "packages/models/inky_blue",
+                "packages/models/inky_red",
+                "packages/models/captaincannon",
+                "packages/models/captaincannon_blue",
+                "packages/models/captaincannon_red",
             ]
 
         models: List[str] = []
         for search_path in paths:
             for type_ in MODEL_TYPES:
-                models += list(map(lambda a: str(a), Path(search_path).rglob(f"{type_}.cfg")))
-
-        models = list(map(lambda model: path.abspath(model), models))
+                models += list(filter(lambda a: a.endswith(f"{type_}.cfg"), files))
 
         for model in track(models, description="building models"):
             result = p.build_model(

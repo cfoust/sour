@@ -356,6 +356,19 @@ func Resolve(cache assets.Cache, roots []assets.Root, outDir string, targets []s
 	}
 }
 
+func List(cache assets.Cache, roots []assets.Root) {
+	for _, root := range roots {
+		remoteRoot, ok := root.(*assets.RemoteRoot)
+		if !ok {
+			continue
+		}
+
+		for file := range remoteRoot.FS {
+			fmt.Printf("%s\n", file)
+		}
+	}
+}
+
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
 
@@ -371,6 +384,7 @@ func main() {
 
 	resolveCmd := flag.NewFlagSet("resolve", flag.ExitOnError)
 	outDir := resolveCmd.String("outdir", "output/", "The directory in which to save the assets.")
+	listCmd := flag.NewFlagSet("list", flag.ExitOnError)
 
 	args := flag.Args()
 
@@ -399,5 +413,12 @@ func main() {
 			log.Fatal().Msg("You must provide at least one asset.")
 		}
 		Resolve(cache, assetRoots, *outDir, args)
+	case "list":
+		listCmd.Parse(args[1:])
+		args := listCmd.Args()
+		if len(args) != 0 {
+			log.Fatal().Msg("`list` takes no arguments.")
+		}
+		List(cache, assetRoots)
 	}
 }

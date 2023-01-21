@@ -6,5 +6,9 @@ cd "$SCRIPT_DIR"
 
 set -e
 
+if ! pip3 list | grep "cbor2" > /dev/null 2>&1; then
+  pip3 install -r requirements.txt
+fi
+
 ./setup
 python3 base.py --models --textures complex dust2 turbine

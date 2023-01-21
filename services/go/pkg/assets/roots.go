@@ -51,8 +51,8 @@ type RemoteRoot struct {
 	// index -> asset id
 	idLookup map[int]string
 
-	// fs path -> asset id
-	fs map[string]int
+	// FS path -> asset id
+	FS map[string]int
 }
 
 func NewRemoteRoot(cache Cache, url string, base string) (*RemoteRoot, error) {
@@ -91,17 +91,17 @@ func NewRemoteRoot(cache Cache, url string, base string) (*RemoteRoot, error) {
 		base:     base,
 		assets:   assets,
 		idLookup: idLookup,
-		fs:       fs,
+		FS:       fs,
 	}, nil
 }
 
 func (f *RemoteRoot) Exists(path string) bool {
-	_, ok := f.fs[path]
+	_, ok := f.FS[path]
 	return ok
 }
 
 func (f *RemoteRoot) Reference(path string) (string, error) {
-	index, ok := f.fs[path]
+	index, ok := f.FS[path]
 	if !ok {
 		return "", Missing
 	}
@@ -142,7 +142,7 @@ func (f *RemoteRoot) ReadAsset(id string) ([]byte, error) {
 }
 
 func (f *RemoteRoot) ReadFile(path string) ([]byte, error) {
-	index, ok := f.fs[path]
+	index, ok := f.FS[path]
 	if !ok {
 		return nil, Missing
 	}
