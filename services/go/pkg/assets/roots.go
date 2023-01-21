@@ -75,7 +75,14 @@ func NewRemoteRoot(cache Cache, url string, base string) (*RemoteRoot, error) {
 
 	fs := make(map[string]int)
 	for _, ref := range index.Refs {
-		fs[ref.Path] = ref.Id
+		path := ref.Path
+		if base != "" {
+			if !strings.HasPrefix(path, base) {
+				continue
+			}
+			path = path[len(base):]
+		}
+		fs[path] = ref.Id
 	}
 
 	return &RemoteRoot{
@@ -163,7 +170,16 @@ func LoadRoots(cache Cache, targets []string) ([]Root, error) {
 			continue
 		}
 
-		root, err := NewRemoteRoot(cache, target, "")
+		// Specify a base dir with :/base/dir
+		base := ""
+		colons := strings.Count(target, ":")
+		if colons == 2 {
+			lastColon := strings.LastIndex(target, ":")
+			base = target[lastColon+1:]
+			target = target[:lastColon]
+		}
+
+		root, err := NewRemoteRoot(cache, target, base)
 		if err != nil {
 			return nil, err
 		}

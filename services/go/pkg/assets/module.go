@@ -89,24 +89,6 @@ func FetchIndex(url string) (*Index, error) {
 	return &index, nil
 }
 
-func CleanSourcePath(indexURL string) string {
-	lastSlash := strings.LastIndex(indexURL, "/")
-	if lastSlash == -1 {
-		return ""
-	}
-
-	return indexURL[:lastSlash+1]
-}
-
-func GetURLBase(url string) string {
-	lastSlash := strings.LastIndex(url, "/")
-	if lastSlash == -1 {
-		return ""
-	}
-
-	return url[lastSlash+1:]
-}
-
 func (m *AssetFetcher) FetchIndices(assetSources []string) error {
 	sources := make([]*AssetSource, 0)
 
