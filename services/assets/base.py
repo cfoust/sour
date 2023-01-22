@@ -29,6 +29,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate assets from the base game.')
     parser.add_argument('--textures', action="store_true", help="Include all textures from the base game.")
     parser.add_argument('--models', action="store_true", help="Include all models from the base game.")
+    parser.add_argument('--download', action="store_true", help="Whether to download assets from remote sources.")
     parser.add_argument('--prefix', help="The prefix for the index file.", default="")
     parser.add_argument('--root', help="The base root for accessing game files.", default="")
     parser.add_argument('--player-models', action="store_true", help="Include only player models from the base game.")
@@ -63,6 +64,15 @@ if __name__ == "__main__":
 
     p = package.Packager(outdir)
 
+    params = package.BuildParams(
+        roots=roots,
+        skip_root=roots[1],
+        compress_images=False,
+        download_assets=args.download,
+        build_web=False,
+        build_desktop=False,
+    )
+
     if args.textures:
         textures: List[str] = []
         TEXTURE_TYPES = [
@@ -72,11 +82,10 @@ if __name__ == "__main__":
         for type_ in TEXTURE_TYPES:
             textures += list(filter(lambda a: a.endswith(f".{type_}"), files))
 
-        for texture in track(textures, description="building textures"):
-            p.build_texture(
-                roots,
-                texture,
-            )
+        p.build_textures(
+            params,
+            textures,
+        )
 
     if args.models:
         MODEL_TYPES = [
@@ -118,8 +127,7 @@ if __name__ == "__main__":
 
         for model in track(models, description="building models"):
             result = p.build_model(
-                roots,
-                skip_root,
+                params,
                 model,
             )
             if not result:
@@ -130,30 +138,26 @@ if __name__ == "__main__":
     with open("base.list", "r") as f:
         files = f.read().split("\n")
 
-        mappings: List[package.Mapping] = []
-        for file in files:
-            mapping = package.search_file(file, roots)
-            if not mapping or path.isdir(mapping[0]): continue
-            mappings.append(mapping)
+        mappings: List[package.Mapping] = package.query_files(
+            params.roots,
+            files,
+        )
 
         p.build_mod(
-            skip_root,
+            params,
             mappings,
             "base",
             "Everything the base game needs.",
-            compress_images=False,
         )
 
     for _map in track(maps, description="building maps"):
         base, _ = path.splitext(path.basename(_map))
         p.build_map(
-            roots,
-            skip_root,
+            params,
             _map,
             base,
             """Base game map %s as it appeared in game version r6481.
             """ % base,
-            compress_images=False,
         )
 
     p.dump_index(args.prefix)

@@ -298,7 +298,6 @@ def run_sourdump(roots: List[str], args: List[str]) -> str:
 
 
 def get_root_files(roots: List[str]) -> List[str]:
-
     files: List[str] = []
     for root in roots:
         if root.startswith("http"):
@@ -316,6 +315,25 @@ def get_root_files(roots: List[str]) -> List[str]:
             files.append(relative)
 
     return files
+
+
+def query_files(roots: List[str], files: List[str]) -> List[Mapping]:
+    """
+    Given a list of files, attempt to resolve those files to remote assets or
+    paths on the local filesystem.
+    """
+    output = run_sourdump(roots, [
+        "query",
+        *files,
+    ])
+
+    resolved: List[Mapping] = []
+    for line in output.strip().split("\n"):
+        parts = line.split('->')
+        # These are reversed when you query
+        resolved.append((parts[1], parts[0]))
+
+    return resolved
 
 
 def dump_sour(type_: str, target: str, roots: List[str]) -> List[Mapping]:
@@ -344,7 +362,33 @@ def get_map_files(map_file: str, roots: List[str]) -> List[Mapping]:
     return dump_sour("map", map_file, roots)
 
 
+def download_assets(roots: List[str], outdir: str, assets: List[str]):
+    run_sourdump(roots, [
+        "download",
+        "--outdir",
+        outdir,
+        *assets,
+    ])
+
+
+def hash_assets(roots: List[str], assets: List[str]):
+    return run_sourdump(roots, [
+        "hash",
+        *assets,
+    ])
+
+
 MODEL_PREFIX = "packages/models"
+
+
+class BuildParams(NamedTuple):
+    roots: List[str]
+    skip_root: str
+    compress_images: bool
+    download_assets: bool
+    build_web: bool
+    build_desktop: bool
+
 
 class Packager:
     outdir: str
@@ -368,13 +412,30 @@ class Packager:
         self.textures = []
 
 
-    def build_asset(self, file: Mapping, compress_images: bool = False) -> Optional[Asset]:
+    def build_asset(
+        self,
+        params: BuildParams,
+        file: Mapping,
+    ) -> Optional[Asset]:
         _in, out = file
         _, extension = path.splitext(_in)
 
+        if _in == "nil":
+            return None
+
         os.makedirs("working/", exist_ok=True)
 
-        if not path.exists(_in):
+        if _in.startswith("id:"):
+            id_ = _in[3:]
+            asset = Asset(path=out, id=id_)
+            if params.download_assets:
+                download_assets(params.roots, self.outdir, [id_])
+            return asset
+
+        # Remove the fs: bit
+        _in = _in[3:]
+
+        if not path.exists(_in) or not path.isfile(_in):
             return None
 
         file_hash = hash_file(_in)
@@ -390,7 +451,7 @@ class Packager:
         if (
             extension not in [".dds", ".jpg", ".png"] or
             size < 128000 or
-            not compress_images
+            not params.compress_images
         ):
             shutil.copy(_in, out_file)
             return asset
@@ -436,8 +497,15 @@ class Packager:
         )
 
 
-    def build_ref(self, file: Mapping, compress_images: bool = False) -> Optional[Asset]:
-        asset = self.build_asset(file, compress_images)
+    def build_ref(
+        self,
+        params: BuildParams,
+        file: Mapping,
+    ) -> Optional[Asset]:
+        asset = self.build_asset(
+            params,
+            file,
+        )
 
         if not asset:
             return None
@@ -449,8 +517,8 @@ class Packager:
 
     def build_assets(
         self,
+        params: BuildParams,
         files: List[Mapping],
-        compress_images: bool = False,
     ) -> List[Asset]:
         """
         Given a list of files and a destination, build Sour-compatible assets.
@@ -462,7 +530,10 @@ class Packager:
         cleaned: List[Asset] = []
 
         for file in files:
-            asset = self.build_asset(file, compress_images=compress_images)
+            asset = self.build_asset(
+                params,
+                file,
+            )
 
             if not asset:
                 continue
@@ -475,47 +546,50 @@ class Packager:
 
     def build_bundle(
         self,
-        skip_root: str,
+        params: BuildParams,
         files: List[Mapping],
-        build_web: bool,
-        build_desktop: bool,
-        compress_images: bool = False,
     ) -> Optional[Bundle]:
-        assets = self.build_assets(files, compress_images=compress_images)
+        assets = self.build_assets(
+            params,
+            files,
+        )
 
-        id_ = hash_files(
-            list(map(
-                lambda a: path.join(self.outdir, a.id),
-                assets,
-            ))
+        id_ = hash_string(
+            ''.join(
+                sorted(list(
+                    map(
+                        lambda a: a.id,
+                        assets,
+                    )
+                ))
+            )
         )
 
         bundle = Bundle(
             id=id_,
             assets=assets,
-            desktop=build_desktop,
-            web=build_web,
+            desktop=params.build_desktop,
+            web=params.build_web,
         )
 
-        if build_web:
+        if params.build_web:
             build_sour_bundle(self.outdir, bundle)
 
-        if build_desktop:
+        if params.build_desktop:
             desktop_bundle = bundle
-            if skip_root:
-                desktop_bundle = bundle._replace(
-                    assets=list(
-                        filter(
-                            lambda a: not path.exists(
-                                path.join(
-                                    skip_root,
-                                    a.path,
-                                )
-                            ),
-                            bundle.assets
-                        )
-                    )
-                )
+            if params.skip_root:
+                resolved = zip(query_files(
+                    [params.skip_root],
+                    list(map(lambda a: a.path, assets)),
+                ), assets)
+
+                new_assets: List[Asset] = []
+                for result, asset in resolved:
+                    in_, out = result
+                    if in_ == "nil":
+                        new_assets.append(asset)
+
+                desktop_bundle = bundle._replace(assets=new_assets)
             build_desktop_bundle(self.outdir, desktop_bundle)
 
         self.bundles.append(bundle)
@@ -525,21 +599,15 @@ class Packager:
 
     def build_mod(
         self,
-        skip_root: str,
+        params: BuildParams,
         files: List[Mapping],
         name: str,
         description: str,
         image: str = None,
-        build_web: bool = True,
-        build_desktop: bool = False,
-        compress_images: bool = False,
     ) -> Optional[Mod]:
         bundle = self.build_bundle(
-            skip_root,
+            params,
             files,
-            build_web,
-            build_desktop,
-            compress_images=compress_images
         )
 
         if not bundle:
@@ -559,31 +627,23 @@ class Packager:
 
     def build_model(
         self,
-        roots: List[str],
-        skip_root: str,
+        params: BuildParams,
         model_file: str,
-        build_desktop: bool = False,
     ) -> Model:
-        model_files = dump_sour("model", model_file, roots)
+        model_files = dump_sour("model", model_file, params.roots)
         bundle = self.build_bundle(
-            skip_root,
+            params,
             model_files,
-            True,
-            build_desktop
         )
 
         if not bundle:
             raise Exception('failed to build bundle for model')
 
         # Calculate the model name
-        resolved = get_root_relative(model_file, roots)
-        if not resolved:
-            raise Exception('model file not found in root')
-
-        if not resolved.startswith(MODEL_PREFIX):
+        if not model_file.startswith(MODEL_PREFIX):
             raise Exception('could not find relative model path')
 
-        name = path.relpath(os.path.dirname(resolved), MODEL_PREFIX)
+        name = path.relpath(os.path.dirname(model_file), MODEL_PREFIX)
         if name.endswith('/'):
             name = name[:-1]
 
@@ -599,18 +659,11 @@ class Packager:
 
     def build_texture(
         self,
-        roots: List[str],
+        params: BuildParams,
         file: str,
     ) -> Optional[Asset]:
-        relative = get_root_relative(file, roots)
-
-        if not relative:
-            return None
-
-        assets = self.build_assets([
-            (file, relative),
-        ])
-
+        resolved = query_files(params.roots, [file])
+        assets = self.build_assets(params, resolved)
         if not assets:
             return None
 
@@ -619,16 +672,28 @@ class Packager:
         return texture
 
 
+    def build_textures(
+        self,
+        params: BuildParams,
+        files: List[str],
+    ):
+        batch = 500
+        for i in range(0, (len(files) // batch) + 1):
+            sub = files[i * batch:(i + 1) * batch]
+            resolved = query_files(params.roots, sub)
+            assets = self.build_assets(params, resolved)
+            if not assets:
+                return None
+            self.textures += assets
+
+
     def build_map(
         self,
-        roots: List[str],
-        skip_root: str,
+        params: BuildParams,
         map_file: str,
         name: str,
         description: str,
         image: str = None,
-        build_desktop: bool = False,
-        compress_images: bool = False,
     ) -> Optional[GameMap]:
         """
         Given a map file, roots, and an output directory, create a Sour bundle for
@@ -638,24 +703,37 @@ class Packager:
         files exists in that root, it will be skipped when creating the vanilla zip
         file.
         """
-        map_files = dump_sour("map", map_file, roots)
-        assets = self.build_assets(map_files, compress_images=compress_images)
+        map_files = dump_sour("map", map_file, params.roots)
+        assets = self.build_assets(
+            params,
+            map_files,
+        )
 
         base, _ = path.splitext(map_file)
 
-        map_hash_files = [map_file]
-        cfg = "%s.cfg" % (base)
-        if path.exists(cfg):
-            map_hash_files.append(cfg)
-
-        map_hash = hash_files(map_hash_files)
+        map_hash_files = [map_file, "%s.cfg" % (base)]
+        map_hash = hash_assets(params.roots, map_hash_files)
 
         if not image:
             # Look for an image file adjacent to the map
             for extension in ['.png', '.jpg']:
-                result = "%s%s" % (base, extension)
-                if not path.exists(result): continue
-                image = "%s%s" % (hash_file(result), extension)
+                image_path = "%s%s" % (base, extension)
+                query = query_files(
+                    params.roots,
+                    [image_path]
+                )
+                resolved = query[0]
+                if resolved[0] == "nil": continue
+                asset = self.build_asset(
+                    params._replace(
+                        download_assets=True,
+                    ),
+                    resolved,
+                )
+                if not asset:
+                    continue
+                result = path.join(self.outdir, asset.id)
+                image = "%s%s" % (asset.id, extension)
                 shutil.copy(result, path.join(self.outdir, image))
 
         ogz_id = None
@@ -666,24 +744,17 @@ class Packager:
         if not ogz_id:
             return None
 
-        # We don't build web bundles for maps because they don't tend to have
-        # many assets
-        bundle = None
-        if build_desktop:
-            desktop_bundle = self.build_bundle(
-                skip_root,
-                map_files,
-                False,
-                True
-            )
-            if not desktop_bundle:
-                raise Exception('built bundle was missing')
-            bundle = desktop_bundle.id
+        bundle = self.build_bundle(
+            params,
+            map_files,
+        )
+        if not bundle:
+            raise Exception('built bundle was missing')
 
         map_ = GameMap(
             id=map_hash,
             name=name,
-            bundle=bundle,
+            bundle=bundle.id,
             ogz=ogz_id,
             assets=assets,
             image=image,

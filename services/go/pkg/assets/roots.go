@@ -41,7 +41,7 @@ func (f FSRoot) Reference(path string) (string, error) {
 		return "", fmt.Errorf("path %s not found in root", path)
 	}
 
-	return f.getPath(path), nil
+	return fmt.Sprintf("fs:%s", f.getPath(path)), nil
 }
 
 type RemoteRoot struct {
@@ -130,7 +130,7 @@ func (f *RemoteRoot) Reference(path string) (string, error) {
 		return "", Missing
 	}
 
-	return id, nil
+	return fmt.Sprintf("id:%s", id), nil
 }
 
 func (f *RemoteRoot) ReadAsset(id string) ([]byte, error) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"flag"
 	"fmt"
 	"os"
@@ -267,12 +268,20 @@ func DumpCFG(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 }
 
 func resolveTarget(roots []assets.Root, target string) (*min.Reference, error) {
+	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
+
 	// Base case is a file on the FS, does not need to be in root
 	if assets.FileExists(target) {
 		return &min.Reference{
 			Path: target,
 			Root: nil,
 		}, nil
+	}
+
+	// Just try the file
+	ref := processor.SearchFile(target)
+	if ref != nil {
+		return ref, nil
 	}
 
 	// Or a file in a source
@@ -330,7 +339,7 @@ func Dump(cache assets.Cache, roots []assets.Root, type_ string, indexPath strin
 	}
 }
 
-func Resolve(cache assets.Cache, roots []assets.Root, outDir string, targets []string) {
+func Download(cache assets.Cache, roots []assets.Root, outDir string, targets []string) {
 	outCache := assets.FSCache(outDir)
 
 	for _, target := range targets {
@@ -379,19 +388,35 @@ func Query(cache assets.Cache, roots []assets.Root, targets []string) {
 		if ref != nil {
 			resolved, err := ref.Resolve()
 			if err != nil {
-			    log.Fatal().Err(err).Msgf("could not resolve asset %s", target)
+				log.Fatal().Err(err).Msgf("could not resolve asset %s", target)
 			}
-			_, isRemote := ref.Root.(*assets.RemoteRoot)
-
-			if isRemote {
-				to = fmt.Sprintf("id:%s", resolved)
-			} else {
-				to = fmt.Sprintf("fs:%s", resolved)
-			}
+			to = resolved
 		}
 
 		fmt.Printf("%s->%s\n", target, to)
 	}
+}
+
+func Hash(cache assets.Cache, roots []assets.Root, targets []string) {
+	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
+	hash := sha256.New()
+
+	for _, target := range targets {
+		ref := processor.SearchFile(target)
+		// We ignore missing assets when hashing
+		if ref == nil {
+			continue
+		}
+
+		data, err := ref.ReadFile()
+		if err != nil {
+			log.Fatal().Err(err).Msgf("could not read asset %s", target)
+		}
+
+		hash.Write(data)
+	}
+
+	fmt.Printf("%x", hash.Sum(nil))
 }
 
 func main() {
@@ -407,11 +432,12 @@ func main() {
 	indexPath := dumpCmd.String("index", "", "Where to save the index of all texture calls.")
 	flag.Parse()
 
-	resolveCmd := flag.NewFlagSet("resolve", flag.ExitOnError)
-	outDir := resolveCmd.String("outdir", "output/", "The directory in which to save the assets.")
+	downloadCmd := flag.NewFlagSet("download", flag.ExitOnError)
+	outDir := downloadCmd.String("outdir", "output/", "The directory in which to save the assets.")
 
 	listCmd := flag.NewFlagSet("list", flag.ExitOnError)
 	queryCmd := flag.NewFlagSet("query", flag.ExitOnError)
+	hashCmd := flag.NewFlagSet("hash", flag.ExitOnError)
 
 	args := flag.Args()
 
@@ -433,13 +459,13 @@ func main() {
 			log.Fatal().Msg("You must provide only a single argument.")
 		}
 		Dump(cache, assetRoots, *parseType, *indexPath, args[0])
-	case "resolve":
-		resolveCmd.Parse(args[1:])
-		args := resolveCmd.Args()
+	case "download":
+		downloadCmd.Parse(args[1:])
+		args := downloadCmd.Args()
 		if len(args) == 0 {
 			log.Fatal().Msg("You must provide at least one asset.")
 		}
-		Resolve(cache, assetRoots, *outDir, args)
+		Download(cache, assetRoots, *outDir, args)
 	case "list":
 		listCmd.Parse(args[1:])
 		args := listCmd.Args()
@@ -454,5 +480,12 @@ func main() {
 			log.Fatal().Msg("You must provide at least one path to query.")
 		}
 		Query(cache, assetRoots, args)
+	case "hash":
+		hashCmd.Parse(args[1:])
+		args := hashCmd.Args()
+		if len(args) == 0 {
+			log.Fatal().Msg("You must provide at least one path to hash.")
+		}
+		Hash(cache, assetRoots, args)
 	}
 }
