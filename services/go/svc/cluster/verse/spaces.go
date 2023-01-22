@@ -309,7 +309,6 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 	}
 
 	go s.WatchServer(ctx, &instance, gameServer)
-	log.Info().Msgf("alias %s", gameServer.Alias)
 
 	s.instances[id] = &instance
 

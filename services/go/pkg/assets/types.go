@@ -22,7 +22,7 @@ type Mod struct {
 type GameMap struct {
 	Id          string
 	Name        string
-	Ogz         int
+	Ogz         string
 	Bundle      string
 	Assets      []Asset
 	Image       string

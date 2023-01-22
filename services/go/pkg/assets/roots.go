@@ -193,7 +193,7 @@ var _ Root = (*RemoteRoot)(nil)
 func LoadRoots(cache Cache, targets []string) ([]Root, error) {
 	roots := make([]Root, 0)
 	for _, target := range targets {
-		if !strings.HasPrefix(target, "http") {
+		if !strings.HasPrefix(target, "http") && !strings.HasPrefix(target, "!http") {
 			absolute, err := filepath.Abs(target)
 			if err != nil {
 				return nil, err

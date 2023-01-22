@@ -104,14 +104,9 @@ func (m *AssetFetcher) FindMap(needle string) *FoundMap {
 
 func (m *AssetFetcher) FetchMapBytes(ctx context.Context, needle string) ([]byte, error) {
 	map_ := m.FindMap(needle)
-
 	if map_ == nil {
 		return nil, Missing
 	}
 
-	id, err := map_.Root.GetID(map_.Map.Ogz)
-	if err != nil {
-	    return nil, err
-	}
-	return m.fetchAsset(ctx, id)
+	return m.fetchAsset(ctx, map_.Map.Ogz)
 }

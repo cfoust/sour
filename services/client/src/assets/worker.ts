@@ -1,7 +1,9 @@
 import CBOR from 'cbor-js'
 import * as R from 'ramda'
 import type {
+  BundleRef,
   AssetResult,
+  AssetTuple,
   IndexResult,
   DataResponse,
   ResponseStatus,
@@ -188,12 +190,18 @@ async function loadIndex(
 }
 
 async function loadAsset(
-  source: string,
   asset: Asset,
   progress: (bundle: LoadState) => void
 ): Promise<MountData> {
   const { id, path } = asset
-
+  if (assetIndex == null) {
+    throw new PullError('missing asset index')
+  }
+  const sourceIndex = assetIndex.assetLookup[id]
+  if (sourceIndex == null) {
+    throw new PullError(`asset not found: ${id}`)
+  }
+  const { source } = assetIndex.sources[sourceIndex]
   const buffer = await loadBlob(source, id, id, progress)
   progress(load.ok(buffer.byteLength))
 
@@ -209,11 +217,18 @@ async function loadAsset(
 }
 
 async function loadBundle(
-  source: string,
-  bundle: string,
+  id: string,
   progress: (bundle: LoadState) => void
 ): Promise<MountData> {
-  const buffer = await loadBlob(source, bundle, `${bundle}.sour`, progress)
+  if (assetIndex == null) {
+    throw new PullError('missing asset index')
+  }
+  const bundle = assetIndex.bundleLookup[id]
+  if (bundle == null) {
+    throw new PullError(`bundle not found: ${id}`)
+  }
+  const { source } = assetIndex.sources[bundle[0]]
+  const buffer = await loadBlob(source, id, `${id}.sour`, progress)
   const data = unpackBundle(buffer)
   progress(load.ok(buffer.byteLength))
 
@@ -236,23 +251,22 @@ const resolveBundles = (source: AssetSource, bundles: string[]): Bundle[] =>
     return [bundle]
   }, bundles)
 
-const resolveAssets = (source: AssetSource, assets: IndexAsset[]): Asset[] =>
+const resolveAssets = (source: AssetSource, assets: AssetTuple[]): Asset[] =>
   R.chain(([id, path]) => {
     return [
       {
-        id: source.assets[id],
+        id,
         path,
       },
     ]
   }, assets)
 
 type LookupResult = {
-  assets: IndexAsset[]
+  assets: AssetTuple[]
   bundles: string[]
 }
 
 type ResolvedLookup = {
-  source: string
   assets: Asset[]
   bundles: Bundle[]
 }
@@ -261,15 +275,12 @@ const makeResolver =
   <T>(
     list: (source: AssetSource) => T[],
     matches: (target: string, item: T, source: AssetSource) => boolean,
-    transform: (item: T, source: AssetSource) => LookupResult
+    transform: (item: T) => LookupResult
   ) =>
   (source: AssetSource, target: string): Maybe<ResolvedLookup> => {
     const found = R.find((v) => matches(target, v, source), list(source))
     if (found == null) return null
-    const { assets: foundAssets, bundles: foundBundles } = transform(
-      found,
-      source
-    )
+    const { assets: foundAssets, bundles: foundBundles } = transform(found)
 
     // If anything inside of this result fails to resolve, it's game over,
     // the assets are missing.
@@ -278,8 +289,7 @@ const makeResolver =
     const bundles = resolveBundles(source, foundBundles)
     if (bundles.length !== foundBundles.length) return null
 
-    const { source: url } = source
-    return { source: url, assets, bundles }
+    return { assets, bundles }
   }
 
 type Resolver = (source: AssetSource, target: string) => Maybe<ResolvedLookup>
@@ -288,64 +298,47 @@ const resolvers: Record<LoadRequestType, Resolver> = {
   [LoadRequestType.Map]: makeResolver<GameMap>(
     ({ maps }) => maps,
     (target, map) => map.name === target || map.id.startsWith(target),
-    ({ bundle, assets }, source) => {
-      if (bundle != null) {
-        const bundles = resolveBundles(source, [bundle])
-        if (
-          bundles != null &&
-          bundles.length > 0 &&
-          R.all((v) => v.web, bundles)
-        ) {
-          return { bundles: [bundle], assets: [] }
-        }
-      }
-
-      return { bundles: [], assets }
-    }
+    ({ bundle, assets }) => ({ bundles: [bundle], assets: [] })
   ),
   [LoadRequestType.Model]: makeResolver<Model>(
     ({ models }) => models,
     (target, model) => model.name === target || model.id.startsWith(target),
-    ({ id }) => {
-      return {
-        bundles: [id],
-        assets: [],
-      }
-    }
+    ({ id }) => ({ bundles: [id], assets: [] })
   ),
-  [LoadRequestType.Texture]: makeResolver<IndexAsset>(
+  [LoadRequestType.Texture]: makeResolver<AssetTuple>(
     ({ textures }) => textures,
-    (target, [index, path], source) => {
-      const id = source.assets[index]
-      return path === target || id.startsWith(target)
-    },
-    (texture) => {
-      return {
-        bundles: [],
-        assets: [texture],
-      }
-    }
+    (target, [id, path]) => path === target || id.startsWith(target),
+    (texture) => ({ bundles: [], assets: [texture] })
   ),
   [LoadRequestType.Mod]: makeResolver<GameMod>(
     ({ mods }) => mods,
     (target, mod) => mod.name === target || mod.id.startsWith(target),
-    (mod, source) => {
-      const bundles = resolveBundles(source, [mod.id])
-      if (bundles == null) {
-        return { bundles: [], assets: [] }
-      }
-
-      if (R.all((v) => v.web, bundles)) {
-        return { bundles: [mod.id], assets: [] }
-      }
-
-      const [{ assets }] = bundles
-      return { bundles: [], assets }
-    }
+    (mod) => ({ bundles: [mod.id], assets: [] })
   ),
 }
 
 const IMAGE_REGEX = /packages\/textures\/images\/(\w+(.png|.jpg))/
+
+// We can only pull a bundle if it's build for the web; otherwise we need to
+// break it into its assets.
+function crackBundles(resolved: ResolvedLookup): ResolvedLookup {
+  const { assets, bundles } = resolved
+  if (bundles.length === 0) return resolved
+
+  return {
+    assets: [
+      ...assets,
+      ...R.chain(
+        (bundle: Bundle): Asset[] =>
+          !bundle.web
+            ? R.map(([id, path]) => ({ id, path }), bundle.assets)
+            : [],
+        bundles
+      ),
+    ],
+    bundles: R.chain((bundle) => (bundle.web ? [bundle] : []), bundles),
+  }
+}
 
 function resolveRequest(
   type: LoadRequestType,
@@ -355,7 +348,7 @@ function resolveRequest(
 
   const resolver = resolvers[type]
   if (resolver == null) return null
-  for (const source of assetIndex) {
+  for (const source of assetIndex.sources) {
     const resolved = resolver(source, target)
     if (resolved == null) continue
     return resolved
@@ -366,7 +359,7 @@ function resolveRequest(
 
   const image = IMAGE_REGEX.exec(target)
   if (image != null) {
-    const [,id] = image
+    const [, id] = image
 
     // Find the source this image points to
     const source = R.find((v: AssetSource): boolean => {
@@ -383,12 +376,11 @@ function resolveRequest(
           ),
         ]
       )
-    }, assetIndex)
+    }, assetIndex.sources)
 
     if (source == null) return null
 
     return {
-      source: source.source,
       bundles: [],
       assets: [
         {
@@ -532,14 +524,12 @@ async function processRequest(
   // Initialize state to waiting (and send it)
   setState(getOverallState(load.waiting()))
 
-  const found = resolveRequest(type, target)
-
-  if (found == null) {
+  const resolved = resolveRequest(type, target)
+  if (resolved == null) {
     sendResponse(LoadStateType.Missing, null)
     return
   }
-
-  const { source, bundles, assets } = found
+  const { bundles, assets } = crackBundles(resolved)
 
   setDerivedState([
     ...R.map(
@@ -572,11 +562,11 @@ async function processRequest(
   try {
     const data: MountData[] = await Promise.all([
       ...R.map(
-        ({ id }) => loadBundle(source, id, update(DataType.Bundle, id)),
+        ({ id }) => loadBundle(id, update(DataType.Bundle, id)),
         bundles
       ),
       ...R.map(
-        (asset) => loadAsset(source, asset, update(DataType.Asset, asset.id)),
+        (asset) => loadAsset(asset, update(DataType.Asset, asset.id)),
         assets
       ),
     ])
@@ -671,9 +661,28 @@ async function processEnvironment(
       ...R.map((index) => loadIndex(index, update(index)), indices),
     ])
 
-    sendResponse(LoadStateType.Ok, sources)
-    assetIndex = sources
-    return sources
+    const assetLookup: Record<string, number> = {}
+    const bundleLookup: Record<string, BundleRef> = {}
+
+    for (let i = 0; i < sources.length; i++) {
+      const source = sources[i]
+      for (const id of source.assets) {
+        assetLookup[id] = i
+      }
+      for (const bundle of source.bundles) {
+        bundleLookup[bundle.id] = [i, bundle]
+      }
+    }
+
+    assetIndex = {
+      assetLookup,
+      bundleLookup,
+      sources,
+    }
+
+    sendResponse(LoadStateType.Ok, assetIndex)
+
+    return assetIndex
   } catch (e) {
     sendResponse(LoadStateType.Failed, null)
     throw e

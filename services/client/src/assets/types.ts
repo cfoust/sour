@@ -37,6 +37,8 @@ export type Asset = {
   path: string
 }
 
+export type AssetTuple = [string, string]
+
 export type IndexAsset = [
   // The index of an asset in AssetSource.assets
   number,
@@ -47,9 +49,9 @@ export type IndexAsset = [
 export type GameMap = {
   id: string
   name: string
-  ogz: number
-  bundle: Maybe<string>
-  assets: IndexAsset[]
+  ogz: string
+  bundle: string
+  assets: AssetTuple[]
   image: Maybe<string>
   description: string
 }
@@ -65,7 +67,7 @@ export type Bundle = {
   id: string
   desktop: boolean
   web: boolean
-  assets: IndexAsset[]
+  assets: AssetTuple[]
 }
 
 export type Model = {
@@ -77,14 +79,22 @@ export type AssetSource = {
   source: string
   assets: string[]
   refs: IndexAsset[]
-  textures: IndexAsset[]
+  textures: AssetTuple[]
   bundles: Bundle[]
   maps: GameMap[]
   models: Model[]
   mods: GameMod[]
 }
 
-export type AssetIndex = AssetSource[]
+export type BundleRef = [number, Bundle]
+
+export type AssetIndex = {
+  sources: AssetSource[]
+  // asset id -> index of source in sources
+  assetLookup: Record<string, number>
+  // bundle id -> index of source in sources
+  bundleLookup: Record<string, BundleRef>
+}
 
 export enum LoadStateType {
   // The request is in-flight

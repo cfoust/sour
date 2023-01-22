@@ -205,7 +205,7 @@ function buildModMenu(index: AssetIndex): string {
       if (nameA.length < nameB.length) return -1
       return R.ascend((v) => v)(nameA, nameB)
     },
-    R.chain((source) => source.mods, index)
+    R.chain((source) => source.mods, index.sources)
   )
   const chunks = R.splitEvery(CHUNK_SIZE, mods)
 
@@ -464,7 +464,7 @@ export default function useAssets(
             bundleIndexRef.current = index
 
             const lookup: ModLookup = {}
-            for (const source of index) {
+            for (const source of index.sources) {
               for (const mod of source.mods) {
                 lookup[mod.id] = mod
               }
@@ -679,7 +679,7 @@ export default function useAssets(
         })()
       },
       loadRandomMap: () => {
-        const maps = getValidMaps(bundleIndexRef.current ?? [])
+        const maps = getValidMaps(bundleIndexRef.current?.sources ?? [])
         const map = maps[Math.floor(maps.length * Math.random())]
         setTimeout(() => BananaBread.execute(`map ${map}`), 0)
       },

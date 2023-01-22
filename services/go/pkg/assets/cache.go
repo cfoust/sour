@@ -17,7 +17,7 @@ type Cache interface {
 
 type FSCache string
 
-var Missing = fmt.Errorf("not in cache")
+var Missing = fmt.Errorf("asset missing")
 
 func (f FSCache) getPath(key string) string {
 	return filepath.Join(string(f), key)
