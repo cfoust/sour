@@ -6,6 +6,12 @@ type IndexAsset struct {
 	Path string
 }
 
+type Asset struct {
+	_    struct{} `cbor:",toarray"`
+	Id   string
+	Path string
+}
+
 type Mod struct {
 	Id          string
 	Name        string
@@ -18,7 +24,7 @@ type GameMap struct {
 	Name        string
 	Ogz         int
 	Bundle      string
-	Assets      []IndexAsset
+	Assets      []Asset
 	Image       string
 	Description string
 }
@@ -27,7 +33,7 @@ type Bundle struct {
 	Id      string
 	Desktop bool
 	Web     bool
-	Assets  []IndexAsset
+	Assets  []Asset
 }
 
 type Model struct {
@@ -38,8 +44,8 @@ type Model struct {
 type Index struct {
 	Assets   []string
 	Refs     []IndexAsset
-	Textures []IndexAsset
-	Sounds   []IndexAsset
+	Textures []Asset
+	Sounds   []Asset
 	Bundles  []Bundle
 	Maps     []GameMap
 	Models   []Model
@@ -50,4 +56,3 @@ type AssetSource struct {
 	Index *Index
 	Base  string
 }
-

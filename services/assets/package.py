@@ -77,23 +77,6 @@ class IndexAsset(NamedTuple):
     path: str
 
 
-class IndexBundle(NamedTuple):
-    id: str
-    assets: List[IndexAsset]
-    desktop: bool
-    web: bool
-
-
-class IndexMap(NamedTuple):
-    id: str
-    name: str
-    bundle: Optional[str]
-    ogz: int
-    assets: List[IndexAsset]
-    image: Optional[str]
-    description: str
-
-
 def hash_string(string: str) -> str:
     return hashlib.sha256(string.encode('utf-8')).hexdigest()
 
@@ -430,6 +413,7 @@ class Packager:
             asset = Asset(path=out, id=id_)
             if params.download_assets:
                 download_assets(params.roots, self.outdir, [id_])
+                self.assets.add(asset.id)
             return asset
 
         # Remove the fs: bit
@@ -443,6 +427,7 @@ class Packager:
         asset = Asset(path=out, id=file_hash)
 
         if path.exists(out_file):
+            self.assets.add(asset.id)
             return asset
 
         size = path.getsize(_in)
@@ -454,6 +439,7 @@ class Packager:
             not params.compress_images
         ):
             shutil.copy(_in, out_file)
+            self.assets.add(asset.id)
             return asset
 
         compressed = path.join(
@@ -467,10 +453,12 @@ class Packager:
         if path.exists(compressed):
             hashed = hash_file(compressed)
             shutil.copy(compressed, path.join(self.outdir, hashed))
-            return Asset(
+            asset = Asset(
                 path=out,
                 id=hashed
             )
+            self.assets.add(asset.id)
+            return asset
 
         # Make the image 1/4 of the size using ImageMagick
         for _from, _to in [
@@ -491,10 +479,12 @@ class Packager:
         hashed = hash_file(compressed)
         shutil.copy(compressed, path.join(self.outdir, hashed))
 
-        return Asset(
+        asset = Asset(
             path=out,
             id=hashed
         )
+        self.assets.add(asset.id)
+        return asset
 
 
     def build_ref(
@@ -510,7 +500,6 @@ class Packager:
         if not asset:
             return None
 
-        self.assets.add(asset.id)
         self.refs.append(asset)
         return asset
 
@@ -538,7 +527,6 @@ class Packager:
             if not asset:
                 continue
 
-            self.assets.add(asset.id)
             cleaned.append(asset)
 
         return cleaned
@@ -782,33 +770,15 @@ class Packager:
                 path=asset.path,
             )
 
-        index_maps: List[IndexMap] = list(map(
-            lambda map_: IndexMap(
-                id=map_.id,
-                name=map_.name,
-                bundle=map_.bundle,
-                ogz=lookup[map_.ogz],
-                assets=list(map(replace_asset, map_.assets)),
-                image=map_.image,
-                description=map_.description,
-            ),
-            self.maps
-        ))
-
         with open(path.join(self.outdir, index), 'wb') as f:
             cbor2.dump(
                 {
                     'assets': list(self.assets),
-                    'textures': list(map(replace_asset, self.textures)),
+                    'textures': self.textures,
                     'refs': list(map(replace_asset, self.refs)),
-                    'bundles': list(map(lambda bundle: IndexBundle(
-                        id=bundle.id,
-                        desktop=bundle.desktop,
-                        web=bundle.web,
-                        assets=list(map(replace_asset, bundle.assets)),
-                    )._asdict(), self.bundles)),
+                    'bundles': list(map(lambda bundle: bundle._asdict(), self.bundles)),
                     'models': list(map(lambda model: model._asdict(), self.models)),
-                    'maps': list(map(lambda _map: _map._asdict(), index_maps)),
+                    'maps': list(map(lambda _map: _map._asdict(), self.maps)),
                     'mods': list(map(lambda mod: mod._asdict(), self.mods)),
                 },
                 f

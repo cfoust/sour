@@ -47,6 +47,12 @@ type RedisCache struct {
 	client *redis.Client
 }
 
+func NewRedisCache(client *redis.Client) *RedisCache {
+	return &RedisCache{
+		client: client,
+	}
+}
+
 func (r *RedisCache) Get(id string) ([]byte, error) {
 	key := fmt.Sprintf(ASSET_KEY, id)
 	data, err := r.client.Get(context.Background(), key).Bytes()
@@ -63,7 +69,8 @@ func (r *RedisCache) Get(id string) ([]byte, error) {
 }
 
 func (r *RedisCache) Set(id string, data []byte) error {
-	return r.client.Set(context.Background(), id, data, ASSET_EXPIRY).Err()
+	key := fmt.Sprintf(ASSET_KEY, id)
+	return r.client.Set(context.Background(), key, data, ASSET_EXPIRY).Err()
 }
 
 var _ Cache = (*FSCache)(nil)

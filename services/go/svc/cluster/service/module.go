@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/maps"
+	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"

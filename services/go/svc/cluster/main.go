@@ -11,7 +11,7 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"github.com/cfoust/sour/pkg/maps"
+	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
@@ -61,14 +61,14 @@ func main() {
 
 	state := state.NewStateService(sourConfig.Redis)
 
-	maps := assets.NewAssetFetcher(state.Client)
+	cache := assets.NewRedisCache(state.Client)
+	maps, err := assets.NewAssetFetcher(cache, clusterConfig.Assets)
+	if err != nil {
+	    log.Fatal().Err(err).Msg("asset fetcher failed to initialize")
+	}
 	go maps.PollDownloads(ctx)
 
 	sender := service.NewMapSender(maps)
-	err = maps.FetchIndices(clusterConfig.Assets)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to load assets")
-	}
 
 	err = sender.Start()
 	if err != nil {

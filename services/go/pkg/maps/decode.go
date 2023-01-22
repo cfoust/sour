@@ -298,10 +298,10 @@ func DecodeBasics(data []byte) (*GameMap, error) {
 func fromGZ(data []byte, skipCubes bool) (*GameMap, error) {
 	buffer := bytes.NewReader(data)
 	gz, err := gzip.NewReader(buffer)
-	defer gz.Close()
 	if err != nil {
 		return nil, err
 	}
+	defer gz.Close()
 
 	rawBytes, err := io.ReadAll(gz)
 	if err == gzip.ErrChecksum {

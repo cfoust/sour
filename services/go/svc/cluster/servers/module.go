@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/maps"
+	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
@@ -341,6 +341,7 @@ func (manager *ServerManager) PruneServers(ctx context.Context) {
 func (manager *ServerManager) ReadEntities(ctx context.Context, server *GameServer, data []byte) error {
 	map_, err := maps.BasicsFromGZ(data)
 	if err != nil {
+		log.Error().Err(err).Msgf("could not read map entities")
 		return err
 	}
 

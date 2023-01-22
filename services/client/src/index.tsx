@@ -141,11 +141,20 @@ function App() {
   const { width, height, ref: containerRef } = useResizeDetector()
 
   const wsRef = React.useRef<WebSocket>()
+  const wsQueue = React.useRef<ArrayBuffer[]>([])
+
+  const send = React.useCallback((data: ArrayBuffer) => {
+    const { current: ws } = wsRef
+    const { current: queue } = wsQueue
+    if (ws == null || ws.readyState !== WebSocket.OPEN) {
+      wsQueue.current = [...queue, data]
+      return
+    }
+    ws.send(data)
+  }, [])
 
   const sendAuthMessage = React.useCallback((message: ClientAuthMessage) => {
-    const { current: ws } = wsRef
-    if (ws == null) return
-    ws.send(CBOR.encode(message))
+    send(CBOR.encode(message))
   }, [])
 
   const { loadAsset, getMod, onReady: onReadyAssets } = useAssets(setState)
@@ -328,6 +337,14 @@ function App() {
     )
     ws.binaryType = 'arraybuffer'
 
+    ws.onopen = () => {
+      const { current: queue } = wsQueue
+      if (queue == null) return
+      for (const message of queue) {
+        send(message)
+      }
+    }
+
     wsRef.current = ws
 
     const runCommand = async (command: string) => {
@@ -356,7 +373,7 @@ function App() {
         Id: id,
       }
 
-      ws.send(CBOR.encode(message))
+      send(CBOR.encode(message))
 
       return promiseSet.promise
     }
@@ -542,7 +559,7 @@ function App() {
       },
       connect: (name: string, password: string) => {
         const Target = name.length === 0 ? 'lobby' : name
-        ws.send(
+        send(
           CBOR.encode({
             Op: MessageType.Connect,
             Target,
@@ -562,7 +579,7 @@ function App() {
             )
           }
         }
-        ws.send(
+        send(
           CBOR.encode({
             Op: MessageType.Packet,
             Channel: channel,
@@ -630,7 +647,7 @@ function App() {
       },
       disconnect: () => {
         clearURLState()
-        ws.send(
+        send(
           CBOR.encode({
             Op: MessageType.Disconnect,
           })

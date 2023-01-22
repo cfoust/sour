@@ -1,11 +1,11 @@
 package assets
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"crypto/sha256"
 
 	"github.com/fxamacker/cbor/v2"
 )
@@ -56,11 +56,13 @@ type RemoteRoot struct {
 	// index -> asset id
 	idLookup map[int]string
 
+	index *Index
+
 	// FS path -> asset id
 	FS map[string]int
 }
 
-func NewRemoteRoot(cache Cache, url string, base string) (*RemoteRoot, error) {
+func NewRemoteRoot(cache Cache, url string, base string, shouldCache bool) (*RemoteRoot, error) {
 	urlHash := fmt.Sprintf("%x", sha256.Sum256([]byte(url)))
 
 	indexData, err := cache.Get(urlHash)
@@ -74,9 +76,11 @@ func NewRemoteRoot(cache Cache, url string, base string) (*RemoteRoot, error) {
 			return nil, err
 		}
 
-		err = cache.Set(urlHash, indexData)
-		if err != nil {
-		    return nil, err
+		if shouldCache {
+			err = cache.Set(urlHash, indexData)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -105,6 +109,7 @@ func NewRemoteRoot(cache Cache, url string, base string) (*RemoteRoot, error) {
 	}
 
 	return &RemoteRoot{
+		index:    &index,
 		cache:    cache,
 		url:      CleanSourcePath(url),
 		base:     base,
@@ -117,6 +122,14 @@ func NewRemoteRoot(cache Cache, url string, base string) (*RemoteRoot, error) {
 func (f *RemoteRoot) Exists(path string) bool {
 	_, ok := f.FS[path]
 	return ok
+}
+
+func (f *RemoteRoot) GetID(index int) (string, error) {
+	if id, ok := f.idLookup[index]; ok {
+		return id, nil
+	}
+
+	return "", Missing
 }
 
 func (f *RemoteRoot) Reference(path string) (string, error) {
@@ -189,16 +202,20 @@ func LoadRoots(cache Cache, targets []string) ([]Root, error) {
 			continue
 		}
 
-		// Specify a base dir with :/base/dir
+		// Specify a base dir with @/base/dir
 		base := ""
-		colons := strings.Count(target, ":")
-		if colons == 2 {
-			lastColon := strings.LastIndex(target, ":")
-			base = target[lastColon+1:]
-			target = target[:lastColon]
+		atIndex := strings.LastIndex(target, "@")
+		if atIndex != -1 {
+			base = target[atIndex+1:]
+			target = target[:atIndex]
 		}
 
-		root, err := NewRemoteRoot(cache, target, base)
+		shouldCache := true
+		if strings.HasPrefix(target, "!") {
+			shouldCache = false
+			target = target[1:]
+		}
+		root, err := NewRemoteRoot(cache, target, base, shouldCache)
 		if err != nil {
 			return nil, err
 		}

@@ -80,7 +80,7 @@ func (server *Cluster) inferCreateParams(args []string) (*CreateParams, error) {
 		}
 
 		map_ := server.manager.Maps.FindMap(arg)
-		if opt.IsSome(map_) {
+		if map_ != nil {
 			params.Map = opt.Some(arg)
 			continue
 		}
@@ -221,7 +221,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 
 		// Ensure the alias does not match any maps in our asset indices, either
 		found := server.assets.FindMap(alias)
-		if opt.IsSome(found) {
+		if found != nil {
 			return true, "", fmt.Errorf("alias taken by a pre-built map")
 		}
 

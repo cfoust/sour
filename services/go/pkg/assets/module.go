@@ -2,45 +2,8 @@ package assets
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
 	"strings"
-
-	//"github.com/fxamacker/cbor/v2"
-	"github.com/go-redis/redis/v9"
-	"github.com/repeale/fp-go/option"
 )
-
-func (a *AssetSource) ResolveAsset(id int) opt.Option[string] {
-	if a.Index == nil {
-		return opt.None[string]()
-	}
-
-	assets := a.Index.Assets
-	if id < 0 || id >= len(assets) {
-		return opt.None[string]()
-	}
-
-	return opt.Some(assets[id])
-}
-
-func (a *AssetSource) ResolveBundle(id string) opt.Option[Bundle] {
-	if a.Index == nil {
-		return opt.None[Bundle]()
-	}
-
-	for _, bundle := range a.Index.Bundles {
-		if bundle.Id != id {
-			continue
-		}
-
-		return opt.Some(bundle)
-	}
-
-	return opt.None[Bundle]()
-}
 
 type FetchResult struct {
 	Data []byte
@@ -53,103 +16,41 @@ type FetchJob struct {
 }
 
 type AssetFetcher struct {
-	jobs    chan FetchJob
-	sources []*AssetSource
-	redis   *redis.Client
+	jobs  chan FetchJob
+	roots []*RemoteRoot
+	cache Cache
 }
 
-func NewAssetFetcher(redis *redis.Client) *AssetFetcher {
+func NewAssetFetcher(cache Cache, roots []string) (*AssetFetcher, error) {
+	loaded, err := LoadRoots(cache, roots)
+	if err != nil {
+		return nil, err
+	}
+
+	remotes := make([]*RemoteRoot, 0)
+	for _, root := range loaded {
+		if remote, ok := root.(*RemoteRoot); ok {
+			remotes = append(remotes, remote)
+		}
+	}
+
 	return &AssetFetcher{
-		sources: make([]*AssetSource, 0),
-		jobs:    make(chan FetchJob),
-		redis:   redis,
-	}
+		roots: remotes,
+		jobs:  make(chan FetchJob),
+		cache: cache,
+	}, nil
 }
-
-func FetchIndex(url string) (*Index, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	// Check server response
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad status: %s", resp.Status)
-	}
-
-	buffer, err := io.ReadAll(resp.Body)
-
-	var index Index
-	err = json.Unmarshal(buffer, &index)
-	if err != nil {
-		return nil, err
-	}
-
-	return &index, nil
-}
-
-func (m *AssetFetcher) FetchIndices(assetSources []string) error {
-	sources := make([]*AssetSource, 0)
-
-	for _, url := range assetSources {
-		index, err := FetchIndex(url)
-		if err != nil {
-			return err
-		}
-
-		sources = append(sources, &AssetSource{
-			Index: index,
-			Base:  CleanSourcePath(url),
-		})
-	}
-
-	m.sources = sources
-
-	return nil
-}
-
-func (m *AssetFetcher) GetAssetURL(id string) opt.Option[string] {
-	for _, source := range m.sources {
-		for _, asset := range source.Index.Assets {
-			if asset == id {
-				return opt.Some(fmt.Sprintf("%s%s", source.Base, asset))
-			}
-		}
-	}
-
-	return opt.None[string]()
-}
-
-var AssetMissing = fmt.Errorf("asset not found")
 
 func (m *AssetFetcher) getAsset(ctx context.Context, id string) ([]byte, error) {
-	key := fmt.Sprintf(ASSET_KEY, id)
-	data, err := m.redis.Get(ctx, key).Bytes()
-	if err != nil && err != redis.Nil {
-		return nil, err
+	for _, root := range m.roots {
+		data, err := root.ReadAsset(id)
+		if err == Missing {
+			continue
+		}
+		return data, err
 	}
 
-	if err == nil {
-		return data, nil
-	}
-
-	url := m.GetAssetURL(id)
-	if opt.IsNone(url) {
-		return nil, AssetMissing
-	}
-
-	data, err = DownloadBytes(url.Value)
-	if err != nil {
-		return nil, err
-	}
-
-	err = m.redis.Set(ctx, key, data, ASSET_EXPIRY).Err()
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
+	return nil, Missing
 }
 
 func (m *AssetFetcher) PollDownloads(ctx context.Context) {
@@ -167,15 +68,10 @@ func (m *AssetFetcher) PollDownloads(ctx context.Context) {
 	}
 }
 
-func (m *AssetFetcher) FetchAsset(ctx context.Context, source *AssetSource, offset int) ([]byte, error) {
-	resolved := source.ResolveAsset(offset)
-	if opt.IsNone(resolved) {
-		return nil, AssetMissing
-	}
-
+func (m *AssetFetcher) fetchAsset(ctx context.Context, id string) ([]byte, error) {
 	out := make(chan FetchResult)
 	m.jobs <- FetchJob{
-		Asset:  resolved.Value,
+		Asset:  id,
 		Result: out,
 	}
 
@@ -183,72 +79,39 @@ func (m *AssetFetcher) FetchAsset(ctx context.Context, source *AssetSource, offs
 	return result.Data, result.Err
 }
 
-func (m *AssetFetcher) FetchMapBytes(ctx context.Context, needle string) ([]byte, error) {
-	map_ := m.FindMap(needle)
-
-	if opt.IsNone(map_) {
-		return nil, AssetMissing
-	}
-
-	foundMap := map_.Value
-	return m.FetchAsset(ctx, foundMap.Source, foundMap.Map.Ogz)
-}
-
 type FoundMap struct {
-	Map    *GameMap
-	Source *AssetSource
+	Map  *GameMap
+	Root *RemoteRoot
 }
 
-func (f *FoundMap) GetBaseURL() string {
-	return fmt.Sprintf("%s%s", f.Source.Base, f.Map.Bundle)
-}
-
-func (f *FoundMap) GetOGZURL() opt.Option[string] {
-	if f.Source == nil || f.Map == nil {
-		return opt.None[string]()
-	}
-
-	asset := f.Source.ResolveAsset(f.Map.Ogz)
-	if opt.IsNone(asset) {
-		return opt.None[string]()
-	}
-
-	return opt.Some(f.GetBaseURL() + asset.Value)
-}
-
-func (f *FoundMap) GetDesktopURL() opt.Option[string] {
-	if f.Source == nil || f.Map == nil {
-		return opt.None[string]()
-	}
-
-	bundle := f.Source.ResolveBundle(f.Map.Bundle)
-	if opt.IsNone(bundle) || !bundle.Value.Desktop {
-		return opt.None[string]()
-	}
-
-	return opt.Some(
-		fmt.Sprintf(
-			"%s%s.desktop",
-			f.GetBaseURL(),
-			bundle.Value.Id,
-		),
-	)
-}
-
-func (m *AssetFetcher) FindMap(needle string) opt.Option[FoundMap] {
+func (m *AssetFetcher) FindMap(needle string) *FoundMap {
 	otherTarget := needle + ".ogz"
-	for _, source := range m.sources {
-		for _, gameMap := range source.Index.Maps {
+	for _, root := range m.roots {
+		for _, gameMap := range root.index.Maps {
 			if gameMap.Name != needle && gameMap.Name != otherTarget && !strings.HasPrefix(gameMap.Id, needle) {
 				continue
 			}
 
-			return opt.Some(FoundMap{
-				Map:    &gameMap,
-				Source: source,
-			})
+			return &FoundMap{
+				Map:  &gameMap,
+				Root: root,
+			}
 		}
 	}
 
-	return opt.None[FoundMap]()
+	return nil
+}
+
+func (m *AssetFetcher) FetchMapBytes(ctx context.Context, needle string) ([]byte, error) {
+	map_ := m.FindMap(needle)
+
+	if map_ == nil {
+		return nil, Missing
+	}
+
+	id, err := map_.Root.GetID(map_.Map.Ogz)
+	if err != nil {
+	    return nil, err
+	}
+	return m.fetchAsset(ctx, id)
 }

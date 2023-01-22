@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cfoust/sour/pkg/maps"
+	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/svc/cluster/config"
 	gameServers "github.com/cfoust/sour/svc/cluster/servers"
 
-	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/sasha-s/go-deadlock"
@@ -135,7 +134,7 @@ func (s *SpaceManager) SearchSpace(ctx context.Context, id string) (*UserSpace, 
 
 	// We don't care if that errored, search the maps (which are implicitly spaces)
 	found := s.maps.FindMap(id)
-	if opt.IsNone(found) {
+	if found == nil {
 		return nil, fmt.Errorf("ambiguous reference")
 	}
 

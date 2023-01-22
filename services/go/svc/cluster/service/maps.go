@@ -3,18 +3,14 @@ package service
 import (
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/maps"
+	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/maps"
 
-	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog/log"
 )
 
@@ -141,143 +137,143 @@ func (s *SendState) TriggerSend() {
 }
 
 func (s *SendState) Send() error {
-	user := s.User
-	logger := user.Logger()
-	ctx := user.ServerSessionContext()
+	//user := s.User
+	//logger := user.Logger()
+	//ctx := user.ServerSessionContext()
 
-	logger.Info().Msg("sending map to client")
+	//logger.Info().Msg("sending map to client")
 
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
+	//if ctx.Err() != nil {
+		//return ctx.Err()
+	//}
 
-	s.SendPause(true)
+	//s.SendPause(true)
 
-	p := game.Packet{}
-	p.Put(
-		game.N_MAPCHANGE,
-		game.MapChange{
-			Name:     "sending",
-			Mode:     int(game.MODE_COOP),
-			HasItems: 0,
-		},
-	)
-	s.SendClient(p, 1)
+	//p := game.Packet{}
+	//p.Put(
+		//game.N_MAPCHANGE,
+		//game.MapChange{
+			//Name:     "sending",
+			//Mode:     int(game.MODE_COOP),
+			//HasItems: 0,
+		//},
+	//)
+	//s.SendClient(p, 1)
 
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
+	//if ctx.Err() != nil {
+		//return ctx.Err()
+	//}
 
-	map_ := s.Maps.FindMap(s.Map)
-	if opt.IsNone(map_) {
-		// How?
-		return fmt.Errorf("could not find map")
-	}
+	//map_ := s.Maps.FindMap(s.Map)
+	//if opt.IsNone(map_) {
+		//// How?
+		//return fmt.Errorf("could not find map")
+	//}
 
-	logger = user.Logger().With().Str("map", map_.Value.Map.Name).Logger()
+	//logger = user.Logger().With().Str("map", map_.Value.Map.Name).Logger()
 
-	fakeMap, err := MakeDownloadMap(map_.Value.Map.Bundle)
-	if err != nil {
-		logger.Error().Err(err).Msgf("failed to make map")
-		return err
-	}
+	//fakeMap, err := MakeDownloadMap(map_.Value.Map.Bundle)
+	//if err != nil {
+		//logger.Error().Err(err).Msgf("failed to make map")
+		//return err
+	//}
 
-	time.Sleep(1 * time.Second)
-	p = game.Packet{}
-	p.Put(game.N_SENDMAP)
-	p = append(p, fakeMap...)
-	err = s.SendClientSync(p, 2)
-	if err != nil {
-		return err
-	}
+	//time.Sleep(1 * time.Second)
+	//p = game.Packet{}
+	//p.Put(game.N_SENDMAP)
+	//p = append(p, fakeMap...)
+	//err = s.SendClientSync(p, 2)
+	//if err != nil {
+		//return err
+	//}
 
-	desktopURL := map_.Value.GetDesktopURL()
-	if opt.IsNone(desktopURL) {
-		return fmt.Errorf("no desktop bundle for map %s", s.Map)
-	}
+	//desktopURL := map_.GetDesktopURL()
+	//if opt.IsNone(desktopURL) {
+		//return fmt.Errorf("no desktop bundle for map %s", s.Map)
+	//}
 
-	mapPath := filepath.Join(s.Sender.workingDir, assets.GetURLBase(desktopURL.Value))
-	s.Path = mapPath
-	err = assets.DownloadFile(
-		desktopURL.Value,
-		mapPath,
-	)
-	if err != nil {
-		return err
-	}
+	//mapPath := filepath.Join(s.Sender.workingDir, assets.GetURLBase(desktopURL.Value))
+	//s.Path = mapPath
+	//err = assets.DownloadFile(
+		//desktopURL.Value,
+		//mapPath,
+	//)
+	//if err != nil {
+		//return err
+	//}
 
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
+	//if ctx.Err() != nil {
+		//return ctx.Err()
+	//}
 
-	user.SendServerMessage("You are missing this map. Please run '/do $maptitle' to download it.")
+	//user.SendServerMessage("You are missing this map. Please run '/do $maptitle' to download it.")
 
-	select {
-	case <-s.userAccepted:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	//select {
+	//case <-s.userAccepted:
+	//case <-ctx.Done():
+		//return ctx.Err()
+	//}
 
-	logger.Info().Msg("user accepted download")
+	//logger.Info().Msg("user accepted download")
 
-	s.User.GetServer().SendCommand(fmt.Sprintf("forcerespawn %d", s.User.GetClientNum()))
-	time.Sleep(1 * time.Second)
-	s.MoveClient(512+10, 512+10)
-	time.Sleep(1 * time.Second)
-	// so physics runs
-	s.SendPause(false)
+	//s.User.GetServer().SendCommand(fmt.Sprintf("forcerespawn %d", s.User.GetClientNum()))
+	//time.Sleep(1 * time.Second)
+	//s.MoveClient(512+10, 512+10)
+	//time.Sleep(1 * time.Second)
+	//// so physics runs
+	//s.SendPause(false)
 
-	var tag int
-	select {
-	case request := <-s.demoRequested:
-		tag = request
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	//var tag int
+	//select {
+	//case request := <-s.demoRequested:
+		//tag = request
+	//case <-ctx.Done():
+		//return ctx.Err()
+	//}
 
-	logger.Info().Msg("user requested demo")
+	//logger.Info().Msg("user requested demo")
 
-	file, err := os.Open(s.Path)
-	defer file.Close()
-	if err != nil {
-		return err
-	}
+	//file, err := os.Open(s.Path)
+	//defer file.Close()
+	//if err != nil {
+		//return err
+	//}
 
-	buffer, err := io.ReadAll(file)
-	if err != nil {
-		return err
-	}
+	//buffer, err := io.ReadAll(file)
+	//if err != nil {
+		//return err
+	//}
 
-	p = game.Packet{}
-	p.Put(
-		game.N_SENDDEMO,
-		tag,
-	)
-	p = append(p, buffer...)
-	err = s.SendClientSync(p, 2)
-	if err != nil {
-		return err
-	}
-	logger.Info().Msg("demo downloaded")
+	//p = game.Packet{}
+	//p.Put(
+		//game.N_SENDDEMO,
+		//tag,
+	//)
+	//p = append(p, buffer...)
+	//err = s.SendClientSync(p, 2)
+	//if err != nil {
+		//return err
+	//}
+	//logger.Info().Msg("demo downloaded")
 
-	time.Sleep(500 * time.Millisecond)
+	//time.Sleep(500 * time.Millisecond)
 
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
+	//if ctx.Err() != nil {
+		//return ctx.Err()
+	//}
 
-	// Then load the demo
-	s.SendPause(true)
-	s.MoveClient(512-10, 512-10)
-	time.Sleep(500 * time.Millisecond)
+	//// Then load the demo
+	//s.SendPause(true)
+	//s.MoveClient(512-10, 512-10)
+	//time.Sleep(500 * time.Millisecond)
 
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
+	//if ctx.Err() != nil {
+		//return ctx.Err()
+	//}
 
-	s.SendPause(false)
+	//s.SendPause(false)
 
-	logger.Info().Msg("download complete")
+	//logger.Info().Msg("download complete")
 
 	return nil
 }
