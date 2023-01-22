@@ -76,6 +76,7 @@ export type Model = {
 export type AssetSource = {
   source: string
   assets: string[]
+  refs: IndexAsset[]
   textures: IndexAsset[]
   bundles: Bundle[]
   maps: GameMap[]

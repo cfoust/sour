@@ -1,3 +1,4 @@
+import CBOR from 'cbor-js'
 import * as R from 'ramda'
 import type {
   AssetResult,
@@ -151,8 +152,7 @@ async function loadBlob(
 }
 
 function sourceFromBuffer(buffer: ArrayBuffer): AssetSource {
-  const text = new TextDecoder('utf-8')
-  return JSON.parse(text.decode(buffer))
+  return CBOR.decode(buffer)
 }
 
 async function loadIndex(

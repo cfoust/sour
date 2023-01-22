@@ -11,4 +11,8 @@ if ! pip3 list | grep "cbor2" > /dev/null 2>&1; then
 fi
 
 ./setup
-python3 base.py --models --textures complex dust2 turbine
+python3 base.py \
+  --root https://static.sourga.me/blobs/6481/.index.source \
+  --models \
+  --textures \
+  complex dust2 turbine

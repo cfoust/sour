@@ -144,7 +144,10 @@ if __name__ == "__main__":
         )
 
         p.build_mod(
-            params,
+            params._replace(
+                download_assets=True,
+                build_web=True,
+            ),
             mappings,
             "base",
             "Everything the base game needs.",

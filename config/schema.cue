@@ -170,7 +170,7 @@ cluster: #ClusterSettings
 	// we might not know the hostname the user will be accessing Sour at ahead
 	// of time. We can take advantage of the browser's automatic addition of the
 	// hostname to bare absolute paths.
-	assets: [...string] | *["#origin/assets/.index.json"]
+	assets: [...string] | *["#origin/assets/.index.source"]
 
 	// The URLs for all of the game servers, for now we only support one.
 	// ws: and wss: are inferred

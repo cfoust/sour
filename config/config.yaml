@@ -1,10 +1,15 @@
 # This is Sour's default configuration.
+client:
+  assets:
+    - "#origin/assets/.index.source"
+    - "https://static.sourga.me/blobs/6481/.index.source"
 
 cluster:
   logSessions: true
 
   assets:
-    - "http://localhost:1234/assets/.index.json"
+    - "http://localhost:1234/assets/.index.source"
+    - "https://static.sourga.me/blobs/6481/.index.source"
 
   presets:
     - name: "common" 
