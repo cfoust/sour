@@ -264,18 +264,19 @@ def run_sourdump(roots: List[str], args: List[str]) -> str:
         root_args.append("-root")
         root_args.append(root)
 
+    args = [
+        "./sourdump",
+        *root_args,
+        *args,
+    ]
     result = subprocess.run(
-        [
-            "./sourdump",
-            *root_args,
-            *args,
-        ],
+        args,
         # check=True,
         capture_output=True
     )
 
     if result.returncode != 0:
-        raise Exception(result.stderr)
+        raise Exception(result.stderr.decode('utf-8') + result.stdout.decode('utf-8'))
 
     return result.stdout.decode('utf-8')
 
@@ -675,6 +676,32 @@ class Packager:
             self.textures += assets
 
 
+    def build_image(
+        self,
+        params: BuildParams,
+        file: str,
+    ) -> Optional[str]:
+        _, extension = path.splitext(file)
+        query = query_files(
+            params.roots,
+            [file]
+        )
+        resolved = query[0]
+        if resolved[0] == "nil": return None
+        asset = self.build_asset(
+            params._replace(
+                download_assets=True,
+            ),
+            resolved,
+        )
+        if not asset:
+            return None
+        result = path.join(self.outdir, asset.id)
+        image = "%s%s" % (asset.id, extension)
+        shutil.copy(result, path.join(self.outdir, image))
+        return image
+
+
     def build_map(
         self,
         params: BuildParams,
@@ -706,23 +733,12 @@ class Packager:
             # Look for an image file adjacent to the map
             for extension in ['.png', '.jpg']:
                 image_path = "%s%s" % (base, extension)
-                query = query_files(
-                    params.roots,
-                    [image_path]
+                image = self.build_image(
+                    params,
+                    image_path,
                 )
-                resolved = query[0]
-                if resolved[0] == "nil": continue
-                asset = self.build_asset(
-                    params._replace(
-                        download_assets=True,
-                    ),
-                    resolved,
-                )
-                if not asset:
-                    continue
-                result = path.join(self.outdir, asset.id)
-                image = "%s%s" % (asset.id, extension)
-                shutil.copy(result, path.join(self.outdir, image))
+                if image:
+                    break
 
         ogz_id = None
         for asset in assets:

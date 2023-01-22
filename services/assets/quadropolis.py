@@ -140,24 +140,20 @@ def get_jobs(file: File) -> Tuple[List[MapJob], List[ModJob]]:
 
 def build_map(
     p: package.Packager,
-    roots: List[str],
-    skip_root: str,
+    params: package.BuildParams,
     map_file: str,
     name: str,
     description: str,
     image: str = None,
-    build_desktop: bool = False,
 ) -> Optional[package.GameMap]:
 
     try:
         map_bundle = p.build_map(
-            roots,
-            skip_root,
+            params,
             map_file,
             name,
             description,
             image,
-            build_desktop,
         )
     except Exception as e:
         if 'shims' in str(e):
@@ -190,18 +186,25 @@ if __name__ == "__main__":
 
     quaddir = 'quadropolis'
 
+    quad_root = "https://static.sourga.me/quadropolis/4412/.index.source"
     roots = [
         "sour",
-        "roots/base",
+        "https://static.sourga.me/blobs/6481/.index.source",
+        quad_root,
     ]
 
-    nodes = json.loads(open(path.join(quaddir, 'nodes.json'), 'r').read())
+    params = package.BuildParams(
+        roots=roots,
+        skip_root=roots[1],
+        compress_images=False,
+        download_assets=False,
+        build_web=False,
+        build_desktop=False,
+    )
+
+    nodes = json.loads(open('nodes.json', 'r').read())
 
     nodes = reversed(nodes)
-
-    def tmp(file): return path.join("/tmp", file)
-    def out(file): return path.join(outdir, file)
-    def db(file): return path.join(quaddir, "db", file)
 
     node_targets = list(map(int, node_targets))
     nodes = list(filter(lambda node: node['id'] in node_targets if node_targets else True, nodes))
@@ -213,29 +216,55 @@ if __name__ == "__main__":
         _id = node['id']
         files = node['files']
 
+        node_prefix = str(_id)
+
         image = None
-        for file in files:
-            name = file['name']
+        for i, file in enumerate(files):
+            name: str = file['name']
             if (
                 not name or
                 (not name.endswith('.jpg') and not name.endswith('.png'))
             ): continue
-            _, extension = path.splitext(file['name'])
-            image = '%s%s' % (file['hash'], extension)
-            shutil.copy(db(file['hash']), out(image))
+            image_path = path.join(
+                node_prefix,
+                str(i),
+                name,
+            )
+            image = p.build_image(
+                params,
+                image_path,
+            )
 
         description = node['content']
 
-        for file in files:
+        for i, file in enumerate(files):
             file_name = file['name']
             file_hash = file['hash']
+
+            file_dir = path.join(
+                node_prefix,
+                str(i),
+            )
+            file_root = f"{quad_root}@{file_dir}"
+
+            contents = package.get_root_files(
+                [file_root]
+            )
+
+            file_params = params._replace(
+                roots=roots + [file_root],
+            )
+
+            file_params_no_skip = file_params._replace(
+                skip_root=""
+            )
 
             maps, mods = get_jobs(
                 File(
                     url=file['url'],
                     hash=file_hash,
                     name=file_name,
-                    contents=file['contents'],
+                    contents=contents,
                 )
             )
 
@@ -251,17 +280,19 @@ if __name__ == "__main__":
                 if mods:
                     mod = mods[0]
                     mod_file = path.basename(file_name)
+                    resolved = package.query_files(
+                        file_params.roots,
+                        [mod_file]
+                    )
+                    mapping = resolved[0]
+                    if mapping[0] == "nil":
+                        continue
                     p.build_mod(
-                        '', # Don't skip anything
-                        [
-                            (db(file_hash), mod_file),
-                        ],
+                        file_params_no_skip,
+                        resolved,
                         f"quad-{_id}",
                         description,
                         image=image,
-                        compress_images=False,
-                        build_web=False,
-                        build_desktop=True,
                     )
                     num_mods += 1
                     continue
@@ -271,19 +302,15 @@ if __name__ == "__main__":
 
                 # The file itself is a map
                 map_name, _ = path.splitext(path.basename(file_name))
-                target = tmp("%s.ogz" % map_name)
-                shutil.copy(db(file_hash), target)
 
                 try:
                     build_map(
                         p,
-                        roots,
-                        roots[1],
-                        target,
+                        file_params,
+                        path.basename(file_name),
                         map_name,
                         description,
                         image,
-                        build_desktop=True,
                     )
                 except Exception as e:
                     print(f"failed to build map id={_id} map={file_name} err={str(e)}")
@@ -296,83 +323,32 @@ if __name__ == "__main__":
                 num_mods += len(mods)
                 continue
 
-            tmpdir = tempfile.mkdtemp()
-
-            if file_name.endswith('.tar.gz'):
-                target = path.join("/tmp", "%s.tar.gz" % file_hash)
-                shutil.copy(db(file_hash), target)
-                subprocess.run(
-                    [
-                        "tar",
-                        "xf",
-                        target,
-                        "-C",
-                        tmpdir
-                    ],
-                    stderr=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    check=True
-                )
-            elif file_name.endswith('.zip'):
-                target = path.join("/tmp", "%s.zip" % file_hash)
-                shutil.copy(db(file_hash), target)
-                subprocess.run(
-                    [
-                        "unzip",
-                        "-n",
-                        target,
-                        "-d",
-                        tmpdir
-                    ],
-                    stderr=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                )
-            elif file_name.endswith('.rar'):
-                target = path.join("/tmp", "%s.rar" % file_hash)
-                shutil.copy(db(file_hash), target)
-                subprocess.run(
-                    [
-                        "unrar",
-                        "x",
-                        target,
-                    ],
-                    cwd=tmpdir,
-                    stderr=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    check=True
-                )
-            else:
-                print('Unhandled archive: %s' % file_name)
-                continue
-
             for i, mod in enumerate(mods):
-                mod_files: List[package.Mapping] = []
-                mod_dir = path.join(tmpdir, mod.root)
-                for file in list(Path(mod_dir).rglob('*')):
-                    relative = package.get_root_relative(file, [mod_dir])
-                    if not relative or not path.isfile(str(file)):
-                        continue
-                    mod_files.append((str(file), relative))
+                mod_files = list(filter(lambda a: a.startswith(mod.root), contents))
+
+                if not mod_files:
+                    continue
+
+                resolved = package.query_files(
+                    file_params.roots,
+                    mod_files
+                )
 
                 name = f"quad-{_id}"
                 if len(mods) > 1:
                     name += f"-{i}"
 
                 p.build_mod(
-                    '', # Don't skip anything
-                    mod_files,
+                    file_params_no_skip,
+                    resolved,
                     name,
                     description,
                     image=image,
-                    compress_images=False,
-                    build_web=False,
-                    build_desktop=True,
                 )
                 num_mods += 1
 
             for job in maps:
                 map_path = job.map_path
-                map_hash = package.hash_string("%d-%s" % (_id, job.map_path))
 
                 num_maps += 1
 
@@ -383,30 +359,21 @@ if __name__ == "__main__":
                 if args.dry:
                     continue
 
-                map_roots = list(map(lambda v: path.join(tmpdir, v), job.roots)) + roots
-                target_map = path.join(tmpdir, map_path)
-
-                if not path.exists(target_map):
-                    print('Archive %s did not contain %s' % (file_name, map_path))
-                    continue
-
+                map_roots = list(map(lambda v: path.join(file_root, v), job.roots)) + roots
+                target_map = path.join(file_root, map_path)
                 name, _ = path.splitext(path.basename(map_path))
                 try:
                     build_map(
                         p,
-                        map_roots,
-                        roots[1],
+                        file_params,
                         target_map,
                         name,
                         description,
                         image,
-                        build_desktop=True,
                     )
                 except Exception as e:
                     print(f"failed to build map id={_id} map={map_path} err={str(e)}")
                     break
-
-            shutil.rmtree(tmpdir, ignore_errors=True)
 
     print(f"built {num_mods} mods and {num_maps} maps")
     p.dump_index(args.prefix)
