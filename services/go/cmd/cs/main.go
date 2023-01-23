@@ -6,7 +6,9 @@ import (
 
 func main() {
 	interop.Execute(`
+echo "hello world"
 set a 2
 echo (a)
+mdlname
 `)
 }

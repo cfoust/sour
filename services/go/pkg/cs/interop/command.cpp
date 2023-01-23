@@ -3,20 +3,21 @@
 
 #include "command.h"
 
-//void conoutfv(int type, const char *fmt, va_list args)
-//{
-    //string sf, sp;
-    //vformatstring(sf, fmt, args);
-    //printf("%s\n", sp);
-    //printf("printing! %s\n", sf);
-//}
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern void Test(const char *c);
+#ifdef __cplusplus
+}
+#endif
 
 #define CONSTRLEN 512
 void conoutfv(int type, const char *fmt, va_list args)
 {
     static char buf[CONSTRLEN];
     vformatstring(buf, fmt, args, sizeof(buf));
-    printf("%s", buf);
+    printf("%s\n", buf);
+    Test("blah");
 }
 
 void conoutf(const char *fmt, ...)
