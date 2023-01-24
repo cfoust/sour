@@ -4,9 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 
-	"github.com/repeale/fp-go"
 	"github.com/repeale/fp-go/option"
 
 	"github.com/rs/zerolog/log"
@@ -42,46 +40,6 @@ func (p *Processor) ProcessModelFile(modelDir string, modelType string, ref *Ref
 		results = append(results, ref)
 	}
 
-	// Some references are relative to the model config
-	addRelative := func(file string) {
-		resolved := p.ResolveRelative(modelDir, file)
-
-		if resolved == nil {
-			log.Printf("Failed to find cfg-relative model path %s (%s)", file, ref.Path)
-			return
-		}
-
-		results = append(results, resolved)
-	}
-
-	// Model textures tend to also come with a DDS counterpart
-	expandTexture := func(texture string) []string {
-		normalized := NormalizeTexture(texture)
-
-		hasDDS := fp.Some(
-			func(x []string) bool {
-				return x[1] == "dds"
-			},
-		)(TEXTURE_COMMAND_REGEX.FindAllStringSubmatch(texture, -1))
-
-		if hasDDS {
-			extension := filepath.Ext(normalized)
-			ddsPath := fmt.Sprintf(
-				"%s.dds",
-				normalized[:len(normalized)-len(extension)],
-			)
-			return []string{normalized, ddsPath}
-		}
-
-		return []string{normalized}
-	}
-
-	addTexture := func(texture string) {
-		for _, file := range expandTexture(texture) {
-			addRelative(file)
-		}
-	}
-
 	addFile(ref)
 
 	src, err := ref.ReadFile()
@@ -89,147 +47,13 @@ func (p *Processor) ProcessModelFile(modelDir string, modelType string, ref *Ref
 		return nil, errors.New(fmt.Sprintf("Failed to read %s", ref.Path))
 	}
 
-	for _, line := range strings.Split(string(src), "\n") {
-		args := ParseLine(line)
-
-		if len(args) == 0 {
-			continue
-		}
-
-		command := args[0]
-
-		if strings.HasPrefix(command, modelType) {
-			command = command[len(modelType):]
-		}
-
-		switch command {
-		case "anim":
-			if len(args) < 3 {
-				break
-			}
-
-			// `anim` uses anim indices and files, so no need to
-			// error if it's not found
-			for i := 2; i < len(args); i++ {
-				resolved := p.ResolveRelative(modelDir, args[i])
-				if resolved == nil {
-					continue
-				}
-
-				addTexture(args[i])
-			}
-
-		case "bumpmap":
-			if len(args) < 3 {
-				break
-			}
-
-			addTexture(args[2])
-
-		case "exec":
-			if len(args) != 2 {
-				break
-			}
-			execPath := args[1]
-
-			resolved := p.SearchFile(execPath)
-
-			if resolved == nil {
-				log.Printf("Could not find %s", execPath)
-			} else {
-				files, err := p.ProcessModelFile(
-					modelDir,
-					modelType,
-					resolved,
-				)
-				if err != nil {
-					return nil, err
-				}
-				if files == nil {
-					break
-				}
-
-				results = append(results, files...)
-			}
-
-		case "load":
-			if len(args) < 2 {
-				break
-			}
-
-			addTexture(args[1])
-
-		case "skin":
-			if len(args) < 3 {
-				break
-			}
-
-			for i := 2; i < 4; i++ {
-				if i == len(args) {
-					break
-				}
-
-				addTexture(args[i])
-			}
-
-		case "mdlenvmap":
-			if len(args) != 4 {
-				break
-			}
-
-			for _, texture := range p.FindCubemap(NormalizeTexture(args[3])) {
-				addFile(texture)
-			}
-
-		case "ambient":
-		case "animpart":
-		case "basemodelcfg": // TODO dynamic code in models?
-		case "cullface":
-		case "dir":
-		case "mdlalphablend":
-		case "mdlalphadepth":
-		case "mdlalphatest":
-		case "mdlambient":
-		case "mdlbb":
-		case "mdlcollide":
-		case "mdlcullface":
-		case "mdldepthoffset":
-		case "mdlellipsecollide":
-		case "mdlextendbb":
-		case "mdlfullbright":
-		case "mdlglare":
-		case "mdlglow":
-		case "mdlpitch":
-		case "mdlscale":
-		case "mdlshader":
-		case "mdlshadow":
-		case "mdlspec":
-		case "mdlspin":
-		case "mdltrans":
-		case "mdlyaw":
-		case "noclip":
-		case "pitch":
-		case "rdeye":
-		case "rdjoint":
-		case "rdlimitdist":
-		case "rdlimitrot":
-		case "rdtri":
-		case "rdvert":
-		case "scroll":
-		case "spec":
-		case "tag":
-			break
-
-		default:
-			log.Printf("Unhandled modelcommand: %s", command)
-		}
-	}
+	p.cfgVM.Run(string(src))
 
 	return results, nil
 }
 
-func (p *Processor) ProcessModel(path string) ([]*Reference, error) {
-	results := make([]*Reference, 0)
+func (p *Processor) ProcessModel(path string) error {
+	p.ModelFiles = make([]*Reference, 0)
 
 	modelDir := filepath.Join(
 		"packages/models",
@@ -245,7 +69,7 @@ func (p *Processor) ProcessModel(path string) ([]*Reference, error) {
 			return
 		}
 
-		results = append(results, resolved)
+		p.ModelFiles = append(p.ModelFiles, resolved)
 	}
 
 	_type := Find(func(x string) bool {
@@ -279,7 +103,7 @@ func (p *Processor) ProcessModel(path string) ([]*Reference, error) {
 	})(MODELTYPES)
 
 	if opt.IsNone(_type) {
-		return nil, errors.New(fmt.Sprintf("Failed to infer type for model %s", path))
+		return errors.New(fmt.Sprintf("Failed to infer type for model %s", path))
 	}
 
 	modelType := _type.Value
@@ -314,24 +138,25 @@ func (p *Processor) ProcessModel(path string) ([]*Reference, error) {
 
 	if resolved == nil {
 		if !hadDefault {
-			return nil, errors.New(fmt.Sprintf("Model %s had neither defaults nor a .cfg", path))
+			return errors.New(fmt.Sprintf("Model %s had neither defaults nor a .cfg", path))
 		}
 
-		return results, nil
+		return nil
 	}
 
+	p.cfgVM.Run(fmt.Sprintf(`set mdlname "%s"`, path))
 	cfgFiles, err := p.ProcessModelFile(modelDir, modelType, resolved)
 	if err != nil {
-		return nil, err
+		return nil
 	}
 
 	if cfgFiles == nil {
-		return nil, fmt.Errorf("no cfg files")
+		return fmt.Errorf("no cfg files")
 	}
 
-	results = append(results, cfgFiles...)
+	p.ModelFiles = append(p.ModelFiles, cfgFiles...)
 
-	return results, nil
+	return nil
 }
 
 func (processor *Processor) ResetModels(limit int) {

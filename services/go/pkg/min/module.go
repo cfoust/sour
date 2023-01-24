@@ -298,6 +298,10 @@ type Processor struct {
 	// File references are guaranteed to be included and do not have a slot
 	Files []*Reference
 
+	// The reference to the file we're currently processing
+	current *Reference
+	ModelFiles []*Reference
+
 	cfgVM *cs.VM
 }
 
@@ -337,6 +341,35 @@ func (processor *Processor) SearchFile(path string) *Reference {
 
 		if prefixed.Exists() {
 			return prefixed
+		}
+
+		// Look relative to the current path if we're processing a file
+		if processor.current != nil {
+			pwdRef := NewReference(
+				root,
+				filepath.Join(
+					filepath.Dir(processor.current.Path),
+					path,
+				),
+			)
+
+			if pwdRef.Exists() {
+				return pwdRef
+			}
+
+			// Also check the parent dir (Cube does this, too)
+			pwdRef = NewReference(
+				root,
+				filepath.Join(
+					filepath.Dir(processor.current.Path),
+					"..",
+					path,
+				),
+			)
+
+			if pwdRef.Exists() {
+				return pwdRef
+			}
 		}
 	}
 
@@ -399,12 +432,16 @@ func (processor *Processor) ProcessFile(ref *Reference) error {
 		return errors.New(fmt.Sprintf("File %s did not exist", ref))
 	}
 
+	previous := processor.current
+	processor.current = ref
+
 	src, err := ref.ReadFile()
 	if err != nil {
 		return err
 	}
 
 	processor.cfgVM.Run(string(src))
+	processor.current = previous
 	return nil
 }
 

@@ -2,9 +2,11 @@ package min
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/cfoust/sour/pkg/maps"
 
+	"github.com/repeale/fp-go"
 	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog/log"
 )
@@ -86,7 +88,7 @@ func (p *Processor) Texture(type_ string, name string, rot int, xOffset int, yOf
 
 func (p *Processor) MModel(name string) {
 	modelFile := name
-	textures, err := p.ProcessModel(modelFile)
+	err := p.ProcessModel(modelFile)
 
 	if err != nil {
 		log.Printf("Failed to process model %s", name)
@@ -94,8 +96,8 @@ func (p *Processor) MModel(name string) {
 		return
 	}
 
-	if textures != nil {
-		p.AddModel(textures)
+	if p.ModelFiles != nil {
+		p.AddModel(p.ModelFiles)
 	}
 }
 
@@ -195,10 +197,38 @@ var EMPTY_COMMANDS = []string{
 	"mapmsg",
 	"maptitle",
 	"maxmerge",
+	"mdlalphablend",
+	"mdlalphadepth",
+	"mdlalphatest",
+	"mdlambient",
+	"mdlbb",
+	"mdlcollide",
+	"mdlcullface",
+	"mdldepthoffset",
+	"mdlellipsecollide",
+	"mdlextendbb",
+	"mdlfullbright",
+	"mdlglare",
+	"mdlglow",
+	"mdlpitch",
+	"mdlscale",
+	"mdlshader",
+	"mdlshadow",
+	"mdlspec",
+	"mdlspin",
+	"mdltrans",
+	"mdlyaw",
 	"minimapclip",
 	"minimapcolour",
 	"minimapheight",
+	"noclip",
 	"panelset",
+	"rdeye",
+	"rdjoint",
+	"rdlimitdist",
+	"rdlimitrot",
+	"rdtri",
+	"rdvert",
 	"setshader",
 	"setshaderparam",
 	"shadowmapambient",
@@ -232,6 +262,95 @@ var EMPTY_COMMANDS = []string{
 	"yawsky",
 }
 
+var EMPTY_MODEL_COMMANDS = []string{
+	"adjust",
+	"alphablend",
+	"alphatest",
+	"ambient",
+	"animpart",
+	"cullface",
+	"dir",
+	"envmap",
+	"fullbright",
+	"glare",
+	"glow",
+	"link",
+	"noclip",
+	"pitch",
+	"pitchcorrect",
+	"pitchtarget",
+	"scroll",
+	"shader",
+	"spec",
+	"tag",
+}
+
+func expandTexture(texture string) []string {
+	normalized := NormalizeTexture(texture)
+
+	hasDDS := fp.Some(
+		func(x []string) bool {
+			return x[1] == "dds"
+		},
+	)(TEXTURE_COMMAND_REGEX.FindAllStringSubmatch(texture, -1))
+
+	if hasDDS {
+		extension := filepath.Ext(normalized)
+		ddsPath := fmt.Sprintf(
+			"%s.dds",
+			normalized[:len(normalized)-len(extension)],
+		)
+		return []string{normalized, ddsPath}
+	}
+
+	return []string{normalized}
+}
+
+func (p *Processor) AddModelTexture(name string) {
+	for _, file := range expandTexture(name) {
+		ref := p.SearchFile(file)
+		if ref != nil {
+			p.ModelFiles = append(p.ModelFiles, ref)
+		}
+	}
+}
+
+func (p *Processor) SetSkin(meshname string, tex string, masks string, envMapMax float32, envMapMin float32) {
+	p.AddModelTexture(tex)
+}
+
+func (p *Processor) SetBumpMap(meshname string, normalMapFile string) {
+	p.AddModelTexture(normalMapFile)
+}
+
+func (p *Processor) VertLoadPart(model string) {
+	p.AddModelTexture(model)
+}
+
+func (p *Processor) VertSetAnim(anim string) {
+	p.AddModelTexture(anim)
+}
+
+func (p *Processor) SkelLoadPart(model string, other string) {
+	p.AddModelTexture(model)
+}
+
+func (p *Processor) SkelSetAnim(anim string, animFile string) {
+	p.AddModelTexture(anim)
+	p.AddModelTexture(animFile)
+}
+
+var (
+	SKEL_MODEL_TYPES = []string{"md5", "iqm", "smd"}
+	VERT_MODEL_TYPES = []string{"md3", "md2", "obj"}
+)
+
+func (p *Processor) MdlEnvMap(envMapMax float32, envMapMin float32, envMap string) {
+	for _, texture := range p.FindCubemap(NormalizeTexture(envMap)) {
+		p.ModelFiles = append(p.ModelFiles, texture)
+	}
+}
+
 func (p *Processor) setupVM() {
 	vm := p.cfgVM
 	vm.AddCommand("autograss", p.AutoGrass)
@@ -248,6 +367,33 @@ func (p *Processor) setupVM() {
 	vm.AddCommand("skybox", p.LoadSky)
 	vm.AddCommand("texture", p.Texture)
 	vm.AddCommand("texturereset", p.TextureReset)
+	vm.AddCommand("mdlenvmap", p.MdlEnvMap)
+
+	addModelCommand := func(type_ string, name string, callback interface{}) {
+		vm.AddCommand(
+			type_+name,
+			callback,
+		)
+	}
+
+	for _, type_ := range VERT_MODEL_TYPES {
+		addModelCommand(type_, "load", p.VertLoadPart)
+		addModelCommand(type_, "anim", p.VertSetAnim)
+	}
+
+	for _, type_ := range SKEL_MODEL_TYPES {
+		addModelCommand(type_, "load", p.SkelLoadPart)
+		addModelCommand(type_, "anim", p.SkelSetAnim)
+	}
+
+	for _, type_ := range MODELTYPES {
+		addModelCommand(type_, "skin", p.SetSkin)
+		addModelCommand(type_, "bumpmap", p.SetBumpMap)
+
+		for _, command := range EMPTY_MODEL_COMMANDS {
+			addModelCommand(type_, command, p.DoNothing)
+		}
+	}
 
 	for _, command := range EMPTY_COMMANDS {
 		vm.AddCommand(command, p.DoNothing)

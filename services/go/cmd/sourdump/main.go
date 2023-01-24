@@ -179,7 +179,8 @@ func DumpModel(roots []assets.Root, ref *min.Reference) ([]min.Mapping, error) {
 
 	modelName := filepath.Dir(ref.Path[len(MODEL_DIR):])
 
-	modelFiles, err := processor.ProcessModel(modelName)
+	err := processor.ProcessModel(modelName)
+	modelFiles := processor.ModelFiles
 	if err != nil || modelFiles == nil {
 		return nil, fmt.Errorf("Error processing model")
 	}
