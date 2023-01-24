@@ -148,6 +148,9 @@ func (p *Processor) Exec(name string) {
 
 	p.ProcessFile(ref)
 	p.AddFile(ref)
+	if p.processingModel {
+		p.AddModelFile(name)
+	}
 }
 
 func (p *Processor) LoadSkyOverlay(name string) {
@@ -305,7 +308,7 @@ func expandTexture(texture string) []string {
 	return []string{normalized}
 }
 
-func (p *Processor) AddModelTexture(name string) {
+func (p *Processor) AddModelFile(name string) {
 	for _, file := range expandTexture(name) {
 		ref := p.SearchFile(file)
 		if ref != nil {
@@ -315,28 +318,28 @@ func (p *Processor) AddModelTexture(name string) {
 }
 
 func (p *Processor) SetSkin(meshname string, tex string, masks string, envMapMax float32, envMapMin float32) {
-	p.AddModelTexture(tex)
+	p.AddModelFile(tex)
 }
 
 func (p *Processor) SetBumpMap(meshname string, normalMapFile string) {
-	p.AddModelTexture(normalMapFile)
+	p.AddModelFile(normalMapFile)
 }
 
 func (p *Processor) VertLoadPart(model string) {
-	p.AddModelTexture(model)
+	p.AddModelFile(model)
 }
 
 func (p *Processor) VertSetAnim(anim string) {
-	p.AddModelTexture(anim)
+	p.AddModelFile(anim)
 }
 
 func (p *Processor) SkelLoadPart(model string, other string) {
-	p.AddModelTexture(model)
+	p.AddModelFile(model)
 }
 
 func (p *Processor) SkelSetAnim(anim string, animFile string) {
-	p.AddModelTexture(anim)
-	p.AddModelTexture(animFile)
+	p.AddModelFile(anim)
+	p.AddModelFile(animFile)
 }
 
 var (
@@ -351,6 +354,10 @@ func (p *Processor) MdlEnvMap(envMapMax float32, envMapMin float32, envMap strin
 	for _, texture := range p.FindCubemap(NormalizeTexture(envMap)) {
 		p.ModelFiles = append(p.ModelFiles, texture)
 	}
+}
+
+func (p *Processor) MdlName() string {
+	return p.modelName
 }
 
 func (p *Processor) setupVM() {
@@ -370,6 +377,7 @@ func (p *Processor) setupVM() {
 	vm.AddCommand("texture", p.Texture)
 	vm.AddCommand("texturereset", p.TextureReset)
 	vm.AddCommand("mdlenvmap", p.MdlEnvMap)
+	vm.AddCommand("mdlname", p.MdlName)
 
 	addModelCommand := func(type_ string, name string, callback interface{}) {
 		vm.AddCommand(

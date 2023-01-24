@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/repeale/fp-go/option"
 
@@ -56,7 +57,12 @@ func (p *Processor) ProcessModelFile(modelDir string, modelType string, ref *Ref
 }
 
 func (p *Processor) ProcessModel(path string) error {
+	p.processingModel = true
 	p.ModelFiles = make([]*Reference, 0)
+
+	defer func() {
+		p.processingModel = false
+	}()
 
 	modelDir := filepath.Join(
 		"packages/models",
@@ -147,7 +153,10 @@ func (p *Processor) ProcessModel(path string) error {
 		return nil
 	}
 
-	p.cfgVM.Run(fmt.Sprintf(`set mdlname "%s"`, path))
+	p.modelName = path
+	if strings.HasPrefix(p.modelName, "/") {
+		p.modelName = p.modelName[1:]
+	}
 	cfgFiles, err := p.ProcessModelFile(modelDir, modelType, resolved)
 	if err != nil {
 		return nil

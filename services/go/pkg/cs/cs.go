@@ -168,7 +168,7 @@ func GoCall(
 			Intret(int(value))
 		case reflect.String:
 			value := resultVal.String()
-			Stringret(value)
+			Result(value)
 		case reflect.Float32:
 			value := resultVal.Float()
 			Floatret(float32(value))

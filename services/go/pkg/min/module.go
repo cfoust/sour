@@ -297,8 +297,10 @@ type Processor struct {
 	Files []*Reference
 
 	// The reference to the file we're currently processing
-	current *Reference
-	ModelFiles []*Reference
+	current         *Reference
+	modelName       string
+	processingModel bool
+	ModelFiles      []*Reference
 
 	cfgVM *cs.VM
 }
