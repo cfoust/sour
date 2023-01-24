@@ -1,4 +1,4 @@
-package interop
+package cs
 
 // #cgo CXXFLAGS: -std=c++03 
 import "C"
@@ -11,6 +11,6 @@ import (
 var M sync.Mutex
 
 //export Test
-func Test(b *C.char) {
-	log.Printf("called %s", C.GoString(b))
+func Test() {
+	log.Printf("called")
 }

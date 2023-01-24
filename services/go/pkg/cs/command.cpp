@@ -6,7 +6,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern void Test(const char *c);
+extern void Test();
 #ifdef __cplusplus
 }
 #endif
@@ -17,7 +17,6 @@ void conoutfv(int type, const char *fmt, va_list args)
     static char buf[CONSTRLEN];
     vformatstring(buf, fmt, args, sizeof(buf));
     printf("%s\n", buf);
-    Test("blah");
 }
 
 void conoutf(const char *fmt, ...)
@@ -825,6 +824,26 @@ bool addcommand(const char *name, identfun fun, const char *args)
     addident(ident(ID_COMMAND, name, args, argmask, numargs, (void *)fun, flags));
     return false;
 }
+
+void _gocall(
+    const char * name,
+    const char * _1,
+    const char * _2,
+    const char * _3,
+    const char * _4,
+    const char * _5,
+    const char * _6,
+    const char * _7,
+    const char * _8,
+    const char * _9,
+    const char * _10,
+    const char * _11,
+    const char * _12
+) {
+    printf("_gocall\n");
+}
+
+COMMAND(_gocall, "ssssssssssss");
 
 bool addkeyword(int type, const char *name)
 {
