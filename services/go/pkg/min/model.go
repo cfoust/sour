@@ -47,7 +47,10 @@ func (p *Processor) ProcessModelFile(modelDir string, modelType string, ref *Ref
 		return nil, errors.New(fmt.Sprintf("Failed to read %s", ref.Path))
 	}
 
+	previous := p.current
+	p.current = ref
 	p.cfgVM.Run(string(src))
+	p.current = previous
 
 	return results, nil
 }

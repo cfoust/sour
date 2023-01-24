@@ -345,10 +345,10 @@ func (processor *Processor) SearchFile(path string) *Reference {
 		if processor.current != nil {
 			pwdRef := NewReference(
 				root,
-				filepath.Join(
+				filepath.Clean(filepath.Join(
 					filepath.Dir(processor.current.Path),
 					path,
-				),
+				)),
 			)
 
 			if pwdRef.Exists() {
@@ -358,11 +358,11 @@ func (processor *Processor) SearchFile(path string) *Reference {
 			// Also check the parent dir (Cube does this, too)
 			pwdRef = NewReference(
 				root,
-				filepath.Join(
+				filepath.Clean(filepath.Join(
 					filepath.Dir(processor.current.Path),
 					"..",
 					path,
-				),
+				)),
 			)
 
 			if pwdRef.Exists() {
