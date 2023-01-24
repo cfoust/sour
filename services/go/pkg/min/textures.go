@@ -254,12 +254,6 @@ func (processor *Processor) SaveTextureIndex(path string) error {
 		return err
 	}
 
-	//index := TextureIndex{}
-	//err = p.Get(&index)
-	//if err != nil {
-	//return err
-	//}
-
 	out, err := os.Create(path)
 	if err != nil {
 		return err

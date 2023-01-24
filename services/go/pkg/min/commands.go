@@ -163,7 +163,6 @@ func (p *Processor) DoNothing() {
 
 var EMPTY_COMMANDS = []string{
 	"adaptivesample",
-	"alias",
 	"ambient",
 	"blurlms",
 	"blurskylight",
@@ -346,6 +345,9 @@ var (
 )
 
 func (p *Processor) MdlEnvMap(envMapMax float32, envMapMin float32, envMap string) {
+	if envMap == "" {
+		return
+	}
 	for _, texture := range p.FindCubemap(NormalizeTexture(envMap)) {
 		p.ModelFiles = append(p.ModelFiles, texture)
 	}

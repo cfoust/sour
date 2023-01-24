@@ -6,9 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 
-	"github.com/repeale/fp-go"
 	"github.com/repeale/fp-go/option"
 
 	"github.com/cfoust/sour/pkg/assets"
@@ -400,32 +398,6 @@ func (processor *Processor) AddFile(ref *Reference) {
 var (
 	COMMAND_REGEX = regexp.MustCompile(`(("[^"]*")|([^\s]+))`)
 )
-
-func ParseLine(line string) []string {
-	empty := make([]string, 0)
-
-	// Split off the comments
-	parts := strings.Split(line, "//")
-
-	if len(parts) == 0 {
-		return empty
-	}
-
-	command := strings.TrimSpace(parts[0])
-
-	if len(command) == 0 {
-		return empty
-	}
-
-	// Break the command up into pieces, preserving quoted arguments
-	matches := COMMAND_REGEX.FindAllStringSubmatch(command, -1)
-
-	return fp.Map(
-		func(x []string) string {
-			return strings.ReplaceAll(x[0], "\"", "")
-		},
-	)(matches)
-}
 
 func (processor *Processor) ProcessFile(ref *Reference) error {
 	if !ref.Exists() {
