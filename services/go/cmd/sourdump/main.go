@@ -171,22 +171,10 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 
 const MODEL_DIR = "packages/models"
 
-func DumpModel(roots []assets.Root, ref *min.Reference) ([]min.Mapping, error) {
-	extension := filepath.Ext(ref.Path)
-
-	if extension != ".cfg" {
-		return nil, fmt.Errorf("Model must end in .cfg")
-	}
-
+func DumpModel(roots []assets.Root, name string) ([]min.Mapping, error) {
 	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
 
-	if !strings.HasPrefix(ref.Path, MODEL_DIR) {
-		return nil, fmt.Errorf("Model not in model directory")
-	}
-
-	modelName := filepath.Dir(ref.Path[len(MODEL_DIR):])
-
-	err := processor.ProcessModel(modelName)
+	err := processor.ProcessModel(name)
 	modelFiles := processor.ModelFiles
 	if err != nil || modelFiles == nil {
 		return nil, fmt.Errorf("Error processing model")
@@ -314,23 +302,27 @@ func resolveTarget(roots []assets.Root, target string) (*min.Reference, error) {
 }
 
 func Dump(cache assets.Cache, roots []assets.Root, type_ string, indexPath string, target string) {
-	reference, err := resolveTarget(roots, target)
-	if err != nil {
-		log.Fatal().Err(err).Msg("could not resolve target")
-	}
-
+	var err error
 	var references []min.Mapping
 
-	switch type_ {
-	case "map":
-		references, err = DumpMap(roots, reference, indexPath)
-	case "model":
-		references, err = DumpModel(roots, reference)
-	case "cfg":
-		references, err = DumpCFG(roots, reference, indexPath)
-	default:
-		log.Fatal().Msgf("invalid type %s", type_)
+	if type_ == "model" {
+		references, err = DumpModel(roots, target)
+	} else {
+		reference, err := resolveTarget(roots, target)
+		if err != nil {
+			log.Fatal().Err(err).Msg("could not resolve target")
+		}
+
+		switch type_ {
+		case "map":
+			references, err = DumpMap(roots, reference, indexPath)
+		case "cfg":
+			references, err = DumpCFG(roots, reference, indexPath)
+		default:
+			log.Fatal().Msgf("invalid type %s", type_)
+		}
 	}
+
 
 	if err != nil || references == nil {
 		log.Fatal().Err(err).Msg("could not parse file")

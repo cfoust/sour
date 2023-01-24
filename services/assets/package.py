@@ -617,9 +617,9 @@ class Packager:
     def build_model(
         self,
         params: BuildParams,
-        model_file: str,
+        name: str,
     ) -> Model:
-        model_files = dump_sour("model", model_file, params.roots)
+        model_files = dump_sour("model", name, params.roots)
         bundle = self.build_bundle(
             params,
             model_files,
@@ -627,14 +627,6 @@ class Packager:
 
         if not bundle:
             raise Exception('failed to build bundle for model')
-
-        # Calculate the model name
-        if not model_file.startswith(MODEL_PREFIX):
-            raise Exception('could not find relative model path')
-
-        name = path.relpath(os.path.dirname(model_file), MODEL_PREFIX)
-        if name.endswith('/'):
-            name = name[:-1]
 
         model = Model(
             id=bundle.id,

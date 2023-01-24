@@ -124,8 +124,15 @@ if __name__ == "__main__":
         for search_path in paths:
             for type_ in MODEL_TYPES:
                 models += list(filter(lambda a: a.startswith(search_path) and a.endswith(f"{type_}.cfg"), files))
+                models += list(filter(lambda a: a.startswith(search_path) and a.endswith(f"tris.{type_}"), files))
 
-        for model in track(models, description="building models"):
+        ids: List[str] = []
+        for model in models:
+            ids.append(path.dirname(model[len("packages/models/"):]))
+
+        ids = list(set(ids))
+
+        for model in track(ids, description="building models"):
             result = p.build_model(
                 params,
                 model,
