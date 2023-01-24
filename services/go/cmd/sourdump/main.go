@@ -80,6 +80,13 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 		}
 	}
 
+	if cloudbox, ok := _map.Vars["cloudbox"]; ok {
+		value := string(cloudbox.(game.StringVariable))
+		for _, path := range processor.FindCubemap(min.NormalizeTexture(value)) {
+			addFile(path)
+		}
+	}
+
 	modelRefs := make(map[int16]int)
 	for _, entity := range _map.Entities {
 		if entity.Type != maps.ET_MAPMODEL {
@@ -335,6 +342,7 @@ func Dump(cache assets.Cache, roots []assets.Root, type_ string, indexPath strin
 		resolved, err := path.From.Resolve()
 		if err != nil {
 			log.Fatal().Err(err).Msgf("could not resolve asset %s", path.From.String())
+			return
 		}
 		fmt.Printf("%s->%s\n", resolved, path.To)
 	}
