@@ -334,8 +334,14 @@ func (p *Processor) ProcessModel(path string) ([]*Reference, error) {
 	return results, nil
 }
 
-func (processor *Processor) ResetModels() {
-	processor.Models = make([]Model, 0)
+func (processor *Processor) ResetModels(limit int) {
+	if limit > len(processor.Models) {
+		limit = len(processor.Models)
+	}
+	if limit < 0 {
+		limit = 0
+	}
+	processor.Models = processor.Models[:limit]
 }
 
 func (processor *Processor) AddModel(textures []*Reference) {

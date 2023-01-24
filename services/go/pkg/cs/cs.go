@@ -114,11 +114,12 @@ func GoCall(
 	_12 *C.char,
 ) {
 	vm.m.Lock()
-	defer vm.m.Unlock()
 	callback, ok := vm.commands[C.GoString(name)]
 	if !ok {
+		vm.m.Unlock()
 		return
 	}
+	vm.m.Unlock()
 
 	args := []string{
 		C.GoString(_1),
@@ -176,9 +177,7 @@ func GoCall(
 }
 
 func (c *VM) Run(code string) error {
-	M.Lock()
 	vm = c
 	Execute(code)
-	defer M.Unlock()
 	return nil
 }
