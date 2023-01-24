@@ -7,8 +7,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/repeale/fp-go/option"
-
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
 
@@ -120,61 +118,6 @@ func (processor *Processor) ListVSlots() {
 			}
 		} else {
 			fmt.Printf("%d: null\n", i)
-		}
-	}
-}
-
-func (processor *Processor) Texture(textureType string, name string) {
-	texture := Find(func(x string) bool {
-		return textureType == x
-	})(PARAMS)
-
-	material := Find(func(x string) bool {
-		return textureType == x
-	})(MATERIALS)
-
-	isDiffuse := texture.Value == "c" || textureType == "0"
-
-	var slot *maps.Slot
-	if isDiffuse {
-		processor.LastMaterial = nil
-	} else if processor.LastMaterial != nil {
-		slot = processor.LastMaterial
-	}
-
-	if slot == nil {
-		if opt.IsSome(material) {
-			slot = processor.Materials[material.Value]
-			processor.LastMaterial = slot
-		} else {
-			if isDiffuse {
-				processor.AddSlot()
-			}
-
-			slot = processor.Slots[len(processor.Slots)-1]
-		}
-	}
-
-	slot.Loaded = false
-
-	slot.AddSts(name)
-
-	if isDiffuse && opt.IsNone(material) {
-		vslot := processor.EmptyVSlot(slot)
-		var changed int32 = (1 << maps.VSLOT_NUM) - 1
-
-		//log.Printf("%s -> %d", name, vslot.Index)
-
-		// propagatevslot
-		next := vslot.Next
-		for next != nil {
-			diff := changed & ^next.Changed
-			if diff != 0 {
-				if (diff & (1 << maps.VSLOT_LAYER)) != 0 {
-					next.Layer = vslot.Layer
-				}
-			}
-			next = next.Next
 		}
 	}
 }

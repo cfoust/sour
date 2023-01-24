@@ -132,7 +132,6 @@ func GoCall(
 		C.GoString(_9),
 		C.GoString(_10),
 		C.GoString(_11),
-		C.GoString(_12),
 	}
 	callArgs := make([]reflect.Value, 0)
 	type_ := reflect.TypeOf(callback)
@@ -153,7 +152,7 @@ func GoCall(
 			if err != nil {
 				value = 0
 			}
-			callArgs = append(callArgs, reflect.ValueOf(value))
+			callArgs = append(callArgs, reflect.ValueOf(float32(value)))
 		}
 	}
 

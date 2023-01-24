@@ -14,6 +14,7 @@ import (
 	"github.com/repeale/fp-go/option"
 
 	"github.com/cfoust/sour/pkg/assets"
+	"github.com/cfoust/sour/pkg/cs"
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
 
@@ -300,6 +301,8 @@ type Processor struct {
 	Materials map[string]*maps.Slot
 	// File references are guaranteed to be included and do not have a slot
 	Files []*Reference
+
+	cfgVM *cs.VM
 }
 
 func NewProcessor(roots []assets.Root, slots []*maps.VSlot) *Processor {
@@ -318,6 +321,10 @@ func NewProcessor(roots []assets.Root, slots []*maps.VSlot) *Processor {
 	}
 
 	processor.Files = make([]*Reference, 0)
+
+	vm := cs.NewVM()
+	processor.cfgVM = vm
+	processor.setupVM()
 
 	return &processor
 }
@@ -401,6 +408,9 @@ func (processor *Processor) ProcessFile(ref *Reference) error {
 		return err
 	}
 
+	processor.cfgVM.Run(string(src))
+	return nil
+
 	// Before interpreting the file, we need to look for non-deterministic behavior
 	// Some .cfg files (notably single player maps) can change textures dynamically
 	dynamic := false
@@ -443,7 +453,7 @@ func (processor *Processor) ProcessFile(ref *Reference) error {
 		return processor.ProcessFile(NewReference(nil, shim))
 	}
 
-	for i, line := range strings.Split(string(src), "\n") {
+	for _, line := range strings.Split(string(src), "\n") {
 		args := ParseLine(line)
 
 		if len(args) == 0 {
@@ -452,47 +462,6 @@ func (processor *Processor) ProcessFile(ref *Reference) error {
 
 		switch args[0] {
 		case "texture":
-			if len(args) < 3 {
-				break
-			}
-
-			texture := Texture{
-				Ref:  ref,
-				Line: i,
-				Type: args[1],
-				Name: args[2],
-			}
-
-			if len(args) >= 4 {
-				value, err := strconv.Atoi(args[3])
-				if err != nil {
-					texture.Rotation = value
-				}
-			}
-
-			if len(args) >= 5 {
-				value, err := strconv.Atoi(args[4])
-				if err != nil {
-					texture.Xoffset = value
-				}
-			}
-
-			if len(args) >= 6 {
-				value, err := strconv.Atoi(args[5])
-				if err != nil {
-					texture.Yoffset = value
-				}
-			}
-
-			if len(args) >= 7 {
-				value, err := strconv.ParseFloat(args[6], 32)
-				if err == nil {
-					texture.Scale = float32(value)
-				}
-			}
-
-			processor.Textures = append(processor.Textures, texture)
-			processor.Texture(args[1], NormalizeTexture(args[2]))
 
 		case "texturereset":
 			limit := 0
@@ -712,7 +681,7 @@ func CrunchReferences(references []Mapping) []Mapping {
 	for relative, absolute := range unique {
 		result = append(result, Mapping{
 			From: absolute,
-			To: relative,
+			To:   relative,
 		})
 	}
 

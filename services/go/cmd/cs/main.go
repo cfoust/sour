@@ -20,5 +20,6 @@ func main() {
 	vm.AddCommand("mdlname", MdlName)
 	vm.Run(`
 echo (mdlname)
+echo ok
 `)
 }
