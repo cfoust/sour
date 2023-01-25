@@ -10,6 +10,7 @@ import json
 import tempfile
 import subprocess
 import hashlib
+from multiprocessing import Pool, cpu_count
 
 import package
 
@@ -170,6 +171,178 @@ def build_map(
     return map_bundle
 
 
+class BuildResult(NamedTuple):
+    assets: Set[str]
+    bundles: List[package.Bundle]
+    maps: List[package.GameMap]
+    mods: List[package.Mod]
+    failed_maps: List[str]
+
+
+def build_node(
+    params: package.BuildParams,
+    outdir: str,
+    node: Any,
+) -> Optional[BuildResult]:
+    p = package.Packager(outdir)
+    _id = node['id']
+    files = node['files']
+    failed_maps: List[str] = []
+
+    node_prefix = str(_id)
+
+    image = None
+    for i, file in enumerate(files):
+        name: str = file['name']
+        if (
+            not name or
+            (not name.endswith('.jpg') and not name.endswith('.png'))
+        ): continue
+        image_path = path.join(
+            node_prefix,
+            str(i),
+            name,
+        )
+        image = p.build_image(
+            params,
+            image_path,
+        )
+
+    description = node['content']
+
+    for i, file in enumerate(files):
+        file_name = file['name']
+        file_hash = file['hash']
+
+        file_dir = path.join(
+            node_prefix,
+            str(i),
+        )
+        file_root = f"{quad_root}@{file_dir}"
+
+        contents = package.get_root_files(
+            [file_root]
+        )
+
+        file_params = params._replace(
+            roots=roots + [file_root],
+        )
+
+        file_params_no_skip = file_params._replace(
+            skip_root=""
+        )
+
+        maps, mods = get_jobs(
+            File(
+                url=file['url'],
+                hash=file_hash,
+                name=file_name,
+                contents=contents,
+            )
+        )
+
+        # Node 4405 included a map _and_ a mod, and we still want both.
+        if maps and mods and _id != 4405:
+            mods = []
+
+        # We don't need to do any extraction
+        if not file['contents']:
+            if mods:
+                mod = mods[0]
+                mod_file = path.basename(file_name)
+                resolved = package.query_files(
+                    file_params.roots,
+                    [mod_file]
+                )
+                mapping = resolved[0]
+                if mapping[0] == "nil":
+                    continue
+                p.build_mod(
+                    file_params_no_skip,
+                    resolved,
+                    f"quad-{_id}",
+                    description,
+                    image=image,
+                )
+                continue
+
+            if not maps:
+                continue
+
+            # The file itself is a map
+            map_name, _ = path.splitext(path.basename(file_name))
+
+            try:
+                build_map(
+                    p,
+                    file_params,
+                    path.basename(file_name),
+                    map_name,
+                    description,
+                    image,
+                )
+            except Exception as e:
+                failed_maps.append(file_dir + map_name)
+                print(f"failed to build map id={_id} map={file_name} err={str(e)}")
+                break
+
+            continue
+
+        for i, mod in enumerate(mods):
+            mod_files = list(filter(lambda a: a.startswith(mod.root), contents))
+
+            if not mod_files:
+                continue
+
+            resolved = package.query_files(
+                file_params.roots,
+                mod_files
+            )
+
+            name = f"quad-{_id}"
+            if len(mods) > 1:
+                name += f"-{i}"
+
+            p.build_mod(
+                file_params_no_skip,
+                resolved,
+                name,
+                description,
+                image=image,
+            )
+
+        for job in maps:
+            map_path = job.map_path
+
+            # The file itself is a map, we handled this above
+            if not map_path:
+                continue
+
+            map_roots = list(map(lambda v: path.join(file_root, v), job.roots)) + roots
+            name, _ = path.splitext(path.basename(map_path))
+            try:
+                build_map(
+                    p,
+                    file_params,
+                    map_path,
+                    name,
+                    description,
+                    image,
+                )
+            except Exception as e:
+                failed_maps.append(file_dir + map_path)
+                print(f"failed to build map id={_id} map={map_path} err={str(e)}")
+                break
+
+    return BuildResult(
+        assets=p.assets,
+        bundles=p.bundles,
+        maps=p.maps,
+        mods=p.mods,
+        failed_maps=failed_maps,
+    )
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate assets from Quadropolis.')
     parser.add_argument('--dry', action="store_true", help="Don't build anything, just print what would be built.")
@@ -211,172 +384,26 @@ if __name__ == "__main__":
     node_targets = list(map(int, node_targets))
     nodes = list(filter(lambda node: node['id'] in node_targets if node_targets else True, nodes))
 
-    num_mods = 0
-    num_maps = 0
+    def _build_node(node: Any) -> Optional[BuildResult]:
+        return build_node(params, outdir, node)
 
-    for node in track(nodes, "building nodes"):
-        _id = node['id']
-        files = node['files']
-
-        node_prefix = str(_id)
-
-        image = None
-        for i, file in enumerate(files):
-            name: str = file['name']
-            if (
-                not name or
-                (not name.endswith('.jpg') and not name.endswith('.png'))
-            ): continue
-            image_path = path.join(
-                node_prefix,
-                str(i),
-                name,
-            )
-            image = p.build_image(
-                params,
-                image_path,
-            )
-
-        description = node['content']
-
-        for i, file in enumerate(files):
-            file_name = file['name']
-            file_hash = file['hash']
-
-            file_dir = path.join(
-                node_prefix,
-                str(i),
-            )
-            file_root = f"{quad_root}@{file_dir}"
-
-            contents = package.get_root_files(
-                [file_root]
-            )
-
-            file_params = params._replace(
-                roots=roots + [file_root],
-            )
-
-            file_params_no_skip = file_params._replace(
-                skip_root=""
-            )
-
-            maps, mods = get_jobs(
-                File(
-                    url=file['url'],
-                    hash=file_hash,
-                    name=file_name,
-                    contents=contents,
-                )
-            )
-
-            # Node 4405 included a map _and_ a mod, and we still want both.
-            if maps and mods and _id != 4405:
-                mods = []
-
-            # We don't need to do any extraction
-            if not file['contents']:
-                if args.dry:
-                    continue
-
-                if mods:
-                    mod = mods[0]
-                    mod_file = path.basename(file_name)
-                    resolved = package.query_files(
-                        file_params.roots,
-                        [mod_file]
-                    )
-                    mapping = resolved[0]
-                    if mapping[0] == "nil":
-                        continue
-                    p.build_mod(
-                        file_params_no_skip,
-                        resolved,
-                        f"quad-{_id}",
-                        description,
-                        image=image,
-                    )
-                    num_mods += 1
-                    continue
-
-                if not maps:
-                    continue
-
-                # The file itself is a map
-                map_name, _ = path.splitext(path.basename(file_name))
-
-                try:
-                    build_map(
-                        p,
-                        file_params,
-                        path.basename(file_name),
-                        map_name,
-                        description,
-                        image,
-                    )
-                except Exception as e:
-                    failures.write(f"{file_dir + map_name}\n")
-                    print(f"failed to build map id={_id} map={file_name} err={str(e)}")
-                    break
-
+    with Pool(cpu_count()) as pool:
+        for result in track(pool.imap_unordered(
+            _build_node,
+            nodes,
+        ), "building nodes", total=len(nodes)):
+            if not result:
                 continue
+            p.assets = p.assets | result.assets
+            p.mods += result.mods
+            p.maps += result.maps
+            p.bundles += result.bundles
 
-            if args.dry:
-                num_maps += len(maps)
-                num_mods += len(mods)
-                continue
+            for map_ in result.failed_maps:
+                failures.write(map_ + "\n")
 
-            for i, mod in enumerate(mods):
-                mod_files = list(filter(lambda a: a.startswith(mod.root), contents))
-
-                if not mod_files:
-                    continue
-
-                resolved = package.query_files(
-                    file_params.roots,
-                    mod_files
-                )
-
-                name = f"quad-{_id}"
-                if len(mods) > 1:
-                    name += f"-{i}"
-
-                p.build_mod(
-                    file_params_no_skip,
-                    resolved,
-                    name,
-                    description,
-                    image=image,
-                )
-                num_mods += 1
-
-            for job in maps:
-                map_path = job.map_path
-
-                num_maps += 1
-
-                # The file itself is a map, we handled this above
-                if not map_path:
-                    continue
-
-                if args.dry:
-                    continue
-
-                map_roots = list(map(lambda v: path.join(file_root, v), job.roots)) + roots
-                name, _ = path.splitext(path.basename(map_path))
-                try:
-                    build_map(
-                        p,
-                        file_params,
-                        map_path,
-                        name,
-                        description,
-                        image,
-                    )
-                except Exception as e:
-                    failures.write(f"{file_dir + map_path}\n")
-                    print(f"failed to build map id={_id} map={map_path} err={str(e)}")
-                    break
+    num_mods = len(p.mods)
+    num_maps = len(p.maps)
 
     failures.close()
     print(f"built {num_mods} mods and {num_maps} maps")

@@ -13,6 +13,7 @@ fi
 ./setup
 python3 base.py \
   --root https://static.sourga.me/blobs/6481/.index.source \
+  --download \
   --models \
   --player-models \
   complex dust2 turbine
