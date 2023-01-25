@@ -5,14 +5,6 @@
 #include "texture.h"
 #include "state.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-extern void Ref(int ref);
-#ifdef __cplusplus
-}
-#endif
-
 #define MAXTRANS 5000                  // max amount of data to swallow in 1 go
 
 static void fixent(entity &e, int version)
@@ -1224,24 +1216,22 @@ bool load_texture_index(void *data, size_t len, MapState *state)
     return true;
 }
 
-void cuberefs(cube *c)
+void cuberefs(cube &c, int *result, int numSlots)
 {
-    loopi(8)
-    {
-        if(c[i].children)
+    if (!c.children)
+        loopi(6)
         {
-            cuberefs(c[i].children);
-            continue;
+            int t = c.texture[i];
+            result[t]++;
         }
-
-        for (int i = 0; i < 6; i++) {
-            Ref(c->texture[i]);
-        }
-    }
+    else
+        loopi(8) cuberefs(c.children[i], result, numSlots);
 }
 
-void getrefs(MapState *state) {
-    cuberefs(state->root);
+void getrefs(MapState *state, void *result, int numSlots)
+{
+    int *vals = (int*) result;
+    loopi(8) cuberefs(state->root[i], vals, numSlots);
 }
 
 int dbgvars = 0;

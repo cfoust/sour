@@ -42,7 +42,7 @@ void free_edit(editinfo *info);
 int getnumvslots(MapState *state);
 VSlot *getvslotindex(MapState *state, int i);
 
-void getrefs(MapState *state);
+void getrefs(MapState *state, void *result, int numSlots);
 
 cube *getcubeindex(cube *c, int i);
 void cube_setedge(cube *c, int i, uchar value);

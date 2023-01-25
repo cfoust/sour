@@ -35,12 +35,12 @@ func CountChildTextures(cubes []*maps.Cube, target map[int32]int) {
 func GetChildTextures(state worldio.MapState, vslots []*maps.VSlot) map[int32]int {
 	vSlotRefs := make(map[int32]int)
 
-	refs := worldio.CountRefs(state)
-	for _, ref := range refs {
-		if ref >= len(vslots) {
+	refs := worldio.CountRefs(state, len(vslots))
+	for id, count := range refs {
+		if count == 0 {
 			continue
 		}
-		vSlotRefs[int32(ref)] = vSlotRefs[int32(ref)] + 1
+		vSlotRefs[int32(id)] = vSlotRefs[int32(id)] + int(count)
 	}
 
 	// Each VSlot can refer to two Slots:
