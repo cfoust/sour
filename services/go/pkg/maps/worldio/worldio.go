@@ -21,7 +21,7 @@ func CountRefs(state MapState, numSlots int) []int32 {
 	for i := 0; i < numSlots; i++ {
 		value, ok := buffer.GetInt()
 		if !ok {
-			return nil
+			return result
 		}
 		result = append(result, value)
 	}

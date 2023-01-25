@@ -1222,6 +1222,9 @@ void cuberefs(cube &c, int *result, int numSlots)
         loopi(6)
         {
             int t = c.texture[i];
+            if (t >= numSlots) {
+                continue;
+            }
             result[t]++;
         }
     else
