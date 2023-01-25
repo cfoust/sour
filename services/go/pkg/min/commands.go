@@ -87,18 +87,7 @@ func (p *Processor) Texture(type_ string, name string, rot int, xOffset int, yOf
 }
 
 func (p *Processor) MModel(name string) {
-	modelFile := name
-	err := p.ProcessModel(modelFile)
-
-	if err != nil {
-		log.Printf("Failed to process model %s", name)
-		p.AddModel(make([]*Reference, 0))
-		return
-	}
-
-	if p.ModelFiles != nil {
-		p.AddModel(p.ModelFiles)
-	}
+	p.AddModel(name)
 }
 
 func (p *Processor) MapModelCompat(rad int, h int, tex int, name string, shadow string) {

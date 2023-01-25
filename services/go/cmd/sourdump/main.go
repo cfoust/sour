@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
@@ -142,13 +143,20 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 
 	for i, model := range processor.Models {
 		if _, ok := modelRefs[int16(i)]; ok {
-			for _, path := range model.Paths {
+			name := model.Name
+			err := processor.ProcessModel(name)
+			if err != nil {
+				log.Fatal().Err(err).Msgf("Failed to process model %s", name)
+				continue
+			}
+
+			for _, path := range processor.ModelFiles {
 				addFile(path)
 			}
 		}
 	}
 
-	textureRefs := min.GetChildTextures(_map.WorldRoot.Children, processor.VSlots)
+	textureRefs := min.GetChildTextures(_map.C, processor.VSlots)
 
 	for i, slot := range processor.Slots {
 		if _, ok := textureRefs[int32(i)]; ok {
@@ -241,7 +249,14 @@ func DumpCFG(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 	}
 
 	for _, model := range processor.Models {
-		for _, path := range model.Paths {
+		name := model.Name
+		err := processor.ProcessModel(name)
+		if err != nil {
+			log.Fatal().Err(err).Msgf("Failed to process model %s", name)
+			continue
+		}
+
+		for _, path := range processor.ModelFiles {
 			addFile(path)
 		}
 	}
@@ -322,7 +337,6 @@ func Dump(cache assets.Cache, roots []assets.Root, type_ string, indexPath strin
 			log.Fatal().Msgf("invalid type %s", type_)
 		}
 	}
-
 
 	if err != nil || references == nil {
 		log.Fatal().Err(err).Msg("could not parse file")
@@ -426,6 +440,7 @@ func main() {
 	var roots min.RootFlags
 
 	flag.Var(&roots, "root", "Specify a source for assets. Roots are searched in order of appearance.")
+	cpuProfile := flag.String("cpu", "", "Write cpu profile to `file`.")
 	cacheDir := flag.String("cache", "cache/", "The directory in which to cache assets from remote sources.")
 
 	dumpCmd := flag.NewFlagSet("dump", flag.ExitOnError)
@@ -439,6 +454,18 @@ func main() {
 	listCmd := flag.NewFlagSet("list", flag.ExitOnError)
 	queryCmd := flag.NewFlagSet("query", flag.ExitOnError)
 	hashCmd := flag.NewFlagSet("hash", flag.ExitOnError)
+
+	if *cpuProfile != "" {
+		f, err := os.Create(*cpuProfile)
+		if err != nil {
+			log.Fatal().Err(err).Msg("could not create CPU profile")
+		}
+		defer f.Close() // error handling omitted for example
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal().Err(err).Msg("could not start CPU profile")
+		}
+		defer pprof.StopCPUProfile()
+	}
 
 	args := flag.Args()
 

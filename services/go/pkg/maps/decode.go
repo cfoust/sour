@@ -60,21 +60,6 @@ func MapToGo(parent worldio.Cube) *Cube {
 	return &cube
 }
 
-func LoadChildren(p *game.Buffer, size int32, mapVersion int32) (*Cube, error) {
-	root := worldio.Loadchildren_buf(
-		uintptr(unsafe.Pointer(&(*p)[0])),
-		int64(len(*p)),
-		int(size),
-		int(mapVersion),
-	)
-	if root.Swigcptr() == 0 {
-		return nil, fmt.Errorf("failed to load cubes")
-	}
-	cube := MapToGo(root)
-	worldio.Freeocta(root)
-	return cube, nil
-}
-
 func VSlotsToGo(state worldio.MapState) []*VSlot {
 	vslots := make([]*VSlot, 0)
 
@@ -281,7 +266,8 @@ func decode(data []byte, skipCubes bool) (*GameMap, error) {
 	}
 
 	gameMap.VSlots = VSlotsToGo(state)
-	gameMap.WorldRoot = MapToGo(state.GetRoot())
+	// TODO wow, guess we don't need this anymore
+	//gameMap.WorldRoot = MapToGo(state.GetRoot())
 	gameMap.C = state
 
 	return &gameMap, nil

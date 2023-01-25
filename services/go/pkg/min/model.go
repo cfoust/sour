@@ -181,8 +181,8 @@ func (processor *Processor) ResetModels(limit int) {
 	processor.Models = processor.Models[:limit]
 }
 
-func (processor *Processor) AddModel(textures []*Reference) {
-	model := Model{}
-	model.Paths = textures
-	processor.Models = append(processor.Models, model)
+func (processor *Processor) AddModel(name string) {
+	processor.Models = append(processor.Models, Model{
+		Name: name,
+	})
 }

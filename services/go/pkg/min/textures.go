@@ -9,6 +9,7 @@ import (
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
+	"github.com/cfoust/sour/pkg/maps/worldio"
 
 	"github.com/rs/zerolog/log"
 )
@@ -31,9 +32,16 @@ func CountChildTextures(cubes []*maps.Cube, target map[int32]int) {
 	}
 }
 
-func GetChildTextures(cubes []*maps.Cube, vslots []*maps.VSlot) map[int32]int {
+func GetChildTextures(state worldio.MapState, vslots []*maps.VSlot) map[int32]int {
 	vSlotRefs := make(map[int32]int)
-	CountChildTextures(cubes, vSlotRefs)
+
+	refs := worldio.CountRefs(state)
+	for _, ref := range refs {
+		if ref >= len(vslots) {
+			continue
+		}
+		vSlotRefs[int32(ref)] = vSlotRefs[int32(ref)] + 1
+	}
 
 	// Each VSlot can refer to two Slots:
 	// * VSlot.Slot

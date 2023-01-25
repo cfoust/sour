@@ -177,7 +177,7 @@ var (
 )
 
 type Model struct {
-	Paths []*Reference
+	Name string
 }
 
 const (
