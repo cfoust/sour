@@ -204,6 +204,8 @@ if __name__ == "__main__":
 
     nodes = json.loads(open('nodes.json', 'r').read())
 
+    failures = open('failures.txt', 'w', buffering=1)
+
     nodes = reversed(nodes)
 
     node_targets = list(map(int, node_targets))
@@ -313,6 +315,7 @@ if __name__ == "__main__":
                         image,
                     )
                 except Exception as e:
+                    failures.write(f"{file_dir + map_name}\n")
                     print(f"failed to build map id={_id} map={file_name} err={str(e)}")
                     break
 
@@ -360,20 +363,21 @@ if __name__ == "__main__":
                     continue
 
                 map_roots = list(map(lambda v: path.join(file_root, v), job.roots)) + roots
-                target_map = path.join(file_root, map_path)
                 name, _ = path.splitext(path.basename(map_path))
                 try:
                     build_map(
                         p,
                         file_params,
-                        target_map,
+                        map_path,
                         name,
                         description,
                         image,
                     )
                 except Exception as e:
+                    failures.write(f"{file_dir + map_path}\n")
                     print(f"failed to build map id={_id} map={map_path} err={str(e)}")
                     break
 
+    failures.close()
     print(f"built {num_mods} mods and {num_maps} maps")
     p.dump_index(args.prefix)
