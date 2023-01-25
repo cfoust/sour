@@ -81,11 +81,16 @@ func (p *Processor) ProcessModel(path string) error {
 		p.ModelFiles = append(p.ModelFiles, resolved)
 	}
 
+	p.modelName = path
+	if strings.HasPrefix(p.modelName, "/") {
+		p.modelName = p.modelName[1:]
+	}
+	p.modelDir = p.modelName
+
 	_type := Find(func(x string) bool {
 		// First look for the cfg
 		cfg := fmt.Sprintf(
-			"%s/%s.cfg",
-			modelDir,
+			"%s.cfg",
 			x,
 		)
 
@@ -97,8 +102,7 @@ func (p *Processor) ProcessModel(path string) error {
 
 		// Then tris, since that is also there
 		tris := fmt.Sprintf(
-			"%s/tris.%s",
-			modelDir,
+			"tris.%s",
 			x,
 		)
 
@@ -138,8 +142,7 @@ func (p *Processor) ProcessModel(path string) error {
 	}
 
 	cfgPath := fmt.Sprintf(
-		"%s/%s.cfg",
-		modelDir,
+		"%s.cfg",
 		modelType,
 	)
 
@@ -153,10 +156,6 @@ func (p *Processor) ProcessModel(path string) error {
 		return nil
 	}
 
-	p.modelName = path
-	if strings.HasPrefix(p.modelName, "/") {
-		p.modelName = p.modelName[1:]
-	}
 	cfgFiles, err := p.ProcessModelFile(modelDir, modelType, resolved)
 	if err != nil {
 		return nil

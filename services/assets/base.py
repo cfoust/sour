@@ -131,6 +131,23 @@ if __name__ == "__main__":
             ids.append(path.dirname(model[len("packages/models/"):]))
 
         ids = list(set(ids))
+        # These should always be included
+        ids += [
+            "ammo/bullets",
+            "ammo/cartridges",
+            "ammo/grenades",
+            "ammo/rockets",
+            "ammo/rrounds",
+            "ammo/shells",
+            "armor/green",
+            "armor/yellow",
+            "boost",
+            "carrot",
+            "checkpoint",
+            "health",
+            "quad",
+            "teleporter",
+        ]
 
         for model in track(ids, description="building models"):
             result = p.build_model(

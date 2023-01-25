@@ -299,6 +299,7 @@ type Processor struct {
 	// The reference to the file we're currently processing
 	current         *Reference
 	modelName       string
+	modelDir        string
 	processingModel bool
 	ModelFiles      []*Reference
 
@@ -370,6 +371,40 @@ func (processor *Processor) SearchFile(path string) *Reference {
 			if pwdRef.Exists() {
 				return pwdRef
 			}
+		}
+
+		// Finally, look in the current modelDir and its parent Models
+		// do not always have a "current" file so the above search will
+		// not catch these
+		modelDir := filepath.Join(
+			"packages",
+			"models",
+			processor.modelDir,
+		)
+
+		modelRef := NewReference(
+			root,
+			filepath.Join(
+				modelDir,
+				path,
+			),
+		)
+
+		if modelRef.Exists() {
+			return modelRef
+		}
+
+		modelRef = NewReference(
+			root,
+			filepath.Clean(filepath.Join(
+				modelDir,
+				"..",
+				path,
+			)),
+		)
+
+		if modelRef.Exists() {
+			return modelRef
 		}
 	}
 

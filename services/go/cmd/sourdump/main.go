@@ -345,6 +345,7 @@ func Dump(cache assets.Cache, roots []assets.Root, type_ string, indexPath strin
 	references = min.CrunchReferences(references)
 
 	for _, path := range references {
+		// TODO segfault?
 		resolved, err := path.From.Resolve()
 		if err != nil {
 			log.Fatal().Err(err).Msgf("could not resolve asset %s", path.From.String())

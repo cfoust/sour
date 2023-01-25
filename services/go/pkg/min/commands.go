@@ -260,7 +260,6 @@ var EMPTY_MODEL_COMMANDS = []string{
 	"ambient",
 	"animpart",
 	"cullface",
-	"dir",
 	"envmap",
 	"fullbright",
 	"glare",
@@ -331,6 +330,10 @@ func (p *Processor) SkelSetAnim(anim string, animFile string) {
 	p.AddModelFile(animFile)
 }
 
+func (p *Processor) SetModelDir(name string) {
+	p.modelDir = name
+}
+
 var (
 	SKEL_MODEL_TYPES = []string{"md5", "iqm", "smd"}
 	VERT_MODEL_TYPES = []string{"md3", "md2", "obj"}
@@ -388,6 +391,7 @@ func (p *Processor) setupVM() {
 	for _, type_ := range MODELTYPES {
 		addModelCommand(type_, "skin", p.SetSkin)
 		addModelCommand(type_, "bumpmap", p.SetBumpMap)
+		addModelCommand(type_, "dir", p.SetModelDir)
 
 		for _, command := range EMPTY_MODEL_COMMANDS {
 			addModelCommand(type_, command, p.DoNothing)
