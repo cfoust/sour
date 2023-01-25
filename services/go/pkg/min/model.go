@@ -116,7 +116,7 @@ func (p *Processor) ProcessModel(path string) error {
 	})(MODELTYPES)
 
 	if opt.IsNone(_type) {
-		return errors.New(fmt.Sprintf("Failed to infer type for model %s", path))
+		return errors.New(fmt.Sprintf("Failed to infer type for model '%s'", path))
 	}
 
 	modelType := _type.Value

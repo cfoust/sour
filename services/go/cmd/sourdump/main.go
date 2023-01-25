@@ -144,6 +144,9 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 	for i, model := range processor.Models {
 		if _, ok := modelRefs[int16(i)]; ok {
 			name := model.Name
+			if name == "" {
+				continue
+			}
 			err := processor.ProcessModel(name)
 			if err != nil {
 				log.Fatal().Err(err).Msgf("Failed to process model %s", name)
