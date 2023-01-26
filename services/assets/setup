@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+cd "$SCRIPT_DIR"
+
 set -e
+
+mkdir -p cache
+
+if ! pip3 list | grep "cbor2" > /dev/null 2>&1; then
+  pip3 install -r requirements.txt
+fi
 
 if ! [ -f "sourdump" ]; then
   cd ../go
