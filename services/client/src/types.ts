@@ -28,8 +28,9 @@ export type DownloadState = {
 
 export type DownloadingState = {
   type: GameStateType.Downloading
-  downloadType: DownloadingType
-} & DownloadState
+  text: string
+  progress: number
+}
 
 export type MapChangeState = {
   type: GameStateType.MapChange

@@ -341,6 +341,9 @@ function getProgress(state: LoadState): number {
     case LoadStateType.Downloading:
       if (state.type === LoadStateType.Downloading) {
         const { downloadedBytes, totalBytes } = state
+        if (totalBytes === 0) {
+          return 0
+        }
         return downloadedBytes / totalBytes
       }
   }
@@ -348,10 +351,13 @@ function getProgress(state: LoadState): number {
   return 0
 }
 
-function renderDownloadProgress(
+function getLoadProgress(
   downloadType: DownloadingType,
   state: StateResponse
-) {
+): {
+  message: string
+  progress: number
+} {
   const { individual } = state
   const total = individual.length
   const factor = 1 / total
@@ -368,12 +374,12 @@ function renderDownloadProgress(
     individual
   ).length
 
-  BananaBread.renderprogress(
-    progress,
-    `loading ${DownloadingType[
+  return {
+    message: `Loading ${DownloadingType[
       downloadType
-    ].toLowerCase()} data.. (${done}/${total})`
-  )
+    ].toLowerCase()} data.. (${done}/${total})`,
+    progress,
+  }
 }
 
 export default function useAssets(
@@ -470,21 +476,23 @@ export default function useAssets(
 
         // Show progress if maps or mods are downloading
         if (
-          (type === LoadRequestType.Map ||
-            type === LoadRequestType.Mod ||
-            type == null) &&
-          overall.type === LoadStateType.Downloading
+          type === LoadRequestType.Map ||
+          type === LoadRequestType.Mod ||
+          type == null
         ) {
-          const { downloadedBytes, totalBytes } = overall
+          const { message: text, progress } = getLoadProgress(
+            downloadType,
+            message
+          )
+
           if (!Module.running) {
             setState({
               type: GameStateType.Downloading,
-              downloadType,
-              downloadedBytes,
-              totalBytes,
+              progress,
+              text,
             })
           } else {
-            renderDownloadProgress(downloadType, message)
+            BananaBread.renderprogress(progress, text.toLowerCase())
           }
         }
       } else if (message.op === AssetResponseType.Data) {
@@ -729,7 +737,7 @@ export default function useAssets(
           try {
             const layer = await loadAsset(LoadRequestType.Model, name)
             if (layer == null) {
-                console.error(`model ${name} was null`)
+              console.error(`model ${name} was null`)
             }
           } catch (e) {
             console.error(`model ${name} not found anywhere`)

@@ -11,20 +11,20 @@ type Props = {
 
 function Downloading(props: { state: DownloadingState }) {
   const {
-    state: { downloadedBytes, totalBytes, downloadType },
+    state: { text, progress },
   } = props
 
   return (
     <VStack>
       <Heading>
-        Loading {DownloadingType[downloadType].toLowerCase()} data...
+        {text}
       </Heading>
       <Progress
         colorScheme="yellow"
         hasStripe
         isAnimated
         width={200}
-        value={(downloadedBytes / totalBytes) * 100}
+        value={progress * 100}
       />
     </VStack>
   )
