@@ -67,7 +67,6 @@ func NewRemoteRoot(
 	url string,
 	base string,
 	shouldCache bool,
-	onlyMaps bool,
 ) (*RemoteRoot, error) {
 	urlHash := fmt.Sprintf("%x", sha256.Sum256([]byte(url)))
 
@@ -105,34 +104,20 @@ func NewRemoteRoot(
 	idLookup := make(map[int]string)
 	fs := make(map[string]int)
 
-	if onlyMaps {
-		for _, _map := range index.Maps {
-			assets[_map.Ogz] = struct{}{}
+	for i, asset := range index.Assets {
+		assets[asset] = struct{}{}
+		idLookup[i] = asset
+	}
 
-			for _, asset := range _map.Assets {
-				if !strings.HasSuffix(asset.Path, ".cfg") {
-					continue
-				}
-				assets[asset.Id] = struct{}{}
+	for _, ref := range index.Refs {
+		path := ref.Path
+		if base != "" {
+			if !strings.HasPrefix(path, base) {
+				continue
 			}
+			path = path[len(base):]
 		}
-	} else {
-		for i, asset := range index.Assets {
-			assets[asset] = struct{}{}
-			idLookup[i] = asset
-		}
-
-		for _, ref := range index.Refs {
-			path := ref.Path
-			if base != "" {
-				if !strings.HasPrefix(path, base) {
-					continue
-				}
-				path = path[len(base):]
-			}
-			fs[path] = ref.Id
-		}
-
+		fs[path] = ref.Id
 	}
 
 	maps := make([]SlimMap, len(index.Maps))
@@ -256,12 +241,42 @@ func LoadRoots(cache Cache, targets []string, onlyMaps bool) ([]Root, error) {
 			target,
 			base,
 			shouldCache,
-			onlyMaps,
 		)
 		if err != nil {
 			return nil, err
 		}
 		roots = append(roots, root)
+	}
+
+	if onlyMaps {
+		// First pass: note all of the assets used by maps
+		mapAssets := make(map[string]struct{})
+		for _, root := range roots {
+			remote, ok := root.(*RemoteRoot)
+			if !ok {
+				continue
+			}
+			for _, _map := range remote.maps {
+				mapAssets[_map.Ogz] = struct{}{}
+			}
+		}
+
+		// Second pass: clear out assets not used by maps
+		for _, root := range roots {
+			remote, ok := root.(*RemoteRoot)
+			if !ok {
+				continue
+			}
+			newAssets := make(map[string]struct{})
+			for asset := range remote.assets {
+				if _, ok := mapAssets[asset]; ok {
+					newAssets[asset] = struct{}{}
+				}
+			}
+			remote.assets = newAssets
+			remote.idLookup = make(map[int]string)
+			remote.FS = make(map[string]int)
+		}
 	}
 
 	return roots, nil
