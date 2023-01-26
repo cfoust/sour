@@ -49,7 +49,6 @@ func (c *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) er
 
 	logger := user.Logger()
 	answer := msg.Contents().(*game.AuthAns)
-	logger.Info().Msgf("%+v", answer)
 
 	if answer.Description != c.authDomain {
 		return fmt.Errorf("user provided key for invalid authdomain")

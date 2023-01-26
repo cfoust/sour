@@ -226,77 +226,10 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
-			logger := user.Logger()
-
-			parseData := packet.Packet.Data
-			messages, err := game.Read(parseData, false)
-			if err != nil {
-				logger.Debug().
-					Err(err).
-					Msg("cluster -> client (failed to decode message)")
-
-				// Forward it anyway
-				user.Send(game.GamePacket{
-					Channel: uint8(packet.Packet.Channel),
-					Data:    packet.Packet.Data,
-				})
-				continue
-			}
-
-			channel := uint8(packet.Packet.Channel)
-
-			// Sometimes clients are expecting messages to follow
-			// each other directly; this is one of those cases
-			// (arbitrary message passing between clients) and took
-			// me too many hours of debugging
-			if len(messages) > 0 && messages[0].Type() == game.N_CLIENT {
-				logger.Debug().
-					Str("type", game.N_CLIENT.String()).
-					Msgf("cluster -> client (%d messages)", len(messages)-1)
-
-				user.Send(game.GamePacket{
-					Channel: channel,
-					Data:    packet.Packet.Data,
-				})
-				continue
-			}
-
-			// As opposed to client -> server, we don't actually need to do any filtering
-			// so we won't repackage the messages individually
-			for _, message := range messages {
-				logger.Debug().
-					Str("type", message.Type().String()).
-					Msg("cluster -> client")
-
-				// Inject the auth domain to N_SERVINFO so the
-				// client sends us N_CONNECT with their name
-				// field filled
-				if message.Type() == game.N_SERVINFO {
-					info := message.Contents().(*game.ServerInfo)
-					info.Domain = server.authDomain
-					p := game.Packet{}
-					p.PutInt(int32(game.N_SERVINFO))
-					p.Put(*info)
-					user.Send(game.GamePacket{
-						Channel: channel,
-						Data:    p,
-					})
-					continue
-				}
-
-				if message.Type() == game.N_SPAWNSTATE {
-					state := message.Contents().(*game.SpawnState)
-					user.Mutex.Lock()
-					user.LifeSequence = state.LifeSequence
-					user.Mutex.Unlock()
-				}
-
-				user.Send(game.GamePacket{
-					Channel: channel,
-					Data:    message.Data(),
-				})
-			}
-
+			user.Send(game.GamePacket{
+				Channel: uint8(packet.Packet.Channel),
+				Data:    packet.Packet.Data,
+			})
 		case <-ctx.Done():
 			return
 		}

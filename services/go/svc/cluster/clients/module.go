@@ -28,6 +28,11 @@ const (
 	ClientStatusDisconnected
 )
 
+type TrackedPacket struct {
+	Packet game.GamePacket
+	Done   chan bool
+}
+
 type Intercept struct {
 	From chan game.GamePacket
 	To   chan game.GamePacket
@@ -57,6 +62,8 @@ type Client struct {
 
 	Intercept Intercept
 
+	to chan TrackedPacket
+
 	Mutex deadlock.RWMutex
 }
 
@@ -71,6 +78,10 @@ func (c *Client) ReceiveAuthentication() <-chan *auth.AuthUser {
 	}
 
 	return c.Authentication
+}
+
+func (c *Client) ReceiveIntercept() (<-chan game.GamePacket, <-chan game.GamePacket) {
+	return c.Intercept.To, c.Intercept.From
 }
 
 func (c *Client) GetStatus() ClientStatus {
@@ -127,12 +138,16 @@ func (c *Client) sendMessage(message string) {
 }
 
 func (c *Client) Send(packet game.GamePacket) <-chan bool {
-	c.Intercept.To <- packet
-	return c.Connection.Send(packet)
+	out := make(chan bool, 1)
+	c.to <- TrackedPacket{
+		Packet: packet,
+		Done:   out,
+	}
+	return out
 }
 
-func (c *Client) ReceiveIntercept() (<-chan game.GamePacket, <-chan game.GamePacket) {
-	return c.Intercept.To, c.Intercept.From
+func (c *Client) ReceiveToMessages() <-chan TrackedPacket {
+	return c.to
 }
 
 func (c *Client) SendMessage(message string) {
@@ -199,6 +214,7 @@ func (c *ClientManager) AddClient(networkClient ingress.Connection) error {
 		delayMessages:  false,
 		messageQueue:   make([]string, 0),
 		Authentication: make(chan *auth.AuthUser, 1),
+		to:             make(chan TrackedPacket, 1000),
 		Intercept: Intercept{
 			To:   make(chan game.GamePacket, 1000),
 			From: make(chan game.GamePacket, 1000),
