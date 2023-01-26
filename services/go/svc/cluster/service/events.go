@@ -166,53 +166,6 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *User, mess
 //server.MapSender.SendMap(ctx, client, mapName)
 //}
 
-func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
-	server := user.GetServer()
-
-	instance := c.spaces.FindInstance(server)
-
-	if instance != nil && instance.Editing != nil {
-		e := instance.Editing
-		err := e.Checkpoint(ctx)
-		if err != nil {
-			return err
-		}
-
-		data, err := e.Map.LoadMapData(ctx)
-		if err != nil {
-			return err
-		}
-
-		p := game.Packet{}
-		p.Put(game.N_SENDMAP)
-		p = append(p, data...)
-
-		user.Send(game.GamePacket{
-			Channel: 2,
-			Data:    p,
-		})
-
-		return nil
-	}
-
-	data, err := c.assets.FetchMapBytes(ctx, name)
-	if err != nil {
-		return err
-	}
-
-	p := game.Packet{}
-	p.Put(game.N_SENDMAP)
-	p = append(p, data...)
-	user.Send(game.GamePacket{
-		Channel: 2,
-		Data:    p,
-	})
-
-	log.Info().Msgf("Sent map %s (%d) to client", name, len(data))
-
-	return nil
-}
-
 func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int) {
 	logger := user.Logger()
 
@@ -376,7 +329,12 @@ func (c *Cluster) PollMessages(ctx context.Context, user *User) {
 			msg.Replace(p)
 
 			if description == c.authDomain && user.GetAuth() == nil {
-				c.DoAuthChallenge(ctx, user, name)
+				go func() {
+					err := c.DoAuthChallenge(ctx, user, name)
+					if err != nil {
+						logger.Warn().Err(err).Msgf("failed to log in")
+					}
+				}()
 			}
 			continue
 		case msg := <-blockConnecting.Receive():
@@ -540,20 +498,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 
 				if data == nil {
 					continue
-				}
-
-				if message.Type() == game.N_AUTHANS {
-					answerMessage := message.Contents().(*game.AuthAns)
-
-					if answerMessage.Description == c.authDomain && user.Challenge != nil {
-						c.HandleChallengeAnswer(
-							ctx,
-							user,
-							user.Challenge,
-							answerMessage.Answer,
-						)
-						continue
-					}
 				}
 
 				server := user.GetServer()

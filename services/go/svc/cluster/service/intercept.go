@@ -145,6 +145,11 @@ func (m *MessageProxy) getNext(ctx context.Context, shouldSwallow bool, codes ..
 	}
 }
 
+type nextResult struct {
+	Message game.Message
+	Err     error
+}
+
 func (m *MessageProxy) getNextTimeout(
 	ctx context.Context,
 	shouldSwallow bool,
@@ -154,10 +159,20 @@ func (m *MessageProxy) getNextTimeout(
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	out := make(chan struct {
-		Message game.Message
-		Err     error
-	})
+	out := make(chan nextResult)
+
+	go func() {
+		msg, err := m.getNext(
+			ctx,
+			shouldSwallow,
+			codes...,
+		)
+
+		out <- nextResult{
+			Message: msg,
+			Err:     err,
+		}
+	}()
 
 	select {
 	case <-timeoutCtx.Done():

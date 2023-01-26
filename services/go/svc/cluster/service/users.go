@@ -24,7 +24,6 @@ type User struct {
 	Name      string
 	Auth      *auth.AuthUser
 	Verse     *verse.User
-	Challenge *auth.Challenge
 	ELO       *ELOState
 
 	// The user's home ID if they're not authenticated.

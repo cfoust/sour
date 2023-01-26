@@ -385,3 +385,49 @@ func (m *MapSender) SendMap(ctx context.Context, user *User, mapName string) {
 func (m *MapSender) Shutdown() {
 	os.RemoveAll(m.workingDir)
 }
+
+func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
+	server := user.GetServer()
+	instance := c.spaces.FindInstance(server)
+
+	if instance != nil && instance.Editing != nil {
+		e := instance.Editing
+		err := e.Checkpoint(ctx)
+		if err != nil {
+			return err
+		}
+
+		data, err := e.Map.LoadMapData(ctx)
+		if err != nil {
+			return err
+		}
+
+		p := game.Packet{}
+		p.Put(game.N_SENDMAP)
+		p = append(p, data...)
+
+		user.Send(game.GamePacket{
+			Channel: 2,
+			Data:    p,
+		})
+
+		return nil
+	}
+
+	data, err := c.assets.FetchMapBytes(ctx, name)
+	if err != nil {
+		return err
+	}
+
+	p := game.Packet{}
+	p.Put(game.N_SENDMAP)
+	p = append(p, data...)
+	user.Send(game.GamePacket{
+		Channel: 2,
+		Data:    p,
+	})
+
+	log.Info().Msgf("Sent map %s (%d) to client", name, len(data))
+
+	return nil
+}
