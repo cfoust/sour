@@ -98,7 +98,11 @@ export async function mountFile(path: string, data: Uint8Array): Promise<void> {
     )
   })
 }
+
 let layers: Layer[] = []
+
+// A semaphore for ensuring we don't render frames when assets are loading
+let loadingCount: number = 0
 
 function safeSetLoading(value: boolean) {
   if (BananaBread == null) return
@@ -107,11 +111,16 @@ function safeSetLoading(value: boolean) {
   setLoading(value)
 }
 
+function setLoading(value: boolean) {
+  loadingCount = R.max(0, loadingCount + (value ? 1 : -1))
+  safeSetLoading(loadingCount !== 0)
+}
+
 export async function pushLayer(
   assets: AssetData[],
   type: LoadRequestType
 ): Promise<Layer> {
-  safeSetLoading(true)
+  setLoading(true)
   const data: Record<string, AssetData> = {}
   for (const asset of assets) {
     const { path } = asset
@@ -164,7 +173,7 @@ export async function pushLayer(
 
   layers = [...before, newLayer, ...after]
 
-  safeSetLoading(false)
+  setLoading(false)
   return newLayer
 }
 
@@ -339,7 +348,10 @@ function getProgress(state: LoadState): number {
   return 0
 }
 
-function renderDownloadProgress(downloadType: DownloadingType, state: StateResponse) {
+function renderDownloadProgress(
+  downloadType: DownloadingType,
+  state: StateResponse
+) {
   const { individual } = state
   const total = individual.length
   const factor = 1 / total
@@ -352,13 +364,15 @@ function renderDownloadProgress(downloadType: DownloadingType, state: StateRespo
     individual
   )
   const done = R.filter(
-    v => v.state.type === LoadStateType.Ok,
+    (v) => v.state.type === LoadStateType.Ok,
     individual
   ).length
 
   BananaBread.renderprogress(
     progress,
-    `loading ${DownloadingType[downloadType].toLowerCase()} data.. (${done}/${total})`
+    `loading ${DownloadingType[
+      downloadType
+    ].toLowerCase()} data.. (${done}/${total})`
   )
 }
 
@@ -544,7 +558,7 @@ export default function useAssets(
     let mapLayer: Maybe<Layer> = null
 
     const loadMapData = async (map: string) => {
-      safeSetLoading(true)
+      setLoading(true)
       if (loadingMap === map) return
       loadingMap = map
 
@@ -565,7 +579,7 @@ export default function useAssets(
       const loadMap = (realMap: string) => {
         mapLayer = layer
         loadingMap = null
-        safeSetLoading(false)
+        setLoading(false)
         if (targetMap == null) {
           BananaBread.loadWorld(realMap)
         } else {
