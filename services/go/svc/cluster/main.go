@@ -62,7 +62,7 @@ func main() {
 	state := state.NewStateService(sourConfig.Redis)
 
 	cache := assets.NewRedisCache(state.Client)
-	maps, err := assets.NewAssetFetcher(cache, clusterConfig.Assets)
+	maps, err := assets.NewAssetFetcher(cache, clusterConfig.Assets, true)
 	if err != nil {
 	    log.Fatal().Err(err).Msg("asset fetcher failed to initialize")
 	}

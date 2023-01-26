@@ -61,7 +61,7 @@ Check out the roadmap below to see what you might be able to help with.
 ### Bugs
 * [ ] Preserve the reliable flag on ENet packets coming from the server
 ### Assets
-* [ ] Simplify index file format
+* [ ] Load-on-demand sounds
 ### Sourverse
 * [ ] Exploration
 * [ ] Allow teleports to locations within rooms

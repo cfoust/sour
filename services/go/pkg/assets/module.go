@@ -21,8 +21,8 @@ type AssetFetcher struct {
 	cache Cache
 }
 
-func NewAssetFetcher(cache Cache, roots []string) (*AssetFetcher, error) {
-	loaded, err := LoadRoots(cache, roots)
+func NewAssetFetcher(cache Cache, roots []string, onlyMaps bool) (*AssetFetcher, error) {
+	loaded, err := LoadRoots(cache, roots, onlyMaps)
 	if err != nil {
 		return nil, err
 	}
@@ -80,14 +80,14 @@ func (m *AssetFetcher) fetchAsset(ctx context.Context, id string) ([]byte, error
 }
 
 type FoundMap struct {
-	Map  *GameMap
+	Map  *SlimMap
 	Root *RemoteRoot
 }
 
 func (m *AssetFetcher) FindMap(needle string) *FoundMap {
 	otherTarget := needle + ".ogz"
 	for _, root := range m.roots {
-		for _, gameMap := range root.index.Maps {
+		for _, gameMap := range root.maps {
 			if gameMap.Name != needle && gameMap.Name != otherTarget && !strings.HasPrefix(gameMap.Id, needle) {
 				continue
 			}

@@ -56,13 +56,19 @@ type RemoteRoot struct {
 	// index -> asset id
 	idLookup map[int]string
 
-	index *Index
+	maps []SlimMap
 
 	// FS path -> asset id
 	FS map[string]int
 }
 
-func NewRemoteRoot(cache Cache, url string, base string, shouldCache bool) (*RemoteRoot, error) {
+func NewRemoteRoot(
+	cache Cache,
+	url string,
+	base string,
+	shouldCache bool,
+	onlyMaps bool,
+) (*RemoteRoot, error) {
 	urlHash := fmt.Sprintf("%x", sha256.Sum256([]byte(url)))
 
 	indexData, err := cache.Get(urlHash)
@@ -89,34 +95,64 @@ func NewRemoteRoot(cache Cache, url string, base string, shouldCache bool) (*Rem
 		return nil, err
 	}
 
+	root := RemoteRoot{
+		cache: cache,
+		url:   CleanSourcePath(url),
+		base:  base,
+	}
+
 	assets := make(map[string]struct{})
 	idLookup := make(map[int]string)
-	for i, asset := range index.Assets {
-		assets[asset] = struct{}{}
-		idLookup[i] = asset
-	}
-
 	fs := make(map[string]int)
-	for _, ref := range index.Refs {
-		path := ref.Path
-		if base != "" {
-			if !strings.HasPrefix(path, base) {
-				continue
+
+	if onlyMaps {
+		for _, _map := range index.Maps {
+			assets[_map.Ogz] = struct{}{}
+
+			for _, asset := range _map.Assets {
+				if !strings.HasSuffix(asset.Path, ".cfg") {
+					continue
+				}
+				assets[asset.Id] = struct{}{}
 			}
-			path = path[len(base):]
 		}
-		fs[path] = ref.Id
+	} else {
+		for i, asset := range index.Assets {
+			assets[asset] = struct{}{}
+			idLookup[i] = asset
+		}
+
+		for _, ref := range index.Refs {
+			path := ref.Path
+			if base != "" {
+				if !strings.HasPrefix(path, base) {
+					continue
+				}
+				path = path[len(base):]
+			}
+			fs[path] = ref.Id
+		}
+
 	}
 
-	return &RemoteRoot{
-		index:    &index,
-		cache:    cache,
-		url:      CleanSourcePath(url),
-		base:     base,
-		assets:   assets,
-		idLookup: idLookup,
-		FS:       fs,
-	}, nil
+	maps := make([]SlimMap, len(index.Maps))
+	for _, map_ := range index.Maps {
+		maps = append(
+			maps,
+			SlimMap{
+				Id:   map_.Id,
+				Name: map_.Name,
+				Ogz:  map_.Ogz,
+			},
+		)
+	}
+	root.maps = maps
+
+	root.assets = assets
+	root.idLookup = idLookup
+	root.FS = fs
+
+	return &root, nil
 }
 
 func (f *RemoteRoot) Exists(path string) bool {
@@ -190,7 +226,7 @@ func (f *RemoteRoot) ReadFile(path string) ([]byte, error) {
 var _ Root = (*FSRoot)(nil)
 var _ Root = (*RemoteRoot)(nil)
 
-func LoadRoots(cache Cache, targets []string) ([]Root, error) {
+func LoadRoots(cache Cache, targets []string, onlyMaps bool) ([]Root, error) {
 	roots := make([]Root, 0)
 	for _, target := range targets {
 		if !strings.HasPrefix(target, "http") && !strings.HasPrefix(target, "!http") {
@@ -215,7 +251,13 @@ func LoadRoots(cache Cache, targets []string) ([]Root, error) {
 			shouldCache = false
 			target = target[1:]
 		}
-		root, err := NewRemoteRoot(cache, target, base, shouldCache)
+		root, err := NewRemoteRoot(
+			cache,
+			target,
+			base,
+			shouldCache,
+			onlyMaps,
+		)
 		if err != nil {
 			return nil, err
 		}

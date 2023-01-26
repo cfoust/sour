@@ -29,6 +29,12 @@ type GameMap struct {
 	Description string
 }
 
+type SlimMap struct {
+	Id   string
+	Name string
+	Ogz  string
+}
+
 type Bundle struct {
 	Id      string
 	Desktop bool

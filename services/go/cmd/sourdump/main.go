@@ -480,7 +480,7 @@ func main() {
 	}
 
 	cache := assets.FSCache(*cacheDir)
-	assetRoots, err := assets.LoadRoots(cache, roots)
+	assetRoots, err := assets.LoadRoots(cache, roots, false)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to load roots")
 	}
