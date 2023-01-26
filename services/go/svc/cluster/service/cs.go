@@ -34,11 +34,15 @@ func sendServerInfo(u *User, domain string) {
 	})
 }
 
-const DEFAULT_TIMEOUT = 5 * time.Second
+const (
+	DEFAULT_TIMEOUT    = 5 * time.Second
+	CONSENT_EXPIRATION = 30 * 24 * time.Hour
+	AUTOEXEC_KEY       = "autoexec-%s"
+)
 
 const INITIAL_SCRIPT = `
 authkey %s _DO_NOTHING_ %s
-//saveauthkeys
+saveauthkeys
 
 mapstart = [
 	if (>= (strstr (getservauth) "%s") 0) [
@@ -51,6 +55,15 @@ servcmd %s
 
 func getDomain(authDomain string) string {
 	return fmt.Sprintf("%s-autoexec", authDomain)
+}
+
+func (c *Cluster) saveAutoexecKeys(ctx context.Context, u *User, public string, private string) error {
+	err := c.redis.Set(ctx, fmt.Sprintf(AUTOEXEC_KEY, public), private, CONSENT_EXPIRATION).Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *Cluster) waitForConsent(ctx context.Context, u *User) error {
@@ -77,8 +90,14 @@ func (c *Cluster) waitForConsent(ctx context.Context, u *User) error {
 	)
 	u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_CONNECT)
 
+	u.SendServerMessage("run '/do (getservauth)' to automatically load maps and assets you are missing")
+
 	serverInfo := u.To.Intercept(game.N_SERVINFO)
 	servCmd := u.From.Intercept(game.N_SERVCMD)
+
+	defer serverInfo.Remove()
+	defer servCmd.Remove()
+
 	for {
 		select {
 		case <-u.Context().Done():
@@ -92,12 +111,20 @@ func (c *Cluster) waitForConsent(ctx context.Context, u *User) error {
 			msg.Replace(p)
 		case msg := <-servCmd.Receive():
 			cmd := msg.Message.Contents().(*game.ServCMD)
-			logger.Info().Msgf("%+v", cmd)
 			if cmd.Command != public {
 				msg.Pass()
 				continue
 			}
-			logger.Info().Msg("user consented")
+
+			logger.Info().Msg("user consented to autoexec")
+			msg.Drop()
+			err := c.saveAutoexecKeys(ctx, u, public, private)
+			if err != nil {
+				return err
+			}
+
+			go c.setupCubeScript(ctx, u)
+			return nil
 		}
 	}
 }
@@ -119,10 +146,71 @@ func (c *Cluster) setupCubeScript(ctx context.Context, u *User) error {
 	}
 
 	connect := msg.Contents().(*game.Connect)
-	logger.Info().Msgf("%+v", connect)
-	if connect.AuthName == "" {
+	public := connect.AuthName
+	if public == "" {
 		return c.waitForConsent(ctx, u)
 	}
+
+	private, err := c.redis.Get(ctx, fmt.Sprintf(AUTOEXEC_KEY, public)).Result()
+	if err != nil {
+		u.SendServerMessage(game.Red(
+			"your consent is invalid or expired",
+		))
+		return c.waitForConsent(ctx, u)
+	}
+
+	u.Mutex.Lock()
+	u.autoexecKey = private
+	u.Mutex.Unlock()
+
+	u.RunCubeScript(ctx, "echo hello world")
+
+	return nil
+}
+
+func (u *User) GetAutoexecKey() string {
+	u.Mutex.RLock()
+	key := u.autoexecKey
+	u.Mutex.RUnlock()
+	return key
+}
+
+func (u *User) HasCubeScript() bool {
+	return u.GetAutoexecKey() != ""
+}
+
+func (u *User) RunCubeScript(ctx context.Context, code string) error {
+	key := u.GetAutoexecKey()
+
+	script := fmt.Sprintf(`
+// %s
+%s
+`, key, code)
+
+	if len(script) > game.MAXSTRLEN {
+		return fmt.Errorf("script too long (%d > %d)", len(script), game.MAXSTRLEN)
+	}
+
+	sendServerInfo(
+		u,
+		script,
+	)
+	u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_CONNECT)
+
+	p := game.Packet{}
+	p.Put(
+		game.N_MAPCHANGE,
+		game.MapChange{
+			Name:     "complex",
+			Mode:     int(game.MODE_COOP),
+			HasItems: 0,
+		},
+	)
+	u.Send(game.GamePacket{
+		Data:    p,
+		Channel: 1,
+	})
+	u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_MAPCRC)
 
 	return nil
 }

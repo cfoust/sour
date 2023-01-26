@@ -317,7 +317,6 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 		case msg := <-connects.Receive():
 			message := msg.Message
 			connect := message.Contents().(*game.Connect)
-			log.Info().Msgf("%+v", connect)
 			description := connect.AuthDescription
 			name := connect.AuthName
 			msg.Pass()

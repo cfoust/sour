@@ -31,6 +31,7 @@ type User struct {
 	// The last server description sent to the user
 	lastDescription string
 	wasGreeted      bool
+	autoexecKey     string
 
 	Server *servers.GameServer
 	Space  *verse.SpaceInstance
