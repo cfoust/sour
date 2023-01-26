@@ -197,6 +197,7 @@ async function loadAsset(
   if (assetIndex == null) {
     throw new PullError('missing asset index')
   }
+
   const sourceIndex = assetIndex.assetLookup[id]
   if (sourceIndex == null) {
     throw new PullError(`asset not found: ${id}`)
@@ -380,11 +381,13 @@ function resolveRequest(
 
     if (source == null) return null
 
+    const assetId = id.replace('.png', '').replace('.jpg', '')
+
     return {
       bundles: [],
       assets: [
         {
-          id,
+          id: assetId,
           path: target,
         },
       ],
