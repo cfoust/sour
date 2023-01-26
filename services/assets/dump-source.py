@@ -18,4 +18,4 @@ if __name__ == "__main__":
 
     with open(args.source, 'rb') as f:
         with open(args.source + '.json', 'w') as g:
-            g.write(json.dumps(cbor2.load(f)))
+            g.write(json.dumps(cbor2.load(f), indent=4))

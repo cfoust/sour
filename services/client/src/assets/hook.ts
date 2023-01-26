@@ -728,6 +728,9 @@ export default function useAssets(
         ;(async () => {
           try {
             const layer = await loadAsset(LoadRequestType.Model, name)
+            if (layer == null) {
+                console.error(`model ${name} was null`)
+            }
           } catch (e) {
             console.error(`model ${name} not found anywhere`)
           }

@@ -147,6 +147,14 @@ if __name__ == "__main__":
             "health",
             "quad",
             "teleporter",
+            "flags/neutral",
+            "flags/red",
+            "flags/blue",
+            "base/red",
+            "base/neutral",
+            "base/blue",
+            "skull/red",
+            "skull/blue",
         ]
 
         for model in track(ids, description="building models"):
