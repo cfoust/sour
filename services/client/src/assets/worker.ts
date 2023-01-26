@@ -404,7 +404,7 @@ const haveMissing = haveType(LoadStateType.Missing)
 const haveFailed = haveType(LoadStateType.Failed)
 
 const aggregateState = (states: AssetState[]): LoadState => {
-  if (states.length === 0 || haveWaiting(states)) {
+  if (states.length === 0) {
     return load.waiting()
   }
 

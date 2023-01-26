@@ -3,6 +3,8 @@ import * as R from 'ramda'
 
 import type {
   AssetData,
+  LoadState,
+  StateResponse,
   DownloadingState,
   AssetIndex,
   MountData,
@@ -318,6 +320,48 @@ function removeMod(id: string) {
   setInstalledMods(R.filter((v: string) => v !== id, getInstalledMods()))
 }
 
+function getProgress(state: LoadState): number {
+  const { type } = state
+  switch (type) {
+    case LoadStateType.Waiting:
+    case LoadStateType.Missing:
+    case LoadStateType.Failed:
+      return 0
+    case LoadStateType.Ok:
+      return 1
+    case LoadStateType.Downloading:
+      if (state.type === LoadStateType.Downloading) {
+        const { downloadedBytes, totalBytes } = state
+        return downloadedBytes / totalBytes
+      }
+  }
+
+  return 0
+}
+
+function renderDownloadProgress(downloadType: DownloadingType, state: StateResponse) {
+  const { individual } = state
+  const total = individual.length
+  const factor = 1 / total
+  const progress = R.reduce(
+    (a, v) => {
+      const { state } = v
+      return a + getProgress(state) * factor
+    },
+    0,
+    individual
+  )
+  const done = R.filter(
+    v => v.state.type === LoadStateType.Ok,
+    individual
+  ).length
+
+  BananaBread.renderprogress(
+    progress,
+    `loading ${DownloadingType[downloadType].toLowerCase()} data.. (${done}/${total})`
+  )
+}
+
 export default function useAssets(
   setState: React.Dispatch<React.SetStateAction<GameState>>
 ): {
@@ -426,10 +470,7 @@ export default function useAssets(
               totalBytes,
             })
           } else {
-            BananaBread.renderprogress(
-              downloadedBytes / totalBytes,
-              `loading ${DownloadingType[downloadType].toLowerCase()} data..`
-            )
+            renderDownloadProgress(downloadType, message)
           }
         }
       } else if (message.op === AssetResponseType.Data) {
@@ -503,7 +544,7 @@ export default function useAssets(
     let mapLayer: Maybe<Layer> = null
 
     const loadMapData = async (map: string) => {
-      BananaBread.setLoading(true)
+      safeSetLoading(true)
       if (loadingMap === map) return
       loadingMap = map
 
@@ -524,7 +565,7 @@ export default function useAssets(
       const loadMap = (realMap: string) => {
         mapLayer = layer
         loadingMap = null
-        BananaBread.setLoading(false)
+        safeSetLoading(false)
         if (targetMap == null) {
           BananaBread.loadWorld(realMap)
         } else {
