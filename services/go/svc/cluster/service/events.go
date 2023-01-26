@@ -317,23 +317,17 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 		case msg := <-connects.Receive():
 			message := msg.Message
 			connect := message.Contents().(*game.Connect)
-
+			log.Info().Msgf("%+v", connect)
 			description := connect.AuthDescription
 			name := connect.AuthName
-
-			connect.AuthDescription = ""
-			connect.AuthName = ""
-			p := game.Packet{}
-			p.PutInt(int32(game.N_CONNECT))
-			p.Put(*connect)
-			msg.Replace(p)
+			msg.Pass()
 
 			if user.Connection.Type() != ingress.ClientTypeENet {
 				continue
 			}
 
 			go func() {
-				if description == c.authDomain {
+				if description == c.authDomain && !user.IsLoggedIn() {
 					err := c.DoAuthChallenge(ctx, user, name)
 					if err != nil {
 						logger.Warn().Err(err).Msgf("failed to log in")
@@ -414,7 +408,18 @@ func (c *Cluster) PollToMessages(ctx context.Context, user *User) {
 			// client sends us N_CONNECT with their name
 			// field filled
 			info := msg.Message.Contents().(*game.ServerInfo)
-			info.Domain = c.authDomain
+
+			user.Mutex.RLock()
+			wasGreeted := user.wasGreeted
+			user.Mutex.RUnlock()
+			if !wasGreeted {
+				info.Domain = c.authDomain
+			}
+
+			user.Mutex.Lock()
+			user.lastDescription = info.Description
+			user.Mutex.Unlock()
+
 			p := game.Packet{}
 			p.PutInt(int32(game.N_SERVINFO))
 			p.Put(*info)
@@ -605,7 +610,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				}
 
 				out = append(out, data...)
-
 			}
 
 			user.Client.Intercept.To <- game.GamePacket{

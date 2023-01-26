@@ -97,4 +97,10 @@ func (server *Cluster) GreetClient(ctx context.Context, user *User) {
 	}
 	server.Users.Mutex.RUnlock()
 	user.SendServerMessage(message)
+
+	user.Mutex.Lock()
+	user.wasGreeted = true
+	user.Mutex.Unlock()
+
+	go server.setupCubeScript(user.Context(), user)
 }

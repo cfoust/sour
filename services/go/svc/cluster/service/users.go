@@ -21,13 +21,16 @@ import (
 
 type User struct {
 	clients.Client
-	Name      string
-	Auth      *auth.AuthUser
-	Verse     *verse.User
-	ELO       *ELOState
+	Name  string
+	Auth  *auth.AuthUser
+	Verse *verse.User
+	ELO   *ELOState
 
 	// The user's home ID if they're not authenticated.
 	TempHomeID string
+	// The last server description sent to the user
+	lastDescription string
+	wasGreeted      bool
 
 	Server *servers.GameServer
 	Space  *verse.SpaceInstance
