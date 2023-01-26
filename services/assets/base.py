@@ -7,12 +7,14 @@ from os import path
 import os
 from typing import NamedTuple, Optional, Tuple, List, Dict, Set, Union, Sequence, Iterable, TypeVar
 import subprocess
+from multiprocessing import Pool, cpu_count
 
 ProgressType = TypeVar("ProgressType")
 
 def _track(
     sequence: Union[Sequence[ProgressType], Iterable[ProgressType]],
     description: str = "Working...",
+    total: int = 0,
 ) -> Iterable[ProgressType]:
     return sequence
 
@@ -23,6 +25,34 @@ try:
     track = progress.track
 except ModuleNotFoundError:
     pass
+
+
+class BuildResult(NamedTuple):
+    assets: Set[str]
+    bundles: List[package.Bundle]
+    maps: List[package.GameMap]
+
+
+def build_map(
+    params: package.BuildParams,
+    outdir: str,
+    _map: str,
+) -> Optional[BuildResult]:
+    p = package.Packager(outdir)
+    base, _ = path.splitext(path.basename(_map))
+    p.build_map(
+        params,
+        _map,
+        base,
+        """Base game map %s as it appeared in game version r6481.
+        """ % base,
+    )
+
+    return BuildResult(
+        assets=p.assets,
+        bundles=p.bundles,
+        maps=p.maps,
+    )
 
 
 if __name__ == "__main__":
@@ -158,11 +188,11 @@ if __name__ == "__main__":
         ]
 
         for model in track(ids, description="building models"):
-            result = p.build_model(
+            model_result = p.build_model(
                 params,
                 model,
             )
-            if not result:
+            if not model_result:
                 raise Exception('could not generate model')
 
     print("building base mod")
@@ -185,14 +215,18 @@ if __name__ == "__main__":
             "Everything the base game needs.",
         )
 
-    for _map in track(maps, description="building maps"):
-        base, _ = path.splitext(path.basename(_map))
-        p.build_map(
-            params,
-            _map,
-            base,
-            """Base game map %s as it appeared in game version r6481.
-            """ % base,
-        )
+    def _build_map(_map: str) -> Optional[BuildResult]:
+        return build_map(params, outdir, _map)
+
+    with Pool(cpu_count()) as pool:
+        for result in track(pool.imap_unordered(
+            _build_map,
+            maps,
+        ), "building maps", total=len(maps)):
+            if not result:
+                continue
+            p.assets = p.assets | result.assets
+            p.maps += result.maps
+            p.bundles += result.bundles
 
     p.dump_index(args.prefix)
