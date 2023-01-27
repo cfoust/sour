@@ -601,8 +601,13 @@ static int yawskyfaces(int faces, int yaw, float spin = 0)
     return (faces & ~0x0F) | (((faces>>idxs[0])&1)<<0) | (((faces>>idxs[1])&1)<<1) | (((faces>>idxs[2])&1)<<2) | (((faces>>idxs[3])&1)<<3);
 }
 
+VARP(skipskybox, 0, 0, 1);
+
 void drawskybox(int farplane, bool limited, bool force)
 {
+	if (skipskybox) {
+		return;
+	}
     extern int renderedskyfaces, renderedskyclip; // , renderedsky, renderedexplicitsky;
     bool alwaysrender = editmode || !insideworld(camera1->o) || reflecting || force,
          explicitonly = false;

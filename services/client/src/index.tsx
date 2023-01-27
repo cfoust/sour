@@ -131,6 +131,7 @@ function App() {
   })
   const { width, height, ref: containerRef } = useResizeDetector()
 
+  const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const wsRef = React.useRef<WebSocket>()
   const wsQueue = React.useRef<ArrayBuffer[]>([])
 
@@ -251,12 +252,16 @@ function App() {
       } = document
       const width = clientWidth * ratio
       const height = clientHeight * ratio
-      const canvas = document.getElementById('canvas')
+      const { canvas } = Module
       if (canvas == null) return
+      canvas.width = width
+      canvas.height = height
       canvas.style.setProperty('width', clientWidth + 'px', 'important')
       canvas.style.setProperty('height', clientHeight + 'px', 'important')
       if (!Module.running) return
       if (BananaBread == null || BananaBread.execute == null) return
+      console.log(width, height)
+      console.log(`screenres ${clientWidth} ${clientHeight}`)
       BananaBread.execute(`screenres ${clientWidth} ${clientHeight}`)
       return
     }
@@ -445,7 +450,11 @@ function App() {
       }
 
       if (BROWSER.isMobile) {
-        BananaBread.execute(`texreduce 12`)
+        BananaBread.execute(`
+              texreduce 12
+              skyboxglare 0
+              skipskybox 1
+        `)
       }
 
       Module.running = true
@@ -766,7 +775,7 @@ function App() {
   }, [])
 
   React.useLayoutEffect(() => {
-    const canvas = document.getElementById('canvas')
+    const { canvas } = Module
     if (canvas == null) return
 
     // As a default initial behavior, pop up an alert when webgl context is lost. To make your
