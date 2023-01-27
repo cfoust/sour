@@ -48,6 +48,7 @@ type GameServer struct {
 	Uptime     ServerUptime
 	Teams      TeamInfo
 	Map        string
+	Mode       int32
 	// Whether this map was in our assets (ie can we send it to the client)
 	IsBuiltMap bool
 
@@ -176,6 +177,7 @@ func (server *GameServer) RequestServerInfo(request []byte) {
 func (server *GameServer) SendMapResponse(mapName string, mode int32, path string, succeeded bool) {
 	server.Mutex.Lock()
 	server.Map = mapName
+	server.Mode = mode
 	server.IsBuiltMap = true
 	if succeeded {
 		server.IsBuiltMap = false

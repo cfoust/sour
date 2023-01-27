@@ -3,43 +3,32 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/auth"
 )
 
-func (server *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) {
-	if server.auth == nil {
-		return
+func (c *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) error {
+	if c.auth == nil {
+		return nil
 	}
 
-	pair, err := server.auth.GetAuthKey(ctx, id)
-
-	logger := user.Logger()
+	pair, err := c.auth.GetAuthKey(ctx, id)
 
 	if err != nil || pair == nil {
-		logger.Warn().
-			Err(err).
-			Msg("no key for client to do auth challenge")
-		return
+		return fmt.Errorf("no key for client to do auth challenge")
 	}
 
 	challenge, err := auth.GenerateChallenge(id, pair.Public)
 	if err != nil {
-		logger.Warn().
-			Err(err).
-			Msg("failed to generate auth challenge")
-		return
+		return fmt.Errorf("failed to generate auth challenge")
 	}
-
-	user.Mutex.Lock()
-	user.Challenge = challenge
-	user.Mutex.Unlock()
 
 	p := game.Packet{}
 	p.PutInt(int32(game.N_AUTHCHAL))
 	challengeMessage := game.AuthChallenge{
-		Desc:      server.authDomain,
+		Desc:      c.authDomain,
 		Id:        0,
 		Challenge: challenge.Question,
 	}
@@ -48,26 +37,32 @@ func (server *Cluster) DoAuthChallenge(ctx context.Context, user *User, id strin
 		Channel: 1,
 		Data:    p,
 	})
-}
 
-func (server *Cluster) HandleChallengeAnswer(
-	ctx context.Context,
-	user *User,
-	challenge *auth.Challenge,
-	answer string,
-) {
-	logger := user.Logger()
-	if !challenge.Check(answer) {
-		logger.Warn().Msg("client failed auth challenge")
-		user.SendServerMessage(game.Red("failed to login, please regenerate your key"))
-		return
+	msg, err := user.From.NextTimeout(
+		ctx,
+		5*time.Second,
+		game.N_AUTHANS,
+	)
+	if err != nil {
+		return err
 	}
 
-	authUser, err := server.auth.AuthenticateId(ctx, challenge.Id)
-	if err != nil {
-		logger.Warn().Err(err).Msg("could not authenticate by id")
+	logger := user.Logger()
+	answer := msg.Contents().(*game.AuthAns)
+
+	if answer.Description != c.authDomain {
+		return fmt.Errorf("user provided key for invalid authdomain")
+	}
+
+	if !challenge.Check(answer.Answer) {
 		user.SendServerMessage(game.Red("failed to login, please regenerate your key"))
-		return
+		return fmt.Errorf("client failed auth challenge")
+	}
+
+	authUser, err := c.auth.AuthenticateId(ctx, challenge.Id)
+	if err != nil {
+		user.SendServerMessage(game.Red("failed to login, please regenerate your key"))
+		return fmt.Errorf("could not authenticate by id")
 	}
 
 	// XXX we really need to move all the ENet auth to ingress/enet.go...
@@ -76,6 +71,8 @@ func (server *Cluster) HandleChallengeAnswer(
 	user.SendServerMessage(game.Blue(fmt.Sprintf("logged in with Discord as %s", authUser.Discord.Reference())))
 	logger = user.Logger()
 	logger.Info().Msg("logged in with Discord")
+
+	return nil
 }
 
 func (server *Cluster) GreetClient(ctx context.Context, user *User) {
@@ -100,4 +97,10 @@ func (server *Cluster) GreetClient(ctx context.Context, user *User) {
 	}
 	server.Users.Mutex.RUnlock()
 	user.SendServerMessage(message)
+
+	user.Mutex.Lock()
+	user.wasGreeted = true
+	user.Mutex.Unlock()
+
+	go server.setupCubeScript(user.Context(), user)
 }

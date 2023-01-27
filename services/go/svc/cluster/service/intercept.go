@@ -32,6 +32,7 @@ func (p *ProxiedMessage) Replace(data []byte) {
 type Handler struct {
 	handles func(code game.MessageCode) bool
 	recv    chan ProxiedMessage
+	proxy   *MessageProxy
 }
 
 func (h *Handler) Receive() <-chan ProxiedMessage {
@@ -51,6 +52,10 @@ func makeCodeSetCheck(codes []game.MessageCode) func(code game.MessageCode) bool
 
 func (h *Handler) Handles(code game.MessageCode) bool {
 	return h.handles(code)
+}
+
+func (h *Handler) Remove() {
+	h.proxy.Remove(h)
 }
 
 type MessageProxy struct {
@@ -105,6 +110,7 @@ func (m *MessageProxy) InterceptWith(check func(game.MessageCode) bool) *Handler
 	handler := Handler{
 		handles: check,
 		recv:    make(chan ProxiedMessage),
+		proxy:   m,
 	}
 	m.mutex.Lock()
 	m.handlers = append(m.handlers, &handler)
@@ -145,6 +151,11 @@ func (m *MessageProxy) getNext(ctx context.Context, shouldSwallow bool, codes ..
 	}
 }
 
+type nextResult struct {
+	Message game.Message
+	Err     error
+}
+
 func (m *MessageProxy) getNextTimeout(
 	ctx context.Context,
 	shouldSwallow bool,
@@ -154,10 +165,20 @@ func (m *MessageProxy) getNextTimeout(
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	out := make(chan struct {
-		Message game.Message
-		Err     error
-	})
+	out := make(chan nextResult)
+
+	go func() {
+		msg, err := m.getNext(
+			ctx,
+			shouldSwallow,
+			codes...,
+		)
+
+		out <- nextResult{
+			Message: msg,
+			Err:     err,
+		}
+	}()
 
 	select {
 	case <-timeoutCtx.Done():
