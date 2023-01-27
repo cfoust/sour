@@ -29,8 +29,6 @@ const MovementPad = styled.div`
   width: 50%;
   height: 100%;
   position: absolute;
-  background-color: red;
-  opacity: 0.1;
 `
 
 const DirectionPad = styled.div`
@@ -38,8 +36,6 @@ const DirectionPad = styled.div`
   width: 50%;
   height: 100%;
   position: absolute;
-  background-color: blue;
-  opacity: 0.1;
 `
 
 export default function MobileControls() {
