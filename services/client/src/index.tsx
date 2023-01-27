@@ -255,8 +255,8 @@ function App() {
       const height = clientHeight * ratio
       const { canvas } = Module
       if (canvas == null) return
-      canvas.width = width
-      canvas.height = height
+      canvas.width = width * 2
+      canvas.height = height * 2
       canvas.style.setProperty('width', clientWidth + 'px', 'important')
       canvas.style.setProperty('height', clientHeight + 'px', 'important')
       if (!Module.running) return
