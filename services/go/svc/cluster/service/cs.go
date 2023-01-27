@@ -3,11 +3,15 @@ package service
 import (
 	"context"
 	"crypto/sha256"
+	_ "embed"
 	"fmt"
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
 )
+
+//go:embed purgatory.ogz
+var PURGATORY []byte
 
 func makeServerInfo(u *User, domain string) []byte {
 	u.Mutex.RLock()
@@ -163,8 +167,6 @@ func (c *Cluster) setupCubeScript(ctx context.Context, u *User) error {
 	u.autoexecKey = private
 	u.Mutex.Unlock()
 
-	u.RunCubeScript(ctx, "echo hello world")
-
 	return nil
 }
 
@@ -191,12 +193,30 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 		return fmt.Errorf("script too long (%d > %d)", len(script), game.MAXSTRLEN)
 	}
 
+	server := u.GetServer()
+	if server == nil {
+		return fmt.Errorf("user was not connected to server")
+	}
+
+	server.Mutex.RLock()
+	mode := server.Mode
+	map_ := server.Map
+	server.Mutex.RUnlock()
+
 	sendServerInfo(
 		u,
 		script,
 	)
 	u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_CONNECT)
 
+	send := func(data []byte, channel uint8) {
+		u.Send(game.GamePacket{
+			Data:    data,
+			Channel: channel,
+		})
+	}
+
+	// Loading another map will execute the code
 	p := game.Packet{}
 	p.Put(
 		game.N_MAPCHANGE,
@@ -206,10 +226,30 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 			HasItems: 0,
 		},
 	)
-	u.Send(game.GamePacket{
-		Data:    p,
-		Channel: 1,
-	})
+	send(p, 1)
+	u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_MAPCRC)
+
+	//p = game.Packet{}
+	//p.Put(game.N_SENDMAP)
+	//p = append(p, PURGATORY...)
+	//send(p, 2)
+	//u.Send(game.GamePacket{
+	//Data:    p,
+	//Channel: 1,
+	//})
+	//u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_MAPCRC)
+
+	// Put the user back where they were
+	p = game.Packet{}
+	p.Put(
+		game.N_MAPCHANGE,
+		game.MapChange{
+			Name:     map_,
+			Mode:     int(mode),
+			HasItems: 1,
+		},
+	)
+	send(p, 1)
 	u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_MAPCRC)
 
 	return nil
