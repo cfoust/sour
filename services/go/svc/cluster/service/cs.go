@@ -94,7 +94,7 @@ func (c *Cluster) waitForConsent(ctx context.Context, u *User) error {
 	)
 	u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_CONNECT)
 
-	u.SendServerMessage("run '/do (getservauth)' to automatically load maps and assets you are missing")
+	u.SendServerMessage("run '/do (getservauth)' to allow the server to automatically send maps and assets you are missing")
 
 	serverInfo := u.To.Intercept(game.N_SERVINFO)
 	servCmd := u.From.Intercept(game.N_SERVCMD)
