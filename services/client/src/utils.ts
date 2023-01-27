@@ -22,6 +22,26 @@ export function breakPromise<T>(): PromiseSet<T> {
   }
 }
 
+function isiOS(): boolean {
+  if (/iPad|iPhone|iPod/.test(navigator.platform)) {
+    return true
+  } else {
+    return (
+      navigator.maxTouchPoints != null &&
+      navigator.maxTouchPoints > 2 &&
+      /MacIntel/.test(navigator.platform)
+    )
+  }
+}
+
+function isiPad(): boolean {
+  return (
+    navigator.maxTouchPoints != null &&
+    navigator.maxTouchPoints > 2 &&
+    /MacIntel/.test(navigator.platform)
+  )
+}
+
 export function getBrowser(): {
   isFirefox: boolean
   isSafari: boolean
@@ -32,7 +52,11 @@ export function getBrowser(): {
   return {
     isFirefox: result?.name === 'firefox',
     isSafari: result?.name === 'safari',
-    isMobile: result?.os === 'iOS' || result?.os === 'Android OS',
+    isMobile:
+      result?.os === 'iOS' ||
+      result?.os === 'Android OS' ||
+      isiOS() ||
+      isiPad(),
   }
 }
 

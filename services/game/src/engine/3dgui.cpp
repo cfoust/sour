@@ -1359,6 +1359,11 @@ void g3d_render()
     }
 }
 
+bool isinmenu()
+{
+    return guis2d.length() || mainmenu;
+}
+
 void g3d_render2d()
 {
     if(guis2d.length())

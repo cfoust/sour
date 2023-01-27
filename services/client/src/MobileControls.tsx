@@ -38,79 +38,109 @@ const DirectionPad = styled.div`
   position: absolute;
 `
 
-export default function MobileControls() {
+const DIRECTIONS = [
+  ['up', 'forward'],
+  ['down', 'backward'],
+  ['right', 'right'],
+  ['left', 'left'],
+]
+
+export default function MobileControls(props: { isRunning: boolean }) {
+  const { isRunning } = props
   const leftRef = React.useRef<HTMLDivElement>(null)
   const rightRef = React.useRef<HTMLDivElement>(null)
 
-  React.useLayoutEffect(() => {
+  React.useEffect(() => {
+    if (!isRunning) return
     const { current: leftPad } = leftRef
     const { current: rightPad } = rightRef
     if (leftPad == null || rightPad == null) return
 
-    const movement = nipplejs.create({
-      zone: leftPad,
-      fadeTime: 0,
-    })
-
-    const directions = [
-      ['up', 'forward'],
-      ['down', 'backward'],
-      ['right', 'right'],
-      ['left', 'left'],
-    ]
-
-    movement
-      .on('added', function (evt, nipple) {
-        for (const [dir, command] of directions) {
-          nipple.on(`dir:${dir}`, (evt) => {
-            for (const [otherDir, otherCommand] of directions) {
-              BananaBread.execute(
-                `_${otherCommand} ${dir === otherDir ? 1 : 0}`
-              )
-            }
-          })
-        }
-      })
-      .on('removed', function (evt, nipple) {
-        for (const [dir, command] of directions) {
-          nipple.off(`dir:${dir}`)
-          BananaBread.execute(`_${command} 0`)
-        }
-      })
+    let isInMenu: boolean = false
 
     let dx: number = 0
     let dy: number = 0
-    const direction = nipplejs.create({
-      zone: rightPad,
-      fadeTime: 0,
-    })
-    direction
-      .on('added', function (evt, nipple) {
-        nipple.on('move', (_, data) => {
-          const {
-            distance,
-            angle: { radian },
-          } = data
 
-          const factor = distance
-          dx = Math.cos(radian) * factor
-          dy = Math.sin(radian) * factor * -1
+    let movement: Maybe<nipplejs.JoystickManager> = null
+    let direction: Maybe<nipplejs.JoystickManager> = null
+
+    const registerJoysticks = () => {
+      movement = nipplejs.create({
+        zone: leftPad,
+        fadeTime: 0,
+      })
+      direction = nipplejs.create({
+        zone: rightPad,
+        fadeTime: 0,
+      })
+
+      movement
+        .on('added', function (evt, nipple) {
+          for (const [dir, command] of DIRECTIONS) {
+            nipple.on(`dir:${dir}`, (evt) => {
+              for (const [otherDir, otherCommand] of DIRECTIONS) {
+                BananaBread.execute(
+                  `_${otherCommand} ${dir === otherDir ? 1 : 0}`
+                )
+              }
+            })
+          }
         })
-      })
-      .on('removed', function (evt, nipple) {
-        dx = 0
-        dy = 0
-        nipple.off('move')
-      })
+        .on('removed', function (evt, nipple) {
+          for (const [dir, command] of DIRECTIONS) {
+            nipple.off(`dir:${dir}`)
+            BananaBread.execute(`_${command} 0`)
+          }
+        })
+
+      direction
+        .on('added', function (evt, nipple) {
+          nipple.on('move', (_, data) => {
+            const {
+              distance,
+              angle: { radian },
+            } = data
+
+            const factor = distance
+            dx = Math.cos(radian) * factor
+            dy = Math.sin(radian) * factor * -1
+          })
+        })
+        .on('removed', function (evt, nipple) {
+          dx = 0
+          dy = 0
+          nipple.off('move')
+        })
+    }
+
+    const unregisterJoysticks = () => {
+      if (movement != null) {
+        movement.destroy()
+        movement = null
+      }
+      if (direction != null) {
+        direction.destroy()
+        direction = null
+      }
+      dx = 0
+      dy = 0
+    }
 
     const cb = () => {
       window.requestAnimationFrame(cb)
-      if (dx === 0 && dy === 0) return
+      if (!Module.running) return
+      const newInMenu = BananaBread.isInMenu() === 1
+      if (!isInMenu && newInMenu) {
+        unregisterJoysticks()
+      } else if (isInMenu && !newInMenu) {
+        registerJoysticks()
+      }
+      isInMenu = newInMenu
+      if (isInMenu || (dx === 0 && dy === 0)) return
       BananaBread.mousemove(dx, dy)
     }
     window.requestAnimationFrame(cb)
-
-  }, [])
+  }, [isRunning])
 
   return (
     <Container>

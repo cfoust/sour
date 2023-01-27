@@ -551,6 +551,7 @@ extern bool shouldrenderskyenvmap();
 extern bool shouldclearskyboxglare();
 
 // 3dgui
+extern bool isinmenu();
 extern void g3d_render();
 extern void g3d_render2d();
 extern bool g3d_windowhit(bool on, bool act);

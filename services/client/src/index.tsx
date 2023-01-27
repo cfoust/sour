@@ -807,7 +807,9 @@ function App() {
           ref={(canvas) => (Module.canvas = canvas)}
           onContextMenu={(event) => event.preventDefault()}
         ></canvas>
-        {BROWSER.isMobile && <MobileControls />}
+        {BROWSER.isMobile && (
+          <MobileControls isRunning={state.type === GameStateType.Ready} />
+        )}
       </GameContainer>
       {state.type !== GameStateType.Ready && (
         <LoadingContainer>

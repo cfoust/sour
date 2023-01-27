@@ -117,6 +117,7 @@ type BananaBreadType = {
   conoutf: (level: number, message: string) => void
   execute: (command: string) => void
   mousemove: (dx: number, dy: number) => void
+  isInMenu: () => number
   loadWorld: (map: string, cmap?: string) => void
   setLoading: (value: boolean) => void
   renderprogress: (progress: number, text: string) => void
