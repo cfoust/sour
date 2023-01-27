@@ -17,6 +17,8 @@ import {
   Spacer,
 } from '@chakra-ui/react'
 
+import nipplejs from 'nipplejs'
+
 import type { ThemeConfig } from '@chakra-ui/react'
 
 import type { GameState } from './types'
@@ -244,17 +246,14 @@ function App() {
     if (BROWSER.isMobile) {
       const ratio = window.devicePixelRatio || 1
       const {
-        documentElement: {
-          clientWidth,
-          clientHeight
-        }
+        documentElement: { clientWidth, clientHeight },
       } = document
       const width = clientWidth * ratio
       const height = clientHeight * ratio
       const canvas = document.getElementById('canvas')
       if (canvas == null) return
-      canvas.style.setProperty("width", clientWidth + "px", "important");
-      canvas.style.setProperty("height", clientHeight + "px", "important");
+      canvas.style.setProperty('width', clientWidth + 'px', 'important')
+      canvas.style.setProperty('height', clientHeight + 'px', 'important')
       if (!Module.running) return
       if (BananaBread == null || BananaBread.execute == null) return
       BananaBread.execute(`screenres ${clientWidth} ${clientHeight}`)
@@ -777,9 +776,38 @@ function App() {
       false
     )
 
-    canvas.addEventListener('click', function () {
-      canvas.requestPointerLock()
+    //canvas.addEventListener('click', function () {
+    //canvas.requestPointerLock()
+    //})
+
+    const manager = nipplejs.create({
+      zone: containerRef.current,
     })
+
+    const directions = [
+      ['up', 'forward'],
+      ['down', 'backward'],
+      ['right', 'right'],
+      ['left', 'left'],
+    ]
+
+    manager
+      .on('added', function (evt, nipple) {
+        for (const [dir, command] of directions) {
+          nipple.on(`dir:${dir}`, (evt) => {
+            for (const [otherDir, otherCommand] of directions) {
+              BananaBread.execute(`_${otherCommand} ${dir === otherDir ? 1 : 0}`)
+              console.log(`_${otherCommand} ${dir === otherDir ? 1 : 0}`);
+            }
+          })
+        }
+      })
+      .on('removed', function (evt, nipple) {
+        nipple.off('dir')
+        for (const [, command] of directions) {
+          BananaBread.execute(`_${command} 0`)
+        }
+      })
 
     return
   }, [])

@@ -2010,11 +2010,17 @@ bool moveplatform(physent *p, const vec &dir)
 }
 
 #define dir(name,v,d,s,os) ICOMMAND(name, "D", (int *down), { player->s = *down!=0; player->v = player->s ? d : (player->os ? -(d) : 0); });
+#define _dir(name,v,d,s,os) ICOMMAND(_##name, "i", (int *down), { player->s = *down!=0; player->v = player->s ? d : (player->os ? -(d) : 0); });
 
 dir(backward, move,   -1, k_down,  k_up);
 dir(forward,  move,    1, k_up,    k_down);
 dir(left,     strafe,  1, k_left,  k_right);
 dir(right,    strafe, -1, k_right, k_left);
+_dir(backward, move,   -1, k_down,  k_up);
+_dir(forward,  move,    1, k_up,    k_down);
+_dir(left,     strafe,  1, k_left,  k_right);
+_dir(right,    strafe, -1, k_right, k_left);
+
 
 ICOMMAND(jump,   "D", (int *down), { if(!*down || game::canjump()) player->jumping = *down!=0; });
 ICOMMAND(attack, "D", (int *down), { game::doattack(*down!=0); });
