@@ -12,6 +12,7 @@ var BananaBread = {
     BananaBread.setLoading = Module.cwrap('_Z17set_loading_worldb', null, ['number'])
 
     BananaBread.conoutf = Module.cwrap('_Z7conoutfiPKcz', null, ['number', 'string']);
+    BananaBread.mousemove = Module.cwrap('_Z9mousemoveii', null, ['number', 'number']);
 
     var forceCamera = Module.cwrap('setforcecamera', null, ['number', 'number', 'number', 'number', 'number', 'number']);
     BananaBread.forceCamera = function(position, orientation) {

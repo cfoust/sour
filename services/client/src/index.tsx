@@ -41,6 +41,7 @@ import useAuth, {
 } from './discord'
 import { CubeMessageType } from './game'
 import * as cube from './game'
+import MobileControls from './MobileControls'
 
 import type { PromiseSet } from './utils'
 import { CONFIG } from './config'
@@ -443,6 +444,10 @@ function App() {
         BananaBread.execute('glare 0')
       }
 
+      if (BROWSER.isMobile) {
+        BananaBread.execute(`texreduce 12`)
+      }
+
       Module.running = true
       setState({
         type: GameStateType.Ready,
@@ -780,35 +785,6 @@ function App() {
     //canvas.requestPointerLock()
     //})
 
-    const manager = nipplejs.create({
-      zone: containerRef.current,
-    })
-
-    const directions = [
-      ['up', 'forward'],
-      ['down', 'backward'],
-      ['right', 'right'],
-      ['left', 'left'],
-    ]
-
-    manager
-      .on('added', function (evt, nipple) {
-        for (const [dir, command] of directions) {
-          nipple.on(`dir:${dir}`, (evt) => {
-            for (const [otherDir, otherCommand] of directions) {
-              BananaBread.execute(`_${otherCommand} ${dir === otherDir ? 1 : 0}`)
-              console.log(`_${otherCommand} ${dir === otherDir ? 1 : 0}`);
-            }
-          })
-        }
-      })
-      .on('removed', function (evt, nipple) {
-        nipple.off('dir')
-        for (const [, command] of directions) {
-          BananaBread.execute(`_${command} 0`)
-        }
-      })
-
     return
   }, [])
 
@@ -822,6 +798,7 @@ function App() {
           ref={(canvas) => (Module.canvas = canvas)}
           onContextMenu={(event) => event.preventDefault()}
         ></canvas>
+        {BROWSER.isMobile && <MobileControls />}
       </GameContainer>
       {state.type !== GameStateType.Ready && (
         <LoadingContainer>

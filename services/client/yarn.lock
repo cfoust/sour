@@ -2091,7 +2091,7 @@ msgpackr@^1.5.4:
   optionalDependencies:
     msgpackr-extract "^2.0.2"
 
-nipplejs@^0.10.0:
+nipplejs@0.10.0:
   version "0.10.0"
   resolved "https://registry.yarnpkg.com/nipplejs/-/nipplejs-0.10.0.tgz#46bdbe682998985113ebf96444d154f713e12f19"
   integrity sha512-BYrPA2meyOrk59NZTwKpnbVWYE89kAuMy34hnmjNyW/JmmuQfUs/k7lJhdPgZUjI3ZU7xbASOjCeDLeIDD+8VQ==

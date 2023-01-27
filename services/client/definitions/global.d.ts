@@ -65,7 +65,7 @@ type ModuleType = {
 
   // Run a JavaScript command and return a pointer to its result
   // This is NOT the same thing as emscripten_run_script_string
-  interop: (script: string) => number,
+  interop: (script: string) => number
 
   assets: {
     // assets has its own hook
@@ -75,13 +75,13 @@ type ModuleType = {
     loadRandomMap: () => void
     loadWorld: (map: string) => void
     receiveMap: (map: string, oldMap: string) => void
-    installMod: (name: string) => void,
-    getModProperty: (id: string, property: string) => string,
-    modsToURL: () => void,
+    installMod: (name: string) => void
+    getModProperty: (id: string, property: string) => string
+    modsToURL: () => void
   }
 
-  loadedMap: (name: string) => void,
-  onLocalDisconnect: () => void,
+  loadedMap: (name: string) => void
+  onLocalDisconnect: () => void
 
   discord: {
     login: () => void
@@ -116,6 +116,7 @@ declare const INJECTED_SOUR_CONFIG: Maybe<any>
 type BananaBreadType = {
   conoutf: (level: number, message: string) => void
   execute: (command: string) => void
+  mousemove: (dx: number, dy: number) => void
   loadWorld: (map: string, cmap?: string) => void
   setLoading: (value: boolean) => void
   renderprogress: (progress: number, text: string) => void
