@@ -1275,6 +1275,16 @@ bool g3d_movecursor(int dx, int dy)
     return true;
 }
 
+#if __EMSCRIPTEN__
+void g3d_click(float x, float y)
+{
+    if(!guis2d.length() || !hascursor) return;
+    cursorx = x;
+    cursory = y;
+	g3d_key(-1, 0);
+}
+#endif
+
 VARNP(guifollow, useguifollow, 0, 1, 1);
 VARNP(gui2d, usegui2d, 0, 1, 1);
 

@@ -118,6 +118,7 @@ type BananaBreadType = {
   execute: (command: string) => void
   mousemove: (dx: number, dy: number) => void
   isInMenu: () => number
+  click: (x: number, y: number) => void
   loadWorld: (map: string, cmap?: string) => void
   setLoading: (value: boolean) => void
   renderprogress: (progress: number, text: string) => void

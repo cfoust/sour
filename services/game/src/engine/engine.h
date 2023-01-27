@@ -557,6 +557,7 @@ extern void g3d_render2d();
 extern bool g3d_windowhit(bool on, bool act);
 extern bool g3d_key(int code, bool isdown);
 extern bool g3d_input(const char *str, int len);
+extern void g3d_click(float x, float y);
 // menus
 extern int mainmenu;
 

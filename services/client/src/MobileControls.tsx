@@ -47,14 +47,16 @@ const DIRECTIONS = [
 
 export default function MobileControls(props: { isRunning: boolean }) {
   const { isRunning } = props
+  const containerRef = React.useRef<HTMLDivElement>(null)
   const leftRef = React.useRef<HTMLDivElement>(null)
   const rightRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
     if (!isRunning) return
+    const { current: container } = containerRef
     const { current: leftPad } = leftRef
     const { current: rightPad } = rightRef
-    if (leftPad == null || rightPad == null) return
+    if (container == null || leftPad == null || rightPad == null) return
 
     let isInMenu: boolean = false
 
@@ -140,10 +142,20 @@ export default function MobileControls(props: { isRunning: boolean }) {
       BananaBread.mousemove(dx, dy)
     }
     window.requestAnimationFrame(cb)
+
+    container.onpointerup = (evt) => {
+      const { x, y, width, height } = container.getBoundingClientRect();
+      const { x: mouseX, y: mouseY } = evt
+
+      BananaBread.click(
+        (mouseX - x) / width,
+        (mouseY - y) / height,
+      )
+    }
   }, [isRunning])
 
   return (
-    <Container>
+    <Container ref={containerRef}>
       <MovementPad ref={leftRef} />
       <DirectionPad ref={rightRef} />
     </Container>
