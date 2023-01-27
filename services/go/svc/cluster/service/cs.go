@@ -181,6 +181,8 @@ func (u *User) HasCubeScript() bool {
 	return u.GetAutoexecKey() != ""
 }
 
+const TUNNEL_MODE = true
+
 func (u *User) RunCubeScript(ctx context.Context, code string) error {
 	key := u.GetAutoexecKey()
 
@@ -221,7 +223,7 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 	p.Put(
 		game.N_MAPCHANGE,
 		game.MapChange{
-			Name:     "complex",
+			Name:     key,
 			Mode:     int(game.MODE_COOP),
 			HasItems: 0,
 		},
@@ -229,15 +231,11 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 	send(p, 1)
 	u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_MAPCRC)
 
-	//p = game.Packet{}
-	//p.Put(game.N_SENDMAP)
-	//p = append(p, PURGATORY...)
-	//send(p, 2)
-	//u.Send(game.GamePacket{
-	//Data:    p,
-	//Channel: 1,
-	//})
-	//u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_MAPCRC)
+	sendServerInfo(
+		u,
+		"",
+	)
+	u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_CONNECT)
 
 	// Put the user back where they were
 	p = game.Packet{}
