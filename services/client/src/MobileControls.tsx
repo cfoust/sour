@@ -17,7 +17,6 @@ import nipplejs from 'nipplejs'
 const Container = styled.div`
   width: 100%;
   height: 100%;
-  min-height: 100vh;
   position: absolute;
   top: 0;
   bottom: 0;
@@ -135,6 +134,9 @@ export default function MobileControls(props: { isRunning: boolean }) {
       if (!isInMenu && newInMenu) {
         unregisterJoysticks()
       } else if (isInMenu && !newInMenu) {
+        registerJoysticks()
+      }
+      if (!newInMenu && movement == null) {
         registerJoysticks()
       }
       isInMenu = newInMenu
