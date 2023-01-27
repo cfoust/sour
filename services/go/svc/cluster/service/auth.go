@@ -7,6 +7,7 @@ import (
 
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/auth"
+	"github.com/cfoust/sour/svc/cluster/ingress"
 )
 
 func (c *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) error {
@@ -101,6 +102,10 @@ func (server *Cluster) GreetClient(ctx context.Context, user *User) {
 	user.Mutex.Lock()
 	user.wasGreeted = true
 	user.Mutex.Unlock()
+
+	if user.Connection.Type() != ingress.ClientTypeENet {
+		return
+	}
 
 	go server.setupCubeScript(user.Context(), user)
 }

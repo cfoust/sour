@@ -482,7 +482,9 @@ func (server *GameServer) ParseRead(data []byte) {
 }
 
 func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
-	buffer := make([]byte, 5242880)
+	buffer := make([]byte, 4096)
+	logger := server.Log()
+
 	for {
 		time.Sleep(5 * time.Millisecond)
 
@@ -493,6 +495,12 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 
 		numBytes, err := (*server.socket).Read(buffer)
 		if err != nil {
+			logger.Warn().Err(err).Msgf("error reading socket")
+			continue
+		}
+
+		if numBytes == len(buffer) {
+			logger.Warn().Msgf("server read probably overflowed %d", numBytes)
 			continue
 		}
 
@@ -852,8 +860,8 @@ func (server *GameServer) Start(ctx context.Context) error {
 					replaced := strings.Replace(server.description, "#id", server.Reference(), -1)
 					go server.SendCommand(fmt.Sprintf("serverdesc \"%s\"", replaced))
 				}
-				go server.PollWrites(ctx)
-				go server.PollEvents(ctx)
+				go server.PollWrites(server.Context)
+				go server.PollEvents(server.Context)
 
 				exitChannel <- true
 			}
