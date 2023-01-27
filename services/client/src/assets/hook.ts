@@ -27,7 +27,7 @@ import type { GameState } from '../types'
 import { GameStateType, DownloadingType } from '../types'
 
 import type { PromiseSet } from '../utils'
-import { breakPromise } from '../utils'
+import { breakPromise, BROWSER } from '../utils'
 import { getModImage } from './utils'
 
 import { CONFIG } from '../config'
@@ -75,6 +75,12 @@ function normalizePath(path: string): string {
 }
 
 export async function mountFile(path: string, data: Uint8Array): Promise<void> {
+  if (BROWSER.isMobile) {
+    // This is really slow on iOS right now
+    if (path.endsWith('.wav') || path.endsWith('.ogg')) {
+      return
+    }
+  }
   const normalizedPath = normalizePath(path)
   const parts = getDirectory(normalizedPath).split('/')
   for (let i = 0; i < parts.length; i++) {

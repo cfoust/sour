@@ -3,7 +3,17 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--<meta-->
+      <!--name="viewport"-->
+      <!--content="initial-scale=1;"-->
+    <!--/>-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
 
     <title>Sour</title>
     <meta name="description" content="Sauerbraten for the web." />
@@ -21,7 +31,12 @@
     <!--<link rel="apple-touch-icon" href="/apple-touch-icon.png" />-->
   </head>
 
-  <body style="background: #393E3F repeat url('/background.png'); background-size: 400px;">
+  <body
+    style="
+      background: #393e3f repeat url('/background.png');
+      background-size: 400px;
+    "
+  >
     <div id="root"></div>
 
     <script>
@@ -30,7 +45,7 @@
       var Module = typeof Module !== 'undefined' ? Module : {}
       Module.preInit = []
       Module.preRun = []
-			Module.noInitialRun = true
+      Module.noInitialRun = true
       Module.postRun = []
     </script>
     <script src="/index.js"></script>

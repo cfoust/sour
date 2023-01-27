@@ -16,7 +16,6 @@ import {
   Heading,
   Spacer,
 } from '@chakra-ui/react'
-import { detect } from 'detect-browser'
 
 import type { ThemeConfig } from '@chakra-ui/react'
 
@@ -43,7 +42,7 @@ import * as cube from './game'
 
 import type { PromiseSet } from './utils'
 import { CONFIG } from './config'
-import { breakPromise } from './utils'
+import { breakPromise, BROWSER } from './utils'
 import * as log from './logging'
 
 import { LoadRequestType } from './assets/types'
@@ -56,17 +55,6 @@ const colors = {
     800: '#153e75',
     700: '#2a69ac',
   },
-}
-function getBrowser(): {
-  isFirefox: boolean
-  isSafari: boolean
-} {
-  const result = detect()
-
-  return {
-    isFirefox: result?.name === 'firefox',
-    isSafari: result?.name === 'safari',
-  }
 }
 
 const config: ThemeConfig = {
@@ -253,6 +241,26 @@ function App() {
   }, [])
 
   React.useEffect(() => {
+    if (BROWSER.isMobile) {
+      const ratio = window.devicePixelRatio || 1
+      const {
+        documentElement: {
+          clientWidth,
+          clientHeight
+        }
+      } = document
+      const width = clientWidth * ratio
+      const height = clientHeight * ratio
+      const canvas = document.getElementById('canvas')
+      if (canvas == null) return
+      canvas.style.setProperty("width", clientWidth + "px", "important");
+      canvas.style.setProperty("height", clientHeight + "px", "important");
+      if (!Module.running) return
+      if (BananaBread == null || BananaBread.execute == null) return
+      BananaBread.execute(`screenres ${clientWidth} ${clientHeight}`)
+      return
+    }
+
     if (width == null || height == null) return
     Module.desiredWidth = width
     Module.desiredHeight = height
@@ -431,8 +439,7 @@ function App() {
       Module.FS_createPath(`/`, 'packages', true, true)
       Module.FS_createPath(`/packages`, 'base', true, true)
 
-      const browser = getBrowser()
-      if (browser.isFirefox || browser.isSafari) {
+      if (BROWSER.isFirefox || BROWSER.isSafari) {
         BananaBread.execute('skipparticles 1')
         BananaBread.execute('glare 0')
       }

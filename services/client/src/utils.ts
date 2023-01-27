@@ -1,3 +1,4 @@
+import { detect } from 'detect-browser'
 
 export type PromiseSet<T> = {
   promise: Promise<T>
@@ -20,3 +21,19 @@ export function breakPromise<T>(): PromiseSet<T> {
     reject,
   }
 }
+
+export function getBrowser(): {
+  isFirefox: boolean
+  isSafari: boolean
+  isMobile: boolean
+} {
+  const result = detect()
+
+  return {
+    isFirefox: result?.name === 'firefox',
+    isSafari: result?.name === 'safari',
+    isMobile: result?.os === 'iOS' || result?.os === 'Android OS',
+  }
+}
+
+export const BROWSER = getBrowser()
