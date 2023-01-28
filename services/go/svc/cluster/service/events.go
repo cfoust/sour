@@ -143,29 +143,6 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *User, mess
 	server.Users.Mutex.RUnlock()
 }
 
-// TODO
-//func (server *Cluster) SendDesktopMap(ctx context.Context, client *clients.Client) {
-//if server.MapSender.IsHandling(client) {
-//return
-//}
-
-//gameServer := client.GetServer()
-//if gameServer == nil {
-//return
-//}
-
-//gameServer.Mutex.Lock()
-//mapName := gameServer.Map
-//isBuilt := gameServer.IsBuiltMap
-//gameServer.Mutex.Unlock()
-
-//if !isBuilt {
-//return
-//}
-
-//server.MapSender.SendMap(ctx, client, mapName)
-//}
-
 func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int) {
 	logger := user.Logger()
 
@@ -326,11 +303,22 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			}
 
 			go func() {
-				if description == c.authDomain && !user.IsLoggedIn() {
+				user.Mutex.RLock()
+				wasGreeted := user.wasGreeted
+				user.Mutex.RUnlock()
+				if wasGreeted {
+					return
+				}
+
+				if description != c.authDomain {
+					user.Authentication <- nil
+					return
+				}
+
+				if !user.IsLoggedIn() {
 					err := c.DoAuthChallenge(ctx, user, name)
 					if err != nil {
 						logger.Warn().Err(err).Msgf("failed to log in")
-						return
 					}
 				}
 			}()
