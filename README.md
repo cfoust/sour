@@ -1,4 +1,4 @@
-# sour
+# Sour
 <p align="center">
   <img src="gh-assets/header.png">
 </p>
@@ -8,7 +8,31 @@ MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.or
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/cfoust/sour)
 
-`sour` is a complete [Cube 2: Sauerbraten](http://sauerbraten.org/) experience in the web delivered as a single Docker image. [Give it a try.](https://sourga.me/)
+Sour is a complete [Cube 2: Sauerbraten](http://sauerbraten.org/) experience in the web delivered as a single Docker image. [Give it a try.](https://sourga.me/)
+
+## Features
+* **A complete web version of Sauerbraten**
+    * All original game assets and features
+    * Support for mobile devices
+    * Connect to all existing Sauerbraten community servers and crossplay with desktop players
+    * Arbitrary game mods
+    * Sophisticated load-on-demand system for assets that allows for loading arbitrary content that has been packaged for the game
+    * Links to servers (`/server/[ip]/[port]`) and maps (`/map/complex`)
+* **An advanced Sauerbraten game server**
+    * Supports connections both from the web and from desktop Sauerbraten clients
+    * Server multiplexing: you can run arbitrary game servers with their own maps, modes, and configurations and allow users to move between them without disconnecting from the server
+    * Players can create private game servers and invite other players on-demand
+    * Discord authentication both for web and desktop clients
+    * 1v1 matchmaking and persistent ELO scores for users
+    * Persistent map editing: edits users make to maps are stored on the server side and visible to other clients who join (no more `/getmap` and `/sendmap`)
+    * User-owned spaces that they can edit (player housing, basically)
+    * User sessions can be saved as demos for debugging
+    * Automatically sends game maps to desktop clients that don't have them
+    * Mechanism for running client-side CubeScript on desktop clients
+* **Utilities and libraries for working with Sauerbraten**
+    * `sourdump`, a tool for calculating all of the files a Sauerbraten map, model, or `.cfg` file uses so that you can only send the minimum set of assets a client needs
+    * Go library for opening, manipulating, and saving Sauerbraten game maps
+    * Go library providing interoperation between Go and CubeScript
 
 ## Goals
 
@@ -53,9 +77,7 @@ If you want to run things locally all you need is Docker, [Earthly](https://eart
 Check out the roadmap below to see what you might be able to help with.
 
 ### General
-* [ ] Better documentation
-  * [ ] Configuration
-* [ ] Fix Sour in Mobile Safari
+* [ ] Better documentation (especially on configuration)
 * [ ] Allow for providing the desired maps in an image as a build argument
 * [ ] Terraform recipes for deployment
 ### Bugs
