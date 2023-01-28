@@ -68,13 +68,6 @@ func main() {
 	}
 	go maps.PollDownloads(ctx)
 
-	sender := service.NewMapSender(maps)
-
-	err = sender.Start()
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to start map sender")
-	}
-
 	var discord *auth.DiscordService = nil
 	discordSettings := sourConfig.Discord
 	if discordSettings.Enabled {
@@ -90,7 +83,6 @@ func main() {
 		ctx,
 		serverManager,
 		maps,
-		sender,
 		clusterConfig,
 		sourConfig.Discord.Domain,
 		discord,

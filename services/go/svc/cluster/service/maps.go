@@ -3,388 +3,144 @@ package service
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"sync"
 	"time"
 
-	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/maps"
 
 	"github.com/rs/zerolog/log"
 )
 
-func MakeDownloadMap(demoName string) ([]byte, error) {
-	gameMap, err := maps.NewMap()
-	if err != nil {
-		return nil, err
-	}
-	gameMap.Vars["cloudlayer"] = game.StringVariable("")
-	gameMap.Vars["skyboxcolour"] = game.IntVariable(0)
-
-	// First, request the "demo" in its entirety.
-	fileName := demoName[:20]
-	script := fmt.Sprintf(`
-can_teleport_1 = [
-demodir sour
-getdemo 0 %s
-can_teleport_1 = []
-]
-can_teleport_2 = [
-addzip sour/%s.dmo
-demodir demo
-can_teleport_2 = []
-]
-say a
-`, fileName, fileName)
-
-	log.Warn().Msgf("maptitle len=%d", len(script))
-	gameMap.Vars["maptitle"] = game.StringVariable(script)
-
-	gameMap.Entities = append(gameMap.Entities,
-		maps.Entity{
-			Type:  game.EntityTypeTeleport,
-			Attr3: 1,
-			Position: maps.Vector{
-				X: 512 + 10,
-				Y: 512 + 10,
-				Z: 512,
-			},
-		},
-		maps.Entity{
-			Type:  game.EntityTypeTeleport,
-			Attr3: 2,
-			Position: maps.Vector{
-				X: 512 - 10,
-				Y: 512 - 10,
-				Z: 512,
-			},
-		},
-	)
-
-	mapBytes, err := gameMap.EncodeOGZ()
-	if err != nil {
-		return mapBytes, err
-	}
-
-	return mapBytes, nil
-}
-
-type SendState struct {
-	Mutex  sync.Mutex
-	User   *User
-	Maps   *assets.AssetFetcher
-	Sender *MapSender
-	Path   string
-	Map    string
-
-	userAccepted  chan bool
-	demoRequested chan int
-}
-
-func (s *SendState) SendClient(data []byte, channel int) <-chan bool {
-	return s.User.Send(game.GamePacket{
+func sendClient(user *User, data []byte, channel int) <-chan bool {
+	return user.Send(game.GamePacket{
 		Channel: uint8(channel),
 		Data:    data,
 	})
 }
 
-func (s *SendState) SendClientSync(data []byte, channel int) error {
-	if !<-s.SendClient(data, channel) {
+func sendClientSync(user *User, data []byte, channel int) error {
+	if !<-sendClient(user, data, channel) {
 		return fmt.Errorf("client never acknowledged message")
 	}
 	return nil
 }
 
-func (s *SendState) MoveClient(x float64, y float64) error {
-	p := game.Packet{}
-	err := p.Put(
-		game.N_POS,
-		uint(s.User.GetClientNum()),
-		game.PhysicsState{
-			LifeSequence: s.User.GetLifeSequence(),
-			O: game.Vec{
-				X: x,
-				Y: y,
-				Z: 512 + 14,
-			},
-		},
-	)
-	if err != nil {
-		return err
+func (c *Cluster) waitForMapConsent(ctx context.Context, user *User) error {
+	timeout, cancel := context.WithTimeout(user.Context(), 60*time.Second)
+	defer cancel()
+
+	check := time.NewTicker(250 * time.Millisecond)
+	warn := time.NewTicker(10 * time.Second)
+	serverCtx := user.ServerSessionContext()
+
+	message := "you are missing assets. run '/do (getservauth)' to allow the server to automatically send maps and assets you are missing"
+	user.SendServerMessage(message)
+
+	for {
+		select {
+		case <-timeout.Done():
+			go c.RunCommand(ctx, "go lobby", user)
+			return fmt.Errorf("user never consented")
+		case <-serverCtx.Done():
+			return fmt.Errorf("user left the server")
+		case <-check.C:
+			if !user.HasCubeScript() {
+				continue
+			}
+			return nil
+		case <-warn.C:
+			user.SendServerMessage(message)
+		}
 	}
-	s.SendClient(p, 0)
+}
+
+func sendRawMap(ctx context.Context, user *User, data []byte) error {
+	p := game.Packet{}
+	p.Put(game.N_SENDMAP)
+	p = append(p, data...)
+	done := user.Send(game.GamePacket{
+		Channel: 2,
+		Data:    p,
+	})
+
+	sendCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	select {
+	case <-sendCtx.Done():
+		cancel()
+		return fmt.Errorf("user failed to download map")
+	case <-done:
+		cancel()
+		break
+	}
+
 	return nil
 }
 
-func (s *SendState) SendPause(state bool) error {
+const RUN_WAIT_TIMEOUT = 15 * time.Second
+
+func runScriptAndWait(ctx context.Context, user *User, type_ game.MessageCode, code string) (game.Message, error) {
+	csError := make(chan error)
+	msgChan := make(chan game.Message)
+	go func() {
+		csError <- user.RunCubeScript(ctx, code)
+	}()
+
+	go func() {
+		msg, err := user.From.NextTimeout(ctx, RUN_WAIT_TIMEOUT, type_)
+		if err != nil {
+			msgChan <- nil
+			return
+		}
+		msgChan <- msg
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case err := <-csError:
+		return nil, err
+	case msg := <-msgChan:
+		if msg == nil {
+			return nil, fmt.Errorf("waiting for message failed")
+		}
+		return msg, nil
+	}
+}
+
+func sendBundle(serverCtx context.Context, user *User, id string, data []byte) error {
+	logger := user.Logger()
+
+	fileName := id[:20]
+
+	msg, err := runScriptAndWait(serverCtx, user, game.N_GETDEMO, fmt.Sprintf(`
+demodir sour
+getdemo 0 %s
+`, fileName))
+	if err != nil {
+		return err
+	}
+
+	getDemo := msg.Contents().(*game.GetDemo)
+	tag := getDemo.Tag
+
 	p := game.Packet{}
 	p.Put(
-		game.N_PAUSEGAME,
-		state,
-		s.User.GetClientNum(),
+		game.N_SENDDEMO,
+		tag,
 	)
-	s.SendClient(p, 1)
-	return nil
-}
-
-func (s *SendState) SendDemo(tag int) {
-	s.demoRequested <- tag
-}
-
-func (s *SendState) TriggerSend() {
-	s.userAccepted <- true
-}
-
-func (s *SendState) Send() error {
-	//user := s.User
-	//logger := user.Logger()
-	//ctx := user.ServerSessionContext()
-
-	//logger.Info().Msg("sending map to client")
-
-	//if ctx.Err() != nil {
-	//return ctx.Err()
-	//}
-
-	//s.SendPause(true)
-
-	//p := game.Packet{}
-	//p.Put(
-	//game.N_MAPCHANGE,
-	//game.MapChange{
-	//Name:     "sending",
-	//Mode:     int(game.MODE_COOP),
-	//HasItems: 0,
-	//},
-	//)
-	//s.SendClient(p, 1)
-
-	//if ctx.Err() != nil {
-	//return ctx.Err()
-	//}
-
-	//map_ := s.Maps.FindMap(s.Map)
-	//if opt.IsNone(map_) {
-	//// How?
-	//return fmt.Errorf("could not find map")
-	//}
-
-	//logger = user.Logger().With().Str("map", map_.Value.Map.Name).Logger()
-
-	//fakeMap, err := MakeDownloadMap(map_.Value.Map.Bundle)
-	//if err != nil {
-	//logger.Error().Err(err).Msgf("failed to make map")
-	//return err
-	//}
-
-	//time.Sleep(1 * time.Second)
-	//p = game.Packet{}
-	//p.Put(game.N_SENDMAP)
-	//p = append(p, fakeMap...)
-	//err = s.SendClientSync(p, 2)
-	//if err != nil {
-	//return err
-	//}
-
-	//desktopURL := map_.GetDesktopURL()
-	//if opt.IsNone(desktopURL) {
-	//return fmt.Errorf("no desktop bundle for map %s", s.Map)
-	//}
-
-	//mapPath := filepath.Join(s.Sender.workingDir, assets.GetURLBase(desktopURL.Value))
-	//s.Path = mapPath
-	//err = assets.DownloadFile(
-	//desktopURL.Value,
-	//mapPath,
-	//)
-	//if err != nil {
-	//return err
-	//}
-
-	//if ctx.Err() != nil {
-	//return ctx.Err()
-	//}
-
-	//user.SendServerMessage("You are missing this map. Please run '/do $maptitle' to download it.")
-
-	//select {
-	//case <-s.userAccepted:
-	//case <-ctx.Done():
-	//return ctx.Err()
-	//}
-
-	//logger.Info().Msg("user accepted download")
-
-	//s.User.GetServer().SendCommand(fmt.Sprintf("forcerespawn %d", s.User.GetClientNum()))
-	//time.Sleep(1 * time.Second)
-	//s.MoveClient(512+10, 512+10)
-	//time.Sleep(1 * time.Second)
-	//// so physics runs
-	//s.SendPause(false)
-
-	//var tag int
-	//select {
-	//case request := <-s.demoRequested:
-	//tag = request
-	//case <-ctx.Done():
-	//return ctx.Err()
-	//}
-
-	//logger.Info().Msg("user requested demo")
-
-	//file, err := os.Open(s.Path)
-	//defer file.Close()
-	//if err != nil {
-	//return err
-	//}
-
-	//buffer, err := io.ReadAll(file)
-	//if err != nil {
-	//return err
-	//}
-
-	//p = game.Packet{}
-	//p.Put(
-	//game.N_SENDDEMO,
-	//tag,
-	//)
-	//p = append(p, buffer...)
-	//err = s.SendClientSync(p, 2)
-	//if err != nil {
-	//return err
-	//}
-	//logger.Info().Msg("demo downloaded")
-
-	//time.Sleep(500 * time.Millisecond)
-
-	//if ctx.Err() != nil {
-	//return ctx.Err()
-	//}
-
-	//// Then load the demo
-	//s.SendPause(true)
-	//s.MoveClient(512-10, 512-10)
-	//time.Sleep(500 * time.Millisecond)
-
-	//if ctx.Err() != nil {
-	//return ctx.Err()
-	//}
-
-	//s.SendPause(false)
-
-	//logger.Info().Msg("download complete")
-
-	return nil
-}
-
-type MapSender struct {
-	Users      map[*User]*SendState
-	Maps       *assets.AssetFetcher
-	Mutex      sync.Mutex
-	workingDir string
-}
-
-func NewMapSender(maps *assets.AssetFetcher) *MapSender {
-	return &MapSender{
-		Users: make(map[*User]*SendState),
-		Maps:  maps,
-	}
-}
-
-func (m *MapSender) Start() error {
-	tempDir, err := ioutil.TempDir("", "maps")
+	p = append(p, data...)
+	err = sendClientSync(user, p, 2)
 	if err != nil {
 		return err
 	}
 
-	m.workingDir = tempDir
+	msg, err = runScriptAndWait(serverCtx, user, game.N_SERVCMD, fmt.Sprintf(`
+addzip sour/%s.dmo
+demodir demo
+`, fileName))
 
-	err = os.MkdirAll(tempDir, 0755)
-	if err != nil {
-		return err
-	}
+	logger.Info().Msg("download complete")
 
 	return nil
-}
-
-// Whether a map is being sent to this client.
-func (m *MapSender) IsHandling(user *User) bool {
-	m.Mutex.Lock()
-	_, handling := m.Users[user]
-	m.Mutex.Unlock()
-	return handling
-}
-
-func (m *MapSender) SendDemo(ctx context.Context, user *User, tag int) {
-	m.Mutex.Lock()
-	state, handling := m.Users[user]
-	m.Mutex.Unlock()
-
-	if !handling {
-		return
-	}
-
-	state.SendDemo(tag)
-}
-
-func (m *MapSender) TriggerSend(ctx context.Context, user *User) {
-	m.Mutex.Lock()
-	state, handling := m.Users[user]
-	m.Mutex.Unlock()
-
-	if !handling {
-		return
-	}
-
-	state.TriggerSend()
-}
-
-func (m *MapSender) SendMap(ctx context.Context, user *User, mapName string) {
-	logger := user.Logger()
-	logger.Info().Str("map", mapName).Msg("sending map")
-	state := &SendState{
-		User:          user,
-		Map:           mapName,
-		Maps:          m.Maps,
-		Sender:        m,
-		userAccepted:  make(chan bool, 1),
-		demoRequested: make(chan int, 1),
-	}
-
-	m.Mutex.Lock()
-	m.Users[user] = state
-	m.Mutex.Unlock()
-	server := user.GetServer()
-
-	out := make(chan error)
-	go func() {
-		out <- state.Send()
-	}()
-	go func() {
-		select {
-		case <-user.ServerSessionContext().Done():
-			return
-		case err := <-out:
-			if err != nil {
-				logger.Error().Err(err).Msg("failed to download map")
-				return
-			}
-
-			m.Mutex.Lock()
-			delete(m.Users, user)
-			m.Mutex.Unlock()
-
-			// Now we can reconnect the user to their server
-			user.DisconnectFromServer()
-			user.Connect(server)
-		}
-	}()
-}
-
-func (m *MapSender) Shutdown() {
-	os.RemoveAll(m.workingDir)
 }
 
 func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
@@ -417,21 +173,25 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 
 	server.Mutex.RLock()
 	mode := server.Mode
-	map_ := server.Map
+	mapName := server.Map
 	server.Mutex.RUnlock()
 
-	if mode != game.MODE_COOP {
-		data, err := c.assets.FetchMapBundle(ctx, map_)
+	found := c.assets.FindMap(mapName)
+	// Server might be used for something else e.g. general coopedit
+	if found == nil {
+		return nil
+	}
+
+	map_ := found.Map
+
+	// Specifically in this case we don't need CS
+	if mode == game.MODE_COOP && !map_.HasCFG {
+		data, err := found.GetOGZ(ctx)
 		if err != nil {
 			return err
 		}
 
-		log.Fatal().Msgf("bundle %d", len(data))
-	}
-
-	data, err := c.assets.FetchMapBytes(ctx, map_)
-	if err != nil {
-		return err
+		return sendRawMap(ctx, user, data)
 	}
 
 	send := func(data []byte, channel uint8) {
@@ -448,7 +208,6 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 			game.N_MAPCHANGE,
 			game.MapChange{
 				Name:     "",
-				Mode:     int(game.MODE_COOP),
 				HasItems: 0,
 			},
 		)
@@ -456,46 +215,48 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 		user.From.Take(ctx, game.N_MAPCRC)
 	}
 
-	p := game.Packet{}
-	p.Put(game.N_SENDMAP)
-	p = append(p, data...)
-	done := user.Send(game.GamePacket{
-		Channel: 2,
-		Data:    p,
-	})
-
-	sendCtx, cancel := context.WithTimeout(ctx, 10 * time.Second)
-	select {
-	case <-sendCtx.Done():
-		cancel()
-		return fmt.Errorf("user failed to download map")
-	case <-done:
-		cancel()
-		break
-	}
-
-	// Intercept the CRC, which will contain a map field of getmap_XXXXXX
-	msg, err := user.From.Take(ctx, game.N_MAPCRC)
+	// Go to purgatory
+	err := sendRawMap(ctx, user, PURGATORY)
 	if err != nil {
-	    return fmt.Errorf("user never loaded map")
+		return err
 	}
 
-	crc := msg.Contents().(*game.MapCRC)
+	// Otherwise we always need CS
+	if !user.HasCubeScript() {
+		err := c.waitForMapConsent(ctx, user)
+		if err != nil {
+			return err
+		}
+	}
+
+	user.SendServerMessage("packaging data...")
+	data, err := found.GetBundle(ctx)
+	if err != nil {
+		return err
+	}
+
+	data, err = found.GetOGZ(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = sendBundle(ctx, user, map_.Bundle, data)
+	if err != nil {
+		return err
+	}
 
 	// Then change back
-	if mode != game.MODE_COOP {
-		p := game.Packet{}
-		p.Put(
-			game.N_MAPCHANGE,
-			game.MapChange{
-				Name:     crc.Map,
-				Mode:     int(mode),
-				HasItems: 1,
-			},
-		)
-		send(p, 1)
-		user.From.Take(ctx, game.N_MAPCRC)
-	}
+	p := game.Packet{}
+	p.Put(
+		game.N_MAPCHANGE,
+		game.MapChange{
+			Name:     map_.Name,
+			Mode:     int(mode),
+			HasItems: 1,
+		},
+	)
+	send(p, 1)
+	user.From.Take(ctx, game.N_MAPCRC)
 
 	log.Info().Msgf("Sent map %s (%d) to client", name, len(data))
 

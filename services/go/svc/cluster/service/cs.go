@@ -200,35 +200,18 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 		return fmt.Errorf("user was not connected to server")
 	}
 
-	server.Mutex.RLock()
-	mode := server.Mode
-	map_ := server.Map
-	server.Mutex.RUnlock()
-
 	sendServerInfo(
 		u,
 		script,
 	)
 	u.From.Take(ctx, game.N_CONNECT)
 
-	send := func(data []byte, channel uint8) {
-		u.Send(game.GamePacket{
-			Data:    data,
-			Channel: channel,
-		})
-	}
-
 	// Loading another map will execute the code
-	p := game.Packet{}
-	p.Put(
-		game.N_MAPCHANGE,
-		game.MapChange{
-			Name:     key,
-			Mode:     int(game.MODE_COOP),
-			HasItems: 0,
-		},
-	)
-	send(p, 1)
+	// Go to purgatory
+	err := sendRawMap(ctx, u, PURGATORY)
+	if err != nil {
+		return err
+	}
 	u.From.Take(ctx, game.N_MAPCRC)
 
 	sendServerInfo(
@@ -236,19 +219,6 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 		"",
 	)
 	u.From.Take(ctx, game.N_CONNECT)
-
-	// Put the user back where they were
-	p = game.Packet{}
-	p.Put(
-		game.N_MAPCHANGE,
-		game.MapChange{
-			Name:     map_,
-			Mode:     int(mode),
-			HasItems: 1,
-		},
-	)
-	send(p, 1)
-	u.From.Take(ctx, game.N_MAPCRC)
 
 	return nil
 }

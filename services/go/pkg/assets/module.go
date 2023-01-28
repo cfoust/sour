@@ -101,7 +101,16 @@ func (m *AssetFetcher) getBundle(ctx context.Context, id string) ([]byte, error)
 		}
 	}
 
-	return buffer.Bytes(), nil
+	writer.Close()
+
+	data := buffer.Bytes()
+
+	err = m.cache.Set(key, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
 func (m *AssetFetcher) pollAssetJobs(ctx context.Context) {
@@ -164,8 +173,17 @@ func (m *AssetFetcher) fetchBundle(ctx context.Context, id string) ([]byte, erro
 }
 
 type FoundMap struct {
-	Map  *SlimMap
-	Root *RemoteRoot
+	Map   *SlimMap
+	Root  *RemoteRoot
+	fetch *AssetFetcher
+}
+
+func (f *FoundMap) GetOGZ(ctx context.Context) ([]byte, error) {
+	return f.fetch.fetchAsset(ctx, f.Map.Ogz)
+}
+
+func (f *FoundMap) GetBundle(ctx context.Context) ([]byte, error) {
+	return f.fetch.fetchBundle(ctx, f.Map.Bundle)
 }
 
 func (m *AssetFetcher) FindMap(needle string) *FoundMap {
@@ -177,8 +195,9 @@ func (m *AssetFetcher) FindMap(needle string) *FoundMap {
 			}
 
 			return &FoundMap{
-				Map:  &gameMap,
-				Root: root,
+				Map:   &gameMap,
+				Root:  root,
+				fetch: m,
 			}
 		}
 	}

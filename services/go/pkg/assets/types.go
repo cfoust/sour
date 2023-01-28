@@ -34,6 +34,7 @@ type SlimMap struct {
 	Name   string
 	Ogz    string
 	Bundle string
+	HasCFG bool
 }
 
 type Bundle struct {

@@ -40,7 +40,6 @@ type Cluster struct {
 	// Services
 	Clients   *clients.ClientManager
 	Users     *UserOrchestrator
-	MapSender *MapSender
 	auth      *auth.DiscordService
 	manager   *servers.ServerManager
 	matches   *Matchmaker
@@ -54,7 +53,6 @@ func NewCluster(
 	ctx context.Context,
 	serverManager *servers.ServerManager,
 	maps *assets.AssetFetcher,
-	sender *MapSender,
 	settings config.ClusterSettings,
 	authDomain string,
 	auth *auth.DiscordService,
@@ -64,7 +62,6 @@ func NewCluster(
 	v := verse.NewVerse(redis)
 	server := &Cluster{
 		Users:         NewUserOrchestrator(redis, settings.Matchmaking.Duel),
-		MapSender:     sender,
 		serverCtx:     ctx,
 		settings:      settings,
 		authDomain:    authDomain,
@@ -263,5 +260,4 @@ func (server *Cluster) PollUsers(ctx context.Context, newConnections chan ingres
 
 func (server *Cluster) Shutdown() {
 	server.manager.Shutdown()
-	server.MapSender.Shutdown()
 }

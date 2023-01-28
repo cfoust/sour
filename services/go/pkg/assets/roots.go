@@ -143,6 +143,19 @@ func NewRemoteRoot(
 
 	maps := make([]SlimMap, len(index.Maps))
 	for _, map_ := range index.Maps {
+		hasCFG := false
+
+		cfgName := fmt.Sprintf(
+			"%s.cfg",
+			map_.Name,
+		)
+
+		for _, asset := range map_.Assets {
+			if strings.HasSuffix(asset.Path, cfgName) {
+				hasCFG = true
+			}
+		}
+
 		maps = append(
 			maps,
 			SlimMap{
@@ -150,6 +163,7 @@ func NewRemoteRoot(
 				Name:   map_.Name,
 				Ogz:    map_.Ogz,
 				Bundle: map_.Bundle,
+				HasCFG: hasCFG,
 			},
 		)
 	}

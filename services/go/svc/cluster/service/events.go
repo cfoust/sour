@@ -196,7 +196,6 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 	teleports := user.From.Intercept(game.N_TELEPORT)
 	edits := user.From.InterceptWith(game.IsOwnerOnly)
 	crcs := user.From.Intercept(game.N_MAPCRC)
-	demos := user.From.Intercept(game.N_GETDEMO)
 	votes := user.From.Intercept(game.N_MAPVOTE)
 
 	for {
@@ -238,14 +237,6 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to create game from vote")
 			}
-		case msg := <-demos.Receive():
-			demo := msg.Message.Contents().(*game.GetDemo)
-			if c.MapSender.IsHandling(user) {
-				c.MapSender.SendDemo(ctx, user, demo.Tag)
-				msg.Drop()
-				continue
-			}
-			msg.Pass()
 		case msg := <-crcs.Receive():
 			msg.Pass()
 			user.RestoreMessages()
@@ -338,11 +329,6 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			text := message.Contents().(*game.Text).Text
 
 			msg.Drop()
-
-			if text == "a" && c.MapSender.IsHandling(user) {
-				c.MapSender.TriggerSend(ctx, user)
-				continue
-			}
 
 			if !strings.HasPrefix(text, "#") {
 				// We do our own chat, don't pass on to the server
