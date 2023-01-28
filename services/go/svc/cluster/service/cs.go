@@ -39,7 +39,6 @@ func sendServerInfo(u *User, domain string) {
 }
 
 const (
-	DEFAULT_TIMEOUT    = 5 * time.Second
 	CONSENT_EXPIRATION = 30 * 24 * time.Hour
 	AUTOEXEC_KEY       = "autoexec-%s"
 )
@@ -70,11 +69,10 @@ func (c *Cluster) saveAutoexecKeys(ctx context.Context, u *User, public string, 
 	return nil
 }
 
-func (c *Cluster) waitForConsent(ctx context.Context, u *User) error {
+func (c *Cluster) waitForConsent(ctx context.Context, u *User, public string) error {
 	logger := u.Logger()
 	domain := getDomain(c.authDomain)
 	private := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("private-%d", time.Now()))))[:10]
-	public := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("public-%d", time.Now()))))[:10]
 
 	script := fmt.Sprintf(
 		INITIAL_SCRIPT,
@@ -92,7 +90,7 @@ func (c *Cluster) waitForConsent(ctx context.Context, u *User) error {
 		u,
 		script,
 	)
-	u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_CONNECT)
+	u.From.Take(ctx, game.N_CONNECT)
 
 	u.SendServerMessage("run '/do (getservauth)' to allow the server to automatically send maps and assets you are missing")
 
@@ -122,6 +120,7 @@ func (c *Cluster) waitForConsent(ctx context.Context, u *User) error {
 
 			logger.Info().Msg("user consented to autoexec")
 			msg.Drop()
+			logger.Info().Msgf("public=%s private=%s", public, private)
 			err := c.saveAutoexecKeys(ctx, u, public, private)
 			if err != nil {
 				return err
@@ -143,7 +142,7 @@ func (c *Cluster) setupCubeScript(ctx context.Context, u *User) error {
 		domain,
 	)
 
-	msg, err := u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_CONNECT)
+	msg, err := u.From.Take(ctx, game.N_CONNECT)
 	if err != nil {
 		logger.Warn().Msg("never got N_CONNECT")
 		return err
@@ -152,7 +151,8 @@ func (c *Cluster) setupCubeScript(ctx context.Context, u *User) error {
 	connect := msg.Contents().(*game.Connect)
 	public := connect.AuthName
 	if public == "" {
-		return c.waitForConsent(ctx, u)
+		public = fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("public-%d", time.Now()))))[:10]
+		return c.waitForConsent(ctx, u, public)
 	}
 
 	private, err := c.redis.Get(ctx, fmt.Sprintf(AUTOEXEC_KEY, public)).Result()
@@ -160,7 +160,7 @@ func (c *Cluster) setupCubeScript(ctx context.Context, u *User) error {
 		u.SendServerMessage(game.Red(
 			"your consent is invalid or expired",
 		))
-		return c.waitForConsent(ctx, u)
+		return c.waitForConsent(ctx, u, public)
 	}
 
 	u.Mutex.Lock()
@@ -209,7 +209,7 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 		u,
 		script,
 	)
-	u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_CONNECT)
+	u.From.Take(ctx, game.N_CONNECT)
 
 	send := func(data []byte, channel uint8) {
 		u.Send(game.GamePacket{
@@ -229,13 +229,13 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 		},
 	)
 	send(p, 1)
-	u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_MAPCRC)
+	u.From.Take(ctx, game.N_MAPCRC)
 
 	sendServerInfo(
 		u,
 		"",
 	)
-	u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_CONNECT)
+	u.From.Take(ctx, game.N_CONNECT)
 
 	// Put the user back where they were
 	p = game.Packet{}
@@ -248,7 +248,7 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 		},
 	)
 	send(p, 1)
-	u.From.NextTimeout(ctx, DEFAULT_TIMEOUT, game.N_MAPCRC)
+	u.From.Take(ctx, game.N_MAPCRC)
 
 	return nil
 }
