@@ -420,6 +420,15 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 	map_ := server.Map
 	server.Mutex.RUnlock()
 
+	if mode != game.MODE_COOP {
+		data, err := c.assets.FetchMapBundle(ctx, map_)
+		if err != nil {
+			return err
+		}
+
+		log.Fatal().Msgf("bundle %d", len(data))
+	}
+
 	data, err := c.assets.FetchMapBytes(ctx, map_)
 	if err != nil {
 		return err

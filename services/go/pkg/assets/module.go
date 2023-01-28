@@ -1,7 +1,10 @@
 package assets
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	"fmt"
 	"strings"
 )
 
@@ -56,7 +59,49 @@ func (m *AssetFetcher) getAsset(ctx context.Context, id string) ([]byte, error) 
 }
 
 func (m *AssetFetcher) getBundle(ctx context.Context, id string) ([]byte, error) {
-	return nil, Missing
+	key := fmt.Sprintf(ASSET_KEY, id)
+
+	cacheData, err := m.cache.Get(key)
+	if err != nil && err != Missing {
+		return nil, err
+	}
+	if err == nil {
+		return cacheData, nil
+	}
+
+	var assets *[]Asset
+	for _, root := range m.roots {
+		if bundleAssets, ok := root.bundles[id]; ok {
+			assets = bundleAssets
+			break
+		}
+	}
+
+	if assets == nil {
+		return nil, Missing
+	}
+
+	var buffer bytes.Buffer
+	writer := zip.NewWriter(&buffer)
+
+	for _, asset := range *assets {
+		data, err := m.fetchAsset(ctx, asset.Id)
+		if err != nil {
+			return nil, err
+		}
+
+		file, err := writer.Create(asset.Path)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = file.Write(data)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return buffer.Bytes(), nil
 }
 
 func (m *AssetFetcher) pollAssetJobs(ctx context.Context) {
@@ -107,6 +152,17 @@ func (m *AssetFetcher) fetchAsset(ctx context.Context, id string) ([]byte, error
 	return result.Data, result.Err
 }
 
+func (m *AssetFetcher) fetchBundle(ctx context.Context, id string) ([]byte, error) {
+	out := make(chan FetchResult)
+	m.bundles <- Job{
+		Id:     id,
+		Result: out,
+	}
+
+	result := <-out
+	return result.Data, result.Err
+}
+
 type FoundMap struct {
 	Map  *SlimMap
 	Root *RemoteRoot
@@ -137,4 +193,13 @@ func (m *AssetFetcher) FetchMapBytes(ctx context.Context, needle string) ([]byte
 	}
 
 	return m.fetchAsset(ctx, map_.Map.Ogz)
+}
+
+func (m *AssetFetcher) FetchMapBundle(ctx context.Context, needle string) ([]byte, error) {
+	map_ := m.FindMap(needle)
+	if map_ == nil {
+		return nil, Missing
+	}
+
+	return m.fetchBundle(ctx, map_.Map.Bundle)
 }
