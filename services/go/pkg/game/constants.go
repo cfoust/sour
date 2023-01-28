@@ -388,6 +388,16 @@ func IsConnectingMessage(code MessageCode) bool {
 	return false
 }
 
+func IsSpammyMessage(code MessageCode) bool {
+	for _, comparison := range []MessageCode{N_PING, N_PONG, N_CLIENTPING, N_POS} {
+		if code == comparison {
+			return true
+		}
+	}
+
+	return false
+}
+
 const (
 	GUN_FIST uint16 = 0
 	GUN_SG

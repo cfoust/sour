@@ -513,7 +513,9 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			}
 
 			for _, message := range gameMessages {
-				logger.Debug().Str("code", message.Type().String()).Msg("client -> server")
+				if !game.IsSpammyMessage(message.Type()) {
+					logger.Debug().Str("code", message.Type().String()).Msg("client -> server")
+				}
 
 				data, err := user.From.Process(
 					ctx,
@@ -564,9 +566,11 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			out := make([]byte, 0)
 
 			for _, message := range gameMessages {
-				logger.Debug().
-					Str("type", message.Type().String()).
-					Msg("cluster -> client")
+				if !game.IsSpammyMessage(message.Type()) {
+					logger.Debug().
+						Str("type", message.Type().String()).
+						Msg("cluster -> client")
+				}
 
 				data, err := user.To.Process(
 					ctx,

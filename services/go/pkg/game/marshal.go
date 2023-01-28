@@ -362,8 +362,6 @@ func Read(b []byte, fromClient bool) ([]Message, error) {
 	messages := make([]Message, 0)
 	p := Packet(b)
 
-	log.Debug().Msgf("reading messages from %d bytes", len(b))
-
 	for len(p) > 0 {
 		// We just want to peek this so that the message type int gets into the RawMessage
 		q := Packet(p)
@@ -621,7 +619,9 @@ func Read(b []byte, fromClient bool) ([]Message, error) {
 			}
 		}
 
-		log.Debug().Msgf("read message %s", message.Type().String())
+		if !IsSpammyMessage(message.Type()) {
+			log.Debug().Msgf("read message %s", message.Type().String())
+		}
 
 		if err != nil {
 			return nil, err

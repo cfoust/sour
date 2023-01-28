@@ -138,6 +138,27 @@ getdemo 0 %s
 		return err
 	}
 
+	timeout, cancel := context.WithTimeout(user.Context(), 60*time.Second)
+	defer cancel()
+
+	for {
+		msg, err = runScriptAndWait(timeout, user, game.N_SERVCMD, fmt.Sprintf(`
+if (= (findfile sour/%s.dmo) 1) [servcmd ok] [servcmd missing]
+`, fileName))
+		if err != nil {
+			return err
+		}
+
+		cmd := msg.Contents().(*game.ServCMD)
+		if cmd.Command != "ok" {
+			logger.Info().Msg("demo missing")
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		logger.Info().Msg("demo downloaded")
+		break
+	}
+
 	msg, err = runScriptAndWait(serverCtx, user, game.N_SERVCMD, fmt.Sprintf(`
 addzip sour/%s.dmo
 demodir demo
@@ -158,6 +179,24 @@ servcmd ok
 }
 
 func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
+	user.Mutex.RLock()
+	isSending := user.sendingMap
+	user.Mutex.RUnlock()
+
+	if isSending {
+		return nil
+	}
+
+	user.Mutex.Lock()
+	user.sendingMap = true
+	user.Mutex.Unlock()
+
+	defer func() {
+		user.Mutex.Lock()
+		user.sendingMap = false
+		user.Mutex.Unlock()
+	}()
+
 	server := user.GetServer()
 	instance := c.spaces.FindInstance(server)
 
@@ -197,6 +236,9 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 	}
 
 	map_ := found.Map
+
+	logger := user.Logger()
+	logger.Info().Str("map", map_.Name).Msg("sending map to client")
 
 	// Specifically in this case we don't need CS
 	if mode == game.MODE_COOP && !map_.HasCFG {
