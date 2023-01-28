@@ -435,8 +435,8 @@ func Read(b []byte, fromClient bool) ([]Message, error) {
 			message, err = UnmarshalMessage(&p, N_RECORDDEMO, &RecordDemo{})
 		case N_REDO:
 			message, err = UnmarshalMessage(&p, N_REDO, &PackData{})
-		//case N_SENDMAP:
-		//message, err = UnmarshalMessage(&p, N_SENDMAP, &Sendmap{})
+		case N_SENDMAP:
+			message, err = UnmarshalMessage(&p, N_SENDMAP, &SendMap{})
 		case N_SERVCMD:
 			message, err = UnmarshalMessage(&p, N_SERVCMD, &ServCMD{})
 		case N_SETMASTER:

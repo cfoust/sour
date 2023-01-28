@@ -6,9 +6,10 @@ import (
 	"io/ioutil"
 	"os"
 	"sync"
+	"time"
 
-	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/assets"
+	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
 
 	"github.com/rs/zerolog/log"
@@ -72,7 +73,7 @@ say a
 
 type SendState struct {
 	Mutex  sync.Mutex
-	User *User
+	User   *User
 	Maps   *assets.AssetFetcher
 	Sender *MapSender
 	Path   string
@@ -144,38 +145,38 @@ func (s *SendState) Send() error {
 	//logger.Info().Msg("sending map to client")
 
 	//if ctx.Err() != nil {
-		//return ctx.Err()
+	//return ctx.Err()
 	//}
 
 	//s.SendPause(true)
 
 	//p := game.Packet{}
 	//p.Put(
-		//game.N_MAPCHANGE,
-		//game.MapChange{
-			//Name:     "sending",
-			//Mode:     int(game.MODE_COOP),
-			//HasItems: 0,
-		//},
+	//game.N_MAPCHANGE,
+	//game.MapChange{
+	//Name:     "sending",
+	//Mode:     int(game.MODE_COOP),
+	//HasItems: 0,
+	//},
 	//)
 	//s.SendClient(p, 1)
 
 	//if ctx.Err() != nil {
-		//return ctx.Err()
+	//return ctx.Err()
 	//}
 
 	//map_ := s.Maps.FindMap(s.Map)
 	//if opt.IsNone(map_) {
-		//// How?
-		//return fmt.Errorf("could not find map")
+	//// How?
+	//return fmt.Errorf("could not find map")
 	//}
 
 	//logger = user.Logger().With().Str("map", map_.Value.Map.Name).Logger()
 
 	//fakeMap, err := MakeDownloadMap(map_.Value.Map.Bundle)
 	//if err != nil {
-		//logger.Error().Err(err).Msgf("failed to make map")
-		//return err
+	//logger.Error().Err(err).Msgf("failed to make map")
+	//return err
 	//}
 
 	//time.Sleep(1 * time.Second)
@@ -184,26 +185,26 @@ func (s *SendState) Send() error {
 	//p = append(p, fakeMap...)
 	//err = s.SendClientSync(p, 2)
 	//if err != nil {
-		//return err
+	//return err
 	//}
 
 	//desktopURL := map_.GetDesktopURL()
 	//if opt.IsNone(desktopURL) {
-		//return fmt.Errorf("no desktop bundle for map %s", s.Map)
+	//return fmt.Errorf("no desktop bundle for map %s", s.Map)
 	//}
 
 	//mapPath := filepath.Join(s.Sender.workingDir, assets.GetURLBase(desktopURL.Value))
 	//s.Path = mapPath
 	//err = assets.DownloadFile(
-		//desktopURL.Value,
-		//mapPath,
+	//desktopURL.Value,
+	//mapPath,
 	//)
 	//if err != nil {
-		//return err
+	//return err
 	//}
 
 	//if ctx.Err() != nil {
-		//return ctx.Err()
+	//return ctx.Err()
 	//}
 
 	//user.SendServerMessage("You are missing this map. Please run '/do $maptitle' to download it.")
@@ -211,7 +212,7 @@ func (s *SendState) Send() error {
 	//select {
 	//case <-s.userAccepted:
 	//case <-ctx.Done():
-		//return ctx.Err()
+	//return ctx.Err()
 	//}
 
 	//logger.Info().Msg("user accepted download")
@@ -226,9 +227,9 @@ func (s *SendState) Send() error {
 	//var tag int
 	//select {
 	//case request := <-s.demoRequested:
-		//tag = request
+	//tag = request
 	//case <-ctx.Done():
-		//return ctx.Err()
+	//return ctx.Err()
 	//}
 
 	//logger.Info().Msg("user requested demo")
@@ -236,30 +237,30 @@ func (s *SendState) Send() error {
 	//file, err := os.Open(s.Path)
 	//defer file.Close()
 	//if err != nil {
-		//return err
+	//return err
 	//}
 
 	//buffer, err := io.ReadAll(file)
 	//if err != nil {
-		//return err
+	//return err
 	//}
 
 	//p = game.Packet{}
 	//p.Put(
-		//game.N_SENDDEMO,
-		//tag,
+	//game.N_SENDDEMO,
+	//tag,
 	//)
 	//p = append(p, buffer...)
 	//err = s.SendClientSync(p, 2)
 	//if err != nil {
-		//return err
+	//return err
 	//}
 	//logger.Info().Msg("demo downloaded")
 
 	//time.Sleep(500 * time.Millisecond)
 
 	//if ctx.Err() != nil {
-		//return ctx.Err()
+	//return ctx.Err()
 	//}
 
 	//// Then load the demo
@@ -268,7 +269,7 @@ func (s *SendState) Send() error {
 	//time.Sleep(500 * time.Millisecond)
 
 	//if ctx.Err() != nil {
-		//return ctx.Err()
+	//return ctx.Err()
 	//}
 
 	//s.SendPause(false)
@@ -279,7 +280,7 @@ func (s *SendState) Send() error {
 }
 
 type MapSender struct {
-	Users    map[*User]*SendState
+	Users      map[*User]*SendState
 	Maps       *assets.AssetFetcher
 	Mutex      sync.Mutex
 	workingDir string
@@ -288,7 +289,7 @@ type MapSender struct {
 func NewMapSender(maps *assets.AssetFetcher) *MapSender {
 	return &MapSender{
 		Users: make(map[*User]*SendState),
-		Maps:    maps,
+		Maps:  maps,
 	}
 }
 
@@ -344,7 +345,7 @@ func (m *MapSender) SendMap(ctx context.Context, user *User, mapName string) {
 	logger := user.Logger()
 	logger.Info().Str("map", mapName).Msg("sending map")
 	state := &SendState{
-		User:        user,
+		User:          user,
 		Map:           mapName,
 		Maps:          m.Maps,
 		Sender:        m,
@@ -414,18 +415,78 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 		return nil
 	}
 
-	data, err := c.assets.FetchMapBytes(ctx, name)
+	server.Mutex.RLock()
+	mode := server.Mode
+	map_ := server.Map
+	server.Mutex.RUnlock()
+
+	data, err := c.assets.FetchMapBytes(ctx, map_)
 	if err != nil {
 		return err
+	}
+
+	send := func(data []byte, channel uint8) {
+		user.Send(game.GamePacket{
+			Data:    data,
+			Channel: channel,
+		})
+	}
+
+	// You can't SENDMAP outside of coopedit, change to it
+	if mode != game.MODE_COOP {
+		p := game.Packet{}
+		p.Put(
+			game.N_MAPCHANGE,
+			game.MapChange{
+				Name:     "",
+				Mode:     int(game.MODE_COOP),
+				HasItems: 0,
+			},
+		)
+		send(p, 1)
+		user.From.Take(ctx, game.N_MAPCRC)
 	}
 
 	p := game.Packet{}
 	p.Put(game.N_SENDMAP)
 	p = append(p, data...)
-	user.Send(game.GamePacket{
+	done := user.Send(game.GamePacket{
 		Channel: 2,
 		Data:    p,
 	})
+
+	sendCtx, cancel := context.WithTimeout(ctx, 10 * time.Second)
+	select {
+	case <-sendCtx.Done():
+		cancel()
+		return fmt.Errorf("user failed to download map")
+	case <-done:
+		cancel()
+		break
+	}
+
+	// Intercept the CRC, which will contain a map field of getmap_XXXXXX
+	msg, err := user.From.Take(ctx, game.N_MAPCRC)
+	if err != nil {
+	    return fmt.Errorf("user never loaded map")
+	}
+
+	crc := msg.Contents().(*game.MapCRC)
+
+	// Then change back
+	if mode != game.MODE_COOP {
+		p := game.Packet{}
+		p.Put(
+			game.N_MAPCHANGE,
+			game.MapChange{
+				Name:     crc.Map,
+				Mode:     int(mode),
+				HasItems: 1,
+			},
+		)
+		send(p, 1)
+		user.From.Take(ctx, game.N_MAPCRC)
+	}
 
 	log.Info().Msgf("Sent map %s (%d) to client", name, len(data))
 

@@ -113,7 +113,7 @@ func (m *MessageProxy) InterceptWith(check func(game.MessageCode) bool) *Handler
 		proxy:   m,
 	}
 	m.mutex.Lock()
-	m.handlers = append(m.handlers, &handler)
+	m.handlers = append([]*Handler{&handler}, m.handlers...)
 	m.mutex.Unlock()
 	return &handler
 }
@@ -199,6 +199,17 @@ func (m *MessageProxy) NextTimeout(
 	codes ...game.MessageCode,
 ) (game.Message, error) {
 	return m.getNextTimeout(ctx, true, timeout, codes...)
+}
+
+const (
+	DEFAULT_TIMEOUT = 5 * time.Second
+)
+
+func (m *MessageProxy) Take(
+	ctx context.Context,
+	codes ...game.MessageCode,
+) (game.Message, error) {
+	return m.getNextTimeout(ctx, true, DEFAULT_TIMEOUT, codes...)
 }
 
 // Wait for a message, but don't prevent it from being transmitted.

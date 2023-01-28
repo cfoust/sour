@@ -149,7 +149,13 @@ type RecordDemo struct {
 
 // N_SENDMAP
 type SendMap struct {
-	// TODO impl
+	Map []byte
+}
+
+func (s *SendMap) Unmarshal(p *Packet) error {
+	s.Map = *p
+	*p = (*p)[0:0]
+	return nil
 }
 
 // N_SERVCMD
