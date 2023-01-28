@@ -206,12 +206,16 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 	)
 	u.From.Take(ctx, game.N_CONNECT)
 
-	// Loading another map will execute the code
-	// Go to purgatory
-	err := sendRawMap(ctx, u, PURGATORY)
-	if err != nil {
-		return err
-	}
+	p := game.Packet{}
+	p.Put(
+		game.N_MAPCHANGE,
+		game.MapChange{
+			Name:     key,
+			Mode:     int(game.MODE_COOP),
+			HasItems: 0,
+		},
+	)
+	sendClient(u, p, 1)
 	u.From.Take(ctx, game.N_MAPCRC)
 
 	sendServerInfo(

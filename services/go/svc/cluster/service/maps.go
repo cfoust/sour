@@ -93,16 +93,21 @@ func runScriptAndWait(ctx context.Context, user *User, type_ game.MessageCode, c
 		msgChan <- msg
 	}()
 
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case err := <-csError:
-		return nil, err
-	case msg := <-msgChan:
-		if msg == nil {
-			return nil, fmt.Errorf("waiting for message failed")
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case err := <-csError:
+			if err != nil {
+				return nil, err
+			}
+			continue
+		case msg := <-msgChan:
+			if msg == nil {
+				return nil, fmt.Errorf("waiting for message failed")
+			}
+			return msg, nil
 		}
-		return msg, nil
 	}
 }
 
@@ -119,6 +124,7 @@ getdemo 0 %s
 		return err
 	}
 
+	log.Info().Msgf("%+v %+v", msg, err)
 	getDemo := msg.Contents().(*game.GetDemo)
 	tag := getDemo.Tag
 
@@ -136,9 +142,14 @@ getdemo 0 %s
 	msg, err = runScriptAndWait(serverCtx, user, game.N_SERVCMD, fmt.Sprintf(`
 addzip sour/%s.dmo
 demodir demo
+servcmd ok
 `, fileName))
+	if err != nil {
+		return err
+	}
 
-	logger.Info().Msg("download complete")
+	cmd := msg.Contents().(*game.ServCMD)
+	logger.Info().Msgf("download complete (%s)", cmd.Command)
 
 	return nil
 }
@@ -208,6 +219,7 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 			game.N_MAPCHANGE,
 			game.MapChange{
 				Name:     "",
+				Mode:     int(game.MODE_COOP),
 				HasItems: 0,
 			},
 		)
@@ -231,11 +243,6 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 
 	user.SendServerMessage("packaging data...")
 	data, err := found.GetBundle(ctx)
-	if err != nil {
-		return err
-	}
-
-	data, err = found.GetOGZ(ctx)
 	if err != nil {
 		return err
 	}
