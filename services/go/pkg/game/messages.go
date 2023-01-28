@@ -659,6 +659,20 @@ type SendDemoList struct {
 
 // N_SENDDEMO
 type SendDemo struct {
+	Tag  int
+	Data []byte
+}
+
+func (s *SendDemo) Unmarshal(p *Packet) error {
+	err := p.Get(
+		&s.Tag,
+	)
+	if err != nil {
+		return err
+	}
+	s.Data = *p
+	*p = (*p)[0:0]
+	return nil
 }
 
 // N_CLIENT

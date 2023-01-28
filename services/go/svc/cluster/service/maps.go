@@ -124,7 +124,6 @@ getdemo 0 %s
 		return err
 	}
 
-	log.Info().Msgf("%+v %+v", msg, err)
 	getDemo := msg.Contents().(*game.GetDemo)
 	tag := getDemo.Tag
 
@@ -149,7 +148,11 @@ servcmd ok
 	}
 
 	cmd := msg.Contents().(*game.ServCMD)
-	logger.Info().Msgf("download complete (%s)", cmd.Command)
+	if cmd.Command != "ok" {
+		return fmt.Errorf("user never ack'd demo")
+	}
+
+	logger.Info().Msgf("download complete")
 
 	return nil
 }
