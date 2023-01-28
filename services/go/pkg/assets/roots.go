@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/fxamacker/cbor/v2"
@@ -56,7 +57,14 @@ type RemoteRoot struct {
 	// index -> asset id
 	idLookup map[int]string
 
+	// When building a bundle that references an asset in this root (and
+	// the asset IDs match), do not include the asset in the bundle. This
+	// is used for keeping desktop bundles small.
+	skip bool
+
 	maps []SlimMap
+
+	bundles map[string]*[]Asset
 
 	// FS path -> asset id
 	FS map[string]int
@@ -67,6 +75,7 @@ func NewRemoteRoot(
 	url string,
 	base string,
 	shouldCache bool,
+	skip bool,
 ) (*RemoteRoot, error) {
 	urlHash := fmt.Sprintf("%x", sha256.Sum256([]byte(url)))
 
@@ -98,8 +107,10 @@ func NewRemoteRoot(
 		cache: cache,
 		url:   CleanSourcePath(url),
 		base:  base,
+		skip:  skip,
 	}
 
+	bundles := make(map[string]*[]Asset)
 	assets := make(map[string]struct{})
 	idLookup := make(map[int]string)
 	fs := make(map[string]int)
@@ -107,6 +118,16 @@ func NewRemoteRoot(
 	for i, asset := range index.Assets {
 		assets[asset] = struct{}{}
 		idLookup[i] = asset
+	}
+
+	for _, bundle := range index.Bundles {
+		bundleAssets := make([]Asset, 0)
+
+		for _, asset := range bundle.Assets {
+			bundleAssets = append(bundleAssets, asset)
+		}
+
+		bundles[bundle.Id] = &bundleAssets
 	}
 
 	for _, ref := range index.Refs {
@@ -125,14 +146,16 @@ func NewRemoteRoot(
 		maps = append(
 			maps,
 			SlimMap{
-				Id:   map_.Id,
-				Name: map_.Name,
-				Ogz:  map_.Ogz,
+				Id:     map_.Id,
+				Name:   map_.Name,
+				Ogz:    map_.Ogz,
+				Bundle: map_.Bundle,
 			},
 		)
 	}
 	root.maps = maps
 
+	root.bundles = bundles
 	root.assets = assets
 	root.idLookup = idLookup
 	root.FS = fs
@@ -213,16 +236,10 @@ var _ Root = (*RemoteRoot)(nil)
 
 func LoadRoots(cache Cache, targets []string, onlyMaps bool) ([]Root, error) {
 	roots := make([]Root, 0)
-	for _, target := range targets {
-		if !strings.HasPrefix(target, "http") && !strings.HasPrefix(target, "!http") {
-			absolute, err := filepath.Abs(target)
-			if err != nil {
-				return nil, err
-			}
-			roots = append(roots, FSRoot(absolute))
-			continue
-		}
+	haveSkip := false
+	var skipRoot *RemoteRoot
 
+	for _, target := range targets {
 		// Specify a base dir with @/base/dir
 		base := ""
 		atIndex := strings.LastIndex(target, "@")
@@ -231,21 +248,81 @@ func LoadRoots(cache Cache, targets []string, onlyMaps bool) ([]Root, error) {
 			target = target[:atIndex]
 		}
 
+		skip := false
+		if strings.HasPrefix(target, "skip:") {
+			if haveSkip {
+				return nil, fmt.Errorf("you can only have one skip root")
+			}
+			skip = true
+			haveSkip = true
+			target = target[5:]
+		}
+
 		shouldCache := true
 		if strings.HasPrefix(target, "!") {
 			shouldCache = false
 			target = target[1:]
 		}
+
+		if !strings.HasPrefix(target, "http") {
+			absolute, err := filepath.Abs(target)
+			if err != nil {
+				return nil, err
+			}
+			roots = append(roots, FSRoot(absolute))
+			continue
+		}
+
 		root, err := NewRemoteRoot(
 			cache,
 			target,
 			base,
 			shouldCache,
+			skip,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		if skip {
+			skipRoot = root
+		}
 		roots = append(roots, root)
+	}
+
+	// We can save memory by removing all bundle assets found in the skip
+	// root
+	if haveSkip {
+		for _, root := range roots {
+			remote, ok := root.(*RemoteRoot)
+			if !ok {
+				continue
+			}
+
+			newBundles := make(map[string]*[]Asset)
+			for id, assets := range remote.bundles {
+				newAssets := make([]Asset, 0)
+				for _, asset := range *assets {
+					shouldSkip := false
+
+					if refID, ok := skipRoot.FS[asset.Path]; ok {
+						if assetId, ok := skipRoot.idLookup[refID]; ok {
+							shouldSkip = asset.Id == assetId
+						}
+					}
+
+					if shouldSkip {
+						continue
+					}
+
+					newAssets = append(newAssets, asset)
+				}
+
+				newBundles[id] = &newAssets
+			}
+
+			remote.bundles = newBundles
+		}
 	}
 
 	if onlyMaps {
@@ -259,6 +336,11 @@ func LoadRoots(cache Cache, targets []string, onlyMaps bool) ([]Root, error) {
 			for _, _map := range remote.maps {
 				mapAssets[_map.Ogz] = struct{}{}
 			}
+			for _, assets := range remote.bundles {
+				for _, asset := range *assets {
+					mapAssets[asset.Id] = struct{}{}
+				}
+			}
 		}
 
 		// Second pass: clear out assets not used by maps
@@ -267,6 +349,12 @@ func LoadRoots(cache Cache, targets []string, onlyMaps bool) ([]Root, error) {
 			if !ok {
 				continue
 			}
+
+			// We need to preserve the whole FS to check existence
+			if remote.skip {
+				continue
+			}
+
 			newAssets := make(map[string]struct{})
 			for asset := range remote.assets {
 				if _, ok := mapAssets[asset]; ok {
@@ -277,6 +365,9 @@ func LoadRoots(cache Cache, targets []string, onlyMaps bool) ([]Root, error) {
 			remote.idLookup = make(map[int]string)
 			remote.FS = make(map[string]int)
 		}
+
+		// Force a GC to free memory
+		runtime.GC()
 	}
 
 	return roots, nil

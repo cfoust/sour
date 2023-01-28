@@ -10,15 +10,16 @@ type FetchResult struct {
 	Err  error
 }
 
-type FetchJob struct {
-	Asset  string
+type Job struct {
+	Id     string
 	Result chan FetchResult
 }
 
 type AssetFetcher struct {
-	jobs  chan FetchJob
-	roots []*RemoteRoot
-	cache Cache
+	assets  chan Job
+	bundles chan Job
+	roots   []*RemoteRoot
+	cache   Cache
 }
 
 func NewAssetFetcher(cache Cache, roots []string, onlyMaps bool) (*AssetFetcher, error) {
@@ -35,9 +36,10 @@ func NewAssetFetcher(cache Cache, roots []string, onlyMaps bool) (*AssetFetcher,
 	}
 
 	return &AssetFetcher{
-		roots: remotes,
-		jobs:  make(chan FetchJob),
-		cache: cache,
+		roots:   remotes,
+		assets:  make(chan Job),
+		bundles: make(chan Job),
+		cache:   cache,
 	}, nil
 }
 
@@ -53,11 +55,15 @@ func (m *AssetFetcher) getAsset(ctx context.Context, id string) ([]byte, error) 
 	return nil, Missing
 }
 
-func (m *AssetFetcher) PollDownloads(ctx context.Context) {
+func (m *AssetFetcher) getBundle(ctx context.Context, id string) ([]byte, error) {
+	return nil, Missing
+}
+
+func (m *AssetFetcher) pollAssetJobs(ctx context.Context) {
 	for {
 		select {
-		case job := <-m.jobs:
-			data, err := m.getAsset(ctx, job.Asset)
+		case job := <-m.assets:
+			data, err := m.getAsset(ctx, job.Id)
 			job.Result <- FetchResult{
 				Data: data,
 				Err:  err,
@@ -68,10 +74,32 @@ func (m *AssetFetcher) PollDownloads(ctx context.Context) {
 	}
 }
 
+func (m *AssetFetcher) pollBundleJobs(ctx context.Context) {
+	for {
+		select {
+		case job := <-m.bundles:
+			data, err := m.getBundle(ctx, job.Id)
+			job.Result <- FetchResult{
+				Data: data,
+				Err:  err,
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (m *AssetFetcher) PollDownloads(ctx context.Context) {
+	// We want these to be separate goroutines since an asset fetch should
+	// not block a bundle fetch
+	go m.pollAssetJobs(ctx)
+	go m.pollBundleJobs(ctx)
+}
+
 func (m *AssetFetcher) fetchAsset(ctx context.Context, id string) ([]byte, error) {
 	out := make(chan FetchResult)
-	m.jobs <- FetchJob{
-		Asset:  id,
+	m.assets <- Job{
+		Id:     id,
 		Result: out,
 	}
 

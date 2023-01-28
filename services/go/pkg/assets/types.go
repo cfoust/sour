@@ -30,9 +30,10 @@ type GameMap struct {
 }
 
 type SlimMap struct {
-	Id   string
-	Name string
-	Ogz  string
+	Id     string
+	Name   string
+	Ogz    string
+	Bundle string
 }
 
 type Bundle struct {
