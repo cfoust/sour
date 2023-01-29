@@ -268,7 +268,7 @@ function App() {
     }
   }, [])
 
-  React.useEffect(() => {
+  const setResolution = React.useCallback(() => {
     if (BROWSER.isMobile) {
       const ratio = window.devicePixelRatio || 1
       const {
@@ -298,6 +298,10 @@ function App() {
     Module.setCanvasSize(width, height)
     if (BananaBread == null || BananaBread.execute == null) return
     BananaBread.execute(`screenres ${width} ${height}`)
+  }, [])
+
+  React.useEffect(() => {
+    setResolution()
   }, [width, height])
 
   React.useEffect(() => {
@@ -553,6 +557,8 @@ function App() {
           'you are in safe mode. no mods were loaded, but you can disable them in the mod menu.'
         )
       }
+
+      setResolution()
     }
 
     const updateServerURL = (name: string, port: number) => {
