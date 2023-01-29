@@ -17,8 +17,6 @@ import {
   Spacer,
 } from '@chakra-ui/react'
 
-import nipplejs from 'nipplejs'
-
 import type { ThemeConfig } from '@chakra-ui/react'
 
 import type { GameState } from './types'
@@ -33,7 +31,7 @@ import { GameStateType } from './types'
 import { MessageType, ENetEventType } from './protocol'
 import StatusOverlay from './Loading'
 import NAMES from './names'
-import useAssets, { getInstalledMods } from './assets/hook'
+import useAssets, { getInstalledMods, mountFile } from './assets/hook'
 import useAuth, {
   DISCORD_CODE,
   renderDiscordHeader,
@@ -122,9 +120,34 @@ const DELAY_AFTER_LOAD: CubeMessageType[] = [
 
 const SERVER_URL_REGEX = /\/server\/([\w.]+)\/?(\d+)?/
 const MAP_URL_REGEX = /\/map\/(\w+)/
+const DEMO_URL_REGEX = /\/demo\/(\w+)/
 
 let loadedMods: string[] = []
 let failedMods: string[] = []
+
+async function playDemo(id: string) {
+  const [clusterURL] = CONFIG.clusters
+  const { protocol } = window.location
+  const demoURL = `${protocol}//${clusterURL}api/demo/${id}`
+  log.info(`loading demo ${id}`)
+  try {
+    const response = await fetch(demoURL)
+    if (response.status === 404) {
+      log.error(`demo ${id} not found`)
+      return
+    }
+    if (response.status !== 200) {
+      throw Error('failed to fetch')
+    }
+
+    const data = await response.arrayBuffer()
+    const demoName = `/demo/${id}.dmo`
+    await mountFile(demoName, new Uint8Array(data))
+    BananaBread.execute(`demo ${id}.dmo`)
+  } catch (e) {
+    log.error('failed to play demo')
+  }
+}
 
 function App() {
   const [state, setState] = React.useState<GameState>({
@@ -444,6 +467,7 @@ function App() {
       onReadyAssets()
       Module.FS_createPath(`/`, 'packages', true, true)
       Module.FS_createPath(`/packages`, 'base', true, true)
+      Module.FS_createPath(`/`, 'demo', true, true)
 
       if (BROWSER.isFirefox || BROWSER.isSafari) {
         BananaBread.execute('skipparticles 1')
@@ -485,6 +509,7 @@ function App() {
 
       const serverDestination = SERVER_URL_REGEX.exec(pathname)
       const mapDestination = MAP_URL_REGEX.exec(pathname)
+      const demoDestination = DEMO_URL_REGEX.exec(pathname)
       if (serverDestination != null) {
         const [, hostname, port] = serverDestination
         if (port == null) {
@@ -495,6 +520,9 @@ function App() {
       } else if (mapDestination != null) {
         const [, mapId] = mapDestination
         BananaBread.execute(`map ${mapId}`)
+      } else if (demoDestination != null) {
+        const [, demoId] = demoDestination
+        playDemo(demoId)
       } else {
         // It should not be anything else
         pushURLState('/')
