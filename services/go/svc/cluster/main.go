@@ -83,6 +83,10 @@ func main() {
 		log.Warn().Msg("debug logging enabled")
 	}
 
+	if clusterConfig.LogSessions {
+		log.Info().Msg("storing user sessions")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

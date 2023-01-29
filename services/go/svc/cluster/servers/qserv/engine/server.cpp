@@ -904,7 +904,6 @@ void serverslice(bool dedicated, bool enet, uint timeout)   // main server updat
                         info->sourtype = getuint(q);
 
                         copystring(c.hostname, "unknown");
-                        logoutf("Join: (socket:%d)", c.id);
                         int reason = server::clientconnect(c.num, 0, c.hostname);
                         if(reason) disconnect_client(c.num, reason);
                         break;
@@ -991,8 +990,6 @@ void serverslice(bool dedicated, bool enet, uint timeout)   // main server updat
                 c.peer->data = &c;
                 char hn[1024];
                 copystring(c.hostname, (enet_address_get_host_ip(&c.peer->address, hn, sizeof(hn))==0) ? hn : "unknown");
-                logoutf("Join: (%s)", c.hostname);
-                out(ECHO_IRC, "Join: (%s)", c.hostname);
                 int reason = server::clientconnect(c.num, c.peer->address.host, c.hostname); //ipstring for QServ
                 if(reason) disconnect_client(c.num, reason);
                 break;

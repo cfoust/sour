@@ -4384,8 +4384,6 @@ curmsg = p.length(); \
                                 defformatstring(s)("\f2[Notice]: \f7%s", pingwarncustommsg);
                                 sendf(ci->clientnum, 1, "ris", N_SERVMSG, s);
                             }
-                            out(ECHO_NOCOLOR, "[Lag Detection]: %s has a ping in excess of %d", colorname(ci), maxpingwarn);
-                            out(ECHO_SERV, "\f3[Lag Detection]: %s has a ping in excess of %d", colorname(ci), maxpingwarn);
                             ci->pingwarned = true;
                         }
                     }

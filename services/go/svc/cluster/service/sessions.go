@@ -93,7 +93,6 @@ func (c *Cluster) GetDemo(ctx context.Context, id string) ([]byte, error) {
 }
 
 func RecordSession(ctx context.Context, redis *redis.Client, shouldSave bool, user *User) error {
-	logger := user.Logger()
 	to, from := user.ReceiveIntercept()
 
 	start := time.Now()
@@ -137,8 +136,6 @@ Outer:
 	if err != nil {
 		return err
 	}
-
-	logger.Info().Msg("saved session")
 
 	return nil
 }

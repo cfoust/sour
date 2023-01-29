@@ -330,6 +330,14 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 
 			msg.Drop()
 
+			if len(text) >= game.MAXSTRLEN {
+				removed := len(text) - game.MAXSTRLEN
+				text = text[:game.MAXSTRLEN]
+				user.SendServerMessage(game.Red(
+					fmt.Sprintf("your message was too long; we cut off the last %d characters", removed),
+				))
+			}
+
 			if !strings.HasPrefix(text, "#") {
 				// We do our own chat, don't pass on to the server
 				c.ForwardGlobalChat(userCtx, user, text)
