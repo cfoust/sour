@@ -749,7 +749,6 @@ func (server *GameServer) AddClient() {
 	server.NumClients++
 	server.LastEvent = time.Now()
 	server.Mutex.Unlock()
-	log.Info().Msgf("user joined")
 }
 
 func (server *GameServer) RemoveClient() {
@@ -757,7 +756,6 @@ func (server *GameServer) RemoveClient() {
 	server.NumClients++
 	server.LastEvent = time.Now()
 	server.Mutex.Unlock()
-	log.Info().Msgf("user left")
 }
 
 func (server *GameServer) Wait() {

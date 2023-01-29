@@ -13,6 +13,7 @@ import (
 	"github.com/cfoust/sour/svc/cluster/watcher"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/mileusna/useragent"
 	"github.com/rs/zerolog/log"
 	"nhooyr.io/websocket"
 )
@@ -288,7 +289,7 @@ func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code
 	client.authentication <- user
 }
 
-func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, host string) error {
+func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, host string, deviceType string) error {
 	client := NewWSClient()
 
 	clientCtx, cancel := context.WithCancel(ctx)
@@ -310,7 +311,8 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 
 	logger := log.With().Str("host", host).Logger()
 
-	logger.Info().Msg("client joined")
+	logger.Info().Str("type", deviceType).Msg("user joined")
+	defer logger.Info().Msg("user disconnected")
 
 	go func() {
 		for {
@@ -354,7 +356,6 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 
 			typ, message, err := c.Read(ctx)
 			if err != nil {
-				logger.Error().Err(err).Msg("error reading from websocket")
 				return
 			}
 			if typ != websocket.MessageBinary {
@@ -371,9 +372,6 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 			if err := cbor.Unmarshal(msg, &connectMessage); err == nil &&
 				connectMessage.Op == ConnectOp {
 				target := connectMessage.Target
-
-				logger.Info().Str("target", target).
-					Msg("client attempting connect")
 
 				client.commands <- ClusterCommand{
 					Command: fmt.Sprintf("join %s", target),
@@ -448,7 +446,6 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 		case msg := <-client.send:
 			err := WriteTimeout(ctx, time.Second*5, c, msg)
 			if err != nil {
-				logger.Error().Msg("client missed write timeout; disconnecting")
 				return err
 			}
 		case <-ctx.Done():
@@ -465,7 +462,7 @@ func (server *WSIngress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		OriginPatterns: []string{"*"},
+		OriginPatterns:  []string{"*"},
 		CompressionMode: websocket.CompressionDisabled,
 	})
 
@@ -484,7 +481,16 @@ func (server *WSIngress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		hostname = original[0]
 	}
 
-	err = server.HandleClient(r.Context(), c, hostname)
+	deviceType := "web"
+	userAgent, ok := r.Header["User-Agent"]
+	if ok {
+		ua := useragent.Parse(userAgent[0])
+		if ua.Mobile || ua.Tablet {
+			deviceType = "mobile"
+		}
+	}
+
+	err = server.HandleClient(r.Context(), c, hostname, deviceType)
 	if errors.Is(err, context.Canceled) {
 		return
 	}

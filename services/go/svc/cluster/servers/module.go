@@ -357,9 +357,14 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 	for {
 		select {
 		case request := <-requests:
-			server.SetStatus(ServerLoadingMap)
 			logger := log.With().Str("map", request.Map).Int32("mode", request.Mode).Logger()
 
+			if request.Map == "" {
+				server.SendMapResponse(request.Map, request.Mode, "", false)
+				continue
+			}
+
+			server.SetStatus(ServerLoadingMap)
 			data, err := manager.Maps.FetchMapBytes(ctx, request.Map)
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to download map")

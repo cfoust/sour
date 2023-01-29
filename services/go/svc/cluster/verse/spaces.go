@@ -312,7 +312,5 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 
 	s.instances[id] = &instance
 
-	logger.Info().Msgf("started preset %s", id)
-
 	return &instance, nil
 }

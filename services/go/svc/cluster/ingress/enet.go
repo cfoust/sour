@@ -217,7 +217,7 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 
 				server.AddClient(client)
 
-				log.Info().Msg("client joined (desktop)")
+				log.Info().Str("type", "desktop").Msg("user joined")
 
 				if len(server.InitialCommand) > 0 {
 					client.commands <- ClusterCommand{

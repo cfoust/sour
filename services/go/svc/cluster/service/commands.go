@@ -168,8 +168,6 @@ func (server *Cluster) CreateGame(ctx context.Context, params *CreateParams, use
 
 func (server *Cluster) RunCommand(ctx context.Context, command string, user *User) (handled bool, response string, err error) {
 	logger := user.Logger().With().Str("command", command).Logger()
-	logger.Info().Msg("running command")
-
 	args := strings.Split(command, " ")
 
 	if len(args) == 0 {
