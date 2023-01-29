@@ -1,27 +1,28 @@
 import CBOR from 'cbor-js'
 import * as R from 'ramda'
 import type {
-  BundleRef,
-  AssetResult,
-  AssetTuple,
-  IndexResult,
-  DataResponse,
-  ResponseStatus,
-  Model,
-  Request,
   Asset,
-  StateResponse,
   AssetData,
   AssetIndex,
-  LoadState,
+  AssetResult,
   AssetSource,
   AssetState,
+  AssetTuple,
   Bundle,
   BundleData,
+  BundleRef,
+  DataResponse,
   GameMap,
   GameMod,
   IndexAsset,
+  IndexResult,
+  LoadState,
+  Model,
   MountData,
+  Request,
+  ResponseStatus,
+  SlimIndex,
+  StateResponse,
 } from './types'
 import {
   ResponseType,
@@ -593,6 +594,16 @@ async function processRequest(
   }
 }
 
+function slimifyIndex(index: AssetIndex): SlimIndex {
+  return {
+    mods: R.chain((source) => source.mods, index.sources),
+    maps: R.map(
+      ({ name, id }: GameMap) => [name, id],
+      R.chain((source) => source.maps, index.sources)
+    ),
+  }
+}
+
 async function processEnvironment(
   pullId: string,
   indices: string[]
@@ -624,7 +635,7 @@ async function processEnvironment(
 
   const sendResponse = (status: ResponseStatus, index: Maybe<AssetIndex>) => {
     const _result: Maybe<IndexResult> =
-      index != null ? result.index(index) : null
+      index != null ? result.index(slimifyIndex(index)) : null
     const response: DataResponse = {
       op: ResponseType.Data,
       id: pullId,
