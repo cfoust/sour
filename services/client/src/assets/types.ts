@@ -96,6 +96,11 @@ export type AssetIndex = {
   bundleLookup: Record<string, BundleRef>
 }
 
+export type SlimIndex = {
+  mods: GameMod[]
+  maps: Array<[name: string, id: string]>
+}
+
 export enum LoadStateType {
   // The request is in-flight
   Waiting,
@@ -198,7 +203,7 @@ export type AssetResult = {
 
 export type IndexResult = {
   type: ResultType.Index
-  index: AssetIndex
+  index: SlimIndex
 }
 
 export const result = {
@@ -206,7 +211,7 @@ export const result = {
     type: ResultType.Asset,
     data,
   }),
-  index: (index: AssetIndex): IndexResult => ({
+  index: (index: SlimIndex): IndexResult => ({
     type: ResultType.Index,
     index,
   }),

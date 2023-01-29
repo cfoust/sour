@@ -3,16 +3,17 @@ import * as R from 'ramda'
 
 import type {
   AssetData,
-  LoadState,
-  StateResponse,
-  DownloadingState,
   AssetIndex,
-  MountData,
-  Response,
-  GameMap,
-  GameMod,
   AssetSource,
   Bundle,
+  DownloadingState,
+  GameMap,
+  GameMod,
+  LoadState,
+  MountData,
+  Response,
+  SlimIndex,
+  StateResponse,
 } from './types'
 import {
   ResultType,
@@ -216,14 +217,11 @@ export async function removeLayer(layer: Layer) {
 }
 
 const CHUNK_SIZE = 17
-function buildModMenu(index: AssetIndex): string {
-  const mods: GameMod[] = R.sort(
-    ({ name: nameA }, { name: nameB }): number => {
-      if (nameA.length < nameB.length) return -1
-      return R.ascend((v) => v)(nameA, nameB)
-    },
-    R.chain((source) => source.mods, index.sources)
-  )
+function buildModMenu(index: SlimIndex): string {
+  const mods: GameMod[] = R.sort(({ name: nameA }, { name: nameB }): number => {
+    if (nameA.length < nameB.length) return -1
+    return R.ascend((v) => v)(nameA, nameB)
+  }, index.mods)
   const chunks = R.splitEvery(CHUNK_SIZE, mods)
 
   const header: string = R.join(
@@ -397,7 +395,7 @@ export default function useAssets(
 } {
   const assetWorkerRef = React.useRef<Worker>()
   const requestStateRef = React.useRef<AssetRequest[]>([])
-  const bundleIndexRef = React.useRef<AssetIndex>()
+  const indexRef = React.useRef<SlimIndex>()
   const modLookupRef = React.useRef<ModLookup>()
 
   const addRequest = React.useCallback((id: string): AssetRequest => {
@@ -454,7 +452,7 @@ export default function useAssets(
   )
 
   const onReady = React.useCallback(() => {
-    const { current: index } = bundleIndexRef
+    const { current: index } = indexRef
     if (index == null) return
     BananaBread.execute(buildModMenu(index))
   }, [])
@@ -530,13 +528,11 @@ export default function useAssets(
 
           if (result.type === ResultType.Index) {
             const { index } = result
-            bundleIndexRef.current = index
+            indexRef.current = index
 
             const lookup: ModLookup = {}
-            for (const source of index.sources) {
-              for (const mod of source.mods) {
-                lookup[mod.id] = mod
-              }
+            for (const mod of index.mods) {
+              lookup[mod.id] = mod
             }
             modLookupRef.current = lookup
 
@@ -751,9 +747,9 @@ export default function useAssets(
         })()
       },
       loadRandomMap: () => {
-        const maps = getValidMaps(bundleIndexRef.current?.sources ?? [])
+        const maps = indexRef.current?.maps ?? []
         const map = maps[Math.floor(maps.length * Math.random())]
-        setTimeout(() => BananaBread.execute(`map ${map}`), 0)
+        setTimeout(() => BananaBread.execute(`map ${map[1]}`), 0)
       },
       loadWorld: (target: string) => loadMapData(target),
       receiveMap: (map: string, oldMap: string) => {
