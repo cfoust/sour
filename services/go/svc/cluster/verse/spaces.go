@@ -272,14 +272,14 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 		return nil, err
 	}
 
+	config := presetSpace.Config
+	id := config.Alias
+	gameServer.Alias = id
+
 	err = gameServer.StartAndWait(serverCtx)
 	if err != nil {
 		return nil, err
 	}
-
-	config := presetSpace.Config
-	id := config.Alias
-	gameServer.Alias = id
 
 	links := make([]Link, 0)
 	for _, link := range config.Links {

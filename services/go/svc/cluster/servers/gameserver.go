@@ -129,7 +129,7 @@ func (server *GameServer) sendMessage(data []byte) {
 	p = append(p, data...)
 
 	status := server.GetStatus()
-	if status != ServerHealthy && status != ServerLoadingMap {
+	if status != ServerStarted && status != ServerHealthy && status != ServerLoadingMap {
 		return
 	}
 
