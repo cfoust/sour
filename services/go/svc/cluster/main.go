@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"time"
@@ -24,12 +25,45 @@ import (
 )
 
 func main() {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
-
 	debug := flag.Bool("debug", false, "Whether to enable debug logging.")
 	cpuProfile := flag.String("cpu", "", "Write cpu profile to `file`.")
 	memProfile := flag.String("memory", "", "Write memory profile to `file`.")
 	flag.Parse()
+
+	sourConfig, err := config.GetSourConfig()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to load sour configuration, please specify one with the SOUR_CONFIG environment variable")
+	}
+
+	clusterConfig := sourConfig.Cluster
+
+	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
+	log.Logger = log.Output(consoleWriter)
+
+	if clusterConfig.LogDirectory != "" {
+		logDir := clusterConfig.LogDirectory
+		err = os.MkdirAll(logDir, 0755)
+		if err != nil {
+			log.Fatal().Err(err).Msgf("failed to make log dir: %s", logDir)
+		}
+
+		path := filepath.Join(
+			logDir,
+			fmt.Sprintf(
+				"%s.json",
+				time.Now().Format("2006.01.02.03.04.05"),
+			),
+		)
+
+		logFile, err := os.Create(path)
+		if err != nil {
+			log.Fatal().Err(err).Msgf("failed to make log file: %s", path)
+		}
+		defer logFile.Close()
+
+		log.Logger = log.Output(zerolog.MultiLevelWriter(consoleWriter, logFile))
+		log.Info().Msgf("logging to %s", path)
+	}
 
 	if *cpuProfile != "" {
 		f, err := os.Create(*cpuProfile)
@@ -49,13 +83,6 @@ func main() {
 		log.Warn().Msg("debug logging enabled")
 	}
 
-	sourConfig, err := config.GetSourConfig()
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to load sour configuration, please specify one with the SOUR_CONFIG environment variable")
-	}
-
-	clusterConfig := sourConfig.Cluster
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -64,7 +91,7 @@ func main() {
 	cache := assets.NewRedisCache(state.Client)
 	maps, err := assets.NewAssetFetcher(cache, clusterConfig.Assets, true)
 	if err != nil {
-	    log.Fatal().Err(err).Msg("asset fetcher failed to initialize")
+		log.Fatal().Err(err).Msg("asset fetcher failed to initialize")
 	}
 	go maps.PollDownloads(ctx)
 

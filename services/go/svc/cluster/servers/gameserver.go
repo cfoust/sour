@@ -127,6 +127,12 @@ func (server *GameServer) sendMessage(data []byte) {
 	p := game.Packet{}
 	p.PutUint(uint32(len(data)))
 	p = append(p, data...)
+
+	status := server.GetStatus()
+	if status != ServerHealthy && status != ServerLoadingMap {
+		return
+	}
+
 	server.send <- p
 }
 
@@ -738,6 +744,22 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 	}
 }
 
+func (server *GameServer) AddClient() {
+	server.Mutex.Lock()
+	server.NumClients++
+	server.LastEvent = time.Now()
+	server.Mutex.Unlock()
+	log.Info().Msgf("user joined")
+}
+
+func (server *GameServer) RemoveClient() {
+	server.Mutex.Lock()
+	server.NumClients++
+	server.LastEvent = time.Now()
+	server.Mutex.Unlock()
+	log.Info().Msgf("user left")
+}
+
 func (server *GameServer) Wait() {
 	logger := server.Log()
 
@@ -766,25 +788,6 @@ func (server *GameServer) Wait() {
 
 		for scanner.Scan() {
 			message := scanner.Text()
-
-			if strings.HasPrefix(message, "Join:") {
-				server.Mutex.Lock()
-				server.NumClients++
-				server.LastEvent = time.Now()
-				server.Mutex.Unlock()
-			}
-
-			if strings.HasPrefix(message, "Leave:") {
-				server.Mutex.Lock()
-				server.NumClients--
-				server.LastEvent = time.Now()
-
-				if server.NumClients < 0 {
-					server.NumClients = 0
-				}
-
-				server.Mutex.Unlock()
-			}
 
 			logger.Info().Msg(message)
 		}
@@ -839,41 +842,37 @@ func (server *GameServer) Start(ctx context.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
-	exitChannel := make(chan bool, 1)
-
 	go server.Wait()
 
 	for {
-		status := server.GetStatus()
-
-		// Check to see whether the socket is there
-		if status == ServerStarting {
-			conn, err := Connect(server.path)
-
-			if err == nil {
-				server.Mutex.Lock()
-				server.Status = ServerStarted
-				server.socket = conn
-				server.Mutex.Unlock()
-
-				if len(server.description) > 0 {
-					replaced := strings.Replace(server.description, "#id", server.Reference(), -1)
-					go server.SendCommand(fmt.Sprintf("serverdesc \"%s\"", replaced))
-				}
-				go server.PollWrites(server.Context)
-				go server.PollEvents(server.Context)
-
-				exitChannel <- true
-			}
-		}
-
 		select {
-		case <-exitChannel:
-			return nil
 		case <-timeoutCtx.Done():
 			return fmt.Errorf("starting server timed out")
 		case <-tick.C:
-			continue
+			status := server.GetStatus()
+
+			// Check to see whether the socket is there
+			if status != ServerStarting {
+				continue
+			}
+			conn, err := Connect(server.path)
+
+			if err != nil {
+				continue
+			}
+			server.Mutex.Lock()
+			server.Status = ServerStarted
+			server.socket = conn
+			server.Mutex.Unlock()
+
+			if len(server.description) > 0 {
+				replaced := strings.Replace(server.description, "#id", server.Reference(), -1)
+				go server.SendCommand(fmt.Sprintf("serverdesc \"%s\"", replaced))
+			}
+			go server.PollWrites(server.Context)
+			go server.PollEvents(server.Context)
+
+			return nil
 		}
 	}
 }

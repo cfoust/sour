@@ -18,8 +18,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/assets"
+	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
@@ -465,7 +465,7 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		pongs:         make(chan time.Time),
 		rawEdits:      make(chan RawEdit),
 		mapEdits:      make(chan MapEdit, 10),
-		send:          make(chan []byte, 1),
+		send:          make(chan []byte, 100),
 		subscribers:   make([]chan game.Message, 0),
 		names:         manager.names,
 		Hidden:        false,

@@ -563,7 +563,6 @@ void disconnect_client(int n, int reason) {
         disconnect_socket(n, reason);
     }
 
-    logoutf("Leave: disconnected");
     server::clientdisconnect(n);
     delclient(clients[n]);
     string s;
@@ -928,7 +927,6 @@ void serverslice(bool dedicated, bool enet, uint timeout)   // main server updat
                         uint id = getuint(q);
                         client *c = findclient(id);
                         if(!c) break;
-                        logoutf("Leave: (socket:%d)", c->id);
                         server::clientdisconnect(c->num);
                         delclient(c);
                         break;
@@ -1010,7 +1008,6 @@ void serverslice(bool dedicated, bool enet, uint timeout)   // main server updat
             {
                 client *c = (client *)event.peer->data;
                 if(!c) break;
-                logoutf("Leave: (%s)", c->hostname);
                 server::clientdisconnect(c->num);
                 delclient(c);
                 break;

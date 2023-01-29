@@ -121,6 +121,9 @@ proxy: #Service
 	// Whether to save demos of user sessions to Redis.
 	logSessions: bool | *false
 
+	// If set, saves server logs to this directory.
+	logDirectory: string | *""
+
 	// Information used to respond to server info requests
 	serverInfo: {
 		map:         string | *"Sourland"

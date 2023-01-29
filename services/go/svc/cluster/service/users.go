@@ -404,6 +404,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 				newUsers = append(newUsers, u)
 				u.o.Servers[u.Server] = newUsers
 				u.o.Mutex.Unlock()
+				server.AddClient()
 				connected <- true
 				return
 			}
@@ -431,6 +432,7 @@ func (u *User) DisconnectFromServer() error {
 	u.Mutex.Lock()
 	if u.Server != nil {
 		u.Server.SendDisconnect(u.Client.Id)
+		u.Server.RemoveClient()
 	}
 	u.Server = nil
 	u.Space = nil

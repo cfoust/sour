@@ -3435,7 +3435,6 @@ best.add(clients[i]); \
         aiman::clearai();
         if(_newflagrun) {_storeflagruns(); _newflagrun = 0;}
         changegamespeed(defaultgamespeed); //return back to normal gamespeed
-        out(ECHO_NOCOLOR, "Server has emptied");
     }
 
     void localconnect(int n)
