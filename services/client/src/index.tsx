@@ -268,40 +268,43 @@ function App() {
     }
   }, [])
 
-  const setResolution = React.useCallback(() => {
-    if (BROWSER.isMobile) {
-      const ratio = window.devicePixelRatio || 1
-      const {
-        documentElement: { clientWidth, clientHeight },
-      } = document
-      const width = clientWidth * ratio
-      const height = clientHeight * ratio
-      const { canvas } = Module
-      if (canvas == null) return
+  const setResolution = React.useCallback(
+    (width: Maybe<number>, height: Maybe<number>) => {
+      if (BROWSER.isMobile) {
+        const ratio = window.devicePixelRatio || 1
+        const {
+          documentElement: { clientWidth, clientHeight },
+        } = document
+        const width = clientWidth * ratio
+        const height = clientHeight * ratio
+        const { canvas } = Module
+        if (canvas == null) return
 
-      if (Module.running) {
-        if (BananaBread == null || BananaBread.execute == null) return
-        BananaBread.execute(`screenres ${width * 2} ${height * 2}`)
+        if (Module.running) {
+          if (BananaBread == null || BananaBread.execute == null) return
+          BananaBread.execute(`screenres ${width * 2} ${height * 2}`)
+        }
+
+        canvas.style.setProperty('width', clientWidth + 'px', 'important')
+        canvas.style.setProperty('height', clientHeight + 'px', 'important')
+        canvas.width = width * 2
+        canvas.height = height * 2
+        return
       }
 
-      canvas.style.setProperty('width', clientWidth + 'px', 'important')
-      canvas.style.setProperty('height', clientHeight + 'px', 'important')
-      canvas.width = width * 2
-      canvas.height = height * 2
-      return
-    }
-
-    if (width == null || height == null) return
-    Module.desiredWidth = width
-    Module.desiredHeight = height
-    if (Module.setCanvasSize == null) return
-    Module.setCanvasSize(width, height)
-    if (BananaBread == null || BananaBread.execute == null) return
-    BananaBread.execute(`screenres ${width} ${height}`)
-  }, [])
+      if (width == null || height == null) return
+      Module.desiredWidth = width
+      Module.desiredHeight = height
+      if (Module.setCanvasSize == null) return
+      Module.setCanvasSize(width, height)
+      if (BananaBread == null || BananaBread.execute == null) return
+      BananaBread.execute(`screenres ${width} ${height}`)
+    },
+    []
+  )
 
   React.useEffect(() => {
-    setResolution()
+    setResolution(width, height)
   }, [width, height])
 
   React.useEffect(() => {
@@ -558,7 +561,7 @@ function App() {
         )
       }
 
-      setResolution()
+      setResolution(null, null)
     }
 
     const updateServerURL = (name: string, port: number) => {
