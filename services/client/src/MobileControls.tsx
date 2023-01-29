@@ -22,12 +22,14 @@ const Container = styled.div`
   bottom: 0;
   left: 0;
   right: 0;
+  user-select: none;
 `
 
 const MovementPad = styled.div`
   width: 50%;
   height: 100%;
   position: absolute;
+  z-index: 0;
 `
 
 const DirectionPad = styled.div`
@@ -35,6 +37,14 @@ const DirectionPad = styled.div`
   width: 50%;
   height: 100%;
   position: absolute;
+  z-index: 0;
+`
+
+const TopLeftPanel = styled.div`
+  left: 0;
+  top: 0;
+  position: absolute;
+  z-index: 1;
 `
 
 const DIRECTIONS = [
@@ -49,6 +59,15 @@ export default function MobileControls(props: { isRunning: boolean }) {
   const containerRef = React.useRef<HTMLDivElement>(null)
   const leftRef = React.useRef<HTMLDivElement>(null)
   const rightRef = React.useRef<HTMLDivElement>(null)
+
+  const toggleMenu = React.useCallback(
+    (event: React.MouseEvent) => {
+      event.preventDefault()
+      if (!isRunning) return
+      BananaBread.execute('togglemainmenu')
+    },
+    [isRunning]
+  )
 
   React.useEffect(() => {
     if (!isRunning) return
@@ -146,18 +165,18 @@ export default function MobileControls(props: { isRunning: boolean }) {
     window.requestAnimationFrame(cb)
 
     container.onpointerup = (evt) => {
-      const { x, y, width, height } = container.getBoundingClientRect();
+      const { x, y, width, height } = container.getBoundingClientRect()
       const { x: mouseX, y: mouseY } = evt
 
-      BananaBread.click(
-        (mouseX - x) / width,
-        (mouseY - y) / height,
-      )
+      BananaBread.click((mouseX - x) / width, (mouseY - y) / height)
     }
   }, [isRunning])
 
   return (
     <Container ref={containerRef}>
+      <TopLeftPanel>
+        <Button onMouseDown={toggleMenu}>☰</Button>
+      </TopLeftPanel>
       <MovementPad ref={leftRef} />
       <DirectionPad ref={rightRef} />
     </Container>

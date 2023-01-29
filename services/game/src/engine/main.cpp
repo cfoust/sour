@@ -557,7 +557,7 @@ void resetfullscreen()
 }
 
 #if __EMSCRIPTEN__
-VARF(fullscreendesktop, 0, 1, 1, if(fullscreen) resetfullscreen());
+VARF(fullscreendesktop, 0, 0, 1, if(fullscreen) resetfullscreen());
 #else
 VARF(fullscreendesktop, 0, 0, 1, if(fullscreen) resetfullscreen());
 #endif

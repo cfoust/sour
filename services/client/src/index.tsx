@@ -278,15 +278,16 @@ function App() {
       const height = clientHeight * ratio
       const { canvas } = Module
       if (canvas == null) return
-      canvas.width = width * 2
-      canvas.height = height * 2
+
+      if (Module.running) {
+        if (BananaBread == null || BananaBread.execute == null) return
+        BananaBread.execute(`screenres ${width * 2} ${height * 2}`)
+      }
+
       canvas.style.setProperty('width', clientWidth + 'px', 'important')
       canvas.style.setProperty('height', clientHeight + 'px', 'important')
-      if (!Module.running) return
-      if (BananaBread == null || BananaBread.execute == null) return
-      console.log(width, height)
-      console.log(`screenres ${clientWidth} ${clientHeight}`)
-      BananaBread.execute(`screenres ${clientWidth} ${clientHeight}`)
+      canvas.width = width * 2
+      canvas.height = height * 2
       return
     }
 
@@ -474,10 +475,17 @@ function App() {
         BananaBread.execute('glare 0')
       }
 
+      if (!BROWSER.isMobile) {
+        BananaBread.execute(`
+              fullscreendesktop 1
+        `)
+      }
+
       if (BROWSER.isMobile) {
         BananaBread.execute(`
-              texreduce 12
+              gui2d 1
               skyboxglare 0
+              fullscreendesktop 0
               skipskybox 1
         `)
       }
