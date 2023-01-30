@@ -452,12 +452,7 @@ class Packager:
         )
 
         if path.exists(compressed):
-            hashed = hash_file(compressed)
-            shutil.copy(compressed, path.join(self.outdir, hashed))
-            asset = Asset(
-                path=out,
-                id=hashed
-            )
+            shutil.copy(compressed, path.join(self.outdir, asset.id))
             self.assets.add(asset.id)
             return asset
 
@@ -477,13 +472,7 @@ class Packager:
                 check=True
             )
 
-        hashed = hash_file(compressed)
-        shutil.copy(compressed, path.join(self.outdir, hashed))
-
-        asset = Asset(
-            path=out,
-            id=hashed
-        )
+        shutil.copy(compressed, path.join(self.outdir, asset.id))
         self.assets.add(asset.id)
         return asset
 
@@ -592,7 +581,7 @@ class Packager:
         files: List[Mapping],
         name: str,
         description: str,
-        image: str = None,
+        image: Optional[str] = None,
     ) -> Optional[Mod]:
         bundle = self.build_bundle(
             params,
@@ -700,7 +689,7 @@ class Packager:
         map_file: str,
         name: str,
         description: str,
-        image: str = None,
+        image: Optional[str] = None,
     ) -> Optional[GameMap]:
         """
         Given a map file, roots, and an output directory, create a Sour bundle for
