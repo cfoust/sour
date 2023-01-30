@@ -1036,6 +1036,7 @@ void set_loading_world(bool flag)
 }
 
 bool load_world(const char *mname, const char *cname) {
+    entities::setloading(true);
     EM_ASM({
         Module.assets.loadWorld(UTF8ToString($0))
     }, mname);
@@ -1389,6 +1390,7 @@ void load_world_6(void *)
 
 	async_loading_map = false;
     startmap(cname ? cname : mname);
+    entities::setloading(false);
 
 #if __EMSCRIPTEN__
     // This is necessary for CTF flags to work. The CTF setup process looks

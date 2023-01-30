@@ -42,8 +42,33 @@ namespace entities
 
     vector<extentity *> &getents() { return ents; }
 
+    bool loading = false;
+    vector<int> queued_spawns;
+
     bool mayattach(extentity &e) { return false; }
     bool attachent(extentity &e, extentity &a) { return false; }
+
+    void flush_queue() {
+        loading = false;
+        loopv(queued_spawns) {
+            int val = queued_spawns[i];
+            if (val == -1) {
+                spawnitems();
+                continue;
+            }
+
+            setspawn(val, true);
+        }
+
+        queued_spawns.shrink(0);
+    }
+
+    void setloading(bool _loading) {
+        if (loading && !_loading) {
+            flush_queue();
+        }
+        loading = _loading;
+    }
 
     const char *itemname(int i)
     {
@@ -371,6 +396,11 @@ namespace entities
 
     void spawnitems(bool force)
     {
+        if (loading) {
+            queued_spawns.add(-1);
+            return;
+        }
+
         if(m_noitems) return;
         loopv(ents)
         {
@@ -383,7 +413,13 @@ namespace entities
         }
     }
 
-    void setspawn(int i, bool on) { if(ents.inrange(i)) { extentity *e = ents[i]; e->setspawned(on); e->clearnopickup(); } }
+    void setspawn(int i, bool on) {
+        if (loading) {
+            queued_spawns.add(i);
+            return;
+        }
+
+        if(ents.inrange(i)) { extentity *e = ents[i]; e->setspawned(on); e->clearnopickup(); } }
 
     extentity *newentity() { return new fpsentity(); }
     void deleteentity(extentity *e) { delete (fpsentity *)e; }

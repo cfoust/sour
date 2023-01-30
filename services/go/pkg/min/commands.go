@@ -307,6 +307,7 @@ func (p *Processor) AddModelFile(name string) {
 
 func (p *Processor) SetSkin(meshname string, tex string, masks string, envMapMax float32, envMapMin float32) {
 	p.AddModelFile(tex)
+	p.AddModelFile(masks)
 }
 
 func (p *Processor) SetBumpMap(meshname string, normalMapFile string) {

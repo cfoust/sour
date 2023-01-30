@@ -2346,12 +2346,6 @@ namespace game
     }
     COMMAND(getmap, "");
 
-    void spawnitems()
-    {
-        entities::spawnitems(true);
-    }
-    COMMAND(spawnitems, "");
-
     void stopdemo()
     {
         if(remote)

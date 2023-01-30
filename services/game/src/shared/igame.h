@@ -18,6 +18,8 @@ namespace entities
     extern void deleteentity(extentity *e);
     extern void clearents();
     extern vector<extentity *> &getents();
+    extern void setloading(bool _loading);
+
     extern const char *entmodel(const entity &e);
     extern void animatemapmodel(const extentity &e, int &anim, int &basetime);
 }
