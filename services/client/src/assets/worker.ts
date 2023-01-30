@@ -698,7 +698,9 @@ async function processEnvironment(
     const assetLookup: Record<string, number> = {}
     const bundleLookup: Record<string, BundleRef> = {}
 
-    for (let i = 0; i < sources.length; i++) {
+    // We go backwards because sources listed first should override those that
+    // follow
+    for (let i = sources.length - 1; i >= 0 ; i--) {
       const source = sources[i]
       for (const id of source.assets) {
         assetLookup[id] = i

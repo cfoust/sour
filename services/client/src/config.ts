@@ -1,5 +1,7 @@
 import * as R from 'ramda'
 
+import { BROWSER } from './utils'
+
 export type Configuration = {
   assets: string[]
   clusters: string[]
@@ -73,7 +75,13 @@ function init() {
     CONFIG = JSON.parse(configStr)
   }
 
-  CONFIG.assets = R.map((v) => fillAssetHost(v), CONFIG.assets)
+  CONFIG.assets = R.chain((v): string[] => {
+    if (v.startsWith('mobile:')) {
+      return BROWSER.isMobile ? [fillAssetHost(v.slice(7))] : []
+    }
+    return [fillAssetHost(v)]
+  }, CONFIG.assets)
+				console.log(CONFIG.assets);
   CONFIG.clusters = R.map((v) => fillHost(v), CONFIG.clusters)
   CONFIG.proxy = fillHost(CONFIG.proxy)
 }
