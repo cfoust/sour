@@ -54,6 +54,8 @@ const DIRECTIONS: Array<[nipplejs.JoystickEventTypes, string]> = [
   ['dir:left', 'left'],
 ]
 
+const MOTION_FACTOR = 5
+
 type MotionMachine = Record<number, Touch>
 
 function newTouchMachine(): MotionMachine {
@@ -213,11 +215,11 @@ export default function MobileControls(props: { isRunning: boolean }) {
     container.ontouchmove = (evt) => {
       const [newMachine, motions] = handleTouchMove(machine, evt.changedTouches)
       machine = newMachine
-      for (const motion of motions) {
-        const [dx, dy] = motion
-        if (isInMenu || (dx === 0 && dy === 0)) return
-        BananaBread.mousemove(dx, dy)
-      }
+      if (motions.length == 0) return
+      const [motion] = motions
+      const [dx, dy] = motion
+      if (isInMenu || (dx === 0 && dy === 0)) return
+      BananaBread.mousemove(dx * MOTION_FACTOR, dy * MOTION_FACTOR)
     }
     container.ontouchend = (evt) => {
       machine = handleTouchEnd(machine, evt.changedTouches)
