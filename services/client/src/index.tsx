@@ -498,6 +498,7 @@ function App() {
       }
 
       Module.running = true
+      setResolution(null, null)
       setState({
         type: GameStateType.Ready,
       })
@@ -560,8 +561,6 @@ function App() {
           'you are in safe mode. no mods were loaded, but you can disable them in the mod menu.'
         )
       }
-
-      setResolution(null, null)
     }
 
     const updateServerURL = (name: string, port: number) => {
