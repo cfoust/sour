@@ -35,6 +35,8 @@ import {
 } from './types'
 import type { DownloadState } from '../types'
 
+import { BROWSER } from '../utils'
+
 import { getBlob as getSavedBlob, saveBlob, haveBlob } from './storage'
 
 class PullError extends Error {}
@@ -172,6 +174,24 @@ async function loadIndex(
     }
     const source = sourceFromBuffer(buffer)
     source.source = cleanUrl
+
+    for (const map of source.maps) {
+      map.assets = []
+    }
+
+    // Memory-saving on mobile
+    if (BROWSER.isMobile) {
+      const skipBundles: Set<string> = new Set()
+      for (const mod of source.mods) {
+        skipBundles.add(mod.id)
+      }
+      source.mods = []
+      source.bundles = R.filter(
+        ({ id }) => !skipBundles.has(id),
+        source.bundles
+      )
+    }
+
     return source
   }
 
