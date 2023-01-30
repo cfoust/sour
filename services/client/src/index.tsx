@@ -850,7 +850,17 @@ function App() {
           className="game"
           style={{ opacity: state.type !== GameStateType.Ready ? 0 : 1 }}
           id="canvas"
-          ref={(canvas) => (Module.canvas = canvas)}
+          ref={(canvas) => {
+            if (canvas != null) {
+              // This is a bug in mobile Safari where Reader holds on to canvas refs
+              // https://gist.github.com/eugeneware/bb69a5bce8c8c48178845429435458e2#file-safari_reader-js-L1937
+              // @ts-ignore
+              canvas._evaluatedForTextContent = true
+              // @ts-ignore
+              canvas._cachedElementBoundingRect = {}
+            }
+            Module.canvas = canvas
+          }}
           onContextMenu={(event) => event.preventDefault()}
         ></canvas>
         {BROWSER.isMobile && (

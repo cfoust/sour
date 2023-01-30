@@ -81,7 +81,6 @@ function init() {
     }
     return [fillAssetHost(v)]
   }, CONFIG.assets)
-				console.log(CONFIG.assets);
   CONFIG.clusters = R.map((v) => fillHost(v), CONFIG.clusters)
   CONFIG.proxy = fillHost(CONFIG.proxy)
 }

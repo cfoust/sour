@@ -177,7 +177,7 @@ else
 client.o:	libenet $(CLIENT_OBJS)
 	$(CXX) $(CXXFLAGS) -r -o client.o $(CLIENT_OBJS) $(CLIENT_LIBS)
 
-TOTAL_MEMORY = 65536000
+TOTAL_MEMORY = 32768000
 
 client: client.o
 	cd .. ; $(CXX) $(CXXFLAGS) -s USE_WEBGL2=1 -s FULL_ES3=1 src/client.o -o sauerbraten.js -lidbfs.js -s DISABLE_EXCEPTION_CATCHING=1 -s EXPORTED_FUNCTIONS="['_free','_main', '__Z17set_loading_worldb', '__Z7conoutfiPKcz', '__Z12injectserverPciPhi', '__ZN4game18setplayermodelinfoEPKcS1_S1_S1_S1_S1_S1_S1_S1_S1_S1_S1_b', '__Z14renderprogressfPKcjb', '__Z7executePKc', '__Z10executestrPKc', '_setforcecamera', '_bb_splash', '_bb_playsoundname', '__Z17really_load_worldPKcS0_', '__Z9mousemoveii', '__Z8isinmenuv', '__Z9g3d_clickff']" src/enet/libenet.a -s TOTAL_MEMORY=$(TOTAL_MEMORY) -s ALLOW_MEMORY_GROWTH=1 -Oz -s NO_EXIT_RUNTIME=1 -s FORCE_FILESYSTEM=1 -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["cwrap"]' --profiling -s ERROR_ON_UNDEFINED_SYMBOLS=0 # --closure 1 -s IGNORE_CLOSURE_COMPILER_ERRORS=1
