@@ -118,7 +118,7 @@ const BottomLeftPanel = styled.div`
   z-index: 1;
 `
 
-const ActionButton = styled.div`
+const ActionButton = styled.div<{ active?: boolean }>`
   border-radius: 40px;
   border-width: 1px;
   border-color: white;
@@ -126,6 +126,8 @@ const ActionButton = styled.div`
   width: 60px;
   height: 60px;
   font-size: 30px;
+
+  ${p => p.active === true ? 'border-color: var(--chakra-colors-red-500);' : ''}
 
   display: flex;
   place-items: center;
@@ -234,43 +236,14 @@ function handleTouchEnd(
   return result
 }
 
-function useCreateAction(
-  isRunning: boolean,
-  command: string
-): [
-  down: (event: React.TouchEvent) => void,
-  up: (event: React.TouchEvent) => void
-] {
-  const down = React.useCallback(
-    (event: React.TouchEvent) => {
-      event.preventDefault()
-      if (!isRunning) return
-      console.log(`${command} 1`)
-      BananaBread.execute(`${command} 1`)
-    },
-    [isRunning]
-  )
-  const up = React.useCallback(
-    (event: React.TouchEvent) => {
-      event.preventDefault()
-      if (!isRunning) return
-      console.log(`${command} 0`)
-      BananaBread.execute(`${command} 0`)
-    },
-    [isRunning]
-  )
-
-  return [down, up]
-}
-
 export default function MobileControls(props: { isRunning: boolean }) {
   const { isRunning } = props
 
   const containerRef = React.useRef<HTMLDivElement>(null)
   const leftRef = React.useRef<HTMLDivElement>(null)
-  const rightRef = React.useRef<HTMLDivElement>(null)
   const machineRef = React.useRef<TouchMachine>(newTouchMachine())
   const [isInMenu, setIsInMenu] = React.useState<boolean>(false)
+  const [shooting, setShooting] = React.useState<boolean>(false)
 
   const toggleMenu = React.useCallback(
     (event: React.MouseEvent) => {
@@ -283,7 +256,6 @@ export default function MobileControls(props: { isRunning: boolean }) {
 
   const trackTouch = React.useCallback(
     (event: React.TouchEvent, onEnd?: TouchAction) => {
-      console.log('trackTouch', onEnd)
       machineRef.current = handleTouchStart(
         machineRef.current,
         event.changedTouches,
@@ -329,8 +301,14 @@ export default function MobileControls(props: { isRunning: boolean }) {
 
   const startShoot = React.useMemo(() => {
     return createAction(
-      () => BananaBread.execute(`_attack 1`),
-      () => BananaBread.execute(`_attack 0`)
+      () => {
+        BananaBread.execute(`_attack 1`)
+        setShooting(true)
+      },
+      () => {
+        BananaBread.execute(`_attack 0`)
+        setShooting(false)
+      },
     )
   }, [createAction])
 
@@ -345,8 +323,7 @@ export default function MobileControls(props: { isRunning: boolean }) {
     if (!isRunning) return
     const { current: container } = containerRef
     const { current: leftPad } = leftRef
-    const { current: rightPad } = rightRef
-    if (container == null || leftPad == null || rightPad == null) return
+    if (container == null || leftPad == null) return
 
     let isInMenu: boolean = false
 
@@ -424,6 +401,7 @@ export default function MobileControls(props: { isRunning: boolean }) {
       <BottomLeftPanel>
         <ActionButton
           onTouchStart={startShoot}
+          active={shooting}
           style={{
             position: 'absolute',
             bottom: 150,
@@ -446,6 +424,7 @@ export default function MobileControls(props: { isRunning: boolean }) {
         </ActionButton>
         <ActionButton
           onTouchStart={startShoot}
+          active={shooting}
           style={{
             position: 'absolute',
             width: 80,
@@ -467,7 +446,7 @@ export default function MobileControls(props: { isRunning: boolean }) {
         ))}
       </BottomRightPanel>
       <MovementPad ref={leftRef} />
-      <DirectionPad ref={rightRef} onTouchStart={trackTouch} />
+      <DirectionPad onTouchStart={trackTouch} />
     </Container>
   )
 }
