@@ -103,6 +103,7 @@ const BottomRightPanel = styled.div`
 
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
 `
 
 const BottomLeftPanel = styled.div`
@@ -110,6 +111,28 @@ const BottomLeftPanel = styled.div`
   bottom: 0;
   position: absolute;
   z-index: 1;
+`
+
+const GunElement = styled.div<{ selected: boolean; disabled: boolean }>`
+  border-radius: 5px;
+  border-width: 1px;
+  border-color: white;
+  padding: 3px;
+  width: 70px;
+
+  ${(p) => (p.selected ? 'border-color: var(--chakra-colors-red-500);' : '')}
+  ${(p) => (p.disabled ? 'opacity: 0.4;' : '')}
+
+  & > span {
+    margin-left: 5px;
+    margin-right: 5px;
+    width: 30px;
+    text-align: right;
+  }
+
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
 `
 
 const ActionButton = styled.div<{ active?: boolean }>`
@@ -229,6 +252,28 @@ function handleTouchEnd(
   }
 
   return result
+}
+
+function GunButton(props: {
+  type: WeaponType
+  icon: string
+  playerState: PlayerState
+  selectWeapon: () => void
+}) {
+  const { type, icon, playerState, selectWeapon } = props
+  const { ammo, weapon } = playerState
+  const weaponAmmo = ammo[type]
+
+  return (
+    <GunElement
+      disabled={weaponAmmo === 0}
+      selected={weapon === type}
+      onClick={selectWeapon}
+    >
+      <img src={icon} width={32} height={32} />
+      <span>{weaponAmmo}</span>
+    </GunElement>
+  )
 }
 
 export default function MobileControls(props: {
@@ -445,15 +490,12 @@ export default function MobileControls(props: {
           <span style={{ marginTop: -10 }}>⌖</span>
         </ActionButton>
         {WEAPON_INFO.map((v) => (
-          <Button
-            key={v.type}
-            disabled={playerState.ammo[v.type] === 0}
-            variant={playerState.weapon === v.type ? 'outline' : 'ghost'}
-            leftIcon={<img src={v.icon} width={32} height={32} />}
-            onClick={selectWeapon(v.type)}
-          >
-            {playerState.ammo[v.type]}
-          </Button>
+          <GunButton
+            type={v.type}
+            icon={v.icon}
+            playerState={playerState}
+            selectWeapon={selectWeapon(v.type)}
+          />
         ))}
       </BottomRightPanel>
       <MovementPad ref={leftRef} />

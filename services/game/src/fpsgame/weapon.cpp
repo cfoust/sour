@@ -27,6 +27,10 @@ namespace game
             playsound(S_WEAPLOAD, d == player1 ? NULL : &d->o);
         }
         d->gunselect = gun;
+#if __EMSCRIPTEN__
+        extern void sendplayerstate();
+        sendplayerstate();
+#endif
     }
 
     void nextweapon(int dir, bool force = false)
