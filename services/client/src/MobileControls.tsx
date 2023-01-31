@@ -14,6 +14,8 @@ import {
 
 import nipplejs from 'nipplejs'
 
+import PISTOL_ICON from 'url:./static/pistol.png'
+
 const Container = styled.div`
   width: 100%;
   height: 100%;
@@ -43,6 +45,13 @@ const DirectionPad = styled.div`
 const TopLeftPanel = styled.div`
   left: 0;
   top: 0;
+  position: absolute;
+  z-index: 1;
+`
+
+const BottomRightPanel = styled.div`
+  right: 0;
+  bottom: 0;
   position: absolute;
   z-index: 1;
 `
@@ -126,6 +135,35 @@ function handleTouchEnd(
   return result
 }
 
+function useCreateAction(
+  isRunning: boolean,
+  command: string
+): [
+  down: (event: React.TouchEvent) => void,
+  up: (event: React.TouchEvent) => void
+] {
+  const down = React.useCallback(
+    (event: React.TouchEvent) => {
+      event.preventDefault()
+      if (!isRunning) return
+      console.log(`${command} 1`)
+      BananaBread.execute(`${command} 1`)
+    },
+    [isRunning]
+  )
+  const up = React.useCallback(
+    (event: React.TouchEvent) => {
+      event.preventDefault()
+      if (!isRunning) return
+      console.log(`${command} 0`)
+      BananaBread.execute(`${command} 0`)
+    },
+    [isRunning]
+  )
+
+  return [down, up]
+}
+
 export default function MobileControls(props: { isRunning: boolean }) {
   const { isRunning } = props
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -140,6 +178,9 @@ export default function MobileControls(props: { isRunning: boolean }) {
     },
     [isRunning]
   )
+
+  const [jumpDown, jumpUp] = useCreateAction(isRunning, '_jump')
+  const [attackDown, attackUp] = useCreateAction(isRunning, '_attack')
 
   React.useEffect(() => {
     if (!isRunning) return
@@ -231,6 +272,11 @@ export default function MobileControls(props: { isRunning: boolean }) {
       <TopLeftPanel>
         <Button onMouseDown={toggleMenu}>☰</Button>
       </TopLeftPanel>
+      <BottomRightPanel>
+        <Button onTouchStart={jumpDown}>▲</Button>
+        <Button onTouchStart={attackDown}>⌖</Button>
+        <Button leftIcon={<img src={PISTOL_ICON} width={16} height={16}/>}>16</Button>
+      </BottomRightPanel>
       <MovementPad ref={leftRef} />
       <DirectionPad ref={rightRef} />
     </Container>
