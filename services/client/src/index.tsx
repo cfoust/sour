@@ -537,6 +537,9 @@ function App() {
 
       if (BROWSER.isMobile) {
         BananaBread.execute(`
+              // mobile screens are really dark
+              lazyshader 0 "mobilegamma" (fsvs) (fsps [gl_FragColor.rgb = pow(color.rgb, vec3(1.0/2.6));])
+              setpostfx mobilegamma
               gui2d 1
               skyboxglare 0
               fullscreendesktop 0
