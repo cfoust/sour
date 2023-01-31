@@ -51,7 +51,7 @@ export function getBrowser(): {
 
   return {
     isFirefox: result?.name === 'firefox',
-    isSafari: result?.name === 'safari',
+    isSafari: result?.name === 'safari' || result?.os === 'iOS',
     isMobile:
       result?.os === 'iOS' ||
       result?.os === 'Android OS' ||

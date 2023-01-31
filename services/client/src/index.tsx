@@ -66,6 +66,7 @@ const config: ThemeConfig = {
 const theme = extendTheme({ colors, config })
 
 const OuterContainer = styled.div`
+  touch-action: none;
   position: fixed;
   top: 0;
   left: 0;
@@ -536,6 +537,7 @@ function App() {
 
       if (BROWSER.isMobile) {
         BananaBread.execute(`
+              texreduce 12
               gui2d 1
               skyboxglare 0
               fullscreendesktop 0

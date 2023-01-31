@@ -287,6 +287,7 @@ export default function MobileControls(props: {
   const machineRef = React.useRef<TouchMachine>(newTouchMachine())
   const [isInMenu, setIsInMenu] = React.useState<boolean>(false)
   const [shooting, setShooting] = React.useState<boolean>(false)
+  const [zooming, setZooming] = React.useState<boolean>(false)
 
   const toggleMenu = React.useCallback(
     (event: React.MouseEvent) => {
@@ -299,6 +300,7 @@ export default function MobileControls(props: {
 
   const trackTouch = React.useCallback(
     (event: React.TouchEvent, onEnd?: TouchAction) => {
+      event.preventDefault()
       machineRef.current = handleTouchStart(
         machineRef.current,
         event.changedTouches,
@@ -361,6 +363,19 @@ export default function MobileControls(props: {
       () => {
         BananaBread.execute(`_attack 0`)
         setShooting(false)
+      }
+    )
+  }, [createAction])
+
+  const startZoom = React.useMemo(() => {
+    return createAction(
+      () => {
+        BananaBread.execute(`zoom 1`)
+        setZooming(true)
+      },
+      () => {
+        BananaBread.execute(`zoom -1`)
+        setZooming(false)
       }
     )
   }, [createAction])
@@ -461,7 +476,7 @@ export default function MobileControls(props: {
             left: 60,
           }}
         >
-          <span style={{ marginTop: -5 }}>⌖</span>
+          <span style={{ marginTop: -5 }}>⦿</span>
         </ActionButton>
       </BottomLeftPanel>
       <BottomRightPanel>
@@ -487,7 +502,18 @@ export default function MobileControls(props: {
             fontSize: 40,
           }}
         >
-          <span style={{ marginTop: -10 }}>⌖</span>
+          <span style={{ marginTop: -5 }}>⦿</span>
+        </ActionButton>
+        <ActionButton
+          onTouchStart={startZoom}
+          active={zooming}
+          style={{
+            position: 'absolute',
+            bottom: 240,
+            right: 100,
+          }}
+        >
+          <span style={{ marginTop: -7 }}>⌖</span>
         </ActionButton>
         {WEAPON_INFO.map((v) => (
           <GunButton
