@@ -56,6 +56,32 @@ const BottomRightPanel = styled.div`
   z-index: 1;
 `
 
+const BottomLeftPanel = styled.div`
+  left: 0;
+  bottom: 0;
+  position: absolute;
+  z-index: 1;
+`
+
+const ActionButton = styled.div`
+  border-radius: 40px;
+  border-width: 1px;
+  border-color: white;
+  background: var(--chakra-colors-whiteAlpha-300);
+  width: 60px;
+  height: 60px;
+  font-size: 30px;
+
+  display: flex;
+  place-items: center;
+  justify-content: center;
+  flex-direction: column;
+
+  &:active {
+    border-color: var(--chakra-colors-red-500);
+  }
+`
+
 const DIRECTIONS: Array<[nipplejs.JoystickEventTypes, string]> = [
   ['dir:up', 'forward'],
   ['dir:down', 'backward'],
@@ -272,10 +298,45 @@ export default function MobileControls(props: { isRunning: boolean }) {
       <TopLeftPanel>
         <Button onMouseDown={toggleMenu}>☰</Button>
       </TopLeftPanel>
+      <BottomLeftPanel>
+        <ActionButton
+          onTouchStart={attackDown}
+          style={{
+            position: 'absolute',
+              bottom: 150,
+              left: 60,
+          }}
+        >
+          <span style={{ marginTop: -5 }}>⌖</span>
+        </ActionButton>
+      </BottomLeftPanel>
       <BottomRightPanel>
-        <Button onTouchStart={jumpDown}>▲</Button>
-        <Button onTouchStart={attackDown}>⌖</Button>
-        <Button leftIcon={<img src={PISTOL_ICON} width={16} height={16}/>}>16</Button>
+        <ActionButton
+          onTouchStart={jumpDown}
+          style={{
+            position: 'absolute',
+            bottom: 30,
+            right: 100,
+          }}
+        >
+          <span style={{ marginTop: -5 }}>▲</span>
+        </ActionButton>
+        <ActionButton
+          onTouchStart={attackDown}
+          style={{
+            position: 'absolute',
+            width: 80,
+            height: 80,
+            bottom: 100,
+            right: 100,
+            fontSize: 40,
+          }}
+        >
+          <span style={{ marginTop: -10 }}>⌖</span>
+        </ActionButton>
+        <Button leftIcon={<img src={PISTOL_ICON} width={16} height={16} />}>
+          16
+        </Button>
       </BottomRightPanel>
       <MovementPad ref={leftRef} />
       <DirectionPad ref={rightRef} />
