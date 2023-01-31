@@ -626,6 +626,7 @@ export default function useAssets(
     }
 
     const textures = new Set<string>()
+    const sounds = new Set<string>()
     const models = new Set<string>()
     Module.assets = {
       modsToURL: () => {
@@ -704,6 +705,15 @@ export default function useAssets(
       },
       onConnect: () => {
         targetMap = null
+      },
+      missingSound: (name: string, msg: number) => {
+        if (sounds.has(name)) return
+        sounds.add(name)
+        // TODO load sounds on demand
+
+        if (!BROWSER.isMobile && msg === 1) {
+          log.vanillaError(`failed to load sample: packages/sounds/${name}`)
+        }
       },
       missingTexture: (name: string, msg: number) => {
         if (textures.has(name)) return

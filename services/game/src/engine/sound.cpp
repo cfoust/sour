@@ -2,6 +2,7 @@
 
 #include "engine.h"
 #include "SDL_mixer.h"
+#include <emscripten.h>
 
 bool nosound = true;
 
@@ -443,7 +444,13 @@ bool soundsample::load(bool msg)
         if(chunk) return true;
     }
 
+#if __EMSCRIPTEN__
+    EM_ASM({
+        Module.assets.missingSound(UTF8ToString($0), $1);
+    }, name, msg);
+#else
     conoutf(CON_ERROR, "failed to load sample: packages/sounds/%s", name);
+#endif
     return false;
 }
 
