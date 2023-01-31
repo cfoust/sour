@@ -285,7 +285,7 @@ export default function MobileControls(props: {
   const containerRef = React.useRef<HTMLDivElement>(null)
   const leftRef = React.useRef<HTMLDivElement>(null)
   const machineRef = React.useRef<TouchMachine>(newTouchMachine())
-  const [isInMenu, setIsInMenu] = React.useState<boolean>(false)
+  const [isInMenu, setIsInMenu] = React.useState<boolean>(true)
   const [shooting, setShooting] = React.useState<boolean>(false)
   const [zooming, setZooming] = React.useState<boolean>(false)
 
@@ -430,7 +430,7 @@ export default function MobileControls(props: {
       }
     }
 
-    let _isInMenu: boolean = false
+    let _isInMenu: boolean = true
     const cb = () => {
       window.requestAnimationFrame(cb)
       if (!Module.running) return
@@ -457,6 +457,8 @@ export default function MobileControls(props: {
     }
   }, [isRunning])
 
+  const controlsStyles = { opacity: isInMenu ? 0 : 1 }
+
   return (
     <Container
       ref={containerRef}
@@ -466,7 +468,7 @@ export default function MobileControls(props: {
       <TopLeftPanel>
         <Button onMouseDown={toggleMenu}>☰</Button>
       </TopLeftPanel>
-      <BottomLeftPanel>
+      <BottomLeftPanel style={controlsStyles}>
         <ActionButton
           onTouchStart={startShoot}
           active={shooting}
@@ -479,7 +481,7 @@ export default function MobileControls(props: {
           <span style={{ marginTop: -5 }}>⦿</span>
         </ActionButton>
       </BottomLeftPanel>
-      <BottomRightPanel>
+      <BottomRightPanel style={controlsStyles}>
         <ActionButton
           onTouchStart={startJump}
           style={{
@@ -517,6 +519,7 @@ export default function MobileControls(props: {
         </ActionButton>
         {WEAPON_INFO.map((v) => (
           <GunButton
+            key={v.type}
             type={v.type}
             icon={v.icon}
             playerState={playerState}
