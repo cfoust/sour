@@ -85,6 +85,20 @@ type ModuleType = {
     modsToURL: () => void
   }
 
+  gameState: {
+    playerState: (
+      health: number,
+      maxHealth: number,
+      gunSelect: number,
+      shotgunAmmo: number,
+      chainggunAmmo: number,
+      rocketAmmo: number,
+      rifleAmmo: number,
+      grenadeAmmo: number,
+      pistolAmmo: number,
+    ) => void
+  },
+
   loadedMap: (name: string) => void
   onLocalDisconnect: () => void
 

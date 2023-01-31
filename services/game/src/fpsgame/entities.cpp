@@ -220,6 +220,11 @@ namespace entities
                 playsound(S_V_QUAD, NULL, NULL, 0, 0, 0, -1, 0, 3000);
                 break;
         }
+#if __EMSCRIPTEN__
+        if (d==player1) {
+            game::sendplayerstate();
+        }
+#endif
     }
 
     // these functions are called when the client touches the item

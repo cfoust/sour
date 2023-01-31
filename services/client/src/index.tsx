@@ -19,7 +19,7 @@ import {
 
 import type { ThemeConfig } from '@chakra-ui/react'
 
-import type { GameState } from './types'
+import type { GameState, PlayerState } from './types'
 import type {
   ClientAuthMessage,
   ServerMessage,
@@ -27,7 +27,7 @@ import type {
   CommandMessage,
   PacketMessage,
 } from './protocol'
-import { GameStateType } from './types'
+import { GameStateType, WeaponType } from './types'
 import { MessageType, ENetEventType } from './protocol'
 import StatusOverlay from './Loading'
 import NAMES from './names'
@@ -179,6 +179,52 @@ function App() {
     receiveMessage: receiveAuthMessage,
     initialize: initializeDiscord,
   } = useAuth(sendAuthMessage)
+
+  const [playerState, setPlayerState] = React.useState<PlayerState>({
+    health: 0,
+    maxHealth: 0,
+    weapon: WeaponType.Pistol,
+    ammo: {
+      [WeaponType.Saw]: 0,
+      [WeaponType.Shotgun]: 0,
+      [WeaponType.Chaingun]: 0,
+      [WeaponType.Rocket]: 0,
+      [WeaponType.Rifle]: 0,
+      [WeaponType.Grenade]: 0,
+      [WeaponType.Pistol]: 0,
+    },
+  })
+
+  React.useEffect(() => {
+    Module.gameState = {
+      playerState: (
+        health: number,
+        maxHealth: number,
+        gunSelect: number,
+        shotgunAmmo: number,
+        chainggunAmmo: number,
+        rocketAmmo: number,
+        rifleAmmo: number,
+        grenadeAmmo: number,
+        pistolAmmo: number
+      ) => {
+        setPlayerState({
+          health,
+          maxHealth,
+          weapon: gunSelect,
+          ammo: {
+            [WeaponType.Saw]: 1,
+            [WeaponType.Shotgun]: shotgunAmmo,
+            [WeaponType.Chaingun]: chainggunAmmo,
+            [WeaponType.Rocket]: rocketAmmo,
+            [WeaponType.Rifle]: rifleAmmo,
+            [WeaponType.Grenade]: grenadeAmmo,
+            [WeaponType.Pistol]: pistolAmmo,
+          },
+        })
+      },
+    }
+  }, [])
 
   React.useEffect(() => {
     ;(async () => {
@@ -863,7 +909,10 @@ function App() {
           onContextMenu={(event) => event.preventDefault()}
         ></canvas>
         {BROWSER.isMobile && (
-          <MobileControls isRunning={state.type === GameStateType.Ready} />
+          <MobileControls
+            playerState={playerState}
+            isRunning={state.type === GameStateType.Ready}
+          />
         )}
       </GameContainer>
       {state.type !== GameStateType.Ready && (

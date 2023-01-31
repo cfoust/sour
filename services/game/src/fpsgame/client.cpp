@@ -1473,6 +1473,25 @@ namespace game
         }
     }
 
+#if __EMSCRIPTEN__
+    void sendplayerstate()
+    {
+        EM_ASM({
+            return Module.gameState.playerState(
+                    $0,
+                    $1,
+                    $2,
+                    $3,
+                    $4,
+                    $5,
+                    $6,
+                    $7,
+                    $8,
+            );
+        }, player1->health, player1->maxhealth, player1->gunselect, player1->ammo[1], player1->ammo[2], player1->ammo[3], player1->ammo[4], player1->ammo[5], player1->ammo[6]);
+    }
+#endif
+
     void parsestate(fpsent *d, ucharbuf &p, bool resume = false)
     {
         if(!d) { static fpsent dummy; d = &dummy; }
@@ -1502,6 +1521,8 @@ namespace game
             d->gunselect = clamp(gun, int(GUN_FIST), int(GUN_PISTOL));
             loopi(GUN_PISTOL-GUN_SG+1) d->ammo[GUN_SG+i] = getint(p);
         }
+
+        sendplayerstate();
     }
 
     extern int deathscore;

@@ -45,6 +45,7 @@ namespace game
 
 #if __EMSCRIPTEN__
     extern void reloadgamemode();
+    extern void sendplayerstate();
 #endif
     extern const char *gameident();
     extern const char *savedconfig();

@@ -56,3 +56,20 @@ export type GameState =
   | RunningState
   | ReadyState
   | ErrorState
+
+export enum WeaponType {
+  Saw,
+  Shotgun,
+  Chaingun,
+  Rocket,
+  Rifle,
+  Grenade,
+  Pistol,
+}
+
+export type PlayerState = {
+  health: number,
+  maxHealth: number,
+  weapon: WeaponType
+  ammo: Record<WeaponType, number>
+}

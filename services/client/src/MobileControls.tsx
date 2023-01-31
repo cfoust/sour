@@ -22,15 +22,9 @@ import RIFLE_ICON from 'url:./static/rifle.png'
 import GRENADE_ICON from 'url:./static/grenade.png'
 import PISTOL_ICON from 'url:./static/pistol.png'
 
-enum WeaponType {
-  Saw,
-  Shotgun,
-  Chaingun,
-  Rocket,
-  Rifle,
-  Grenade,
-  Pistol,
-}
+import type { PlayerState } from './types'
+
+import { WeaponType } from './types'
 
 type Weapon = {
   type: WeaponType
@@ -127,7 +121,8 @@ const ActionButton = styled.div<{ active?: boolean }>`
   height: 60px;
   font-size: 30px;
 
-  ${p => p.active === true ? 'border-color: var(--chakra-colors-red-500);' : ''}
+  ${(p) =>
+    p.active === true ? 'border-color: var(--chakra-colors-red-500);' : ''}
 
   display: flex;
   place-items: center;
@@ -236,8 +231,11 @@ function handleTouchEnd(
   return result
 }
 
-export default function MobileControls(props: { isRunning: boolean }) {
-  const { isRunning } = props
+export default function MobileControls(props: {
+  isRunning: boolean
+  playerState: PlayerState
+}) {
+  const { isRunning, playerState } = props
 
   const containerRef = React.useRef<HTMLDivElement>(null)
   const leftRef = React.useRef<HTMLDivElement>(null)
@@ -288,6 +286,16 @@ export default function MobileControls(props: { isRunning: boolean }) {
     )
   }, [])
 
+  const selectWeapon = React.useCallback(
+    (index: number) => {
+      return () => {
+        if (!isRunning) return
+        BananaBread.execute(`weapon ${index}`)
+      }
+    },
+    [isRunning]
+  )
+
   const createAction = React.useCallback(
     (onStart: TouchAction, onEnd: TouchAction) => {
       return (event: React.TouchEvent) => {
@@ -308,7 +316,7 @@ export default function MobileControls(props: { isRunning: boolean }) {
       () => {
         BananaBread.execute(`_attack 0`)
         setShooting(false)
-      },
+      }
     )
   }, [createAction])
 
@@ -439,9 +447,12 @@ export default function MobileControls(props: { isRunning: boolean }) {
         {WEAPON_INFO.map((v) => (
           <Button
             key={v.type}
+            disabled={playerState.ammo[v.type] === 0}
+            variant={playerState.weapon === v.type ? 'outline' : 'ghost'}
             leftIcon={<img src={v.icon} width={32} height={32} />}
+            onClick={selectWeapon(v.type)}
           >
-            16
+            {playerState.ammo[v.type]}
           </Button>
         ))}
       </BottomRightPanel>
