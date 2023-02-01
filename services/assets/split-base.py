@@ -34,7 +34,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate an asset source for a directory.')
     parser.add_argument('--outdir', help="The output directory for the asset source.", default="output/")
     parser.add_argument('--prefix', help="The prefix for the index file.", default="")
-    parser.add_argument('--mobile', action="store_true", help="Only generate compresed textures.")
+    parser.add_argument('--mobile', action="store_true", help="Only generate compressed textures.")
     parser.add_argument('root')
     args = parser.parse_args()
     os.makedirs(args.outdir, exist_ok=True)

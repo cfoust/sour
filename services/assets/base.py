@@ -54,12 +54,99 @@ def build_map(
         maps=p.maps,
     )
 
+HUDGUNS = [
+    "chaing",
+    "fist",
+    "gl",
+    "pistol",
+    "rifle",
+    "rocket",
+    "shotg",
+]
+
+def expand_hudguns(prefix: str) -> List[str]:
+    result: List[str] = [prefix]
+    for gun in HUDGUNS:
+        for suffix in ['', '/blue', '/red']:
+            result.append(f"{prefix}/{gun}{suffix}")
+    return result
+
+BASE_MODELS = [
+    "ammo/bullets",
+    "ammo/cartridges",
+    "ammo/grenades",
+    "ammo/rockets",
+    "ammo/rrounds",
+    "ammo/shells",
+    "armor/green",
+    "armor/yellow",
+    "boost",
+    "carrot",
+    "checkpoint",
+    "health",
+    "quad",
+    "teleporter",
+    "flags/neutral",
+    "flags/red",
+    "flags/blue",
+    "base/red",
+    "base/neutral",
+    "base/blue",
+    "skull/red",
+    "skull/blue",
+]
+
+SNOUT_MODELS = [
+    'snoutx10k',
+    'snoutx10k/armor/blue',
+    'snoutx10k/armor/green',
+    'snoutx10k/armor/yellow',
+    'snoutx10k/blue',
+    'snoutx10k/red',
+    'snoutx10k/wings',
+] + expand_hudguns('snoutx10k/hudguns')
+
+OTHER_MODELS = [
+    'captaincannon',
+    'captaincannon/armor/blue',
+    'captaincannon/armor/green',
+    'captaincannon/armor/yellow',
+    'captaincannon/blue',
+    'captaincannon/quad',
+    'captaincannon/red',
+    'inky',
+    'inky/armor/blue',
+    'inky/armor/green',
+    'inky/armor/yellow',
+    'inky/blue',
+    'inky/quad',
+    'inky/red',
+    'mrfixit',
+    'mrfixit/armor/blue',
+    'mrfixit/armor/green',
+    'mrfixit/armor/yellow',
+    'mrfixit/blue',
+    'mrfixit/horns',
+    'mrfixit/red',
+    'ogro2',
+    'ogro2/armor/blue',
+    'ogro2/armor/green',
+    'ogro2/armor/yellow',
+    'ogro2/blue',
+    'ogro2/quad',
+    'ogro2/red',
+]
+
+OTHER_MODELS += expand_hudguns('captaincannon/hudguns')
+OTHER_MODELS += expand_hudguns('inky/hudguns')
+OTHER_MODELS += expand_hudguns('mrfixit/hudguns')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate assets from the base game.')
     parser.add_argument('--textures', action="store_true", help="Include all textures from the base game.")
     parser.add_argument('--models', action="store_true", help="Include all models from the base game.")
     parser.add_argument('--download', action="store_true", help="Whether to download assets from remote sources.")
+    parser.add_argument('--mobile', action="store_true", help="Only generate compressed textures.")
     parser.add_argument('--prefix', help="The prefix for the index file.", default="")
     parser.add_argument('--root', help="The base root for accessing game files.", default="")
     parser.add_argument('--player-models', action="store_true", help="Include only player models from the base game.")
@@ -87,6 +174,9 @@ if __name__ == "__main__":
 
     maps.append("packages/base/xmwhub.ogz")
 
+    if 'none' in args.maps:
+        maps = []
+
     outdir = os.getenv("ASSET_OUTPUT_DIR", "output/")
     os.makedirs(outdir, exist_ok=True)
 
@@ -97,7 +187,7 @@ if __name__ == "__main__":
     params = package.BuildParams(
         roots=roots,
         skip_root=roots[1],
-        compress_images=False,
+        compress_images=args.mobile,
         download_assets=args.download,
         build_web=False,
         build_desktop=False,
@@ -117,6 +207,10 @@ if __name__ == "__main__":
             textures,
         )
 
+    fps_models: List[str] = list(BASE_MODELS + SNOUT_MODELS)
+    if not args.mobile:
+        fps_models += OTHER_MODELS
+
     if args.models:
         MODEL_TYPES = [
             "md2",
@@ -131,25 +225,6 @@ if __name__ == "__main__":
             "packages/models"
         ]
 
-        if args.player_models:
-            paths = [
-                "packages/models/mrfixit",
-                "packages/models/mrfixit_blue",
-                "packages/models/mrfixit_red",
-                "packages/models/snoutx10k",
-                "packages/models/snoutx10k_blue",
-                "packages/models/snoutx10k_red",
-                "packages/models/ogro2",
-                "packages/models/ogro2_blue",
-                "packages/models/ogro2_red",
-                "packages/models/inky",
-                "packages/models/inky_blue",
-                "packages/models/inky_red",
-                "packages/models/captaincannon",
-                "packages/models/captaincannon_blue",
-                "packages/models/captaincannon_red",
-            ]
-
         models: List[str] = []
         for search_path in paths:
             for type_ in MODEL_TYPES:
@@ -160,32 +235,7 @@ if __name__ == "__main__":
         for model in models:
             ids.append(path.dirname(model[len("packages/models/"):]))
 
-        ids = list(set(ids))
-        # These should always be included
-        ids += [
-            "ammo/bullets",
-            "ammo/cartridges",
-            "ammo/grenades",
-            "ammo/rockets",
-            "ammo/rrounds",
-            "ammo/shells",
-            "armor/green",
-            "armor/yellow",
-            "boost",
-            "carrot",
-            "checkpoint",
-            "health",
-            "quad",
-            "teleporter",
-            "flags/neutral",
-            "flags/red",
-            "flags/blue",
-            "base/red",
-            "base/neutral",
-            "base/blue",
-            "skull/red",
-            "skull/blue",
-        ]
+        ids = list(set(ids) - set(fps_models))
 
         for model in track(ids, description="building models"):
             model_result = p.build_model(
@@ -214,6 +264,29 @@ if __name__ == "__main__":
             "base",
             "Everything the base game needs.",
         )
+
+    print("building fps mod")
+    fps_files: List[package.Mapping] = []
+    fps_mounted: Set[str] = set()
+    for model in fps_models:
+        print(model)
+        model_files = package.dump_sour("model", model, params.roots)
+        for mapping in model_files:
+            if mapping[1] in fps_mounted:
+                continue
+
+            fps_mounted.add(mapping[1])
+            fps_files.append(mapping)
+
+    p.build_mod(
+        params._replace(
+            download_assets=True,
+            build_web=True,
+        ),
+        fps_files,
+        "fps",
+        "All of the base game FPS models.",
+    )
 
     def _build_map(_map: str) -> Optional[BuildResult]:
         return build_map(params, outdir, _map)
