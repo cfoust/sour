@@ -80,9 +80,9 @@ image-slim:
   COPY +proxy/wsproxy /bin/wsproxy
   COPY +game/game /app/game/
   COPY +client/dist /app/
-  RUN cd /app/ && touch -m $(find .)
   COPY services/ingress/production.conf /etc/nginx/conf.d/default.conf
   COPY entrypoint /bin/entrypoint
+  RUN cd /app/ && touch -m $(find .)
   CMD ["/bin/entrypoint"]
   SAVE IMAGE sour:slim
 
