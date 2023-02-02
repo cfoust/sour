@@ -13,9 +13,23 @@ fi
 mkdir -p cache
 
 ./setup
+
+outdir=${ASSET_OUTPUT_DIR:-output}
+
+echo "building desktop"
 python3 base.py \
   --root https://static.sourga.me/blobs/6481/.index.source \
   --download \
   --models \
   --player-models \
+  --textures \
+  --outdir $outdir/desktop \
   complex dust2 turbine
+
+echo "building mobile"
+python3 base.py \
+  --root https://static.sourga.me/blobs/6481/.index.source \
+  --download \
+  --mobile \
+  --outdir $outdir/mobile \
+  none
