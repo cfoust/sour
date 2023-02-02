@@ -174,7 +174,12 @@ function App() {
     send(CBOR.encode(message))
   }, [])
 
-  const { loadAsset, getMod, onReady: onReadyAssets } = useAssets(setState)
+  const {
+    loadAsset,
+    loadAssetProgress,
+    getMod,
+    onReady: onReadyAssets,
+  } = useAssets(setState)
   const {
     state: authState,
     receiveMessage: receiveAuthMessage,
@@ -234,6 +239,7 @@ function App() {
 
       // Load the basic required data for the game
       await loadAsset(LoadRequestType.Mod, 'base')
+      await loadAsset(LoadRequestType.Mod, 'fps')
 
       const {
         location: { search: params },
@@ -540,6 +546,8 @@ function App() {
               // mobile screens are really dark
               lazyshader 0 "mobilegamma" (fsvs) (fsps [gl_FragColor.rgb = pow(color.rgb, vec3(1.0/2.6));])
               setpostfx mobilegamma
+              forceplayermodels
+              playermodel 1
               gui2d 1
               skyboxglare 0
               fullscreendesktop 0

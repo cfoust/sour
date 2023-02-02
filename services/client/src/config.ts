@@ -79,6 +79,9 @@ function init() {
     if (v.startsWith('mobile:')) {
       return BROWSER.isMobile ? [fillAssetHost(v.slice(7))] : []
     }
+    if (v.startsWith('desktop:')) {
+      return !BROWSER.isMobile ? [fillAssetHost(v.slice(8))] : []
+    }
     return [fillAssetHost(v)]
   }, CONFIG.assets)
   CONFIG.clusters = R.map((v) => fillHost(v), CONFIG.clusters)

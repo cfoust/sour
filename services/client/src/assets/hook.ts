@@ -390,6 +390,7 @@ export default function useAssets(
   setState: React.Dispatch<React.SetStateAction<GameState>>
 ): {
   loadAsset: (type: LoadRequestType, target: string) => Promise<Maybe<Layer>>
+  loadAssetProgress: (type: LoadRequestType, target: string) => Promise<Maybe<Layer>>
   getMod: (id: string) => Maybe<GameMod>
   onReady: () => void
 } {
@@ -449,6 +450,21 @@ export default function useAssets(
       return request.promiseSet.promise
     },
     []
+  )
+
+  const loadAssetProgress = React.useCallback(
+    async (type: LoadRequestType, target: string): Promise<Maybe<Layer>> => {
+      setLoading(true)
+      try {
+        const result = await loadAsset(type, target)
+        setLoading(false)
+        return result
+      } catch (e) {
+        setLoading(false)
+        throw e
+      }
+    },
+    [loadAsset]
   )
 
   const onReady = React.useCallback(() => {
@@ -777,5 +793,5 @@ export default function useAssets(
     }
   }, [])
 
-  return { loadAsset, getMod, onReady }
+  return { loadAsset, loadAssetProgress, getMod, onReady }
 }

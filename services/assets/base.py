@@ -143,6 +143,7 @@ OTHER_MODELS += expand_hudguns('mrfixit/hudguns')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate assets from the base game.')
+    parser.add_argument('--outdir', help="The output directory for the asset source.", default="output/")
     parser.add_argument('--textures', action="store_true", help="Include all textures from the base game.")
     parser.add_argument('--models', action="store_true", help="Include all models from the base game.")
     parser.add_argument('--download', action="store_true", help="Whether to download assets from remote sources.")
@@ -177,7 +178,7 @@ if __name__ == "__main__":
     if 'none' in args.maps:
         maps = []
 
-    outdir = os.getenv("ASSET_OUTPUT_DIR", "output/")
+    outdir = args.outdir
     os.makedirs(outdir, exist_ok=True)
 
     skip_root = roots[1]
