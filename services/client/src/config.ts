@@ -78,8 +78,6 @@ function init() {
     CONFIG = JSON.parse(configStr)
   }
 
-  console.log(CONFIG);
-
   CONFIG.assets = R.chain((v): string[] => {
     if (v.startsWith('mobile:')) {
       return BROWSER.isMobile ? [fillAssetHost(v.slice(7))] : []

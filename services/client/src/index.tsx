@@ -541,6 +541,8 @@ function App() {
       if (BROWSER.isFirefox || BROWSER.isSafari) {
         BananaBread.execute('skipparticles 1')
         BananaBread.execute('glare 0')
+      } else {
+        BananaBread.execute('skipparticles 0')
       }
 
       if (!BROWSER.isMobile) {
