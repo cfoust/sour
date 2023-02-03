@@ -15,6 +15,10 @@
     <a target="_blank" href="https://gitpod.io/#https://github.com/cfoust/sour">
         <img src="https://img.shields.io/badge/gitpod-devenv-orange" alt="Sour Gitpod Development Environment" />
     </a>
+    <img src="https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white" alt="TypeScript Language" />
+    <img src="https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white" alt="Go Language" />
+    <img src="https://img.shields.io/badge/Google_Chrome-4285F4?logo=Google-chrome&logoColor=white" alt="Google Chrome" />
+    <img src="https://img.shields.io/badge/iOS-000000?logo=ios&logoColor=white" alt="iOS" />
     <!-- LICENSE -->
     <a target="_blank" href="https://github.com/cfoust/sour/blob/main/LICENSE">
         <img src="https://img.shields.io/github/license/cfoust/sour" alt="Sour License Badge MIT" />
@@ -91,13 +95,14 @@ Here is a high level description of the repository's contents:
 
 ## Contributing
 
+Join us on [Discord](https://discord.gg/WP3EbYym4M) to chat with us and see how you can help out! Check out the [issues tab](https://github.com/cfoust/sour/issues) to get an idea of what needs doing.
+
 The easiest way to hack on Sour is in Gitpod using the button below. Gitpod is a web-based VSCode environment that runs everything necessary for development in a cloud-based container, meaning that everything is set up and working for you right away. You do not even have to use VSCode; Gitpod supports [custom dotfiles](https://www.gitpod.io/docs/config-dotfiles) which allows me to use my full [vim-based setup](https://github.com/cfoust/cawnfig/tree/master/configs/vim) from a browser tab.
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/cfoust/sour)
 
 If you want to run things locally all you need is Docker, [Earthly](https://earthly.dev/), and `docker-compose`. After that, just run `./serve`. Then navigate to `http://localhost:1234`. All of the game's services will recompile and restart when you make changes.
 
-Check out the [issues tab](https://github.com/cfoust/sour/issues) to see what you might be able to help with.
 
 ## Inspiration
 
