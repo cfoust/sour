@@ -1,0 +1,10 @@
+--- sauerbraten.js.orig	2023-02-03 14:16:11.758471728 +0000
++++ sauerbraten.js	2023-02-03 17:07:14.989280578 +0000
+@@ -631,6 +631,7 @@
+   wasmTable = Module["asm"]["Qg"];
+   addOnInit(Module["asm"]["Pg"]);
+   removeRunDependency("wasm-instantiate");
++   WASM_PROMISE_RESOLVE()
+  }
+  addRunDependency("wasm-instantiate");
+  function receiveInstantiationResult(result) {

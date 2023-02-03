@@ -127,8 +127,7 @@ declare const FS: {
   unlink: (file: string) => void
 }
 
-declare const ASSET_SOURCE: string
-declare const GAME_SERVER: string
+declare const WASM_PROMISE: Promise<void>
 
 declare const INJECTED_SOUR_CONFIG: Maybe<any>
 

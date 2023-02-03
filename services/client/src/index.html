@@ -48,6 +48,10 @@
       Module.preRun = []
       Module.noInitialRun = true
       Module.postRun = []
+      var WASM_PROMISE_RESOLVE = null
+      var WASM_PROMISE = new Promise((resolve, reject) => {
+        WASM_PROMISE_RESOLVE = resolve;
+      })
     </script>
     <script src="/index.js"></script>
 

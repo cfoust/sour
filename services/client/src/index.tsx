@@ -234,6 +234,11 @@ function App() {
 
   React.useEffect(() => {
     ;(async () => {
+      // Waits for the WASM file to be downloaded and memory to be initialized
+      // This solves a race condition wherein we were mounting things to the
+      // filesystem before the HEAP was defined
+      await WASM_PROMISE
+
       // Not a mod but I'm lazy
       await loadAsset(LoadRequestType.Mod, 'environment')
 
@@ -504,6 +509,9 @@ function App() {
     Module.postLoadWorld = function () {
       loadingWorld = false
       serverEvents = [...serverEvents, ...queuedEvents]
+    }
+    Module.addRunDependency = (file) => {
+      console.log(`add ${file}`)
     }
 
     Module.interop = (command: string): number => {
