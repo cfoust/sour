@@ -32,7 +32,7 @@ export default function start() {
         'mrfixit_red',
         true
       )
-        //{ "snoutx10k", "snoutx10k/blue", "snoutx10k/red", "snoutx10k/hudguns", NULL, "snoutx10k/wings", { "snoutx10k/armor/blue", "snoutx10k/armor/green", "snoutx10k/armor/yellow" }, "snoutx10k", "snoutx10k_blue", "snoutx10k_red", true },
+      //{ "snoutx10k", "snoutx10k/blue", "snoutx10k/red", "snoutx10k/hudguns", NULL, "snoutx10k/wings", { "snoutx10k/armor/blue", "snoutx10k/armor/green", "snoutx10k/armor/yellow" }, "snoutx10k", "snoutx10k_blue", "snoutx10k_red", true },
       BananaBread.setPlayerModelInfo(
         'snoutx10k',
         'snoutx10k/blue',
@@ -65,7 +65,7 @@ export default function start() {
         true
       )
 
-        //{ "inky", "inky/blue", "inky/red", "inky/hudguns", NULL, "inky/quad", { "inky/armor/blue", "inky/armor/green", "inky/armor/yellow" }, "inky", "inky_blue", "inky_red", true },
+      //{ "inky", "inky/blue", "inky/red", "inky/hudguns", NULL, "inky/quad", { "inky/armor/blue", "inky/armor/green", "inky/armor/yellow" }, "inky", "inky_blue", "inky_red", true },
       BananaBread.setPlayerModelInfo(
         'inky',
         'inky/blue',
@@ -82,7 +82,7 @@ export default function start() {
         true
       )
 
-        //{ "captaincannon", "captaincannon/blue", "captaincannon/red", "captaincannon/hudguns", NULL, "captaincannon/quad", { "captaincannon/armor/blue", "captaincannon/armor/green", "captaincannon/armor/yellow" }, "captaincannon", "captaincannon_blue", "captaincannon_red", true }
+      //{ "captaincannon", "captaincannon/blue", "captaincannon/red", "captaincannon/hudguns", NULL, "captaincannon/quad", { "captaincannon/armor/blue", "captaincannon/armor/green", "captaincannon/armor/yellow" }, "captaincannon", "captaincannon_blue", "captaincannon_red", true }
       BananaBread.setPlayerModelInfo(
         'captaincannon',
         'captaincannon/blue',
@@ -155,6 +155,9 @@ export default function start() {
         BananaBread.execute(`screenres ${width} ${height}`)
       }
     },
+    addRunDependency: (file) => {
+      console.log(`add ${file}`)
+    },
   }
 
   window.onerror = function (_, __, ___, ____, error) {
@@ -162,7 +165,13 @@ export default function start() {
     return true
   }
 
-  Module['removeRunDependency'] = null
+  Module.addRunDependency = (file) => {
+    console.log(`add ${file}`)
+  }
+
+  Module['removeRunDependency'] = (file) => {
+    console.log(`remove ${file}`)
+  }
 
   Module.setStatus('Downloading...')
 

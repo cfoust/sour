@@ -410,7 +410,7 @@ function App() {
           guibutton "disconnect" "disconnect"         "exit"
           guibar
       ] [
-          guibutton "play" "join"
+          ${CONFIG.menuOptions}
           guibutton "create private game..." "creategame"
       ]
       guibutton "content.." "showgui content"

@@ -180,5 +180,7 @@ cluster: #ClusterSettings
 	clusters: [...string] | *["#host/service/cluster/"]
 	// ws: and wss: are inferred
 	proxy: string | *"#host/service/proxy/"
+
+	menuOptions: string | *"guibutton \"play\" \"join\""
 }
 client: #ClientSettings

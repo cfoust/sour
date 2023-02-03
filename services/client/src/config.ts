@@ -13,6 +13,8 @@ export type Configuration = {
     redirectURI: string
     authorizationURL: string
   }
+
+  menuOptions: string
 }
 
 export let CONFIG: Configuration = {
@@ -25,6 +27,7 @@ export let CONFIG: Configuration = {
     authorizationURL: '',
     redirectURI: '',
   },
+  menuOptions: '',
 }
 
 const REPLACED = {
@@ -74,6 +77,8 @@ function init() {
 
     CONFIG = JSON.parse(configStr)
   }
+
+  console.log(CONFIG);
 
   CONFIG.assets = R.chain((v): string[] => {
     if (v.startsWith('mobile:')) {
