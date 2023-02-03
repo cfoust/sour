@@ -10,7 +10,7 @@ cluster:
   logSessions: true
 
   assets:
-    - "!http://localhost:1234/assets/.index.source"
+    - "!http://localhost:1234/assets/desktop/.index.source"
     - "https://static.sourga.me/blobs/6481/.index.source"
 
   presets:
