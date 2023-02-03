@@ -1,14 +1,37 @@
-# Sour
+
 <p align="center">
-  <img src="gh-assets/header.png">
+  <h1>🍋Sour</h1>
 </p>
 
-[![License:
-MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<p align="center">
+    <a href="https://sourga.me" target="_blank">
+        <img src="gh-assets/header.png" alt="Sour Cover Image">
+    </a>
+</p>
 
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/cfoust/sour)
 
-Sour is a complete [Cube 2: Sauerbraten](http://sauerbraten.org/) experience in the web delivered as a single Docker image. [Give it a try.](https://sourga.me/)
+<p align="center">
+    <!-- Gitpod -->
+    <a target="_blank" href="https://gitpod.io/#https://github.com/cfoust/sour">
+        <img src="https://img.shields.io/badge/gitpod-devenv-orange" alt="Sour Gitpod Development Environment" />
+    </a>
+    <!-- LICENSE -->
+    <a target="_blank" href="https://github.com/cfoust/sour/blob/main/LICENSE">
+        <img src="https://img.shields.io/github/license/cfoust/sour" alt="Sour License Badge MIT" />
+    </a>
+    <!-- Discord -->
+    <a target="_blank" href="https://discord.gg/WP3EbYym4M">
+        <img src="https://img.shields.io/discord/1071091858576523274?label=discord&logo=discord&style=social" />
+    </a>
+    <!-- Github Action Build-->
+    <a target="_blank" href="https://github.com/cfoust/sour/actions/workflows/ci.yml">
+        <img src="https://github.com/cfoust/sour/actions/workflows/ci.yml/badge.svg" />
+    </a>
+</p>
+
+<p align="center">
+    Sour is a multiplatform modernization of <a target="_blank" href="http://sauerbraten.org/">Cube 2: Sauerbraten</a> delivered as a single Docker image. <a target="_blank" href="https://sourga.me/">Give it a try.</a>
+</p>
 
 ## Features
 * **A complete web version of Sauerbraten**
@@ -74,44 +97,7 @@ The easiest way to hack on Sour is in Gitpod using the button below. Gitpod is a
 
 If you want to run things locally all you need is Docker, [Earthly](https://earthly.dev/), and `docker-compose`. After that, just run `./serve`. Then navigate to `http://localhost:1234`. All of the game's services will recompile and restart when you make changes.
 
-Check out the roadmap below to see what you might be able to help with.
-
-### General
-* [ ] Better documentation (especially on configuration)
-* [ ] Allow for providing the desired maps in an image as a build argument
-* [ ] Terraform recipes for deployment
-### Bugs
-* [ ] Preserve the reliable flag on ENet packets coming from the server
-### Assets
-* [ ] Load-on-demand sounds
-### Sourverse
-* [ ] Exploration
-* [ ] Allow teleports to locations within rooms
-* [ ] Automatic map sending for non-base assets on desktop
-* [ ] Map usage statistics, favorite maps, etc
-### Gameplay
-* [ ] Reset master mode when you swap servers
-* [ ] Fix nasty asset base asset sizes for web clients
-* [ ] Leaderboard for ELO rankings
-* [ ] Separate the rendering and input loops on web (or at least don't vsync game inputs)
-* [ ] Simple, beautiful main menu
-  * [ ] Map browser
-  * [ ] Add `<noscript>` with a plea to enable JavaScript
-  * [ ] Ensure page load time isn't horrible
-* [ ] Save demos for every duel
-* [ ] Allow for backgrounding the tab by responding to pings
-* [ ] Demo player with seek/play/pause
-  * [ ] Automatically save demos for every Sour game
-  * [ ] Stretch: generate gifs in the browser
-* [ ] Save demos for any game played to IndexedDB and allow for download
-* [ ] Explore running Sour in a Web Worker rather than the rendering thread
-* [ ] Use password field for queueing or room joining eg /connect sourga.me 28785 ffa
-* [ ] Stretch: spectate any running Sour match
-### Map editing
-* [ ] Repair or port shaders that were disabled in the game upgrade
-  * [ ] Fix the outline shader (pressing 7 in edit mode)
-  * [ ] Water reflection and refraction (this is really hard)
-* [ ] Support saving and loading `.ogz` maps from the user's device
+Check out the [issues tab](https://github.com/cfoust/sour/issues) to see what you might be able to help with.
 
 ## Inspiration
 
