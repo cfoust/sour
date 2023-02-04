@@ -122,6 +122,7 @@ type GenericMessage struct {
 
 type WSClient struct {
 	host           string
+	deviceType     string
 	status         NetworkStatus
 	toClient       chan game.GamePacket
 	toServer       chan game.GamePacket
@@ -149,6 +150,10 @@ func NewWSClient() *WSClient {
 
 func (c *WSClient) Host() string {
 	return c.host
+}
+
+func (c *WSClient) DeviceType() string {
+	return c.deviceType
 }
 
 func (c *WSClient) SessionContext() context.Context {
@@ -292,6 +297,8 @@ func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code
 func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, host string, deviceType string) error {
 	client := NewWSClient()
 
+	client.deviceType = deviceType
+
 	clientCtx, cancel := context.WithCancel(ctx)
 
 	client.context = clientCtx
@@ -308,11 +315,6 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 	client.closeSlow = func() {
 		c.Close(websocket.StatusPolicyViolation, "connection too slow to keep up with messages")
 	}
-
-	logger := log.With().Str("host", host).Logger()
-
-	logger.Info().Str("type", deviceType).Msg("user joined")
-	defer logger.Info().Msg("user disconnected")
 
 	go func() {
 		for {
@@ -337,7 +339,7 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 	// Write the first broadcast on connect so they don't have to wait 5s
 	broadcast, err := server.BuildBroadcast()
 	if err != nil {
-		logger.Error().Err(err).Msg("could not build broadcast")
+		log.Error().Err(err).Msg("could not build broadcast")
 		return err
 	}
 	client.send <- broadcast
@@ -449,7 +451,6 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 				return err
 			}
 		case <-ctx.Done():
-			logger.Info().Msg("client left")
 			return ctx.Err()
 		}
 	}

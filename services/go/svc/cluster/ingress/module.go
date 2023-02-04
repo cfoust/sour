@@ -46,6 +46,7 @@ type Connection interface {
 	NetworkStatus() NetworkStatus
 	Host() string
 	Type() ClientType
+	DeviceType() string
 	// Tell the client that we've connected
 	Connect(name string, isHidden bool, shouldCopy bool)
 	// Messages going to the client
@@ -65,3 +66,6 @@ type Connection interface {
 	Disconnect(reason int, message string)
 	Destroy()
 }
+
+var _ Connection = (*WSClient)(nil)
+var _ Connection = (*ENetClient)(nil)

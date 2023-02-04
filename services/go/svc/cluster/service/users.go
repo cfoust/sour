@@ -62,6 +62,7 @@ func (u *User) Logger() zerolog.Logger {
 	logger := log.With().
 		Uint32("id", uint32(u.Client.Id)).
 		Str("session", u.Client.Session).
+		Str("type", u.Connection.DeviceType()).
 		Str("name", u.Name).
 		Logger()
 
@@ -316,10 +317,6 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 
 	connected := make(chan bool, 1)
 
-	logger := u.Logger()
-
-	logger.Info().Str("server", server.Reference()).Msg("connecting to server")
-
 	oldServer := u.GetServer()
 	if oldServer != nil {
 		oldServer.SendDisconnect(u.Id)
@@ -429,6 +426,9 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 // Mark the client's status as disconnected and cancel its session context.
 // Called both when the client disconnects from ingress AND when the server kicks them out.
 func (u *User) DisconnectFromServer() error {
+	logger := u.Logger()
+	logger.Info().Str("host", u.Connection.Host()).Msg("user disconnected")
+
 	u.Mutex.Lock()
 	if u.Server != nil {
 		u.Server.SendDisconnect(u.Client.Id)
@@ -466,7 +466,6 @@ func NewUserOrchestrator(redis *redis.Client, duels []config.DuelType) *UserOrch
 func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
 	select {
 	case <-user.Context().Done():
-		user.DisconnectFromServer()
 		u.RemoveUser(user)
 		return
 	case <-ctx.Done():
@@ -488,6 +487,10 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, client *clients.Client) 
 	u.Mutex.Unlock()
 
 	go u.PollUser(ctx, &user)
+
+	logger := user.Logger()
+	logger.Info().Str("host", user.Connection.Host()).Msg("user joined")
+
 	return &user
 }
 

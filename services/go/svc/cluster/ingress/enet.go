@@ -8,8 +8,6 @@ import (
 	"github.com/cfoust/sour/pkg/enet"
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/auth"
-
-	"github.com/rs/zerolog/log"
 )
 
 type PacketACK struct {
@@ -52,6 +50,10 @@ func (c *ENetClient) Host() string {
 		}
 	}
 	return ""
+}
+
+func (c *ENetClient) DeviceType() string {
+	return "desktop"
 }
 
 func (c *ENetClient) Connect(name string, isHidden bool, shouldCopy bool) {
@@ -216,8 +218,6 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 				server.newClients <- client
 
 				server.AddClient(client)
-
-				log.Info().Str("type", "desktop").Msg("user joined")
 
 				if len(server.InitialCommand) > 0 {
 					client.commands <- ClusterCommand{
