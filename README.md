@@ -42,6 +42,7 @@
     * All original game assets and features
     * Support for mobile devices
     * Connect to all existing Sauerbraten community servers and crossplay with desktop players
+    * Open and play back Sauerbraten demos by dragging them to the page
     * Arbitrary game mods
     * Sophisticated load-on-demand system for assets that allows for loading arbitrary content that has been packaged for the game
     * Links to servers (`/server/[ip]/[port]`) and maps (`/map/complex`)
