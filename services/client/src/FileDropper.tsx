@@ -1,5 +1,26 @@
 import * as React from 'react'
 
+import { mountFile } from './assets/hook'
+
+export async function handleUpload(file: File) {
+  const { name } = file
+
+  if (name.endsWith('.dmo')) {
+    const path = `demo/${name}`
+    const buffer = await file.arrayBuffer()
+    await mountFile(path, new Uint8Array(buffer))
+    BananaBread.execute(`demo ${name}`)
+  }
+
+  if (name.endsWith('.ogz')) {
+    const path = `packages/base/${name}`
+    const mapName = name.slice(0, -4)
+    const buffer = await file.arrayBuffer()
+    await mountFile(path, new Uint8Array(buffer))
+    BananaBread.loadWorld(mapName)
+  }
+}
+
 export default function FileDropper(props: { children: JSX.Element }) {
   const { children } = props
   const [hovered, setHovered] = React.useState<boolean>(false)
@@ -9,11 +30,11 @@ export default function FileDropper(props: { children: JSX.Element }) {
     const { dataTransfer } = event
     if (dataTransfer == null) return
     const { files } = dataTransfer
-    if (files == null) return
+    if (files == null || files.length !== 1) return
     event.stopPropagation()
     event.preventDefault()
-    console.log(files);
     setHovered(false)
+    handleUpload(files[0])
   }, [])
 
   const onDragOver = React.useCallback((event: DragEvent) => {
