@@ -748,7 +748,6 @@ export default function useAssets(
       missingTexture: (name: string, msg: number) => {
         if (textures.has(name)) return
         textures.add(name)
-        console.log(name);
         ;(async () => {
           try {
             const layer = await loadAsset(LoadRequestType.Texture, name)

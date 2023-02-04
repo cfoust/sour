@@ -136,15 +136,12 @@ const DEMO_URL_REGEX = /\/demo\/(\w+)/
 let loadedMods: string[] = []
 let failedMods: string[] = []
 
-async function playDemo(id: string) {
-  const [clusterURL] = CONFIG.clusters
-  const { protocol } = window.location
-  const demoURL = `${protocol}//${clusterURL}api/demo/${id}`
-  log.info(`loading demo ${id}`)
+async function playDemoURL(url: string, reference: string) {
+  log.info(`loading demo ${reference}`)
   try {
-    const response = await fetch(demoURL)
+    const response = await fetch(url)
     if (response.status === 404) {
-      log.error(`demo ${id} not found`)
+      log.error(`demo ${reference} not found`)
       return
     }
     if (response.status !== 200) {
@@ -152,9 +149,9 @@ async function playDemo(id: string) {
     }
 
     const data = await response.arrayBuffer()
-    const demoName = `/demo/${id}.dmo`
+    const demoName = `/demo/${reference}.dmo`
     await mountFile(demoName, new Uint8Array(data))
-    BananaBread.execute(`demo ${id}.dmo`)
+    BananaBread.execute(`demo ${reference}.dmo`)
   } catch (e) {
     log.error('failed to play demo')
   }
@@ -541,6 +538,8 @@ function App() {
       }
     }
 
+    let remoteConnected: boolean = false
+
     let cachedServers: Maybe<any> = null
     Module.onGameReady = () => {
       onReadyAssets()
@@ -599,12 +598,11 @@ function App() {
       }
 
       const {
-        location: { search: params, pathname },
+        location: { search: params, pathname, hash },
       } = window
 
       const serverDestination = SERVER_URL_REGEX.exec(pathname)
       const mapDestination = MAP_URL_REGEX.exec(pathname)
-      const demoDestination = DEMO_URL_REGEX.exec(pathname)
       if (serverDestination != null) {
         const [, hostname, port] = serverDestination
         if (port == null) {
@@ -615,9 +613,25 @@ function App() {
       } else if (mapDestination != null) {
         const [, mapId] = mapDestination
         BananaBread.execute(`map ${mapId}`)
-      } else if (demoDestination != null) {
-        const [, demoId] = demoDestination
-        playDemo(demoId)
+      } else if (pathname.startsWith('/demo/')) {
+        // First check the fragment for a URL
+        if (hash.length !== 0) {
+          const url = hash.slice(1)
+          remoteConnected = true
+          playDemoURL(url, 'from-url')
+        } else {
+          const demoDestination = DEMO_URL_REGEX.exec(pathname)
+          if (demoDestination != null) {
+            const [, demoId] = demoDestination
+            const [clusterURL] = CONFIG.clusters
+            const { protocol } = window.location
+            const demoURL = `${protocol}//${clusterURL}api/demo/${demoId}`
+            remoteConnected = true
+            playDemoURL(demoURL, demoId)
+          } else {
+            pushURLState('/')
+          }
+        }
       } else {
         // It should not be anything else
         pushURLState('/')
@@ -651,8 +665,6 @@ function App() {
 
       pushURLState(`/server/${name}/${port}`)
     }
-
-    let remoteConnected: boolean = false
 
     Module.onConnect = () => {}
     Module.onDisconnect = () => {
