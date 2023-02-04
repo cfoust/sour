@@ -546,6 +546,7 @@ function App() {
       onReadyAssets()
       Module.FS_createPath(`/`, 'packages', true, true)
       Module.FS_createPath(`/packages`, 'base', true, true)
+      Module.FS_createPath(`/packages`, 'prefab', true, true)
       Module.FS_createPath(`/`, 'demo', true, true)
 
       if (BROWSER.isFirefox || BROWSER.isSafari) {
