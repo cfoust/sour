@@ -20,9 +20,6 @@ echo "building desktop"
 python3 base.py \
   --root https://static.sourga.me/blobs/6481/.index.source \
   --download \
-  --models \
-  --player-models \
-  --textures \
   --outdir $outdir/desktop \
   complex dust2 turbine
 
