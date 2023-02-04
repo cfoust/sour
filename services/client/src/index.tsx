@@ -958,7 +958,7 @@ function App() {
         <DropTarget>
           <Flex align="center" justify="center">
             <VStack paddingTop="20%">
-              <Heading>Drop a demo or map file here...</Heading>
+              <Heading>Drop a demo file here...</Heading>
             </VStack>
           </Flex>
         </DropTarget>

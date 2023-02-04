@@ -160,10 +160,7 @@ export default function start() {
     },
   }
 
-  window.onerror = function (_, __, ___, ____, error) {
-    console.log(error)
-    return true
-  }
+  window.onerror = console.error 
 
   Module.addRunDependency = (file) => {
     console.log(`add ${file}`)

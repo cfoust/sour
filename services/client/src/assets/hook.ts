@@ -75,6 +75,15 @@ function normalizePath(path: string): string {
   return path.startsWith('/') ? path.slice(1) : path
 }
 
+function fileExists(path: string): boolean {
+  try {
+    FS.lookupPath(path)
+    return true
+  } catch(e) {
+    return false
+  }
+}
+
 export async function mountFile(path: string, data: Uint8Array): Promise<void> {
   if (BROWSER.isMobile) {
     // This is really slow on iOS right now
@@ -584,6 +593,11 @@ export default function useAssets(
     let mapLayer: Maybe<Layer> = null
 
     const loadMapData = async (map: string) => {
+      if (fileExists(`/packages/base/${map}.ogz`)) {
+          BananaBread.loadWorld(map)
+          return
+      }
+
       setLoading(true)
       if (loadingMap === map) return
       loadingMap = map
@@ -734,6 +748,7 @@ export default function useAssets(
       missingTexture: (name: string, msg: number) => {
         if (textures.has(name)) return
         textures.add(name)
+        console.log(name);
         ;(async () => {
           try {
             const layer = await loadAsset(LoadRequestType.Texture, name)

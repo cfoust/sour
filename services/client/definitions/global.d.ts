@@ -125,6 +125,7 @@ declare const stringToUTF8 = (s: string, a: number, bytes: number) => number
 
 declare const FS: {
   unlink: (file: string) => void
+  lookupPath: (file: string) => Maybe<any>
 }
 
 declare const WASM_PROMISE: Promise<void>

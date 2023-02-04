@@ -17,7 +17,7 @@ export async function handleUpload(file: File) {
     const mapName = name.slice(0, -4)
     const buffer = await file.arrayBuffer()
     await mountFile(path, new Uint8Array(buffer))
-    BananaBread.loadWorld(mapName)
+    BananaBread.execute(`map ${mapName}`)
   }
 }
 
