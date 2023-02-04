@@ -40,6 +40,7 @@ import useAuth, {
 import { CubeMessageType } from './game'
 import * as cube from './game'
 import MobileControls from './MobileControls'
+import FileDropper from './FileDropper'
 
 import type { PromiseSet } from './utils'
 import { CONFIG } from './config'
@@ -86,6 +87,15 @@ const LoadingContainer = styled.div`
   height: 100%;
   position: absolute;
   z-index: 1;
+`
+
+const DropTarget = styled.div`
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  pointer-events: none;
+  background: var(--chakra-colors-yellow-500);
+  z-index: 2;
 `
 
 const pushURLState = (url: string) => {
@@ -944,6 +954,15 @@ function App() {
           </Box>
         </LoadingContainer>
       )}
+      <FileDropper>
+        <DropTarget>
+          <Flex align="center" justify="center">
+            <VStack paddingTop="20%">
+              <Heading>Drop a demo or map file here...</Heading>
+            </VStack>
+          </Flex>
+        </DropTarget>
+      </FileDropper>
     </OuterContainer>
   )
 }
