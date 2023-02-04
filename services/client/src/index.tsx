@@ -379,7 +379,6 @@ function App() {
         guibutton "mods.."  "showgui mods"
         guibutton "put mods in url.."  [js "Module.assets.modsToURL()"]
         guibutton "reload page.."  [js "window.location.reload()"]
-        guibutton "random map.."  "map random"
     ]
 
     injectedmenu = [
@@ -413,8 +412,9 @@ function App() {
           ${CONFIG.menuOptions}
           guibutton "create private game..." "creategame"
       ]
-      guibutton "content.." "showgui content"
+      guibutton "random map.."  "map random"
       guibutton "server browser.."  "showgui servers"
+      guibutton "content.." "showgui content"
       if ($fullscreen) [
           guibutton "exit fullscreen.." [fullscreen 0]
       ] [
