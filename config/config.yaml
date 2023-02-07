@@ -70,13 +70,11 @@ cluster:
         defaultmodename "coop"
         defaultmap "xmwhub"
     - name: "ffa" 
-      default: true
       inherit: "common"
       config: |
         defaultmodename "ffa"
         defaultmap "complex"
     - name: "insta" 
-      default: true
       inherit: "common"
       config: |
         defaultmodename "insta"
@@ -121,9 +119,7 @@ cluster:
             destination: home
           - id: 44
             destination: home
-    - preset: ffa
+    - preset: default
+      exploreMode: true
       config:
-        alias: ffa
-    - preset: insta
-      config:
-        alias: insta
+        alias: explore

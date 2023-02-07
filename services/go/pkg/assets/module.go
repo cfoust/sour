@@ -186,6 +186,18 @@ func (f *FoundMap) GetBundle(ctx context.Context) ([]byte, error) {
 	return f.fetch.fetchBundle(ctx, f.Map.Bundle)
 }
 
+func (m *AssetFetcher) GetMaps() []SlimMap {
+	maps := make([]SlimMap, 0)
+
+	for _, root := range m.roots {
+		for _, gameMap := range root.maps {
+			maps = append(maps, gameMap)
+		}
+	}
+
+	return maps
+}
+
 func (m *AssetFetcher) FindMap(needle string) *FoundMap {
 	otherTarget := needle + ".ogz"
 	for _, root := range m.roots {

@@ -40,7 +40,9 @@ proxy: #Service
 	preset: string
 	// Whether voting on a map should create a game.
 	votingCreates: bool | *true
-	config:        #SpaceConfig
+	// In explore mode, change the map every 3 minutes.
+	exploreMode: bool | *false
+	config:      #SpaceConfig
 }
 
 #ServerPreset: {

@@ -3,8 +3,12 @@ package verse
 import (
 	"context"
 	"fmt"
+	"time"
+	"crypto/rand"
+	"math/big"
 
 	"github.com/cfoust/sour/pkg/assets"
+	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/config"
 	gameServers "github.com/cfoust/sour/svc/cluster/servers"
 
@@ -259,6 +263,46 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 	return &instance, nil
 }
 
+func (s *SpaceManager) DoExploreMode(ctx context.Context, gameServer *gameServers.GameServer) {
+	maps := s.maps.GetMaps()
+
+	cycleMap := func() {
+		var map_ assets.SlimMap
+		for {
+			index, _ := rand.Int(rand.Reader, big.NewInt(int64(len(maps))))
+			map_ = maps[index.Int64()]
+
+			gameServer.Mutex.RLock()
+			currentMap := gameServer.Map
+			gameServer.Mutex.RUnlock()
+
+			if map_.Name == "" || map_.Name == currentMap {
+				continue
+			}
+
+			break
+		}
+		log.Info().Msgf("next map %s", map_.Name)
+		gameServer.SendCommand(fmt.Sprintf("changemap %s %d", map_.Name, game.MODE_FFA))
+		gameServer.SendCommand(fmt.Sprintf("settime %d", 180))
+	}
+
+	//tick := time.NewTicker(3 * time.Minute)
+	tick := time.NewTicker(10 * time.Second)
+
+	cycleMap()
+
+	for {
+		select {
+		case <-gameServer.Context.Done():
+			return
+		case <-tick.C:
+			cycleMap()
+			continue
+		}
+	}
+}
+
 func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.PresetSpace) (*SpaceInstance, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -309,6 +353,10 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 	}
 
 	go s.WatchServer(ctx, &instance, gameServer)
+
+	if presetSpace.ExploreMode {
+		go s.DoExploreMode(ctx, gameServer)
+	}
 
 	s.instances[id] = &instance
 

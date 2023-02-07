@@ -48,6 +48,7 @@ type SpaceConfig struct {
 type PresetSpace struct {
 	Preset        string
 	VotingCreates bool
+	ExploreMode   bool
 	Config        SpaceConfig
 }
 
