@@ -122,7 +122,7 @@ func (c *ENetClient) Poll(ctx context.Context) {
 
 			// Go wait for the ACK and pass it on
 			go func() {
-				timeout, cancel := context.WithTimeout(ctx, 10*time.Second)
+				timeout, cancel := context.WithTimeout(ctx, 60*time.Second)
 				defer cancel()
 				select {
 				case result := <-done:
