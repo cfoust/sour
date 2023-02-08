@@ -317,7 +317,11 @@ func (manager *ServerManager) PruneServers(ctx context.Context) {
 			toPrune := make([]*GameServer, 0)
 
 			for _, server := range manager.Servers {
-				if (time.Now().Sub(server.LastEvent)) < SERVER_MAX_IDLE_TIME || server.Alias != "" {
+				server.Mutex.RLock()
+				lastEvent := server.LastEvent
+				numClients := server.NumClients
+				server.Mutex.RUnlock()
+				if (time.Now().Sub(lastEvent)) < SERVER_MAX_IDLE_TIME || numClients > 0 || server.Alias != "" {
 					continue
 				}
 				toPrune = append(toPrune, server)
