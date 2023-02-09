@@ -122,6 +122,7 @@ func (c *ENetClient) Poll(ctx context.Context) {
 
 			// Go wait for the ACK and pass it on
 			go func() {
+				// TODO we should wait for inactivity, not just a blind sleep
 				timeout, cancel := context.WithTimeout(ctx, 60*time.Second)
 				defer cancel()
 				select {
