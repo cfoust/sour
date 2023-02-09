@@ -282,13 +282,12 @@ func (s *SpaceManager) DoExploreMode(ctx context.Context, gameServer *gameServer
 
 			break
 		}
-		log.Info().Msgf("next map %s", map_.Name)
 		gameServer.SendCommand(fmt.Sprintf("changemap %s %d", map_.Name, game.MODE_FFA))
+		time.Sleep(500 * time.Millisecond)
 		gameServer.SendCommand(fmt.Sprintf("settime %d", 180))
 	}
 
-	//tick := time.NewTicker(3 * time.Minute)
-	tick := time.NewTicker(10 * time.Second)
+	tick := time.NewTicker(3 * time.Minute)
 
 	cycleMap()
 

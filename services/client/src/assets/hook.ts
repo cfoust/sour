@@ -598,7 +598,6 @@ export default function useAssets(
     const loadMapData = async (map: string) => {
       // TODO this is just for loading uploaded maps and it's broken, why?
       //if (fileExists(`/packages/base/${map}.ogz`)) {
-      //console.log(`loading cached ${map}`)
       //BananaBread.loadWorld(map)
       //return
       //}
@@ -625,7 +624,6 @@ export default function useAssets(
         mapLayer = layer
         loadingMap = null
         setLoading(false)
-        console.log(realMap, targetMap)
         if (targetMap == null) {
           BananaBread.loadWorld(realMap)
         } else {
