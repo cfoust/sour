@@ -79,7 +79,7 @@ function fileExists(path: string): boolean {
   try {
     FS.lookupPath(path)
     return true
-  } catch(e) {
+  } catch (e) {
     return false
   }
 }
@@ -399,7 +399,10 @@ export default function useAssets(
   setState: React.Dispatch<React.SetStateAction<GameState>>
 ): {
   loadAsset: (type: LoadRequestType, target: string) => Promise<Maybe<Layer>>
-  loadAssetProgress: (type: LoadRequestType, target: string) => Promise<Maybe<Layer>>
+  loadAssetProgress: (
+    type: LoadRequestType,
+    target: string
+  ) => Promise<Maybe<Layer>>
   getMod: (id: string) => Maybe<GameMod>
   onReady: () => void
 } {
@@ -593,10 +596,12 @@ export default function useAssets(
     let mapLayer: Maybe<Layer> = null
 
     const loadMapData = async (map: string) => {
-      if (fileExists(`/packages/base/${map}.ogz`)) {
-          BananaBread.loadWorld(map)
-          return
-      }
+      // TODO this is just for loading uploaded maps and it's broken, why?
+      //if (fileExists(`/packages/base/${map}.ogz`)) {
+      //console.log(`loading cached ${map}`)
+      //BananaBread.loadWorld(map)
+      //return
+      //}
 
       setLoading(true)
       if (loadingMap === map) return
@@ -620,6 +625,7 @@ export default function useAssets(
         mapLayer = layer
         loadingMap = null
         setLoading(false)
+        console.log(realMap, targetMap)
         if (targetMap == null) {
           BananaBread.loadWorld(realMap)
         } else {
