@@ -79,6 +79,10 @@ cluster:
       config: |
         defaultmodename "insta"
         defaultmap "complex"
+    - name: "explore" 
+      inherit: "default"
+      config: |
+        matchlength 180
 
   ingress:
     desktop:
@@ -119,7 +123,7 @@ cluster:
             destination: home
           - id: 44
             destination: home
-    - preset: default
+    - preset: explore
       exploreMode: true
       config:
         alias: explore

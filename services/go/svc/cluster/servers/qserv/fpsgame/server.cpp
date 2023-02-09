@@ -2419,6 +2419,8 @@ namespace server {
         requestmap(s, mode);
     }
 
+    VAR(matchlength, 0, 600, 1000);
+
     void _changemap(const char *s, int mode)
     {
         //can cause excess flood on loop i mapchange for IRC
@@ -2429,7 +2431,11 @@ namespace server {
         aiman::clearai();
         gamemode = mode;
         gamemillis = 0;
-        gamelimit = (m_overtime ? 15 : 10)*60000;
+        if (m_overtime) {
+            gamelimit = 15 * 60000;
+        } else {
+            gamelimit = matchlength * 1000;
+        }
         interm = 0;
         nextexceeded = 0;
         copystring(smapname, s);
