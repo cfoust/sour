@@ -126,6 +126,9 @@ proxy: #Service
 	// If set, saves server logs to this directory.
 	logDirectory: string | *""
 
+	// If set, used for caching assets in lieu of Redis.
+	cacheDirectory: string | *""
+
 	// Information used to respond to server info requests
 	serverInfo: {
 		map:         string | *"Sourland"
