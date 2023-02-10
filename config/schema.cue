@@ -127,7 +127,7 @@ proxy: #Service
 	logDirectory: string | *""
 
 	// If set, used for caching assets in lieu of Redis.
-	cacheDirectory: string | *""
+	cacheDirectory: string | *"/tmp/assets"
 
 	// Information used to respond to server info requests
 	serverInfo: {
