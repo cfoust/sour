@@ -17,6 +17,8 @@ namespace game {
     }
 }
 
+VAR(regenbluearmour, 0, 1, 1);
+
 const char * gettype(int type) {
 	switch (type) {
 	case N_CONNECT:
@@ -2431,11 +2433,7 @@ namespace server {
         aiman::clearai();
         gamemode = mode;
         gamemillis = 0;
-        if (m_overtime) {
-            gamelimit = 15 * 60000;
-        } else {
-            gamelimit = matchlength * 1000;
-        }
+        gamelimit = matchlength * 1000;
         interm = 0;
         nextexceeded = 0;
         copystring(smapname, s);
