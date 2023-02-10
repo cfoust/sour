@@ -120,7 +120,6 @@ func (c *Cluster) waitForConsent(ctx context.Context, u *User, public string) er
 
 			logger.Info().Msg("user consented to autoexec")
 			msg.Drop()
-			logger.Info().Msgf("public=%s private=%s", public, private)
 			err := c.saveAutoexecKeys(ctx, u, public, private)
 			if err != nil {
 				return err

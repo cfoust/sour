@@ -301,7 +301,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 					return
 				}
 
-				if description != c.authDomain {
+				if description != c.authDomain || c.auth == nil {
 					user.Authentication <- nil
 					return
 				}
