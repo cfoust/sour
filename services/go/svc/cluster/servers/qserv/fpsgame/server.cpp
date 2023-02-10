@@ -3048,7 +3048,6 @@ best.add(clients[i]); \
         gs.lastdeath = gamemillis;
         gs.respawn();
         ci->state._suicides++;
-        out(ECHO_SERV, "\f0%s \f7%s", colorname(ci), spreesuicidemsg);
     }
 
     // Kill players and respawn them
