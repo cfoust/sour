@@ -310,5 +310,9 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 	user.From.Take(ctx, game.N_MAPCRC)
 	logger.Info().Msgf("downloaded map %s (%d)", name, len(data))
 
+	// Changing maps causes the gamelimit to disappear, so the server has
+	// to resend it
+	server.SendCommand("sendtime")
+
 	return nil
 }
