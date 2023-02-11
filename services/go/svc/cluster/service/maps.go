@@ -137,7 +137,7 @@ getdemo 0 %s
 		return err
 	}
 
-	timeout, cancel := context.WithTimeout(user.Context(), 60*time.Second)
+	timeout, cancel := context.WithTimeout(user.Context(), 120*time.Second)
 	defer cancel()
 
 	for {
@@ -313,6 +313,9 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 	// Changing maps causes the gamelimit to disappear, so the server has
 	// to resend it
 	server.SendCommand("sendtime")
+
+	num := user.GetClientNum()
+	server.SendCommand(fmt.Sprintf("refreshwelcome %d", num))
 
 	return nil
 }

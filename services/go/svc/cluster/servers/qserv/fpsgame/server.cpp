@@ -1617,6 +1617,17 @@ namespace server {
     }
     ICOMMAND(grantmaster, "i", (int *val), grantmaster(*val));
 
+    void refreshwelcome(int cn)
+    {
+        loopv(clients)
+        {
+            clientinfo *ci = clients[i];
+            if (ci->clientnum != cn) continue;
+            sendwelcome(ci);
+        }
+    }
+    ICOMMAND(refreshwelcome, "i", (int *val), refreshwelcome(*val));
+
     bool trykick(clientinfo *ci, int victim, const char *reason = NULL, const char *authname = NULL, const char *authdesc = NULL, int authpriv = PRIV_NONE, bool trial = false)
     {
         int priv = ci->privilege;
