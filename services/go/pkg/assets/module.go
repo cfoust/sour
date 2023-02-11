@@ -191,7 +191,7 @@ func (m *AssetFetcher) GetMaps(skipRoot string) []SlimMap {
 
 	skippedMaps := make(map[string]struct{})
 	for _, root := range m.roots {
-		if root.url != skipRoot {
+		if root.source != skipRoot {
 			continue
 		}
 		for _, gameMap := range root.maps {

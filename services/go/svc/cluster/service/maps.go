@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-
-	"github.com/rs/zerolog/log"
 )
 
 func sendClient(user *User, data []byte, channel int) <-chan bool {
@@ -116,6 +114,7 @@ func sendBundle(serverCtx context.Context, user *User, id string, data []byte) e
 
 	fileName := id[:20]
 
+	user.SendServerMessage("downloading map assets...")
 	msg, err := runScriptAndWait(serverCtx, user, game.N_GETDEMO, fmt.Sprintf(`
 demodir sour
 getdemo 0 %s
@@ -155,10 +154,10 @@ if (= (findfile sour/%s.dmo) 1) [servcmd ok] [servcmd missing]
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		logger.Info().Msg("demo downloaded")
 		break
 	}
 
+	user.SendServerMessage("mounting asset layer...")
 	msg, err = runScriptAndWait(serverCtx, user, game.N_SERVCMD, fmt.Sprintf(`
 addzip sour/%s.dmo
 demodir demo
@@ -173,7 +172,7 @@ servcmd ok
 		return fmt.Errorf("user never ack'd demo")
 	}
 
-	logger.Info().Msgf("download complete")
+	user.SendServerMessage("map download complete")
 
 	return nil
 }
@@ -309,8 +308,7 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 	)
 	send(p, 1)
 	user.From.Take(ctx, game.N_MAPCRC)
-
-	log.Info().Msgf("Sent map %s (%d) to client", name, len(data))
+	logger.Info().Msgf("downloaded map %s (%d)", name, len(data))
 
 	return nil
 }

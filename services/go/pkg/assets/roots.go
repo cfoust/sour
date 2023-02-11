@@ -46,8 +46,9 @@ func (f FSRoot) Reference(path string) (string, error) {
 }
 
 type RemoteRoot struct {
-	cache Cache
-	url   string
+	cache  Cache
+	source string
+	url    string
 	// A path inside of the virtual FS to treat as the "root".
 	base string
 
@@ -104,10 +105,11 @@ func NewRemoteRoot(
 	}
 
 	root := RemoteRoot{
-		cache: cache,
-		url:   CleanSourcePath(url),
-		base:  base,
-		skip:  skip,
+		cache:  cache,
+		url:    CleanSourcePath(url),
+		source: url,
+		base:   base,
+		skip:   skip,
 	}
 
 	bundles := make(map[string]*[]Asset)
