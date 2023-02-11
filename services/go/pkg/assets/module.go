@@ -186,11 +186,24 @@ func (f *FoundMap) GetBundle(ctx context.Context) ([]byte, error) {
 	return f.fetch.fetchBundle(ctx, f.Map.Bundle)
 }
 
-func (m *AssetFetcher) GetMaps() []SlimMap {
+func (m *AssetFetcher) GetMaps(skipRoot string) []SlimMap {
 	maps := make([]SlimMap, 0)
+
+	skippedMaps := make(map[string]struct{})
+	for _, root := range m.roots {
+		if root.url != skipRoot {
+			continue
+		}
+		for _, gameMap := range root.maps {
+			skippedMaps[gameMap.Name] = struct{}{}
+		}
+	}
 
 	for _, root := range m.roots {
 		for _, gameMap := range root.maps {
+			if _, ok := skippedMaps[gameMap.Name]; ok {
+				continue
+			}
 			maps = append(maps, gameMap)
 		}
 	}

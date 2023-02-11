@@ -42,7 +42,9 @@ proxy: #Service
 	votingCreates: bool | *true
 	// In explore mode, change the map every 3 minutes.
 	exploreMode: bool | *false
-	config:      #SpaceConfig
+	// Skip maps in this root when in explore mode
+	exploreModeSkip: string | *""
+	config:          #SpaceConfig
 }
 
 #ServerPreset: {

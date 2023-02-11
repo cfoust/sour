@@ -2,10 +2,11 @@ package verse
 
 import (
 	"context"
-	"fmt"
-	"time"
 	"crypto/rand"
+	"fmt"
 	"math/big"
+	"strings"
+	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/game"
@@ -263,8 +264,8 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 	return &instance, nil
 }
 
-func (s *SpaceManager) DoExploreMode(ctx context.Context, gameServer *gameServers.GameServer) {
-	maps := s.maps.GetMaps()
+func (s *SpaceManager) DoExploreMode(ctx context.Context, gameServer *gameServers.GameServer, skipRoot string) {
+	maps := s.maps.GetMaps(skipRoot)
 
 	cycleMap := func() {
 		var map_ assets.SlimMap
@@ -276,7 +277,8 @@ func (s *SpaceManager) DoExploreMode(ctx context.Context, gameServer *gameServer
 			currentMap := gameServer.Map
 			gameServer.Mutex.RUnlock()
 
-			if map_.Name == "" || map_.Name == currentMap {
+			name := map_.Name
+			if name == "" || name == currentMap || strings.Contains(name, ".") {
 				continue
 			}
 
@@ -352,8 +354,10 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 	go s.WatchServer(ctx, &instance, gameServer)
 
 	if presetSpace.ExploreMode {
-		go s.DoExploreMode(ctx, gameServer)
+		go s.DoExploreMode(ctx, gameServer, presetSpace.ExploreModeSkip)
 	}
+
+	log.Info().Msgf("started space %s", id)
 
 	s.instances[id] = &instance
 
