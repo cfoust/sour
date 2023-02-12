@@ -268,23 +268,23 @@ func (s *SpaceManager) DoExploreMode(ctx context.Context, gameServer *gameServer
 	maps := s.maps.GetMaps(skipRoot)
 
 	cycleMap := func() {
-		var map_ assets.SlimMap
+		var name string
 		for {
 			index, _ := rand.Int(rand.Reader, big.NewInt(int64(len(maps))))
-			map_ = maps[index.Int64()]
+			map_ := maps[index.Int64()]
 
 			gameServer.Mutex.RLock()
 			currentMap := gameServer.Map
 			gameServer.Mutex.RUnlock()
 
-			name := map_.Name
+			name = map_.Name
 			if name == "" || name == currentMap || strings.Contains(name, ".") {
 				continue
 			}
 
 			break
 		}
-		gameServer.SendCommand(fmt.Sprintf("changemap %s %d", map_.Name, game.MODE_FFA))
+		gameServer.SendCommand(fmt.Sprintf("changemap %s %d", name, game.MODE_FFA))
 	}
 
 	tick := time.NewTicker(3 * time.Minute)
