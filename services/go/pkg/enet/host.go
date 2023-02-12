@@ -70,11 +70,31 @@ ENetEvent serviceHost(ENetHost* host) {
 void cleanupHost(ENetHost* host) {
 	enet_host_destroy(host);
 }
+
+enet_uint16 getLastCommand(ENetPeer *peer) {
+	ENetOutgoingCommand * outgoingCommand = NULL;
+	ENetListIterator currentCommand;
+	for (currentCommand = enet_list_begin(&peer->outgoingReliableCommands);
+	currentCommand != enet_list_end(&peer->outgoingReliableCommands);
+	currentCommand = enet_list_next(currentCommand))
+	{
+		outgoingCommand = (ENetOutgoingCommand *) currentCommand;
+	}
+	if (outgoingCommand == NULL) {
+		return 0;
+	}
+
+	return outgoingCommand->reliableSequenceNumber;
+}
+
 */
 import "C"
 
 import (
 	"errors"
+	"unsafe"
+
+	"github.com/sasha-s/go-deadlock"
 )
 
 func NewConnectHost(laddr string, lport int) (*Host, error) {
@@ -104,14 +124,53 @@ func NewHost(laddr string, lport int) (*Host, error) {
 type Host struct {
 	cHost *C.ENetHost
 	peers map[*C.ENetPeer]*Peer
+	Mutex deadlock.Mutex
 }
 
 func (h *Host) Service() <-chan Event {
 	events := make(chan Event)
 	go func() {
 		for {
-			cEvent := C.serviceHost(h.cHost)
-			events <- h.eventFromCEvent(&cEvent)
+			serviced := false
+			var event C.ENetEvent
+			for !serviced {
+				if C.enet_host_check_events(h.cHost, &event) <= 0 {
+					if C.enet_host_service(h.cHost, &event, 5) <= 0 {
+						break
+					}
+					serviced = true
+				}
+
+				events <- h.eventFromCEvent(&event)
+			}
+
+			for _, peer := range h.peers {
+				peer.Mutex.Lock()
+
+				for _, queued := range peer.Queued {
+					flags := ^uint32(PacketFlagNoAllocate) // always allocate (safer with CGO usage below)
+					if queued.Channel == 1 || queued.Channel == 2 {
+						flags = flags & PacketFlagReliable
+					}
+
+					payload := queued.Data
+					packet := C.enet_packet_create(
+						unsafe.Pointer(&payload[0]),
+						C.size_t(len(payload)),
+						C.enet_uint32(flags),
+					)
+					C.enet_peer_send(peer.CPeer, C.enet_uint8(queued.Channel), packet)
+					command := C.getLastCommand(peer.CPeer)
+					peer.Pending = append(peer.Pending, PendingPacket{
+						Sequence: uint16(command),
+						Done:     queued.Done,
+					})
+				}
+
+				peer.Queued = make([]QueuedPacket, 0)
+
+				peer.Mutex.Unlock()
+			}
 
 			for _, peer := range h.peers {
 				peer.CheckACKs()

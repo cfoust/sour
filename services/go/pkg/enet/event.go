@@ -25,7 +25,7 @@ type Event struct {
 func (h *Host) eventFromCEvent(cEvent *C.ENetEvent) Event {
 	e := Event{
 		Type:      EventType(cEvent._type),
-		Peer:      h.peerFromCPeer(cEvent.peer),
+		Peer:      h.peerFromCPeer(cEvent.peer, h),
 		ChannelID: uint8(cEvent.channelID),
 		Data:      uint32(cEvent.data),
 	}
