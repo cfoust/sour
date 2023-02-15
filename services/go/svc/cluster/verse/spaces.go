@@ -284,6 +284,8 @@ func (s *SpaceManager) DoExploreMode(ctx context.Context, gameServer *gameServer
 
 			break
 		}
+
+		log.Info().Msgf("map changed to %s", name)
 		gameServer.SendCommand(fmt.Sprintf("changemap %s %d", name, game.MODE_FFA))
 	}
 
