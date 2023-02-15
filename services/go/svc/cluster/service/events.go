@@ -506,6 +506,13 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 		case msg := <-toServer:
 			data := msg.Data
 
+			// We want to get the raw data from the user -- not the
+			// deserialized messages
+			user.Client.Intercept.From <- game.GamePacket{
+				Data:    data,
+				Channel: msg.Channel,
+			}
+
 			gameMessages, err := game.Read(data, true)
 			if err != nil {
 				logger.Error().Err(err).
@@ -544,11 +551,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					continue
 				}
 
-				user.Client.Intercept.From <- game.GamePacket{
-					Data:    data,
-					Channel: msg.Channel,
-				}
-
 				server.SendData(user.Id, uint32(msg.Channel), data)
 			}
 
@@ -572,9 +574,11 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 
 			channel := uint8(packet.Channel)
 			out := make([]byte, 0)
+			filtered := make([]byte, 0)
 
 			for _, message := range gameMessages {
-				if !game.IsSpammyMessage(message.Type()) {
+				type_ := message.Type()
+				if !game.IsSpammyMessage(type_) {
 					logger.Debug().
 						Str("type", message.Type().String()).
 						Msg("cluster -> client")
@@ -595,10 +599,16 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				}
 
 				out = append(out, data...)
+
+				if type_ == game.N_SENDDEMO {
+					continue
+				}
+
+				filtered = append(filtered, data...)
 			}
 
 			user.Client.Intercept.To <- game.GamePacket{
-				Data:    out,
+				Data:    filtered,
 				Channel: channel,
 			}
 
