@@ -564,11 +564,10 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					Err(err).
 					Msg("cluster -> client (failed to decode message)")
 
+				user.Client.Intercept.To <- packet
+
 				// Forward it anyway
-				sendResult(done, game.GamePacket{
-					Channel: uint8(packet.Channel),
-					Data:    packet.Data,
-				})
+				sendResult(done, packet)
 				continue
 			}
 
