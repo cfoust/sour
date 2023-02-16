@@ -87,6 +87,7 @@ type MatchmakingSettings struct {
 type ClusterSettings struct {
 	Enabled           bool
 	LogSessions       bool
+	DBPath            string
 	LogDirectory      string
 	CacheDirectory    string
 	ServerInfo        ClusterServerInfo

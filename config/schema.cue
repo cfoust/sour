@@ -125,6 +125,8 @@ proxy: #Service
 #ClusterSettings: {
 	#Service
 
+	dbPath: string | *"state.db"
+
 	// Whether to save demos of user sessions to Redis.
 	logSessions: bool | *false
 

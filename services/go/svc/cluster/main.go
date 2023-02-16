@@ -37,6 +37,11 @@ func main() {
 
 	clusterConfig := sourConfig.Cluster
 
+	_, err = state.InitDB(clusterConfig.DBPath)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize sqlite")
+	}
+
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	log.Logger = log.Output(consoleWriter)
 
