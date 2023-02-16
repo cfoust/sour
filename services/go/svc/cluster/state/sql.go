@@ -14,7 +14,7 @@ type Entity struct {
 // A "type" of ELO tracking e.g. ffa or insta
 type ELOType struct {
 	Entity
-	Name string
+	Name string `gorm:"size:16"`
 }
 
 type Ranking struct {
@@ -75,7 +75,7 @@ type Space struct {
 	OwnerID     uint
 	MapID       uint
 
-	Owner *User
+	Owner *User `gorm:"foreignKey:OwnerID"`
 	Map   *Map
 	Links []*Link
 }
