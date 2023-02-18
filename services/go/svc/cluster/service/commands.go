@@ -228,7 +228,8 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 			return true, "", err
 		}
 
-		server.AnnounceInServer(ctx, instance.Server, fmt.Sprintf("space alias set to %s", alias))
+		gameServer := instance.Deployment.GetServer()
+		server.AnnounceInServer(ctx, gameServer, fmt.Sprintf("space alias set to %s", alias))
 		return true, "", nil
 
 	case "desc":
@@ -243,7 +244,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 
 		instance := user.GetSpace()
 		space := instance.Space
-		server := instance.Server
+		gameServer := instance.Deployment.GetServer()
 
 		if len(command) < 6 {
 			return true, "", fmt.Errorf("description too short")
@@ -259,8 +260,8 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 			return true, "", err
 		}
 
-		server.SendCommand(fmt.Sprintf("serverdesc \"%s\"", description))
-		server.SendCommand("refreshserverinfo")
+		gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", description))
+		gameServer.SendCommand("refreshserverinfo")
 		return true, "", nil
 
 	case "edit":
@@ -278,13 +279,14 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 		editing := space.Editing
 		current := editing.IsOpenEdit()
 		editing.SetOpenEdit(!current)
+		gameServer := space.Deployment.GetServer()
 
 		canEdit := editing.IsOpenEdit()
 
 		if canEdit {
-			server.AnnounceInServer(ctx, space.Server, "editing is now enabled")
+			server.AnnounceInServer(ctx, gameServer, "editing is now enabled")
 		} else {
-			server.AnnounceInServer(ctx, space.Server, "editing is now disabled")
+			server.AnnounceInServer(ctx, gameServer, "editing is now disabled")
 		}
 
 		return true, "", nil
@@ -346,7 +348,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 				serverName = alias
 			}
 
-			_, err = user.ConnectToSpace(instance.Server, serverName)
+			_, err = user.ConnectToSpace(instance.Deployment.GetServer(), serverName)
 			return true, "", err
 		}
 

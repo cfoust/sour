@@ -12,7 +12,11 @@ import (
 type DeploymentEvent struct {
 	Old  *GameServer
 	New  *GameServer
-	Done chan bool
+	done chan bool
+}
+
+func (d *DeploymentEvent) Done() {
+	d.done <- true
 }
 
 // Represents the deployment of a single server.
@@ -41,7 +45,7 @@ func handleDeployment(ctx context.Context, handler chan DeploymentEvent, oldServ
 	handler <- DeploymentEvent{
 		Old:  oldServer,
 		New:  newServer,
-		Done: done,
+		done: done,
 	}
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
@@ -146,9 +150,10 @@ type DeploymentOrchestrator struct {
 	servers  *ServerManager
 }
 
-func NewServerOrchestrator() *DeploymentOrchestrator {
+func NewDeploymentOrchestrator(servers *ServerManager) *DeploymentOrchestrator {
 	return &DeploymentOrchestrator{
 		migrator: make(chan DeploymentEvent),
+		servers:  servers,
 	}
 }
 
@@ -164,5 +169,6 @@ func (s *DeploymentOrchestrator) NewDeployment(ctx context.Context, presetName s
 		preset:       presetName,
 		isVirtualOk:  isVirtualOk,
 		orchestrator: s,
+		configurer:   nil,
 	}
 }

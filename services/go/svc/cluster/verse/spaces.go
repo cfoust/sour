@@ -12,6 +12,7 @@ import (
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/config"
 	gameServers "github.com/cfoust/sour/svc/cluster/servers"
+	"github.com/cfoust/sour/svc/cluster/utils"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -19,16 +20,15 @@ import (
 )
 
 type SpaceInstance struct {
+	utils.Session
+
 	SpaceConfig
 
 	id          string
 	Space       *UserSpace
 	PresetSpace *config.PresetSpace
 	Editing     *EditingState
-	Server      *gameServers.GameServer
-	// Lasts for the lifetime of the instance, it's copied from the game
-	// server's
-	Context context.Context
+	Deployment  *gameServers.ServerDeployment
 }
 
 func (s *SpaceInstance) IsOpenEdit() bool {
@@ -93,10 +93,10 @@ func (s *SpaceInstance) GetLinks(ctx context.Context) ([]Link, error) {
 }
 
 func (s *SpaceInstance) PollEdits(ctx context.Context) {
-	edits := s.Server.ReceiveMapEdits()
+	edits := s.Deployment.GetServer().ReceiveMapEdits()
 	for {
 		select {
-		case <-s.Context.Done():
+		case <-s.Ctx().Done():
 			return
 		case edit := <-edits:
 			if s.Editing == nil {
@@ -109,20 +109,23 @@ func (s *SpaceInstance) PollEdits(ctx context.Context) {
 }
 
 type SpaceManager struct {
+	utils.Session
+
 	// space id -> instance
-	instances map[string]*SpaceInstance
-	verse     *Verse
-	servers   *gameServers.ServerManager
-	mutex     deadlock.RWMutex
-	maps      *assets.AssetFetcher
+	instances   map[string]*SpaceInstance
+	verse       *Verse
+	deployments *gameServers.DeploymentOrchestrator
+	mutex       deadlock.RWMutex
+	maps        *assets.AssetFetcher
 }
 
-func NewSpaceManager(verse *Verse, servers *gameServers.ServerManager, maps *assets.AssetFetcher) *SpaceManager {
+func NewSpaceManager(verse *Verse, deployments *gameServers.DeploymentOrchestrator, maps *assets.AssetFetcher) *SpaceManager {
 	return &SpaceManager{
-		verse:     verse,
-		servers:   servers,
-		instances: make(map[string]*SpaceInstance),
-		maps:      maps,
+		Session:     utils.NewSession(context.Background()),
+		verse:       verse,
+		deployments: deployments,
+		instances:   make(map[string]*SpaceInstance),
+		maps:        maps,
 	}
 }
 
@@ -152,7 +155,7 @@ func (s *SpaceManager) FindInstance(server *gameServers.GameServer) *SpaceInstan
 	defer s.mutex.RUnlock()
 
 	for _, instance := range s.instances {
-		if instance.Server == server {
+		if instance.Deployment.GetServer() == server {
 			return instance
 		}
 	}
@@ -160,12 +163,11 @@ func (s *SpaceManager) FindInstance(server *gameServers.GameServer) *SpaceInstan
 	return nil
 }
 
-func (s *SpaceManager) WatchServer(ctx context.Context, space *SpaceInstance, server *gameServers.GameServer) {
-
+func (s *SpaceManager) WatchInstance(ctx context.Context, space *SpaceInstance) {
 	select {
 	case <-ctx.Done():
 		return
-	case <-server.Context.Done():
+	case <-space.Ctx().Done():
 		if space.Editing != nil {
 			space.Editing.Checkpoint(ctx)
 		}
@@ -174,7 +176,7 @@ func (s *SpaceManager) WatchServer(ctx context.Context, space *SpaceInstance, se
 
 		deleteId := ""
 		for id, instance := range s.instances {
-			if instance.Server == server {
+			if instance == space {
 				deleteId = id
 			}
 		}
@@ -204,28 +206,11 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 		return instance, nil
 	}
 
-	serverCtx := context.Background()
-	gameServer, err := s.servers.NewServer(serverCtx, "", true)
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to create server for space")
-		return nil, err
-	}
-
-	err = gameServer.StartAndWait(serverCtx)
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to start server for space")
-		return nil, err
-	}
-
 	config, err := space.GetConfig(ctx)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to fetch config for space")
 		return nil, err
 	}
-
-	gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
-	gameServer.SendCommand("publicserver 1")
-	gameServer.SendCommand("emptymap")
 
 	verseMap, err := space.GetMap(ctx)
 	if err != nil {
@@ -243,31 +228,62 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 		return nil, err
 	}
 
-	go editing.SavePeriodically(gameServer.Context)
-
 	instance := SpaceInstance{
+		Session:     utils.NewSession(ctx),
 		Space:       space,
 		Editing:     editing,
-		Server:      gameServer,
-		Context:     gameServer.Context,
 		SpaceConfig: *config,
 	}
 
 	instance.id = space.GetID()
 
-	go s.WatchServer(ctx, &instance, gameServer)
+	go editing.SavePeriodically(instance.Ctx())
 
-	go instance.PollEdits(gameServer.Context)
+	deployment := s.deployments.NewDeployment(ctx, "", true)
+	configurer := deployment.Configure()
+
+	go func() {
+		for {
+			select {
+			case <-deployment.Ctx().Done():
+				return
+			case configure := <-configurer:
+				if instance.Editing != nil {
+					instance.Editing.Checkpoint(ctx)
+				}
+
+				gameServer := configure.New
+				gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
+				gameServer.SendCommand("publicserver 1")
+				gameServer.SendCommand("emptymap")
+
+				configure.Done()
+			}
+		}
+	}()
+
+	err = deployment.Start(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	instance.Deployment = deployment
+
+	go s.WatchInstance(ctx, &instance)
+
+	go instance.PollEdits(instance.Ctx())
 
 	s.instances[space.GetID()] = &instance
 
 	return &instance, nil
 }
 
-func (s *SpaceManager) DoExploreMode(ctx context.Context, gameServer *gameServers.GameServer, skipRoot string) {
+func (s *SpaceManager) DoExploreMode(ctx context.Context, deployment *gameServers.ServerDeployment, skipRoot string) {
 	maps := s.maps.GetMaps(skipRoot)
 
 	cycleMap := func() {
+		gameServer := deployment.GetServer()
+
 		var name string
 		for {
 			index, _ := rand.Int(rand.Reader, big.NewInt(int64(len(maps))))
@@ -295,8 +311,11 @@ func (s *SpaceManager) DoExploreMode(ctx context.Context, gameServer *gameServer
 
 	for {
 		select {
-		case <-gameServer.Context.Done():
+		case <-deployment.Ctx().Done():
 			return
+		case config := <-deployment.Configure():
+			config.Done()
+			cycleMap()
 		case <-tick.C:
 			cycleMap()
 			continue
@@ -308,23 +327,8 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	logger := s.Logger()
-
-	serverCtx := context.Background()
-	gameServer, err := s.servers.NewServer(serverCtx, presetSpace.Preset, true)
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to create server for preset")
-		return nil, err
-	}
-
 	config := presetSpace.Config
 	id := config.Alias
-	gameServer.Alias = id
-
-	err = gameServer.StartAndWait(serverCtx)
-	if err != nil {
-		return nil, err
-	}
 
 	links := make([]Link, 0)
 	for _, link := range config.Links {
@@ -334,9 +338,41 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 		})
 	}
 
+	deployment := s.deployments.NewDeployment(ctx, presetSpace.Preset, true)
+	configurer := deployment.Configure()
+
+	go func() {
+		for {
+			select {
+			case <-deployment.Ctx().Done():
+				return
+			case configure := <-configurer:
+				configure.New.Alias = config.Alias
+
+				if config.Description != "" {
+					configure.New.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
+				}
+
+				configure.Done()
+			}
+		}
+	}()
+
+	err := deployment.Start(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	logger := s.Logger()
+	logger.Info().Msgf("started space %s", config.Alias)
+
+	if presetSpace.ExploreMode {
+		go s.DoExploreMode(ctx, deployment, presetSpace.ExploreModeSkip)
+	}
+
 	instance := SpaceInstance{
-		Server:      gameServer,
-		Context:     gameServer.Context,
+		Session:     utils.NewSession(s.Ctx()),
+		Deployment:  deployment,
 		PresetSpace: &presetSpace,
 		SpaceConfig: SpaceConfig{
 			Alias:       config.Alias,
@@ -347,20 +383,9 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 		},
 	}
 
+	go s.WatchInstance(ctx, &instance)
+
 	instance.id = id
-
-	if config.Description != "" {
-		gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
-	}
-
-	go s.WatchServer(ctx, &instance, gameServer)
-
-	if presetSpace.ExploreMode {
-		go s.DoExploreMode(ctx, gameServer, presetSpace.ExploreModeSkip)
-	}
-
-	log.Info().Msgf("started space %s", id)
-
 	s.instances[id] = &instance
 
 	return &instance, nil

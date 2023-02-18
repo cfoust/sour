@@ -352,7 +352,7 @@ func (d *Duel) Run(ctx context.Context) {
 
 	go func() {
 		select {
-		case <-gameServer.Context.Done():
+		case <-gameServer.Ctx().Done():
 			cancelMatch()
 		case <-matchContext.Done():
 			return

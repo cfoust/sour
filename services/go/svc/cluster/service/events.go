@@ -261,7 +261,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			if space != nil {
 				canEditSpace := isOwner || space.IsOpenEdit()
 				if !canEditSpace {
-					user.ConnectToSpace(space.Server, space.GetID())
+					user.ConnectToSpace(space.Deployment.GetServer(), space.GetID())
 					user.SendServerMessage("you cannot edit this space.")
 					msg.Drop()
 					continue

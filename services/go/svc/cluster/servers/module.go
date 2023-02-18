@@ -331,7 +331,7 @@ func (manager *ServerManager) PruneServers(ctx context.Context) {
 			manager.Mutex.Unlock()
 
 			for _, server := range toPrune {
-				logger := server.Log()
+				logger := server.Logger()
 				logger.Info().Msg("server was pruned")
 				manager.RemoveServer(server)
 			}

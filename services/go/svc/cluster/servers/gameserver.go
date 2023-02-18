@@ -253,7 +253,7 @@ func Connect(path string) (*net.Conn, error) {
 	return &conn, nil
 }
 
-func (server *GameServer) Log() zerolog.Logger {
+func (server *GameServer) Logger() zerolog.Logger {
 	return log.With().Str("server", server.Reference()).Logger()
 }
 
@@ -294,7 +294,7 @@ func (server *GameServer) PollWrites(ctx context.Context) {
 
 func (server *GameServer) ParseRead(data []byte) {
 	p := game.Packet(data)
-	logger := server.Log()
+	logger := server.Logger()
 
 	for len(p) > 0 {
 		type_, ok := p.GetUint()
@@ -488,7 +488,7 @@ func (server *GameServer) ParseRead(data []byte) {
 
 func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 	buffer := make([]byte, 4096)
-	logger := server.Log()
+	logger := server.Logger()
 
 	for {
 		time.Sleep(5 * time.Millisecond)
@@ -517,7 +517,7 @@ func (server *GameServer) PollReads(ctx context.Context, out chan []byte) {
 }
 
 func (server *GameServer) DecodeMessages(ctx context.Context) {
-	logger := server.Log()
+	logger := server.Logger()
 	for {
 		select {
 		case bundle := <-server.rawBroadcasts:
@@ -759,7 +759,7 @@ func (server *GameServer) RemoveClient() {
 }
 
 func (server *GameServer) Wait() {
-	logger := server.Log()
+	logger := server.Logger()
 
 	tailPipe := func(pipe io.ReadCloser, done chan bool) {
 		scanner := bufio.NewScanner(pipe)
@@ -869,6 +869,9 @@ func (server *GameServer) Start(ctx context.Context) error {
 			}
 			go server.PollWrites(server.Ctx())
 			go server.PollEvents(server.Ctx())
+
+			logger := server.Logger()
+			logger.Info().Msg("server started")
 
 			return nil
 		}

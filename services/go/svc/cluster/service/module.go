@@ -38,15 +38,16 @@ type Cluster struct {
 	serverMessage chan []byte
 
 	// Services
-	Clients *clients.ClientManager
-	Users   *UserOrchestrator
-	auth    *auth.DiscordService
-	servers *servers.ServerManager
-	matches *Matchmaker
-	redis   *redis.Client
-	spaces  *verse.SpaceManager
-	verse   *verse.Verse
-	assets  *assets.AssetFetcher
+	Clients     *clients.ClientManager
+	Users       *UserOrchestrator
+	auth        *auth.DiscordService
+	servers     *servers.ServerManager
+	deployments *servers.DeploymentOrchestrator
+	matches     *Matchmaker
+	redis       *redis.Client
+	spaces      *verse.SpaceManager
+	verse       *verse.Verse
+	assets      *assets.AssetFetcher
 }
 
 func NewCluster(
@@ -60,6 +61,7 @@ func NewCluster(
 ) *Cluster {
 	clients := clients.NewClientManager()
 	v := verse.NewVerse(redis)
+	orchestrator := servers.NewDeploymentOrchestrator(serverManager)
 	server := &Cluster{
 		Users:         NewUserOrchestrator(redis, settings.Matchmaking.Duel),
 		serverCtx:     ctx,
@@ -71,11 +73,12 @@ func NewCluster(
 		matches:       NewMatchmaker(serverManager, settings.Matchmaking.Duel),
 		serverMessage: make(chan []byte, 1),
 		servers:       serverManager,
+		deployments:   orchestrator,
 		startTime:     time.Now(),
 		auth:          auth,
 		redis:         redis,
 		verse:         v,
-		spaces:        verse.NewSpaceManager(v, serverManager, maps),
+		spaces:        verse.NewSpaceManager(v, orchestrator, maps),
 		assets:        maps,
 	}
 
@@ -233,7 +236,36 @@ func (server *Cluster) PollServers(ctx context.Context) {
 	}
 }
 
+func (server *Cluster) PollMigrations(ctx context.Context) {
+	migrations := server.deployments.ReceiveMigrations()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case migration := <-migrations:
+			oldServer := migration.Old
+
+			users := make([]*User, 0)
+			server.Users.Mutex.RLock()
+			for server, serverUsers := range server.Users.Servers {
+				if server == oldServer {
+					users = serverUsers
+				}
+			}
+			server.Users.Mutex.RUnlock()
+
+			for _, user := range users {
+				user.Connect(migration.New)
+			}
+
+			migration.Done()
+		}
+	}
+}
+
 func (server *Cluster) StartServers(ctx context.Context) {
+	go server.PollMigrations(ctx)
 	go server.PollServers(ctx)
 	for _, presetSpace := range server.settings.Spaces {
 		server.spaces.StartPresetSpace(ctx, presetSpace)
