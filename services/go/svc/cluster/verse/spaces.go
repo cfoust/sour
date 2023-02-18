@@ -294,7 +294,7 @@ func (s *SpaceManager) DoExploreMode(ctx context.Context, deployment *gameServer
 			gameServer.Mutex.RUnlock()
 
 			name = map_.Name
-			if name == "" || name == currentMap || strings.Contains(name, ".") {
+			if name == "" || name == currentMap || strings.Contains(name, ".") || strings.Contains(name, " ") {
 				continue
 			}
 
