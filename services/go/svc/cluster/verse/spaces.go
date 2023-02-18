@@ -351,6 +351,8 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 
 				if config.Description != "" {
 					configure.New.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
+				} else {
+					configure.New.SendCommand(fmt.Sprintf("serverdesc \"Sour [%s]\"", config.Alias))
 				}
 
 				configure.Done()
