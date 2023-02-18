@@ -79,13 +79,13 @@ func (server *Cluster) inferCreateParams(args []string) (*CreateParams, error) {
 			continue
 		}
 
-		map_ := server.manager.Maps.FindMap(arg)
+		map_ := server.servers.Maps.FindMap(arg)
 		if map_ != nil {
 			params.Map = opt.Some(arg)
 			continue
 		}
 
-		preset := server.manager.FindPreset(arg, false)
+		preset := server.servers.FindPreset(arg, false)
 		if opt.IsSome(preset) {
 			params.Preset = opt.Some(preset.Value.Name)
 			continue
@@ -109,7 +109,7 @@ func (server *Cluster) CreateGame(ctx context.Context, params *CreateParams, use
 
 	existingServer, hasExistingServer := server.hostServers[user.Connection.Host()]
 	if hasExistingServer {
-		server.manager.RemoveServer(existingServer)
+		server.servers.RemoveServer(existingServer)
 	}
 
 	logger.Info().Msg("starting server")
@@ -119,7 +119,7 @@ func (server *Cluster) CreateGame(ctx context.Context, params *CreateParams, use
 		presetName = params.Preset.Value
 	}
 
-	gameServer, err := server.manager.NewServer(server.serverCtx, presetName, false)
+	gameServer, err := server.servers.NewServer(server.serverCtx, presetName, false)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to create server")
 		return errors.New("failed to create server")
@@ -310,7 +310,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 		}
 		user.Mutex.RUnlock()
 
-		for _, gameServer := range server.manager.Servers {
+		for _, gameServer := range server.servers.Servers {
 			if !gameServer.IsReference(target) || !gameServer.IsRunning() {
 				continue
 			}

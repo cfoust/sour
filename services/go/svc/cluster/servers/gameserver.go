@@ -16,6 +16,7 @@ import (
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/ingress"
+	"github.com/cfoust/sour/svc/cluster/utils"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -33,6 +34,8 @@ type MapEdit struct {
 }
 
 type GameServer struct {
+	utils.Session
+
 	Status ServerStatus
 	Id     string
 	// Another way for the client to refer to this server
@@ -53,10 +56,6 @@ type GameServer struct {
 	IsBuiltMap bool
 
 	Hidden bool
-
-	// Valid while the server is running and healthy
-	Context context.Context
-	cancel  context.CancelFunc
 
 	Mutex deadlock.RWMutex
 
@@ -714,6 +713,8 @@ func (server *GameServer) PollEvents(ctx context.Context) {
 				server.Mutex.Lock()
 				server.Status = ServerFailure
 				server.Mutex.Unlock()
+				server.Cancel()
+				server.Shutdown()
 				return
 			}
 			server.SendPing()
@@ -799,7 +800,7 @@ func (server *GameServer) Wait() {
 	state, err := server.command.Process.Wait()
 
 	defer func() {
-		server.cancel()
+		server.Cancel()
 		server.exit <- true
 	}()
 
@@ -866,8 +867,8 @@ func (server *GameServer) Start(ctx context.Context) error {
 				replaced := strings.Replace(server.description, "#id", server.Reference(), -1)
 				go server.SendCommand(fmt.Sprintf("serverdesc \"%s\"", replaced))
 			}
-			go server.PollWrites(server.Context)
-			go server.PollEvents(server.Context)
+			go server.PollWrites(server.Ctx())
+			go server.PollEvents(server.Ctx())
 
 			return nil
 		}

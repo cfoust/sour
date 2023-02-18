@@ -23,6 +23,7 @@ import (
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
+	"github.com/cfoust/sour/svc/cluster/utils"
 
 	"github.com/repeale/fp-go"
 	"github.com/repeale/fp-go/option"
@@ -454,12 +455,9 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		return nil, err
 	}
 
-	serverCtx, cancel := context.WithCancel(ctx)
-
 	server := GameServer{
 		Alias:         "",
-		Context:       serverCtx,
-		cancel:        cancel,
+		Session:       utils.NewSession(ctx),
 		Connecting:    make(chan bool, 1),
 		LastEvent:     time.Now(),
 		ClientInfo:    make(map[ingress.ClientID]*ClientExtInfo),

@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/assets"
+	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
@@ -38,15 +38,15 @@ type Cluster struct {
 	serverMessage chan []byte
 
 	// Services
-	Clients   *clients.ClientManager
-	Users     *UserOrchestrator
-	auth      *auth.DiscordService
-	manager   *servers.ServerManager
-	matches   *Matchmaker
-	redis     *redis.Client
-	spaces    *verse.SpaceManager
-	verse     *verse.Verse
-	assets    *assets.AssetFetcher
+	Clients *clients.ClientManager
+	Users   *UserOrchestrator
+	auth    *auth.DiscordService
+	servers *servers.ServerManager
+	matches *Matchmaker
+	redis   *redis.Client
+	spaces  *verse.SpaceManager
+	verse   *verse.Verse
+	assets  *assets.AssetFetcher
 }
 
 func NewCluster(
@@ -70,7 +70,7 @@ func NewCluster(
 		Clients:       clients,
 		matches:       NewMatchmaker(serverManager, settings.Matchmaking.Duel),
 		serverMessage: make(chan []byte, 1),
-		manager:       serverManager,
+		servers:       serverManager,
 		startTime:     time.Now(),
 		auth:          auth,
 		redis:         redis,
@@ -83,7 +83,7 @@ func NewCluster(
 }
 
 func (server *Cluster) GetServerInfo() *servers.ServerInfo {
-	info := server.manager.GetServerInfo()
+	info := server.servers.GetServerInfo()
 
 	settings := server.settings.ServerInfo
 
@@ -110,9 +110,9 @@ func (server *Cluster) GetTeamInfo() *servers.TeamInfo {
 func (server *Cluster) GetClientInfo() []*servers.ClientExtInfo {
 	info := make([]*servers.ClientExtInfo, 0)
 
-	server.manager.Mutex.Lock()
+	server.servers.Mutex.Lock()
 
-	for _, gameServer := range server.manager.Servers {
+	for _, gameServer := range server.servers.Servers {
 		clients := gameServer.GetClientInfo()
 		for _, client := range clients {
 			newClient := *client
@@ -123,7 +123,7 @@ func (server *Cluster) GetClientInfo() []*servers.ClientExtInfo {
 		}
 	}
 
-	server.manager.Mutex.Unlock()
+	server.servers.Mutex.Unlock()
 
 	return info
 }
@@ -133,10 +133,10 @@ func (server *Cluster) GetUptime() int {
 }
 
 func (server *Cluster) PollServers(ctx context.Context) {
-	connects := server.manager.ReceiveConnects()
-	forceDisconnects := server.manager.ReceiveKicks()
-	gamePackets := server.manager.ReceivePackets()
-	names := server.manager.ReceiveNames()
+	connects := server.servers.ReceiveConnects()
+	forceDisconnects := server.servers.ReceiveKicks()
+	gamePackets := server.servers.ReceivePackets()
+	names := server.servers.ReceiveNames()
 
 	for {
 		select {
@@ -238,7 +238,7 @@ func (server *Cluster) StartServers(ctx context.Context) {
 	for _, presetSpace := range server.settings.Spaces {
 		server.spaces.StartPresetSpace(ctx, presetSpace)
 	}
-	go server.manager.PruneServers(ctx)
+	go server.servers.PruneServers(ctx)
 	go server.matches.Poll(ctx)
 }
 
@@ -259,5 +259,5 @@ func (server *Cluster) PollUsers(ctx context.Context, newConnections chan ingres
 }
 
 func (server *Cluster) Shutdown() {
-	server.manager.Shutdown()
+	server.servers.Shutdown()
 }
