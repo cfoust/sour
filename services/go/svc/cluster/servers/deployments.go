@@ -15,6 +15,8 @@ type DeploymentEvent struct {
 	done chan bool
 }
 
+type Migrator chan DeploymentEvent
+
 func (d *DeploymentEvent) Done() {
 	d.done <- true
 }
@@ -23,7 +25,7 @@ func (d *DeploymentEvent) Done() {
 type ServerDeployment struct {
 	utils.Session
 	server      *GameServer
-	configurer  chan DeploymentEvent
+	configurers []Migrator
 	preset      string
 	isVirtualOk bool
 
@@ -62,7 +64,7 @@ func handleDeployment(ctx context.Context, handler chan DeploymentEvent, oldServ
 func (s *ServerDeployment) Configure() <-chan DeploymentEvent {
 	configurer := make(chan DeploymentEvent)
 	s.mutex.Lock()
-	s.configurer = configurer
+	s.configurers = append(s.configurers, configurer)
 	s.mutex.Unlock()
 	return configurer
 }
@@ -88,10 +90,10 @@ func (s *ServerDeployment) startServer(ctx context.Context) error {
 		return err
 	}
 
-	if s.configurer != nil {
+	for _, configurer := range s.configurers {
 		err = handleDeployment(
 			ctx,
-			s.configurer,
+			configurer,
 			oldServer,
 			server,
 		)
@@ -169,6 +171,6 @@ func (s *DeploymentOrchestrator) NewDeployment(ctx context.Context, presetName s
 		preset:       presetName,
 		isVirtualOk:  isVirtualOk,
 		orchestrator: s,
-		configurer:   nil,
+		configurers:  make([]Migrator, 0),
 	}
 }

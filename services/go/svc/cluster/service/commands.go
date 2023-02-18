@@ -324,6 +324,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 
 			return true, "", nil
 		}
+
 		// Look for a space
 		space, err := server.spaces.SearchSpace(ctx, target)
 		if err != nil {

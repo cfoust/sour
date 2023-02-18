@@ -301,7 +301,6 @@ func (s *SpaceManager) DoExploreMode(ctx context.Context, deployment *gameServer
 			break
 		}
 
-		log.Info().Msgf("map changed to %s", name)
 		gameServer.SendCommand(fmt.Sprintf("changemap %s %d", name, game.MODE_FFA))
 	}
 
@@ -340,6 +339,7 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 
 	deployment := s.deployments.NewDeployment(ctx, presetSpace.Preset, true)
 	configurer := deployment.Configure()
+	logger := s.Logger()
 
 	go func() {
 		for {
@@ -365,7 +365,6 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 		return nil, err
 	}
 
-	logger := s.Logger()
 	logger.Info().Msgf("started space %s", config.Alias)
 
 	if presetSpace.ExploreMode {
