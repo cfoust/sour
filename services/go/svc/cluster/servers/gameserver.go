@@ -453,7 +453,8 @@ func (server *GameServer) ParseRead(data []byte) {
 				break
 			}
 
-			data := p[:numBytes]
+			data := make([]byte, numBytes)
+			copy(data, p[:numBytes])
 			p = p[len(data):]
 
 			server.rawBroadcasts <- game.GamePacket{
@@ -472,7 +473,8 @@ func (server *GameServer) ParseRead(data []byte) {
 			break
 		}
 
-		data := p[:numBytes]
+		data := make([]byte, numBytes)
+		copy(data, p[:numBytes])
 		p = p[len(data):]
 
 		server.packets <- ClientPacket{
