@@ -42,6 +42,10 @@ type User struct {
 	// The prefix for Discord's avatar scheme
 	Avatar string `gorm:"size:128"`
 
+	Token        string
+	RefreshToken string
+	RefreshAfter time.Time
+
 	Ranking []*Ranking
 	Spaces  []*Space `gorm:"foreignKey:OwnerID"`
 }
