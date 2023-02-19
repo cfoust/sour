@@ -61,7 +61,7 @@ func handleDeployment(ctx context.Context, handler chan DeploymentEvent, oldServ
 	}
 }
 
-func (s *ServerDeployment) Configure() <-chan DeploymentEvent {
+func (s *ServerDeployment) ReceiveMigrations() <-chan DeploymentEvent {
 	configurer := make(chan DeploymentEvent)
 	s.mutex.Lock()
 	s.configurers = append(s.configurers, configurer)

@@ -240,24 +240,24 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 	go editing.SavePeriodically(instance.Ctx())
 
 	deployment := s.deployments.NewDeployment(ctx, "", true)
-	configurer := deployment.Configure()
+	migrations := deployment.ReceiveMigrations()
 
 	go func() {
 		for {
 			select {
 			case <-deployment.Ctx().Done():
 				return
-			case configure := <-configurer:
+			case migration := <-migrations:
 				if instance.Editing != nil {
 					instance.Editing.Checkpoint(ctx)
 				}
 
-				gameServer := configure.New
+				gameServer := migration.New
 				gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
 				gameServer.SendCommand("publicserver 1")
 				gameServer.SendCommand("emptymap")
 
-				configure.Done()
+				migration.Done()
 			}
 		}
 	}()
@@ -308,14 +308,14 @@ func (s *SpaceManager) DoExploreMode(ctx context.Context, deployment *gameServer
 
 	cycleMap()
 
-	configurer := deployment.Configure()
+	migrations := deployment.ReceiveMigrations()
 
 	for {
 		select {
 		case <-deployment.Ctx().Done():
 			return
-		case config := <-configurer:
-			config.Done()
+		case migration := <-migrations:
+			migration.Done()
 			cycleMap()
 		case <-tick.C:
 			cycleMap()
@@ -340,7 +340,7 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 	}
 
 	deployment := s.deployments.NewDeployment(ctx, presetSpace.Preset, true)
-	configurer := deployment.Configure()
+	migrations := deployment.ReceiveMigrations()
 	logger := s.Logger()
 
 	go func() {
@@ -348,16 +348,16 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 			select {
 			case <-deployment.Ctx().Done():
 				return
-			case configure := <-configurer:
-				configure.New.Alias = config.Alias
+			case migration := <-migrations:
+				migration.New.Alias = config.Alias
 
 				if config.Description != "" {
-					configure.New.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
+					migration.New.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
 				} else {
-					configure.New.SendCommand(fmt.Sprintf("serverdesc \"Sour [%s]\"", config.Alias))
+					migration.New.SendCommand(fmt.Sprintf("serverdesc \"Sour [%s]\"", config.Alias))
 				}
 
-				configure.Done()
+				migration.Done()
 			}
 		}
 	}()
