@@ -308,11 +308,13 @@ func (s *SpaceManager) DoExploreMode(ctx context.Context, deployment *gameServer
 
 	cycleMap()
 
+	configurer := deployment.Configure()
+
 	for {
 		select {
 		case <-deployment.Ctx().Done():
 			return
-		case config := <-deployment.Configure():
+		case config := <-configurer:
 			config.Done()
 			cycleMap()
 		case <-tick.C:
