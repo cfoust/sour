@@ -91,12 +91,6 @@ type ForceIntermission struct {
 // N_FROMAI
 type FromAI struct {
 	Qcn int
-	// TODO impl
-	//else
-	//{
-	//cq = getinfo(qcn);
-	//if(cq && qcn != sender && cq->ownernum != sender) cq = NULL;
-	//}
 }
 
 // N_GAMESPEED

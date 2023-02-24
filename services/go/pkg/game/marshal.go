@@ -411,8 +411,8 @@ func Read(b []byte, fromClient bool) ([]Message, error) {
 			message, err = UnmarshalMessage(&p, N_EXPLODE, &Explode{})
 		case N_FORCEINTERMISSION:
 			message, err = UnmarshalMessage(&p, N_FORCEINTERMISSION, &ForceIntermission{})
-		//case N_FROMAI:
-		//message, err = UnmarshalMessage(&p, N_FROMAI, &Fromai{})
+		case N_FROMAI:
+			message, err = UnmarshalMessage(&p, N_FROMAI, &FromAI{})
 		case N_GAMESPEED:
 			message, err = UnmarshalMessage(&p, N_GAMESPEED, &GameSpeed{})
 		case N_GETDEMO:
