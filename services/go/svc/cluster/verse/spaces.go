@@ -239,7 +239,7 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 
 	go editing.SavePeriodically(instance.Ctx())
 
-	deployment := s.deployments.NewDeployment(ctx, "", true)
+	deployment := s.deployments.NewDeployment(context.Background(), "", true)
 	migrations := deployment.ReceiveMigrations()
 
 	go func() {
