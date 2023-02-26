@@ -182,6 +182,10 @@ func (manager *ServerManager) GetServerInfo() *ServerInfo {
 
 	manager.Mutex.Lock()
 	for _, server := range manager.Servers {
+		status := server.GetStatus()
+		if status != ServerHealthy {
+			continue
+		}
 		serverInfo := server.GetServerInfo()
 		info.NumClients += serverInfo.NumClients
 	}
@@ -296,15 +300,13 @@ func FindIdentity() Identity {
 	}
 }
 
-func (manager *ServerManager) RemoveServer(server *GameServer) error {
+func (manager *ServerManager) RemoveServer(server *GameServer) {
 	server.Shutdown()
 
 	manager.Mutex.Lock()
 	defer manager.Mutex.Unlock()
 
 	manager.Servers = fp.Filter(func(v *GameServer) bool { return v.Id != server.Id })(manager.Servers)
-
-	return nil
 }
 
 func (manager *ServerManager) PruneServers(ctx context.Context) {
@@ -333,7 +335,7 @@ func (manager *ServerManager) PruneServers(ctx context.Context) {
 			for _, server := range toPrune {
 				logger := server.Logger()
 				logger.Info().Msg("server was pruned")
-				manager.RemoveServer(server)
+				server.Cancel()
 			}
 
 			continue
@@ -505,6 +507,12 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 	server.exit = make(chan bool, 1)
 
 	manager.Servers = append(manager.Servers, &server)
+
+	// Remove the server when it exits for any reason
+	go func() {
+		<-server.Ctx().Done()
+		manager.RemoveServer(&server)
+	}()
 
 	go manager.PollMapRequests(ctx, &server)
 
