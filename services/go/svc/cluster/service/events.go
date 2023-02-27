@@ -599,7 +599,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 
 				out = append(out, data...)
 
-				if type_ == game.N_SENDDEMO {
+				if type_ == game.N_SENDDEMO || type_ == game.N_SENDMAP {
 					continue
 				}
 
