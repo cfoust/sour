@@ -116,7 +116,6 @@ func sendBundle(serverCtx context.Context, user *User, id string, data []byte) e
 
 	user.SendServerMessage("downloading map assets...")
 	msg, err := runScriptAndWait(serverCtx, user, game.N_GETDEMO, fmt.Sprintf(`
-demodir sour
 getdemo 0 %s
 `, fileName))
 	if err != nil {
@@ -160,7 +159,6 @@ if (= (findfile sour/%s.dmo) 1) [servcmd ok] [servcmd missing]
 	user.SendServerMessage("mounting asset layer...")
 	msg, err = runScriptAndWait(serverCtx, user, game.N_SERVCMD, fmt.Sprintf(`
 addzip sour/%s.dmo
-demodir demo
 servcmd ok
 `, fileName))
 	if err != nil {

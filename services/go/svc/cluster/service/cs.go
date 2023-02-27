@@ -47,6 +47,8 @@ const INITIAL_SCRIPT = `
 authkey %s _DO_NOTHING_ %s
 saveauthkeys
 
+autoauth 1
+
 mapstart = [
 	if (>= (strstr (getservauth) "%s") 0) [
 		do (getservauth)
