@@ -141,7 +141,7 @@ getdemo 0 %s
 
 	for {
 		msg, err = runScriptAndWait(timeout, user, game.N_SERVCMD, fmt.Sprintf(`
-if (= (findfile sour/%s.dmo) 1) [servcmd ok] [servcmd missing]
+if (= (findfile demo/%s.dmo) 1) [servcmd ok] [servcmd missing]
 `, fileName))
 		if err != nil {
 			return err
@@ -158,7 +158,7 @@ if (= (findfile sour/%s.dmo) 1) [servcmd ok] [servcmd missing]
 
 	user.SendServerMessage("mounting asset layer...")
 	msg, err = runScriptAndWait(serverCtx, user, game.N_SERVCMD, fmt.Sprintf(`
-addzip sour/%s.dmo
+addzip demo/%s.dmo
 servcmd ok
 `, fileName))
 	if err != nil {
