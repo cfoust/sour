@@ -3423,9 +3423,6 @@ best.add(clients[i]); \
         {
             clientinfo *ci = clients[i];
             if(ci->state.state==CS_SPECTATOR || ci->state.aitype != AI_NONE || ci->clientmap[0] || ci->mapcrc >= 0 || (req < 0 && ci->warned)) continue;
-            formatstring(msg)("\f3[Warning]: \f0%s \f7has a modified map file \"%s\")", colorname(ci), smapname);
-            sendf(req, 1, "ris", N_SERVMSG, msg);
-            out(ECHO_NOCOLOR,"[Warning]: %s has modified map %s", colorname(ci), smapname);
             if(req < 0) ci->warned = true;
         }
         if(crcs.empty() || crcs.length() < 2) return;
@@ -3436,9 +3433,6 @@ best.add(clients[i]); \
             {
                 clientinfo *ci = clients[j];
                 if(ci->state.state==CS_SPECTATOR || ci->state.aitype != AI_NONE || !ci->clientmap[0] || ci->mapcrc != info.crc || (req < 0 && ci->warned)) continue;
-                formatstring(msg)("\f3[Warning]: \f0%s \f7has a modified map file \"%s\")", colorname(ci), smapname);
-                sendf(req, 1, "ris", N_SERVMSG, msg);
-                out(ECHO_NOCOLOR,"[Warning]: %s has modified map %s", colorname(ci), smapname);
                 if(req < 0) ci->warned = true;
             }
         }

@@ -30,7 +30,7 @@ func (c *Cluster) waitForMapConsent(ctx context.Context, user *User) error {
 	warn := time.NewTicker(10 * time.Second)
 	serverCtx := user.ServerSessionContext()
 
-	message := "you are missing assets. run '/do (getservauth)' to allow the server to automatically send maps and assets you are missing"
+	message := "you are missing assets. run '/do (getservauth)' to allow the server to securely send maps and assets you are missing"
 	user.SendServerMessage(message)
 
 	for {
