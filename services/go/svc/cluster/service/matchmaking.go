@@ -788,7 +788,7 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 
 				client.SendServerMessage(fmt.Sprintf(
 					"%s queued for %s",
-					client.Reference(),
+					queue.User.Reference(),
 					queue.Type,
 				))
 			}
