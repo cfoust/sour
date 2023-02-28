@@ -16,6 +16,7 @@ import (
 	"github.com/cfoust/sour/svc/cluster/verse"
 
 	"github.com/go-redis/redis/v9"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -215,20 +216,67 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			// TODO ideally we would move clients back to the lobby if they
 			// were not kicked for violent reasons
 			user.Connection.Disconnect(int(event.Reason), event.Text)
-		case packet := <-gamePackets:
-			user := server.Users.FindUser(packet.Client)
+		case clientPacket := <-gamePackets:
+			packet := clientPacket.Packet
+			gameServer := clientPacket.Server
+
+			user := server.Users.FindUser(clientPacket.Client)
 
 			if user == nil {
 				continue
 			}
 
-			if user.GetServer() != packet.Server {
+			if user.GetServer() != gameServer {
 				continue
 			}
 
+			gameMessages, err := game.Read(packet.Data, false)
+			if err != nil {
+				log.Warn().
+					Err(err).
+					Msg("server -> client (failed to decode message)")
+
+				user.Client.Intercept.To <- packet
+
+				// Forward it anyway
+				user.Send(game.GamePacket{
+					Channel: uint8(packet.Channel),
+					Data:    packet.Data,
+				})
+				continue
+			}
+
+			channel := uint8(packet.Channel)
+			out := make([]byte, 0)
+
+			for _, message := range gameMessages {
+				type_ := message.Type()
+				if !game.IsSpammyMessage(type_) {
+					log.Debug().
+						Str("type", message.Type().String()).
+						Msg("server -> client")
+				}
+
+				newMessage, err := gameServer.From.Process(
+					ctx,
+					channel,
+					message,
+				)
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to process message")
+					continue
+				}
+
+				if newMessage == nil {
+					continue
+				}
+
+				out = append(out, newMessage.Data()...)
+			}
+
 			user.Send(game.GamePacket{
-				Channel: uint8(packet.Packet.Channel),
-				Data:    packet.Packet.Data,
+				Channel: channel,
+				Data:    out,
 			})
 		case <-ctx.Done():
 			return
