@@ -57,6 +57,9 @@ type GameServer struct {
 
 	Hidden bool
 
+	From *utils.MessageProxy
+	To   *utils.MessageProxy
+
 	Mutex deadlock.RWMutex
 
 	// The last time a client connected

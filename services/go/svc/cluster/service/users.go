@@ -11,6 +11,7 @@ import (
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
+	"github.com/cfoust/sour/svc/cluster/utils"
 	"github.com/cfoust/sour/svc/cluster/verse"
 
 	"github.com/go-redis/redis/v9"
@@ -45,8 +46,8 @@ type User struct {
 	serverSessionCtx context.Context
 	cancel           context.CancelFunc
 
-	From *MessageProxy
-	To   *MessageProxy
+	From *utils.MessageProxy
+	To   *utils.MessageProxy
 
 	Mutex deadlock.RWMutex
 	o     *UserOrchestrator
@@ -479,8 +480,8 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, client *clients.Client) 
 		ELO:    NewELOState(u.Duels),
 		Client: *client,
 		Name:   "unnamed",
-		From:   NewMessageProxy(true),
-		To:     NewMessageProxy(false),
+		From:   utils.NewMessageProxy(true),
+		To:     utils.NewMessageProxy(false),
 		o:      u,
 	}
 	u.Users = append(u.Users, &user)

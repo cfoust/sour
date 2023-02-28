@@ -551,7 +551,17 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					continue
 				}
 
-				server.SendData(user.Id, uint32(msg.Channel), data)
+				newMessage, err := server.To.Process(
+					ctx,
+					msg.Channel,
+					message,
+				)
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to process message for server")
+					continue
+				}
+
+				server.SendData(user.Id, uint32(msg.Channel), newMessage.Data())
 			}
 
 		case msg := <-toClient:
@@ -583,7 +593,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 						Msg("cluster -> client")
 				}
 
-				data, err := user.To.Process(
+				newMessage, err := user.To.Process(
 					ctx,
 					channel,
 					message,
@@ -593,17 +603,17 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					continue
 				}
 
-				if data == nil {
+				if newMessage == nil {
 					continue
 				}
 
-				out = append(out, data...)
+				out = append(out, newMessage.Data()...)
 
 				if type_ == game.N_SENDDEMO || type_ == game.N_SENDMAP {
 					continue
 				}
 
-				filtered = append(filtered, data...)
+				filtered = append(filtered, newMessage.Data()...)
 			}
 
 			user.Client.Intercept.To <- game.GamePacket{

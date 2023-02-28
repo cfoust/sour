@@ -309,13 +309,21 @@ func (s *SpaceManager) DoExploreMode(ctx context.Context, deployment *gameServer
 	cycleMap()
 
 	migrations := deployment.ReceiveMigrations()
+	chats := deployment.GetServer().To.Intercept(game.N_TEXT)
 
 	for {
 		select {
 		case <-deployment.Ctx().Done():
 			return
+		case msg := <-chats.Receive():
+			message := msg.Message
+			text := message.Contents().(*game.Text).Text
+			log.Info().Msgf("chat %s", text)
+			msg.Pass()
 		case migration := <-migrations:
 			migration.Done()
+			chats.Remove()
+			chats = migration.New.To.Intercept(game.N_TEXT)
 			cycleMap()
 		case <-tick.C:
 			cycleMap()

@@ -1,4 +1,4 @@
-package service
+package utils
 
 import (
 	"context"
@@ -64,7 +64,7 @@ type MessageProxy struct {
 	fromClient bool
 }
 
-func (m *MessageProxy) Process(ctx context.Context, channel uint8, message game.Message) ([]byte, error) {
+func (m *MessageProxy) Process(ctx context.Context, channel uint8, message game.Message) (game.Message, error) {
 	current := message
 	drop := make(chan bool)
 	replace := make(chan []byte)
@@ -103,7 +103,7 @@ func (m *MessageProxy) Process(ctx context.Context, channel uint8, message game.
 		}
 	}
 
-	return current.Data(), nil
+	return current, nil
 }
 
 func (m *MessageProxy) InterceptWith(check func(game.MessageCode) bool) *Handler {
