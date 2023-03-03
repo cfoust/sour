@@ -7,8 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sauerbraten/waiter/internal/net/packet"
-	"github.com/cfoust/sour/pkg/server/enet"
+	"github.com/cfoust/sour/pkg/server/net/packet"
 	"github.com/cfoust/sour/pkg/server/game"
 	"github.com/cfoust/sour/pkg/server/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/cubecode"
@@ -23,17 +22,9 @@ type ClientManager struct {
 }
 
 // Links an ENet peer to a client object. If no unused client object can be found, a new one is created and added to the global set of clients.
-func (cm *ClientManager) Add(peer *enet.Peer) *Client {
-	// re-use unused client object with low cn
-	for _, c := range cm.cs {
-		if c.Peer == nil {
-			c.Peer = peer
-			return c
-		}
-	}
-
+func (cm *ClientManager) Add() *Client {
 	cn := uint32(len(cm.cs))
-	c := NewClient(cn, peer)
+	c := NewClient(cn)
 	cm.cs = append(cm.cs, c)
 	return c
 }
@@ -43,20 +34,6 @@ func (cm *ClientManager) GetClientByCN(cn uint32) *Client {
 		return nil
 	}
 	return cm.cs[cn]
-}
-
-func (cm *ClientManager) GetClientByPeer(peer *enet.Peer) *Client {
-	if peer == nil {
-		return nil
-	}
-
-	for _, c := range cm.cs {
-		if c.Peer == peer {
-			return c
-		}
-	}
-
-	return nil
 }
 
 func (cm *ClientManager) FindClientByName(name string) *Client {
@@ -84,9 +61,6 @@ func (cm *ClientManager) Broadcast(typ nmc.ID, args ...interface{}) {
 
 func (cm *ClientManager) broadcast(exclude func(*Client) bool, typ nmc.ID, args ...interface{}) {
 	for _, c := range cm.cs {
-		if c.Peer == nil || (exclude != nil && exclude(c)) {
-			continue
-		}
 		c.Send(typ, args...)
 	}
 }
@@ -148,7 +122,7 @@ func (s *Server) SendWelcome(c *Client) {
 	// send other players' state (frags, flags, etc.)
 	p = append(p, nmc.PlayerStateList)
 	for _, client := range s.Clients.cs {
-		if client != c && client.Peer != nil {
+		if client != c {
 			p = append(p, client.CN, client.State, client.Frags, client.Flags, client.Deaths, int32(client.QuadTimer.TimeLeft()/time.Millisecond), client.ToWire())
 		}
 	}
@@ -156,7 +130,7 @@ func (s *Server) SendWelcome(c *Client) {
 
 	// send other client's state (name, team, playermodel)
 	for _, client := range s.Clients.cs {
-		if client != c && client.Peer != nil {
+		if client != c {
 			p = append(p, nmc.InitializeClient, client.CN, client.Name, client.Team.Name, client.Model)
 		}
 	}
@@ -166,18 +140,14 @@ func (s *Server) SendWelcome(c *Client) {
 
 // Tells other clients that the client disconnected, giving a disconnect reason in case it's not a normal leave.
 func (cm *ClientManager) Disconnect(c *Client, reason disconnectreason.ID) {
-	if c.Peer == nil {
-		return
-	}
-
 	cm.Relay(c, nmc.Leave, c.CN)
 
 	msg := ""
 	if reason != disconnectreason.None {
-		msg = fmt.Sprintf("%s (%s) disconnected because: %s", cm.UniqueName(c), c.Peer.Address.IP, reason)
+		msg = fmt.Sprintf("%s disconnected because: %s", cm.UniqueName(c), reason)
 		cm.Relay(c, nmc.ServerMessage, msg)
 	} else {
-		msg = fmt.Sprintf("%s (%s) disconnected", cm.UniqueName(c), c.Peer.Address.IP)
+		msg = fmt.Sprintf("%s disconnected", cm.UniqueName(c))
 	}
 	log.Println(cubecode.SanitizeString(msg))
 }
@@ -226,20 +196,11 @@ func (s *Server) PrivilegedUsersPacket() (typ nmc.ID, p protocol.Packet, noPrivi
 
 // Returns the number of connected clients.
 func (cm *ClientManager) NumberOfClientsConnected() (n int) {
-	for _, c := range cm.cs {
-		if c.Peer == nil {
-			continue
-		}
-		n++
-	}
-	return
+	return len(cm.cs)
 }
 
 func (cm *ClientManager) ForEach(do func(c *Client)) {
 	for _, c := range cm.cs {
-		if c.Peer == nil {
-			continue
-		}
 		do(c)
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sauerbraten/waiter/internal/net/packet"
+	"github.com/cfoust/sour/pkg/server/net/packet"
 	"github.com/cfoust/sour/pkg/server/game"
 	"github.com/cfoust/sour/pkg/server/geom"
 	"github.com/cfoust/sour/pkg/server/protocol"

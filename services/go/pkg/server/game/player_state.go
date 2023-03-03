@@ -5,7 +5,7 @@ import (
 
 	"github.com/sauerbraten/timer"
 
-	"github.com/sauerbraten/waiter/internal/net/packet"
+	"github.com/cfoust/sour/pkg/server/net/packet"
 	"github.com/cfoust/sour/pkg/server/protocol/armour"
 	"github.com/cfoust/sour/pkg/server/protocol/entity"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"

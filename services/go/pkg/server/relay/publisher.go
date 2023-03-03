@@ -1,7 +1,7 @@
 package relay
 
 import (
-	"github.com/sauerbraten/waiter/internal/net/packet"
+	"github.com/cfoust/sour/pkg/server/net/packet"
 )
 
 // Publisher provides methods to send updates to all subscribers of a certain topic.

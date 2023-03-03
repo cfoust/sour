@@ -4,19 +4,11 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"strings"
 	"time"
 
-	"github.com/sauerbraten/maitred/v2/pkg/auth"
-	mserver "github.com/sauerbraten/maitred/v2/pkg/client"
-	mprotocol "github.com/sauerbraten/maitred/v2/pkg/protocol"
-
-	"github.com/sauerbraten/waiter/internal/relay"
-	"github.com/cfoust/sour/pkg/server/bans"
-	"github.com/cfoust/sour/pkg/server/enet"
 	"github.com/cfoust/sour/pkg/server/game"
-	"github.com/cfoust/sour/pkg/server/geoip"
 	"github.com/cfoust/sour/pkg/server/geom"
+	"github.com/cfoust/sour/pkg/server/relay"
 	"github.com/cfoust/sour/pkg/server/maprot"
 	"github.com/cfoust/sour/pkg/server/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/cubecode"
@@ -29,15 +21,10 @@ import (
 )
 
 type Server struct {
-	host *enet.Host
 	*Config
 	*State
 	relay            *relay.Relay
 	Clients          *ClientManager
-	AuthManager      *auth.Manager
-	BanManager       *bans.BanManager
-	StatsServer      *mserver.Client
-	StatsServerAdmin *mserver.Admin
 	MapRotation      *maprot.Rotation
 	PendingMapChange *time.Timer
 	callbacks        chan<- func()
@@ -50,12 +37,11 @@ type Server struct {
 	ReportStats     bool
 }
 
-func New(host *enet.Host, conf *Config, banManager *bans.BanManager, commands ...*ServerCommand) (*Server, <-chan func()) {
+func New(conf *Config, commands ...*ServerCommand) (*Server, <-chan func()) {
 	callbacks := make(chan func())
 	clients := &ClientManager{}
 
 	s := &Server{
-		host:   host,
 		Config: conf,
 		State: &State{
 			MasterMode: mastermode.Auth,
@@ -64,7 +50,6 @@ func New(host *enet.Host, conf *Config, banManager *bans.BanManager, commands ..
 		},
 		relay:       relay.New(),
 		Clients:     clients,
-		BanManager:  banManager,
 		MapRotation: maprot.NewRotation(conf.MapPools),
 		callbacks:   callbacks,
 		rng:         rand.New(rand.NewSource(time.Now().UnixNano())),
@@ -77,24 +62,12 @@ func New(host *enet.Host, conf *Config, banManager *bans.BanManager, commands ..
 
 func (s *Server) GameDuration() time.Duration { return s.Config.GameDuration }
 
-func (s *Server) AuthRequiredBecause(c *Client) disconnectreason.ID {
-	if s.NumClients() >= s.MaxClients {
-		return disconnectreason.Full
-	}
-	if s.MasterMode >= mastermode.Private {
-		return disconnectreason.PrivateMode
-	}
-	if ban, ok := s.BanManager.GetBan(c.Peer.Address.IP); ok {
-		log.Println("connecting client", c, "is banned:", ban)
-		return disconnectreason.IPBanned
-	}
-	return disconnectreason.None
-}
-
-func (s *Server) Connect(peer *enet.Peer) {
-	log.Println("connecting:", peer)
-	client := s.Clients.Add(peer)
-	client.Positions, client.Packets = s.relay.AddClient(client.CN, client.Peer.Send)
+func (s *Server) Connect() {
+	log.Println("connecting")
+	client := s.Clients.Add()
+	client.Positions, client.Packets = s.relay.AddClient(client.CN, func(channel uint8, payload []byte) {
+		panic("TODO")
+	})
 	client.Send(
 		nmc.ServerInfo,
 		client.CN,
@@ -111,41 +84,7 @@ func (s *Server) Connect(peer *enet.Peer) {
 func (s *Server) TryJoin(c *Client, name string, playerModel int32, authDomain, authName string) {
 	c.Name = name
 	c.Model = playerModel
-
-	onAutoAuthSuccess := func(rol role.ID) {
-		s.setAuthRole(c, rol, authDomain, authName)
-	}
-
-	onAutoAuthFailure := func(err error) {
-		log.Printf("unsuccessful auth try at connect by %s as '%s' [%s]: %v", c, authName, authDomain, err)
-	}
-
-	c.AuthRequiredBecause = s.AuthRequiredBecause(c)
-
-	if c.AuthRequiredBecause == disconnectreason.None {
-		s.Join(c)
-		if authDomain == s.AuthDomain && authName != "" {
-			go s.handleAuthRequest(c, authDomain, authName, onAutoAuthSuccess, onAutoAuthFailure)
-		}
-	} else if authDomain == s.AuthDomain && authName != "" {
-		// not in a new goroutine, so client does not get confused and sends nmc.ClientPing before the player joined
-		s.handleAuthRequest(c, authDomain, authName,
-			func(rol role.ID) {
-				if rol == role.None {
-					return
-				}
-				c.AuthRequiredBecause = disconnectreason.None
-				s.Join(c)
-				onAutoAuthSuccess(rol)
-			},
-			func(err error) {
-				onAutoAuthFailure(err)
-				s.Disconnect(c, c.AuthRequiredBecause)
-			},
-		)
-	} else {
-		s.Disconnect(c, c.AuthRequiredBecause)
-	}
+	s.Join(c)
 }
 
 // Puts a client into the current game, using the data the client provided with his nmc.TryJoin packet.
@@ -168,21 +107,8 @@ func (s *Server) Join(c *Client) {
 	}
 	s.Clients.InformOthersOfJoin(c)
 
-	sessionID := c.SessionID
-	go func() {
-		uniqueName := s.Clients.UniqueName(c)
-		log.Println(cubecode.SanitizeString(fmt.Sprintf("%s (%s) connected", uniqueName, c.Peer.Address.IP)))
-
-		country := geoip.Country(c.Peer.Address.IP) // slow!
-		s.callbacks <- func() {
-			if c.SessionID != sessionID {
-				return
-			}
-			if country != "" {
-				s.Clients.Relay(c, nmc.ServerMessage, fmt.Sprintf("%s connected from %s", uniqueName, country))
-			}
-		}
-	}()
+	uniqueName := s.Clients.UniqueName(c)
+	log.Println(cubecode.SanitizeString(fmt.Sprintf("%s connected", uniqueName)))
 
 	c.Send(nmc.ServerMessage, s.MessageOfTheDay)
 	c.Send(nmc.RequestAuth, s.StatsServerAuthDomain)
@@ -224,7 +150,6 @@ func (s *Server) Disconnect(client *Client, reason disconnectreason.ID) {
 	s.relay.RemoveClient(client.CN)
 	s.Clients.Disconnect(client, reason)
 	s.Clients.ForEach(func(c *Client) { log.Printf("%#v\n", c) })
-	s.host.Disconnect(client.Peer, reason)
 	client.Reset()
 	if len(s.Clients.PrivilegedUsers()) == 0 {
 		s.Unsupervised()
@@ -283,50 +208,17 @@ func (s *Server) Intermission() {
 	})
 
 	s.Clients.Broadcast(nmc.ServerMessage, "next up: "+nextMap)
-
-	if s.StatsServer != nil && s.ReportStats && s.NumClients() > 0 {
-		if s.StatsServer.HasExtension(mprotocol.SuccStats) {
-			s.ReportEndgameStats()
-		}
-	}
 }
 
 // Returns the number of connected clients playgin (i.e. joined and not spectating)
 func (s *Server) NumberOfPlayers() (n int) {
 	s.Clients.ForEach(func(c *Client) {
-		if c.Peer == nil || !c.Joined || c.State == playerstate.Spectator {
+		if !c.Joined || c.State == playerstate.Spectator {
 			return
 		}
 		n++
 	})
 	return
-}
-
-func (s *Server) ReportEndgameStats() {
-	stats := []string{}
-	s.Clients.ForEach(func(c *Client) {
-		if a, ok := c.Authentications[s.StatsServerAuthDomain]; ok {
-			stats = append(stats, fmt.Sprintf("%d %s %d %d %d %d %d", a.reqID, a.name, c.Frags, c.Deaths, c.Damage, c.DamagePotential, c.Flags))
-		}
-	})
-
-	s.StatsServer.Send("stats %d %s %s", s.GameMode.ID(), s.Map, strings.Join(stats, " "))
-}
-
-func (s *Server) HandleSuccStats(reqID uint32) {
-	s.Clients.ForEach(func(c *Client) {
-		if a, ok := c.Authentications[s.StatsServerAuthDomain]; ok && a.reqID == reqID {
-			c.Send(nmc.ServerMessage, fmt.Sprintf("your game statistics were reported to %s", s.StatsServerAuthDomain))
-		}
-	})
-}
-
-func (s *Server) HandleFailStats(reqID uint32, reason string) {
-	s.Clients.ForEach(func(c *Client) {
-		if a, ok := c.Authentications[s.StatsServerAuthDomain]; ok && a.reqID == reqID {
-			c.Send(nmc.ServerMessage, fmt.Sprintf("reporting your game statistics failed: %s", reason))
-		}
-	})
 }
 
 func (s *Server) ReAuthClients(domain string) {

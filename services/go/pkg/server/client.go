@@ -5,9 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/sauerbraten/waiter/internal/net/packet"
-	"github.com/sauerbraten/waiter/internal/relay"
-	"github.com/cfoust/sour/pkg/server/enet"
+	"github.com/cfoust/sour/pkg/server/relay"
 	"github.com/cfoust/sour/pkg/server/game"
 	"github.com/cfoust/sour/pkg/server/protocol/disconnectreason"
 	"github.com/cfoust/sour/pkg/server/protocol/nmc"
@@ -27,7 +25,6 @@ type Client struct {
 	Role                role.ID
 	Joined              bool                // true if the player is actually in the game
 	AuthRequiredBecause disconnectreason.ID // e.g. server is in private mode
-	Peer                *enet.Peer
 	SessionID           int32
 	Ping                int32
 	Positions           *relay.Publisher
@@ -35,10 +32,9 @@ type Client struct {
 	Authentications     map[string]*Authentication
 }
 
-func NewClient(cn uint32, peer *enet.Peer) *Client {
+func NewClient(cn uint32) *Client {
 	return &Client{
 		Player:          game.NewPlayer(cn),
-		Peer:            peer,
 		SessionID:       rng.Int31(),
 		Authentications: map[string]*Authentication{},
 	}
@@ -50,7 +46,6 @@ func (c *Client) Reset() {
 	c.Role = role.None
 	c.Joined = false
 	c.AuthRequiredBecause = disconnectreason.None
-	c.Peer = nil
 	c.SessionID = rng.Int31()
 	c.Ping = 0
 	if c.Positions != nil {
@@ -69,5 +64,6 @@ func (c *Client) String() string {
 }
 
 func (c *Client) Send(typ nmc.ID, args ...interface{}) {
-	c.Peer.Send(1, packet.Encode(typ, packet.Encode(args...)))
+	//c.Peer.Send(1, packet.Encode(typ, packet.Encode(args...)))
+	panic("TODO")
 }
