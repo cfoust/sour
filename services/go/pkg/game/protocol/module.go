@@ -388,8 +388,8 @@ func (m Teleport) Type() MessageCode { return N_TELEPORT }
 
 // N_SPECTATOR
 type Spectator struct {
-	Client int
-	Value  int
+	Client     int
+	Spectating bool
 }
 
 func (m Spectator) Type() MessageCode { return N_SPECTATOR }
@@ -483,21 +483,22 @@ type Resume struct {
 func (m Resume) Type() MessageCode { return N_RESUME }
 
 // N_INITFLAGS
+type TeamScore struct {
+	Score int
+}
+type FlagState struct {
+	Version   int
+	Spawn     int
+	Owner     int `type:"cond" cmp:"lz"`
+	Invisible int
+	Dropped   int `type:"cond" cmp:"nz"`
+	Dx        int
+	Dy        int
+	Dz        int
+}
 type InitFlags struct {
-	Teamscores []struct {
-		Score int
-	} `type:"count" const:"2"`
-
-	Flags []struct {
-		Version   int
-		Spawn     int
-		Owner     int `type:"cond" cmp:"lz"`
-		Invisible int
-		Dropped   int `type:"cond" cmp:"nz"`
-		Dx        int
-		Dy        int
-		Dz        int
-	} `type:"count"`
+	Scores []TeamScore `type:"count" const:"2"`
+	Flags  []FlagState `type:"count"`
 }
 
 func (m InitFlags) Type() MessageCode { return N_INITFLAGS }

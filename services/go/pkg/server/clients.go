@@ -11,7 +11,6 @@ import (
 	"github.com/cfoust/sour/pkg/server/game"
 	"github.com/cfoust/sour/pkg/server/protocol/cubecode"
 	"github.com/cfoust/sour/pkg/server/protocol/disconnectreason"
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
 	"github.com/cfoust/sour/pkg/server/protocol/role"
 
@@ -152,8 +151,8 @@ func (s *GameServer) SendWelcome(c *Client) {
 	// tell the client how to spawn (what health, what armour, what weapons, what ammo, etc.)
 	if c.State == playerstate.Spectator {
 		messages = append(messages, protocol.Spectator{
-			Client: int(c.CN),
-			Value:  1,
+			Client:     int(c.CN),
+			Spectating: true,
 		})
 	} else {
 		// TODO: handle spawn delay (e.g. in ctf modes)
@@ -199,12 +198,12 @@ func (s *GameServer) SendWelcome(c *Client) {
 
 // Tells other clients that the client disconnected, giving a disconnect reason in case it's not a normal leave.
 func (cm *ClientManager) Disconnect(c *Client, reason disconnectreason.ID) {
-	cm.Relay(c, nmc.Leave, c.CN)
+	cm.Relay(c, protocol.ClientDisconnected{int(c.CN)})
 
 	msg := ""
 	if reason != disconnectreason.None {
 		msg = fmt.Sprintf("%s disconnected because: %s", cm.UniqueName(c), reason)
-		cm.Relay(c, nmc.ServerMessage, msg)
+		cm.Relay(c, protocol.ServerMessage{msg})
 	} else {
 		msg = fmt.Sprintf("%s disconnected", cm.UniqueName(c))
 	}
@@ -224,9 +223,14 @@ func (cm *ClientManager) Disconnect(c *Client, reason disconnectreason.ID) {
 
 // Informs all other clients that a client joined the game.
 func (cm *ClientManager) InformOthersOfJoin(c *Client) {
-	cm.Relay(c, nmc.InitializeClient, c.CN, c.Name, c.Team.Name, c.Model)
+	cm.Relay(c, protocol.InitClient{
+		int(c.CN), c.Name, c.Team.Name, int(c.Model),
+	})
+
 	if c.State == playerstate.Spectator {
-		cm.Relay(c, nmc.Spectator, c.CN, 1)
+		cm.Relay(c, protocol.Spectator{
+			int(c.CN), true,
+		})
 	}
 }
 
@@ -237,7 +241,10 @@ func (s *GameServer) MapChange() {
 			return
 		}
 		s.Spawn(c)
-		c.Send(nmc.SpawnState, c.CN, c.ToWire())
+		c.Send(protocol.SpawnState{
+			Client:      int(c.CN),
+			EntityState: c.ToWire(),
+		})
 	})
 }
 
