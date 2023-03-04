@@ -75,19 +75,19 @@ func (e *EditVar) Unmarshal(p *io.Packet) error {
 	case variables.VariableTypeInt:
 		value, ok := p.GetInt()
 		if !ok {
-			return FAILED
+			return FAILED_EDIT
 		}
 		e.Value = variables.IntVariable(value)
 	case variables.VariableTypeFloat:
 		value, ok := p.GetFloat()
 		if !ok {
-			return FAILED
+			return FAILED_EDIT
 		}
 		e.Value = variables.FloatVariable(value)
 	case variables.VariableTypeString:
 		value, ok := p.GetString()
 		if !ok {
-			return FAILED
+			return FAILED_EDIT
 		}
 		e.Value = variables.StringVariable(value)
 	}
@@ -118,11 +118,11 @@ func (e *EditVSlot) Unmarshal(p *io.Packet) error {
 	q := io.Buffer(*p)
 	numBytes, ok := q.GetShort()
 	if !ok {
-		return FAILED
+		return FAILED_EDIT
 	}
 	e.Extra, ok = q.GetBytes(int(numBytes))
 	if !ok {
-		return FAILED
+		return FAILED_EDIT
 	}
 
 	*p = io.Packet(q)
@@ -166,7 +166,7 @@ func (e *PackData) Unmarshal(p *io.Packet) error {
 	q := io.Buffer(*p)
 	data, ok := q.GetBytes(int(e.PackLength))
 	if !ok {
-		return FAILED
+		return FAILED_EDIT
 	}
 	e.Data = data
 
@@ -194,7 +194,7 @@ type EditTexture struct {
 
 func (m EditTexture) Type() MessageCode { return N_EDITT }
 
-var FAILED = fmt.Errorf("failed to unmarshal edit message")
+var FAILED_EDIT = fmt.Errorf("failed to unmarshal edit message")
 
 func (e *EditTexture) Unmarshal(p *io.Packet) error {
 	err := p.Get(
@@ -209,11 +209,11 @@ func (e *EditTexture) Unmarshal(p *io.Packet) error {
 	q := io.Buffer(*p)
 	numBytes, ok := q.GetShort()
 	if !ok {
-		return FAILED
+		return FAILED_EDIT
 	}
 	e.Extra, ok = q.GetBytes(int(numBytes))
 	if !ok {
-		return FAILED
+		return FAILED_EDIT
 	}
 
 	*p = io.Packet(q)
@@ -327,11 +327,11 @@ func (e *Replace) Unmarshal(p *io.Packet) error {
 	q := io.Buffer(*p)
 	numBytes, ok := q.GetShort()
 	if !ok {
-		return FAILED
+		return FAILED_EDIT
 	}
 	e.Extra, ok = q.GetBytes(int(numBytes))
 	if !ok {
-		return FAILED
+		return FAILED_EDIT
 	}
 
 	*p = io.Packet(q)

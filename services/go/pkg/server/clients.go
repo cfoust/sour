@@ -128,9 +128,7 @@ func (s *GameServer) SendWelcome(c *Client) {
 	}
 
 	if teamMode, ok := s.GameMode.(game.TeamMode); ok {
-		teamInfo := protocol.TeamInfo{
-			Teams: make([]protocol.Team, 0),
-		}
+		teamInfo := protocol.TeamInfo{}
 
 		teamMode.ForEachTeam(func(t *game.Team) {
 			if t.Frags > 0 {
@@ -163,9 +161,7 @@ func (s *GameServer) SendWelcome(c *Client) {
 	}
 
 	// send other players' state (frags, flags, etc.)
-	resume := protocol.Resume{
-		Clients: make([]protocol.ClientState, 0),
-	}
+	resume := protocol.Resume{}
 	for _, client := range s.Clients.clients {
 		if client != c {
 			resume.Clients = append(
@@ -262,19 +258,16 @@ func (s *GameServer) PrivilegedUsersPacket() (protocol.Message, bool) {
 		MasterMode: int(s.MasterMode),
 	}
 
-	privileges := make([]protocol.ClientPrivilege, 0)
 	s.Clients.ForEach(func(c *Client) {
 		if c.Role > role.None {
-			privileges = append(privileges, protocol.ClientPrivilege{
+			message.Clients = append(message.Clients, protocol.ClientPrivilege{
 				int(c.CN),
 				int(c.Role),
 			})
 		}
 	})
 
-	message.Clients = privileges
-
-	return message, len(privileges) == 0
+	return message, len(message.Clients) == 0
 }
 
 // Returns the number of connected clients.

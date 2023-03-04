@@ -3,7 +3,6 @@ package io
 import (
 	"fmt"
 	"reflect"
-	"strconv"
 )
 
 type Unmarshalable interface {
@@ -12,6 +11,29 @@ type Unmarshalable interface {
 
 type Marshalable interface {
 	Marshal(p *Packet) error
+}
+
+// Get the first field of a struct type.
+func findTerminationField(type_ reflect.Type) (reflect.Type, error) {
+	if type_.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("type:term only applies to struct slices")
+	}
+
+	if type_.NumField() == 0 {
+		return nil, fmt.Errorf("type:term requires at least one field")
+	}
+
+	// i'll be back
+	terminator := type_.Field(0).Type
+
+	switch terminator.Kind() {
+	case reflect.String:
+		fallthrough
+	case reflect.Int:
+		return terminator, nil
+	default:
+		return nil, fmt.Errorf("type:term had invalid terminator type")
+	}
 }
 
 func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
@@ -24,34 +46,41 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 		fieldValue := value.Field(i)
 
 		switch field.Type.Kind() {
-		case reflect.Slice:
-			element := field.Type.Elem()
-			tag := field.Tag
-			if len(tag) == 0 {
-				return fmt.Errorf("all arrays must specify tag")
+		case reflect.Array:
+			numElements := field.Type.Len()
+			for i := 0; i < numElements; i++ {
+				err := UnmarshalValue(p, field.Type.Elem(), fieldValue.Index(i).Addr())
+				if err != nil {
+					return err
+				}
 			}
 
-			endType, haveType := field.Tag.Lookup("type")
-			if !haveType {
-				return fmt.Errorf("all arrays must specify a type in the tag")
+		case reflect.Slice:
+			element := field.Type.Elem()
+
+			endType := "count"
+
+			tag := field.Tag
+			if len(tag) != 0 {
+				endType, _ = field.Tag.Lookup("type")
 			}
 
 			slice := reflect.MakeSlice(field.Type, 0, 0)
 
 			switch endType {
-			// There is some condition that indicates the array is done
 			case "term":
-				cmp, haveCmp := field.Tag.Lookup("cmp")
-				if !haveCmp {
-					return fmt.Errorf("term tags must specify end condition")
+				// There is some condition that indicates the array is done
+				terminator, err := findTerminationField(element)
+				if err != nil {
+					return err
 				}
 
 				for {
 					peekable := Packet(*p)
 
 					done := false
-					switch cmp {
-					case "gez":
+					switch terminator.Kind() {
+					case reflect.Int:
 						endValue, ok := peekable.GetInt()
 						if !ok {
 							return fmt.Errorf("failed to read int condition")
@@ -62,7 +91,7 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 							done = true
 							break
 						}
-					case "len":
+					case reflect.String:
 						endValue, ok := peekable.GetString()
 						if !ok {
 							return fmt.Errorf("failed to read string condition")
@@ -80,34 +109,28 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 					}
 
 					entry := reflect.New(element)
-					err := unmarshalStruct(p, element, entry.Elem())
+					err := UnmarshalValue(p, element, entry)
 					if err != nil {
 						return err
 					}
 
-					reflect.Append(slice, entry.Elem())
+					slice = reflect.Append(slice, entry.Elem())
 				}
 			case "count":
-				number, haveConst := field.Tag.Lookup("const")
-				var numElements int
-				if haveConst {
-					numElements, _ = strconv.Atoi(number)
-				} else {
-					readElements, ok := p.GetInt()
-					if !ok {
-						return fmt.Errorf("failed to read number of elements")
-					}
-					numElements = int(readElements)
+				readElements, ok := p.GetInt()
+				if !ok {
+					return fmt.Errorf("failed to read number of elements")
 				}
+				numElements := int(readElements)
 
 				for i := 0; i < numElements; i++ {
 					entry := reflect.New(element)
-					err := unmarshalStruct(p, element, entry.Elem())
+					err := UnmarshalValue(p, element, entry)
 					if err != nil {
 						return err
 					}
 
-					reflect.Append(slice, entry.Elem())
+					slice = reflect.Append(slice, entry.Elem())
 				}
 				break
 			default:
@@ -213,7 +236,100 @@ func Unmarshal(p *Packet, pieces ...interface{}) error {
 	return nil
 }
 
+func marshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
+	if value.Kind() != reflect.Struct {
+		return fmt.Errorf("cannot marshal non-struct")
+	}
+
+	for i := 0; i < type_.NumField(); i++ {
+		field := type_.Field(i)
+		fieldValue := value.Field(i)
+
+		switch field.Type.Kind() {
+		case reflect.Array:
+			// No need to put the number of elements if it's constant
+			for i := 0; i < field.Type.Len(); i++ {
+				err := MarshalValue(p, field.Type.Elem(), fieldValue.Index(i))
+				if err != nil {
+					return err
+				}
+			}
+
+		case reflect.Slice:
+			element := field.Type.Elem()
+
+			endType := "count"
+
+			tag := field.Tag
+			if len(tag) != 0 {
+				endType, _ = field.Tag.Lookup("type")
+			}
+
+			switch endType {
+			case "term":
+				// There is some condition that indicates the array is done
+				terminator, err := findTerminationField(element)
+				if err != nil {
+					return err
+				}
+
+				numElements := fieldValue.Len()
+
+				for i := 0; i < numElements; i++ {
+					err := MarshalValue(p, element, fieldValue.Index(i))
+					if err != nil {
+						return err
+					}
+				}
+
+				switch terminator.Kind() {
+				case reflect.Int:
+					err := p.Put(-1)
+					if err != nil {
+						return err
+					}
+				case reflect.String:
+					err := p.Put("")
+					if err != nil {
+						return err
+					}
+				}
+			case "count":
+				numElements := fieldValue.Len()
+
+				err := p.Put(numElements)
+				if err != nil {
+					return err
+				}
+
+				for i := 0; i < numElements; i++ {
+					err := MarshalValue(p, element, fieldValue.Index(i))
+					if err != nil {
+						return err
+					}
+				}
+				break
+			default:
+				return fmt.Errorf("unhandled end type: %s", endType)
+			}
+		default:
+			err := MarshalValue(p, field.Type, fieldValue)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func MarshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
+	if value.Kind() == reflect.Pointer {
+		// we could support this, but it's a code smell because encoded
+		// data by definition cannot "point" anywhere
+		return fmt.Errorf("cannot marshal pointer to value")
+	}
+
 	if u, ok := value.Interface().(Marshalable); ok {
 		return u.Marshal(p)
 	}
@@ -241,10 +357,9 @@ func MarshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	case reflect.String:
 		p.PutString(value.String())
 	case reflect.Struct:
-		for i := 0; i < type_.NumField(); i++ {
-			field := type_.Field(i)
-			fieldValue := value.Field(i)
-			MarshalValue(p, field.Type, fieldValue)
+		err := marshalStruct(p, type_, value)
+		if err != nil {
+			return err
 		}
 	default:
 		return fmt.Errorf("unimplemented type: %s", type_.String())

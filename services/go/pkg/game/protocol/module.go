@@ -1,12 +1,16 @@
 package protocol
 
 import (
+	"fmt"
+
 	"github.com/cfoust/sour/pkg/game/io"
 )
 
 type Message interface {
 	Type() MessageCode
 }
+
+var FAILED = fmt.Errorf("failed to unmarshal message")
 
 // N_ADDBOT
 type AddBot struct {
@@ -113,7 +117,7 @@ type Explode struct {
 	Cmillis int
 	Gun     int
 	Id      int
-	Hits    []Hit `type:"count"`
+	Hits    []Hit
 }
 
 func (m Explode) Type() MessageCode { return N_EXPLODE }
@@ -236,7 +240,7 @@ type Shoot struct {
 	To0   int
 	To1   int
 	To2   int
-	Hits  []Hit `type:"count"`
+	Hits  []Hit
 }
 
 func (m Shoot) Type() MessageCode { return N_SHOOT }
@@ -456,7 +460,7 @@ type EntityState struct {
 	Armour       int
 	Armourtype   int
 	Gunselect    int
-	Ammo         []AmmoState `type:"count" const:"6"`
+	Ammo         [6]AmmoState
 }
 type SpawnState struct {
 	Client int
@@ -497,8 +501,8 @@ type FlagState struct {
 	Dz        int
 }
 type InitFlags struct {
-	Scores []TeamScore `type:"count" const:"2"`
-	Flags  []FlagState `type:"count"`
+	Scores [2]TeamScore
+	Flags  []FlagState
 }
 
 func (m InitFlags) Type() MessageCode { return N_INITFLAGS }
@@ -568,14 +572,15 @@ type InvisFlag struct {
 func (m InvisFlag) Type() MessageCode { return N_INVISFLAG }
 
 // N_BASES
+type BaseState struct {
+	AmmoType  int
+	Owner     string
+	Enemy     string
+	Converted int
+	AmmoCount int
+}
 type Bases struct {
-	Bases []struct {
-		AmmoType  int
-		Owner     string
-		Enemy     string
-		Converted int
-		AmmoCount int
-	} `type:"count"`
+	Bases []BaseState
 }
 
 func (m Bases) Type() MessageCode { return N_BASES }
@@ -586,7 +591,7 @@ type BaseInfo struct {
 	Owner     string
 	Enemy     string
 	Converted int
-	Ammocount int
+	AmmoCount int
 }
 
 func (m BaseInfo) Type() MessageCode { return N_BASEINFO }
@@ -626,24 +631,22 @@ type BaseRegen struct {
 func (m BaseRegen) Type() MessageCode { return N_BASEREGEN }
 
 // N_INITTOKENS
+type TokenState struct {
+	Token int
+	Team  int
+	Yaw   int
+	X     int
+	Y     int
+	Z     int
+}
+type ClientTokenState struct {
+	Client int
+	Count  int
+}
 type InitTokens struct {
-	TeamScores []struct {
-		Score int
-	} `type:"count" const:"2"`
-
-	Tokens []struct {
-		Token int
-		Team  int
-		Yaw   int
-		X     int
-		Y     int
-		Z     int
-	} `type:"count"`
-
-	ClientTokens []struct {
-		Client int
-		Count  int
-	} `type:"term" cmp:"gez"`
+	TeamScores   [2]TeamScore
+	Tokens       []TokenState
+	ClientTokens []ClientTokenState `type:"term" cmp:"gez"`
 }
 
 func (m InitTokens) Type() MessageCode { return N_INITTOKENS }
@@ -826,7 +829,7 @@ func (m InitAI) Type() MessageCode { return N_INITAI }
 type SendDemoList struct {
 	Demos []struct {
 		Info string
-	} `type:"count"`
+	}
 }
 
 func (m SendDemoList) Type() MessageCode { return N_SENDDEMOLIST }
@@ -867,9 +870,9 @@ type SpawnResponse struct {
 	Armour       int
 	ArmourType   int
 	GunSelect    int
-	Ammo         []struct {
+	Ammo         [6]struct {
 		Amount int
-	} `type:"count" const:"6"`
+	}
 }
 
 func (m SpawnResponse) Type() MessageCode { return N_SPAWN }

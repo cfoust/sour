@@ -163,7 +163,6 @@ func (m *handlesPickups) initPickups(pkt *protocol.ItemList) {
 
 func (m *handlesPickups) PickupsInitPacket() protocol.Message {
 	message := protocol.ItemList{}
-	message.Items = make([]protocol.Item, 0)
 	for id, p := range m.pickups {
 		if p.pendingSpawn.TimeLeft() == 0 {
 			message.Items = append(message.Items, protocol.Item{int(id), int(p.Typ)})
