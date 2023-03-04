@@ -1,7 +1,11 @@
-package game
+package protocol
 
 import (
 	"fmt"
+
+	"github.com/cfoust/sour/pkg/game/constants"
+	"github.com/cfoust/sour/pkg/game/io"
+	"github.com/cfoust/sour/pkg/game/variables"
 )
 
 var EDIT_MESSAGES = []MessageCode{
@@ -52,10 +56,12 @@ type Selection struct {
 // N_EDITVAR
 type EditVar struct {
 	Key   string
-	Value Variable
+	Value variables.Variable
 }
 
-func (e *EditVar) Unmarshal(p *Packet) error {
+func (m EditVar) Type() MessageCode { return N_EDITVAR }
+
+func (e *EditVar) Unmarshal(p *io.Packet) error {
 	var type_ int32
 	err := p.Get(
 		&type_,
@@ -65,25 +71,25 @@ func (e *EditVar) Unmarshal(p *Packet) error {
 		return err
 	}
 
-	switch VariableType(type_) {
-	case VariableTypeInt:
+	switch variables.VariableType(type_) {
+	case variables.VariableTypeInt:
 		value, ok := p.GetInt()
 		if !ok {
 			return FAILED
 		}
-		e.Value = IntVariable(value)
-	case VariableTypeFloat:
+		e.Value = variables.IntVariable(value)
+	case variables.VariableTypeFloat:
 		value, ok := p.GetFloat()
 		if !ok {
 			return FAILED
 		}
-		e.Value = FloatVariable(value)
-	case VariableTypeString:
+		e.Value = variables.FloatVariable(value)
+	case variables.VariableTypeString:
 		value, ok := p.GetString()
 		if !ok {
 			return FAILED
 		}
-		e.Value = StringVariable(value)
+		e.Value = variables.StringVariable(value)
 	}
 
 	return nil
@@ -97,7 +103,9 @@ type EditVSlot struct {
 	Extra    []byte
 }
 
-func (e *EditVSlot) Unmarshal(p *Packet) error {
+func (m EditVSlot) Type() MessageCode { return N_EDITVSLOT }
+
+func (e *EditVSlot) Unmarshal(p *io.Packet) error {
 	err := p.Get(
 		&e.Sel,
 		&e.Delta,
@@ -107,7 +115,7 @@ func (e *EditVSlot) Unmarshal(p *Packet) error {
 		return err
 	}
 
-	q := Buffer(*p)
+	q := io.Buffer(*p)
 	numBytes, ok := q.GetShort()
 	if !ok {
 		return FAILED
@@ -117,7 +125,7 @@ func (e *EditVSlot) Unmarshal(p *Packet) error {
 		return FAILED
 	}
 
-	*p = Packet(q)
+	*p = io.Packet(q)
 
 	return nil
 }
@@ -133,7 +141,19 @@ type PackData struct {
 	Data         []byte
 }
 
-func (e *PackData) Unmarshal(p *Packet) error {
+type Redo PackData
+
+func (m Redo) Type() MessageCode { return N_REDO }
+
+type Undo PackData
+
+func (m Undo) Type() MessageCode { return N_UNDO }
+
+type Clipboard PackData
+
+func (m Clipboard) Type() MessageCode { return N_CLIPBOARD }
+
+func (e *PackData) Unmarshal(p *io.Packet) error {
 	err := p.Get(
 		&e.Client,
 		&e.UnpackLength,
@@ -143,36 +163,40 @@ func (e *PackData) Unmarshal(p *Packet) error {
 		return err
 	}
 
-	q := Buffer(*p)
+	q := io.Buffer(*p)
 	data, ok := q.GetBytes(int(e.PackLength))
 	if !ok {
 		return FAILED
 	}
 	e.Data = data
 
-	*p = Packet(q)
+	*p = io.Packet(q)
 
 	return nil
 }
 
 // N_EDITF
-type Editf struct {
+type EditFace struct {
 	Sel  Selection
 	Dir  int
 	Mode int
 }
 
+func (m EditFace) Type() MessageCode { return N_EDITF }
+
 // N_EDITT
-type Editt struct {
+type EditTexture struct {
 	Sel      Selection
 	Tex      int
 	AllFaces int
 	Extra    []byte
 }
 
-var FAILED = fmt.Errorf("failed to unmarshal")
+func (m EditTexture) Type() MessageCode { return N_EDITT }
 
-func (e *Editt) Unmarshal(p *Packet) error {
+var FAILED = fmt.Errorf("failed to unmarshal edit message")
+
+func (e *EditTexture) Unmarshal(p *io.Packet) error {
 	err := p.Get(
 		&e.Sel,
 		&e.Tex,
@@ -182,7 +206,7 @@ func (e *Editt) Unmarshal(p *Packet) error {
 		return err
 	}
 
-	q := Buffer(*p)
+	q := io.Buffer(*p)
 	numBytes, ok := q.GetShort()
 	if !ok {
 		return FAILED
@@ -192,33 +216,37 @@ func (e *Editt) Unmarshal(p *Packet) error {
 		return FAILED
 	}
 
-	*p = Packet(q)
+	*p = io.Packet(q)
 
 	return nil
 }
 
 // N_EDITM
-type Editm struct {
+type EditMaterial struct {
 	Sel    Selection
 	Mat    int
 	Filter int
 }
 
+func (m EditMaterial) Type() MessageCode { return N_EDITM }
+
 // N_EDITENT
-type EditEnt struct {
-	Index int
-	X     float32
-	Y     float32
-	Z     float32
-	Type  int
-	Attr1 int
-	Attr2 int
-	Attr3 int
-	Attr4 int
-	Attr5 int
+type EditEntity struct {
+	Index      int
+	X          float32
+	Y          float32
+	Z          float32
+	EntityType int
+	Attr1      int
+	Attr2      int
+	Attr3      int
+	Attr4      int
+	Attr5      int
 }
 
-func (e *EditEnt) Unmarshal(p *Packet) error {
+func (m EditEntity) Type() MessageCode { return N_EDITENT }
+
+func (e *EditEntity) Unmarshal(p *io.Packet) error {
 	var X int
 	var Y int
 	var Z int
@@ -227,7 +255,7 @@ func (e *EditEnt) Unmarshal(p *Packet) error {
 		&X,
 		&Y,
 		&Z,
-		&e.Type,
+		&e.EntityType,
 		&e.Attr1,
 		&e.Attr2,
 		&e.Attr3,
@@ -238,9 +266,9 @@ func (e *EditEnt) Unmarshal(p *Packet) error {
 		return err
 	}
 
-	e.X = float32(X) / DMF
-	e.Y = float32(Y) / DMF
-	e.Z = float32(Z) / DMF
+	e.X = float32(X) / constants.DMF
+	e.Y = float32(Y) / constants.DMF
+	e.Z = float32(Z) / constants.DMF
 
 	return nil
 }
@@ -250,21 +278,29 @@ type Copy struct {
 	Sel Selection
 }
 
+func (m Copy) Type() MessageCode { return N_COPY }
+
 // N_PASTE
 type Paste struct {
 	Sel Selection
 }
+
+func (m Paste) Type() MessageCode { return N_PASTE }
 
 // N_FLIP
 type Flip struct {
 	Sel Selection
 }
 
+func (m Flip) Type() MessageCode { return N_FLIP }
+
 // N_ROTATE
 type Rotate struct {
 	Sel Selection
 	Dir int
 }
+
+func (m Rotate) Type() MessageCode { return N_ROTATE }
 
 // N_REPLACE
 type Replace struct {
@@ -275,7 +311,9 @@ type Replace struct {
 	Extra  []byte
 }
 
-func (e *Replace) Unmarshal(p *Packet) error {
+func (m Replace) Type() MessageCode { return N_REPLACE }
+
+func (e *Replace) Unmarshal(p *io.Packet) error {
 	err := p.Get(
 		&e.Sel,
 		&e.Tex,
@@ -286,7 +324,7 @@ func (e *Replace) Unmarshal(p *Packet) error {
 		return err
 	}
 
-	q := Buffer(*p)
+	q := io.Buffer(*p)
 	numBytes, ok := q.GetShort()
 	if !ok {
 		return FAILED
@@ -296,21 +334,27 @@ func (e *Replace) Unmarshal(p *Packet) error {
 		return FAILED
 	}
 
-	*p = Packet(q)
+	*p = io.Packet(q)
 
 	return nil
 }
 
 // N_DELCUBE
-type Delcube struct {
+type DeleteCube struct {
 	Sel Selection
 }
+
+func (m DeleteCube) Type() MessageCode { return N_DELCUBE }
 
 // N_NEWMAP
 type NewMap struct {
 	Size int
 }
 
+func (m NewMap) Type() MessageCode { return N_NEWMAP }
+
 // N_REMIP
 type Remip struct {
 }
+
+func (m Remip) Type() MessageCode { return N_REMIP }

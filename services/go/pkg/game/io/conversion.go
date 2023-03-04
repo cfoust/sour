@@ -22,7 +22,7 @@
 /*CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,*/
 /*OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE*/
 /*OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
-package game
+package io
 
 // conversion table: cubecode → unicode (i.e. using the cubecode code point as index)
 // cubecode is a small subset of unicode containing selected characters from the Basic Latin, Latin-1 Supplement,
