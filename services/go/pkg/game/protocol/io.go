@@ -25,7 +25,7 @@ func getMessageType(code MessageCode, fromClient bool) Message {
 	return message
 }
 
-func Read(b []byte, fromClient bool) ([]Message, error) {
+func Decode(b []byte, fromClient bool) ([]Message, error) {
 	messages := make([]Message, 0)
 	p := io.Packet(b)
 
@@ -59,4 +59,18 @@ func Read(b []byte, fromClient bool) ([]Message, error) {
 	}
 
 	return messages, nil
+}
+
+func Encode(messages []Message) ([]byte, error) {
+	p := io.Packet{}
+
+	for _, message := range messages {
+		err := p.Put(message.Type(), message)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return p, nil
 }

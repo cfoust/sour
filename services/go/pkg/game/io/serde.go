@@ -213,7 +213,7 @@ func Unmarshal(p *Packet, pieces ...interface{}) error {
 	return nil
 }
 
-func marshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
+func MarshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	if u, ok := value.Interface().(Marshalable); ok {
 		return u.Marshal(p)
 	}
@@ -244,7 +244,7 @@ func marshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 		for i := 0; i < type_.NumField(); i++ {
 			field := type_.Field(i)
 			fieldValue := value.Field(i)
-			marshalValue(p, field.Type, fieldValue)
+			MarshalValue(p, field.Type, fieldValue)
 		}
 	default:
 		return fmt.Errorf("unimplemented type: %s", type_.String())
@@ -258,7 +258,7 @@ func Marshal(p *Packet, pieces ...interface{}) error {
 		type_ := reflect.TypeOf(piece)
 		value := reflect.ValueOf(piece)
 
-		err := marshalValue(p, type_, value)
+		err := MarshalValue(p, type_, value)
 		if err != nil {
 			return err
 		}
