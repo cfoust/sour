@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-
-	"github.com/rs/zerolog/log"
 )
 
 type Unmarshalable interface {
@@ -19,12 +17,6 @@ type Marshalable interface {
 func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	if value.Kind() != reflect.Struct {
 		return fmt.Errorf("cannot unmarshal non-struct")
-	}
-
-	if type_ == reflect.TypeOf(PhysicsState{}) {
-		state := readPhysics(p)
-		value.Set(reflect.ValueOf(state))
-		return nil
 	}
 
 	for i := 0; i < type_.NumField(); i++ {
@@ -130,7 +122,7 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 				return err
 			}
 		default:
-			err := unmarshalValue(p, field.Type, fieldValue)
+			err := UnmarshalValue(p, field.Type, fieldValue.Addr())
 			if err != nil {
 				return err
 			}
@@ -140,7 +132,17 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	return nil
 }
 
-func unmarshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
+func UnmarshalValue(p *Packet, type_ reflect.Type, valuePtr reflect.Value) error {
+	if valuePtr.Kind() != reflect.Pointer {
+		return fmt.Errorf("cannot unmarshal into non-pointer value")
+	}
+
+	if u, ok := valuePtr.Interface().(Unmarshalable); ok {
+		return u.Unmarshal(p)
+	}
+
+	value := valuePtr.Elem()
+
 	switch type_.Kind() {
 	case reflect.Int32:
 		fallthrough
@@ -198,19 +200,11 @@ func unmarshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 
 func Unmarshal(p *Packet, pieces ...interface{}) error {
 	for _, piece := range pieces {
-		type_ := reflect.TypeOf(piece).Elem()
-		pointer := reflect.ValueOf(piece)
-		value := pointer.Elem()
-
-		if u, ok := pointer.Interface().(Unmarshalable); ok {
-			err := u.Unmarshal(p)
-			if err != nil {
-				return err
-			}
-			continue
-		}
-
-		err := unmarshalValue(p, type_, value)
+		err := UnmarshalValue(
+			p,
+			reflect.TypeOf(piece).Elem(),
+			reflect.ValueOf(piece),
+		)
 		if err != nil {
 			return err
 		}
@@ -220,10 +214,6 @@ func Unmarshal(p *Packet, pieces ...interface{}) error {
 }
 
 func marshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
-	if type_ == reflect.TypeOf(PhysicsState{}) {
-		return writePhysics(p, value.Interface().(PhysicsState))
-	}
-
 	if u, ok := value.Interface().(Marshalable); ok {
 		return u.Marshal(p)
 	}
@@ -275,50 +265,4 @@ func Marshal(p *Packet, pieces ...interface{}) error {
 	}
 
 	return nil
-}
-
-func UnmarshalMessage(p *Packet, code MessageCode, message Message) error {
-	// Throw away the type information (we got it already)
-	p.GetInt()
-
-	type_ := reflect.TypeOf(message)
-	value := reflect.ValueOf(message)
-
-	if value.Kind() != reflect.Ptr {
-		return fmt.Errorf("can't unmarshal non-pointer")
-	}
-
-	var err error
-	if u, ok := value.Interface().(Unmarshalable); ok {
-		err = u.Unmarshal(p)
-	} else {
-		err = unmarshalStruct(p, type_.Elem(), value.Elem())
-	}
-
-	return err
-}
-
-// Peek the first byte to determine the message type but don't deserialize the
-// rest of the packet.
-func Peek(b []byte) (Message, error) {
-	p := Packet(b)
-	type_, ok := p.GetInt()
-	if !ok {
-		return nil, fmt.Errorf("failed to read message type")
-	}
-
-	code := MessageCode(type_)
-
-	if code >= NUMMSG {
-		return nil, fmt.Errorf("code %d is not in range of messages", code)
-	}
-
-	raw := RawMessage{
-		code:    code,
-		message: nil,
-	}
-
-	raw.data = b
-
-	return raw, nil
 }
