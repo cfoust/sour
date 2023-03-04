@@ -8,8 +8,6 @@ import (
 
 	"github.com/cfoust/sour/pkg/server/game"
 	"github.com/cfoust/sour/pkg/server/geom"
-	"github.com/cfoust/sour/pkg/server/relay"
-	"github.com/cfoust/sour/pkg/server/maprot"
 	"github.com/cfoust/sour/pkg/server/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/cubecode"
 	"github.com/cfoust/sour/pkg/server/protocol/disconnectreason"
@@ -18,15 +16,16 @@ import (
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
 	"github.com/cfoust/sour/pkg/server/protocol/role"
 	"github.com/cfoust/sour/pkg/server/protocol/weapon"
+	"github.com/cfoust/sour/pkg/server/relay"
 )
 
-type Server struct {
+type GameServer struct {
 	*Config
 	*State
-	relay            *relay.Relay
-	Clients          *ClientManager
-	MapRotation      *maprot.Rotation
-	PendingMapChange *time.Timer
+	relay   *relay.Relay
+	Clients *ClientManager
+
+	pendingMapChange *time.Timer
 	callbacks        chan<- func()
 	rng              *rand.Rand
 
@@ -37,22 +36,21 @@ type Server struct {
 	ReportStats     bool
 }
 
-func New(conf *Config, commands ...*ServerCommand) (*Server, <-chan func()) {
+func New(conf *Config, commands ...*ServerCommand) (*GameServer, <-chan func()) {
 	callbacks := make(chan func())
 	clients := &ClientManager{}
 
-	s := &Server{
+	s := &GameServer{
 		Config: conf,
 		State: &State{
 			MasterMode: mastermode.Auth,
 			UpSince:    time.Now(),
 			NumClients: clients.NumberOfClientsConnected,
 		},
-		relay:       relay.New(),
-		Clients:     clients,
-		MapRotation: maprot.NewRotation(conf.MapPools),
-		callbacks:   callbacks,
-		rng:         rand.New(rand.NewSource(time.Now().UnixNano())),
+		relay:     relay.New(),
+		Clients:   clients,
+		callbacks: callbacks,
+		rng:       rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 
 	s.Commands = NewCommands(s, commands...)
@@ -60,11 +58,12 @@ func New(conf *Config, commands ...*ServerCommand) (*Server, <-chan func()) {
 	return s, callbacks
 }
 
-func (s *Server) GameDuration() time.Duration { return s.Config.GameDuration }
+func (s *GameServer) GameDuration() time.Duration { return s.Config.GameDuration }
 
-func (s *Server) Connect() {
+func (s *GameServer) Connect(sessionId uint32) *Client {
 	log.Println("connecting")
-	client := s.Clients.Add()
+	client := s.Clients.Add(sessionId)
+
 	client.Positions, client.Packets = s.relay.AddClient(client.CN, func(channel uint8, payload []byte) {
 		panic("TODO")
 	})
@@ -75,20 +74,21 @@ func (s *Server) Connect() {
 		client.SessionID,
 		false, // password protection is not used by this implementation
 		s.ServerDescription,
-		s.AuthDomain,
+		"",
 	)
 	log.Println("informed about server")
+
+	return client
 }
 
-// checks the server state and decides wether the client has to authenticate to join the game.
-func (s *Server) TryJoin(c *Client, name string, playerModel int32, authDomain, authName string) {
+func (s *GameServer) TryJoin(c *Client, name string, playerModel int32, authDomain, authName string) {
 	c.Name = name
 	c.Model = playerModel
 	s.Join(c)
 }
 
 // Puts a client into the current game, using the data the client provided with his nmc.TryJoin packet.
-func (s *Server) Join(c *Client) {
+func (s *GameServer) Join(c *Client) {
 	c.Joined = true
 
 	if s.MasterMode == mastermode.Locked {
@@ -111,23 +111,22 @@ func (s *Server) Join(c *Client) {
 	log.Println(cubecode.SanitizeString(fmt.Sprintf("%s connected", uniqueName)))
 
 	c.Send(nmc.ServerMessage, s.MessageOfTheDay)
-	c.Send(nmc.RequestAuth, s.StatsServerAuthDomain)
 }
 
-func (s *Server) Broadcast(typ nmc.ID, args ...interface{}) {
+func (s *GameServer) Broadcast(typ nmc.ID, args ...interface{}) {
 	s.Clients.Broadcast(typ, args...)
 }
 
-func (s *Server) UniqueName(p *game.Player) string {
+func (s *GameServer) UniqueName(p *game.Player) string {
 	return s.Clients.UniqueName(s.Clients.GetClientByCN(p.CN))
 }
 
-func (s *Server) Spawn(client *Client) {
+func (s *GameServer) Spawn(client *Client) {
 	client.Spawn()
 	s.GameMode.Spawn(&client.PlayerState)
 }
 
-func (s *Server) ConfirmSpawn(client *Client, lifeSequence, _weapon int32) {
+func (s *GameServer) ConfirmSpawn(client *Client, lifeSequence, _weapon int32) {
 	if client.State != playerstate.Dead || lifeSequence != client.LifeSequence || client.LastSpawnAttempt.IsZero() {
 		// client may not spawn
 		return
@@ -144,7 +143,7 @@ func (s *Server) ConfirmSpawn(client *Client, lifeSequence, _weapon int32) {
 	}
 }
 
-func (s *Server) Disconnect(client *Client, reason disconnectreason.ID) {
+func (s *GameServer) Disconnect(client *Client, reason disconnectreason.ID) {
 	s.GameMode.Leave(&client.Player)
 	s.Clock.Leave(&client.Player)
 	s.relay.RemoveClient(client.CN)
@@ -159,7 +158,7 @@ func (s *Server) Disconnect(client *Client, reason disconnectreason.ID) {
 	}
 }
 
-func (s *Server) Kick(client *Client, victim *Client, reason string) {
+func (s *GameServer) Kick(client *Client, victim *Client, reason string) {
 	if client.Role <= victim.Role {
 		client.Send(nmc.ServerMessage, cubecode.Fail("you can't do that"))
 		return
@@ -172,7 +171,7 @@ func (s *Server) Kick(client *Client, victim *Client, reason string) {
 	s.Disconnect(victim, disconnectreason.Kick)
 }
 
-func (s *Server) AuthKick(client *Client, rol role.ID, domain, name string, victim *Client, reason string) {
+func (s *GameServer) AuthKick(client *Client, rol role.ID, domain, name string, victim *Client, reason string) {
 	if rol <= victim.Role {
 		client.Send(nmc.ServerMessage, cubecode.Fail("you can't do that"))
 		return
@@ -185,7 +184,7 @@ func (s *Server) AuthKick(client *Client, rol role.ID, domain, name string, vict
 	s.Disconnect(victim, disconnectreason.Kick)
 }
 
-func (s *Server) Unsupervised() {
+func (s *GameServer) Unsupervised() {
 	s.Clock.Resume(nil)
 	s.MasterMode = mastermode.Auth
 	s.KeepTeams = false
@@ -193,25 +192,25 @@ func (s *Server) Unsupervised() {
 	s.ReportStats = true
 }
 
-func (s *Server) Empty() {
-	s.MapRotation.ClearQueue()
+func (s *GameServer) Empty() {
 	s.StartGame(s.StartMode(s.FallbackGameModeID), s.Map)
 }
 
-func (s *Server) Intermission() {
+func (s *GameServer) Intermission() {
 	s.Clock.Stop()
 
-	nextMap := s.MapRotation.NextMap(s.GameMode, s.GameMode, s.Map)
+	// TODO map rotation
+	nextMap := "complex"
 
-	s.PendingMapChange = time.AfterFunc(10*time.Second, func() {
+	s.pendingMapChange = time.AfterFunc(10*time.Second, func() {
 		s.StartGame(s.StartMode(s.GameMode.ID()), nextMap)
 	})
 
 	s.Clients.Broadcast(nmc.ServerMessage, "next up: "+nextMap)
 }
 
-// Returns the number of connected clients playgin (i.e. joined and not spectating)
-func (s *Server) NumberOfPlayers() (n int) {
+// Returns the number of connected clients playing (i.e. joined and not spectating)
+func (s *GameServer) NumberOfPlayers() (n int) {
 	s.Clients.ForEach(func(c *Client) {
 		if !c.Joined || c.State == playerstate.Spectator {
 			return
@@ -221,7 +220,7 @@ func (s *Server) NumberOfPlayers() (n int) {
 	return
 }
 
-func (s *Server) ReAuthClients(domain string) {
+func (s *GameServer) ReAuthClients(domain string) {
 	s.Clients.ForEach(func(c *Client) {
 		if _, ok := c.Authentications[domain]; ok {
 			delete(c.Authentications, domain)
@@ -230,7 +229,7 @@ func (s *Server) ReAuthClients(domain string) {
 	})
 }
 
-func (s *Server) StartGame(mode game.Mode, mapname string) {
+func (s *GameServer) StartGame(mode game.Mode, mapname string) {
 	if s.Clock != nil {
 		s.Clock.CleanUp()
 	}
@@ -241,13 +240,13 @@ func (s *Server) StartGame(mode game.Mode, mapname string) {
 	}
 
 	// stop any pending map change
-	if s.PendingMapChange != nil {
-		s.PendingMapChange.Stop()
-		s.PendingMapChange = nil
+	if s.pendingMapChange != nil {
+		s.pendingMapChange.Stop()
+		s.pendingMapChange = nil
 	}
 
 	if mapname == "" {
-		mapname = s.MapRotation.NextMap(mode, s.GameMode, s.Map)
+		mapname = "complex"
 	}
 
 	s.Map = mapname
@@ -264,7 +263,7 @@ func (s *Server) StartGame(mode game.Mode, mapname string) {
 	s.Clients.Broadcast(nmc.ServerMessage, s.MessageOfTheDay)
 }
 
-func (s *Server) SetMasterMode(c *Client, mm mastermode.ID) {
+func (s *GameServer) SetMasterMode(c *Client, mm mastermode.ID) {
 	if mm < mastermode.Open || mm > mastermode.Private {
 		log.Println("invalid mastermode", mm, "requested")
 		return
@@ -289,7 +288,7 @@ type hit struct {
 	dir          *geom.Vector
 }
 
-func (s *Server) HandleShoot(client *Client, wpn weapon.Weapon, id int32, from, to *geom.Vector, hits []hit) {
+func (s *GameServer) HandleShoot(client *Client, wpn weapon.Weapon, id int32, from, to *geom.Vector, hits []hit) {
 	from = from.Mul(geom.DMF)
 	to = to.Mul(geom.DMF)
 
@@ -340,7 +339,7 @@ func (s *Server) HandleShoot(client *Client, wpn weapon.Weapon, id int32, from, 
 	}
 }
 
-func (s *Server) HandleExplode(client *Client, millis int32, wpn weapon.Weapon, id int32, hits []hit) {
+func (s *GameServer) HandleExplode(client *Client, millis int32, wpn weapon.Weapon, id int32, hits []hit) {
 	// TODO: delete stored projectile
 
 	s.Clients.Relay(
@@ -381,7 +380,7 @@ hits:
 	}
 }
 
-func (s *Server) applyDamage(attacker, victim *Client, damage int32, wpnID weapon.ID, dir *geom.Vector) {
+func (s *GameServer) applyDamage(attacker, victim *Client, damage int32, wpnID weapon.ID, dir *geom.Vector) {
 	victim.ApplyDamage(&attacker.Player, damage, wpnID, dir)
 	s.Clients.Broadcast(nmc.Damage, victim.CN, attacker.CN, damage, victim.Armour, victim.Health)
 	// TODO: setpushed ???
@@ -399,7 +398,7 @@ func (s *Server) applyDamage(attacker, victim *Client, damage int32, wpnID weapo
 	}
 }
 
-func (s *Server) ForEachPlayer(f func(p *game.Player)) {
+func (s *GameServer) ForEachPlayer(f func(p *game.Player)) {
 	s.Clients.ForEach(func(c *Client) {
 		f(&c.Player)
 	})

@@ -45,7 +45,7 @@ func isValidMessage(c *Client, networkMessageCode nmc.ID) bool {
 }
 
 // parses a packet and decides what to do based on the network message code at the front of the packet
-func (s *Server) HandlePacket(client *Client, channelID uint8, p protocol.Packet) {
+func (s *GameServer) HandlePacket(client *Client, channelID uint8, p protocol.Packet) {
 	// this implementation does not support channel 2 (for coop edit purposes) yet.
 	if client == nil || 0 > channelID || channelID > 1 {
 		return

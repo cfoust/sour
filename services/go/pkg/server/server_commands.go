@@ -18,7 +18,7 @@ type ServerCommand struct {
 	aliases     []string
 	description string
 	minRole     role.ID
-	f           func(s *Server, c *Client, args []string)
+	f           func(s *GameServer, c *Client, args []string)
 }
 
 func (cmd *ServerCommand) String() string {
@@ -34,12 +34,12 @@ func (cmd *ServerCommand) Detailed() string {
 }
 
 type ServerCommands struct {
-	s       *Server
+	s       *GameServer
 	byName  map[string]*ServerCommand
 	byAlias map[string]*ServerCommand
 }
 
-func NewCommands(s *Server, cmds ...*ServerCommand) *ServerCommands {
+func NewCommands(s *GameServer, cmds ...*ServerCommand) *ServerCommands {
 	sc := &ServerCommands{
 		s:       s,
 		byName:  map[string]*ServerCommand{},
@@ -112,38 +112,13 @@ func (sc *ServerCommands) Handle(c *Client, msg string) {
 	}
 }
 
-var QueueMap = &ServerCommand{
-	name:        "queuemap",
-	argsFormat:  "[map...]",
-	aliases:     []string{"queued", "queue", "queuedmap", "queuemaps", "queuedmaps", "mapqueue", "mapsqueue"},
-	description: "prints the current queue or adds the map(s) to the queue",
-	minRole:     role.Master,
-	f: func(s *Server, c *Client, args []string) {
-		for _, mapp := range args {
-			err := s.MapRotation.QueueMap(s.GameMode.ID(), mapp)
-			if err != "" {
-				c.Send(nmc.ServerMessage, cubecode.Fail(err))
-			}
-		}
-		queuedMaps := s.MapRotation.QueuedMaps()
-		switch len(queuedMaps) {
-		case 0:
-			c.Send(nmc.ServerMessage, "no maps queued")
-		case 1:
-			c.Send(nmc.ServerMessage, "queued map: "+queuedMaps[0])
-		default:
-			c.Send(nmc.ServerMessage, "queued maps: "+strings.Join(queuedMaps, ", "))
-		}
-	},
-}
-
 var ToggleKeepTeams = &ServerCommand{
 	name:        "keepteams",
 	argsFormat:  "0|1",
 	aliases:     []string{"persist", "persistteams"},
 	description: "keeps teams the same across map change",
 	minRole:     role.Master,
-	f: func(s *Server, c *Client, args []string) {
+	f: func(s *GameServer, c *Client, args []string) {
 		changed := false
 		if len(args) >= 1 {
 			val, err := strconv.Atoi(args[0])
@@ -175,7 +150,7 @@ var ToggleCompetitiveMode = &ServerCommand{
 	aliases:     []string{"comp"},
 	description: "in competitive mode, the server waits for all clients to load the map and auto-pauses when a player leaves the game",
 	minRole:     role.Master,
-	f: func(s *Server, c *Client, args []string) {
+	f: func(s *GameServer, c *Client, args []string) {
 		changed := false
 		if len(args) >= 1 {
 			val, err := strconv.Atoi(args[0])
@@ -215,7 +190,7 @@ var ToggleReportStats = &ServerCommand{
 	aliases:     []string{"repstats"},
 	description: "when enabled, end-game stats of players will be reported at intermission",
 	minRole:     role.Admin,
-	f: func(s *Server, c *Client, args []string) {
+	f: func(s *GameServer, c *Client, args []string) {
 		changed := false
 		if len(args) >= 1 {
 			val, err := strconv.Atoi(args[0])
@@ -241,43 +216,13 @@ var ToggleReportStats = &ServerCommand{
 	},
 }
 
-var LookupIPs = &ServerCommand{
-	name:        "ip",
-	argsFormat:  "[name|cn]...",
-	aliases:     []string{"ips"},
-	description: "prints the IP of the player(s) identified by their name or cn, or your own when called with no argument",
-	minRole:     role.Admin,
-	f: func(s *Server, c *Client, args []string) {
-		if len(args) < 1 {
-			args = []string{c.Name}
-		}
-		for _, query := range args {
-			var target *Client
-			// try CN
-			cn, err := strconv.Atoi(query)
-			if err == nil {
-				target = s.Clients.GetClientByCN(uint32(cn))
-			}
-			if err != nil || target == nil {
-				target = s.Clients.FindClientByName(query)
-			}
-
-			if target != nil {
-				c.Send(nmc.ServerMessage, fmt.Sprintf("%s has IP %s", s.Clients.UniqueName(target), target.Peer.Address.IP))
-			} else {
-				c.Send(nmc.ServerMessage, fmt.Sprintf("could not find a client matching '%s'", query))
-			}
-		}
-	},
-}
-
 var SetTimeLeft = &ServerCommand{
 	name:        "settime",
 	argsFormat:  "[Xm][Ys]",
 	aliases:     []string{"time", "settimeleft", "settimeremaining", "timeleft", "timeremaining"},
 	description: "sets the time remaining to play to X minutes and Y seconds",
 	minRole:     role.Admin,
-	f: func(s *Server, c *Client, args []string) {
+	f: func(s *GameServer, c *Client, args []string) {
 		if len(args) < 1 {
 			return
 		}
@@ -296,108 +241,5 @@ var SetTimeLeft = &ServerCommand{
 		}
 
 		s.Clock.SetTimeLeft(d)
-	},
-}
-
-var RegisterPubkey = &ServerCommand{
-	name:        "register",
-	argsFormat:  "[name] pubkey",
-	aliases:     []string{},
-	description: "registers an account with the stats server (if you are gauthed you can omit the name and you gauth name will be used)",
-	minRole:     role.None,
-	f: func(s *Server, c *Client, args []string) {
-		if s.StatsServer == nil {
-			c.Send(nmc.ServerMessage, cubecode.Error("not connected to stats server"))
-			return
-		}
-
-		if s.StatsServerAdmin == nil {
-			c.Send(nmc.ServerMessage, cubecode.Error("no admin connection to stats server"))
-		}
-
-		if statsAuth, ok := c.Authentications[s.StatsServerAuthDomain]; ok {
-			c.Send(nmc.ServerMessage, cubecode.Fail("you're already authenticated with "+s.StatsServerAuthDomain+" as "+statsAuth.name))
-			return
-		}
-
-		if len(args) < 1 {
-			c.Send(nmc.ServerMessage, cubecode.Fail(fmt.Sprintf("follow the instructions at https://%s/gen/%s", s.StatsServerAuthDomain, c.Name)))
-			return
-		}
-
-		name, pubkey := "", ""
-		if len(args) < 2 {
-			gauth, ok := c.Authentications[""]
-			if !ok {
-				c.Send(nmc.ServerMessage, cubecode.Fail("you have to claim gauth (to use your gauth name) or provide a name: #register [name] <pubkey>"))
-				return
-			}
-			name, pubkey = gauth.name, args[0]
-		} else {
-			name, pubkey = args[0], args[1]
-		}
-
-		if pubkey == "" {
-			c.Send(nmc.ServerMessage, cubecode.Fail("you have to provide your public key: #register [name] <pubkey>"))
-			return
-		}
-
-		s.StatsServerAdmin.AddAuth(name, pubkey,
-			func(err string) {
-				if err != "" {
-					c.Send(nmc.ServerMessage, cubecode.Error("creating your account failed: "+err))
-					return
-				}
-				c.Send(nmc.ServerMessage, cubecode.Green("you successfully registered as "+name))
-				c.Send(nmc.ServerMessage, cubecode.Fail("this is alpha functionality, the account will be lost at stats server restart!"))
-				c.Send(nmc.ServerMessage, "type '/autoauth 1', then '/reconnect' to try out your new key")
-			},
-		)
-	},
-}
-
-var CheckAuthStatus = &ServerCommand{
-	name:        "auth",
-	argsFormat:  "[name|cn]...",
-	aliases:     []string{"checkauth", "authstatus", "auths"},
-	description: "prints the auth status of the player(s) identified by their name or cn, or your own when called with no argument",
-	minRole:     role.Auth,
-	f: func(s *Server, c *Client, args []string) {
-		if len(args) < 1 {
-			args = []string{c.Name}
-		}
-
-		for _, query := range args {
-			var target *Client
-			// try CN
-			cn, err := strconv.Atoi(query)
-			if err == nil {
-				target = s.Clients.GetClientByCN(uint32(cn))
-			}
-			if err != nil || target == nil {
-				target = s.Clients.FindClientByName(query)
-			}
-
-			if target != nil {
-				if len(c.Authentications) == 0 {
-					c.Send(nmc.ServerMessage, fmt.Sprintf("%s has not authenticated", s.Clients.UniqueName(target)))
-					continue
-				}
-				auths := []string{}
-				// always put gauth first
-				if auth, ok := c.Authentications[""]; ok {
-					auths = append(auths, fmt.Sprintf("'%s'", cubecode.Magenta(auth.name)))
-				}
-				for domain, auth := range c.Authentications {
-					if domain == "" {
-						continue
-					}
-					auths = append(auths, fmt.Sprintf("'%s' [%s]", cubecode.Magenta(auth.name), cubecode.Green(domain)))
-				}
-				c.Send(nmc.ServerMessage, fmt.Sprintf("%s authenticated as %s", s.Clients.UniqueName(target), strings.Join(auths, ", ")))
-			} else {
-				c.Send(nmc.ServerMessage, fmt.Sprintf("could not find a client matching '%s'", query))
-			}
-		}
 	},
 }

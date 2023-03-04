@@ -3,13 +3,12 @@ package game
 import (
 	"time"
 
-	"github.com/sauerbraten/timer"
-
 	"github.com/cfoust/sour/pkg/server/net/packet"
 	"github.com/cfoust/sour/pkg/server/protocol/armour"
 	"github.com/cfoust/sour/pkg/server/protocol/entity"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
 	"github.com/cfoust/sour/pkg/server/protocol/weapon"
+	"github.com/cfoust/sour/pkg/server/timer"
 )
 
 type PlayerState struct {

@@ -13,7 +13,7 @@ type sendFunc func(channel uint8, payload []byte)
 
 // Relay relays positional data between clients
 type Relay struct {
-	μ sync.Mutex
+	mutex sync.Mutex
 
 	incPositionsNotifs chan uint32              // channel on which clients notify the broker about new packets
 	incPositions       map[uint32]<-chan []byte // clients' update channels by topic
@@ -85,8 +85,8 @@ func (r *Relay) loop() {
 }
 
 func (r *Relay) AddClient(cn uint32, sf sendFunc) (positions *Publisher, packets *Publisher) {
-	r.μ.Lock()
-	defer r.μ.Unlock()
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	if _, ok := r.send[cn]; ok {
 		// client is already being serviced
@@ -105,8 +105,8 @@ func (r *Relay) AddClient(cn uint32, sf sendFunc) (positions *Publisher, packets
 }
 
 func (r *Relay) RemoveClient(cn uint32) error {
-	r.μ.Lock()
-	defer r.μ.Unlock()
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	if _, ok := r.send[cn]; !ok {
 		return errors.New("no such client")
@@ -122,8 +122,8 @@ func (r *Relay) RemoveClient(cn uint32) error {
 }
 
 func (r *Relay) FlushPositionAndSend(cn uint32, p []byte) {
-	r.μ.Lock()
-	defer r.μ.Unlock()
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	if pos := r.positions[cn]; pos != nil {
 		for _cn, send := range r.send {
@@ -144,8 +144,8 @@ func (r *Relay) FlushPositionAndSend(cn uint32, p []byte) {
 }
 
 func (r *Relay) receive(cn uint32, from map[uint32]<-chan []byte, process func(upd []byte)) {
-	r.μ.Lock()
-	defer r.μ.Unlock()
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	ch, ok := from[cn]
 	if !ok {
@@ -160,8 +160,8 @@ func (r *Relay) receive(cn uint32, from map[uint32]<-chan []byte, process func(u
 }
 
 func (r *Relay) flush(packets map[uint32][]byte, prefix func(uint32, []byte) []byte, channel uint8) {
-	r.μ.Lock()
-	defer r.μ.Unlock()
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	if len(packets) == 0 || len(r.send) < 2 {
 		return

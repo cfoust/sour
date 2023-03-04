@@ -7,38 +7,62 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cfoust/sour/pkg/server/net/packet"
 	"github.com/cfoust/sour/pkg/server/game"
+	"github.com/cfoust/sour/pkg/server/net/packet"
 	"github.com/cfoust/sour/pkg/server/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/cubecode"
 	"github.com/cfoust/sour/pkg/server/protocol/disconnectreason"
 	"github.com/cfoust/sour/pkg/server/protocol/nmc"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
 	"github.com/cfoust/sour/pkg/server/protocol/role"
+
+	"github.com/sasha-s/go-deadlock"
 )
 
 type ClientManager struct {
-	cs []*Client
+	clients []*Client
+	mutex   deadlock.RWMutex
 }
 
-// Links an ENet peer to a client object. If no unused client object can be found, a new one is created and added to the global set of clients.
-func (cm *ClientManager) Add() *Client {
-	cn := uint32(len(cm.cs))
-	c := NewClient(cn)
-	cm.cs = append(cm.cs, c)
+func (cm *ClientManager) Add(sessionId uint32) *Client {
+	cm.mutex.Lock()
+	cn := uint32(len(cm.clients))
+	c := NewClient(cn, sessionId)
+	cm.clients = append(cm.clients, c)
+	cm.mutex.Unlock()
 	return c
 }
 
 func (cm *ClientManager) GetClientByCN(cn uint32) *Client {
-	if int(cn) < 0 || int(cn) >= len(cm.cs) {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+
+	if int(cn) < 0 || int(cn) >= len(cm.clients) {
 		return nil
 	}
-	return cm.cs[cn]
+
+	return cm.clients[cn]
+}
+
+func (cm *ClientManager) GetClientByID(sessionId uint32) *Client {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+
+	for _, client := range cm.clients {
+		if client.SessionID == sessionId {
+			return client
+		}
+	}
+
+	return nil
 }
 
 func (cm *ClientManager) FindClientByName(name string) *Client {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+
 	name = strings.ToLower(name)
-	for _, c := range cm.cs {
+	for _, c := range cm.clients {
 		if strings.Contains(c.Name, name) {
 			return c
 		}
@@ -60,7 +84,10 @@ func (cm *ClientManager) Broadcast(typ nmc.ID, args ...interface{}) {
 }
 
 func (cm *ClientManager) broadcast(exclude func(*Client) bool, typ nmc.ID, args ...interface{}) {
-	for _, c := range cm.cs {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+
+	for _, c := range cm.clients {
 		c.Send(typ, args...)
 	}
 }
@@ -76,7 +103,7 @@ func (cm *ClientManager) Relay(from *Client, typ nmc.ID, args ...interface{}) {
 }
 
 // Sends 'welcome' information to a newly joined client like map, mode, time left, other players, etc.
-func (s *Server) SendWelcome(c *Client) {
+func (s *GameServer) SendWelcome(c *Client) {
 	typ, p := nmc.Welcome, []interface{}{
 		nmc.MapChange, s.Map, s.GameMode.ID(), s.GameMode.NeedsMapInfo(), // currently played mode & map
 	}
@@ -121,7 +148,7 @@ func (s *Server) SendWelcome(c *Client) {
 
 	// send other players' state (frags, flags, etc.)
 	p = append(p, nmc.PlayerStateList)
-	for _, client := range s.Clients.cs {
+	for _, client := range s.Clients.clients {
 		if client != c {
 			p = append(p, client.CN, client.State, client.Frags, client.Flags, client.Deaths, int32(client.QuadTimer.TimeLeft()/time.Millisecond), client.ToWire())
 		}
@@ -129,7 +156,7 @@ func (s *Server) SendWelcome(c *Client) {
 	p = append(p, -1)
 
 	// send other client's state (name, team, playermodel)
-	for _, client := range s.Clients.cs {
+	for _, client := range s.Clients.clients {
 		if client != c {
 			p = append(p, nmc.InitializeClient, client.CN, client.Name, client.Team.Name, client.Model)
 		}
@@ -150,6 +177,17 @@ func (cm *ClientManager) Disconnect(c *Client, reason disconnectreason.ID) {
 		msg = fmt.Sprintf("%s disconnected", cm.UniqueName(c))
 	}
 	log.Println(cubecode.SanitizeString(msg))
+
+	cm.mutex.Lock()
+	newClients := make([]*Client, 0)
+	for _, client := range cm.clients {
+		if client == c {
+			continue
+		}
+		newClients = append(newClients, client)
+	}
+	cm.clients = newClients
+	cm.mutex.Unlock()
 }
 
 // Informs all other clients that a client joined the game.
@@ -160,7 +198,7 @@ func (cm *ClientManager) InformOthersOfJoin(c *Client) {
 	}
 }
 
-func (s *Server) MapChange() {
+func (s *GameServer) MapChange() {
 	s.Clients.ForEach(func(c *Client) {
 		c.Player.PlayerState.Reset()
 		if c.State == playerstate.Spectator {
@@ -180,7 +218,7 @@ func (cm *ClientManager) PrivilegedUsers() (privileged []*Client) {
 	return
 }
 
-func (s *Server) PrivilegedUsersPacket() (typ nmc.ID, p protocol.Packet, noPrivilegedUsers bool) {
+func (s *GameServer) PrivilegedUsersPacket() (typ nmc.ID, p protocol.Packet, noPrivilegedUsers bool) {
 	q := []interface{}{s.MasterMode}
 
 	s.Clients.ForEach(func(c *Client) {
@@ -196,11 +234,17 @@ func (s *Server) PrivilegedUsersPacket() (typ nmc.ID, p protocol.Packet, noPrivi
 
 // Returns the number of connected clients.
 func (cm *ClientManager) NumberOfClientsConnected() (n int) {
-	return len(cm.cs)
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+
+	return len(cm.clients)
 }
 
 func (cm *ClientManager) ForEach(do func(c *Client)) {
-	for _, c := range cm.cs {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+
+	for _, c := range cm.clients {
 		do(c)
 	}
 }

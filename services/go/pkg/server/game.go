@@ -7,7 +7,7 @@ import (
 	"github.com/cfoust/sour/pkg/server/protocol/gamemode"
 )
 
-func (s *Server) StartMode(id gamemode.ID) game.Mode {
+func (s *GameServer) StartMode(id gamemode.ID) game.Mode {
 	switch id {
 	case gamemode.FFA:
 		return game.NewFFA(s)
