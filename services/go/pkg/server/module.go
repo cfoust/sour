@@ -139,8 +139,8 @@ func (s *GameServer) Join(c *Client) {
 	c.Send(nmc.ServerMessage, s.MessageOfTheDay)
 }
 
-func (s *GameServer) Broadcast(typ nmc.ID, args ...interface{}) {
-	s.Clients.Broadcast(typ, args...)
+func (s *GameServer) Broadcast(messages ...protocol.Message) {
+	s.Clients.Broadcast(messages)
 }
 
 func (s *GameServer) UniqueName(p *game.Player) string {

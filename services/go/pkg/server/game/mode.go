@@ -3,7 +3,7 @@ package game
 import (
 	"time"
 
-	"github.com/cfoust/sour/pkg/server/protocol"
+	"github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/gamemode"
 	"github.com/cfoust/sour/pkg/server/protocol/nmc"
 )
@@ -19,7 +19,7 @@ type Mode interface {
 }
 
 type HandlesPackets interface {
-	HandlePacket(*Player, nmc.ID, *protocol.Packet) bool
+	HandlePacket(*Player, protocol.Message) bool
 }
 
 type noSpawnWait struct{}

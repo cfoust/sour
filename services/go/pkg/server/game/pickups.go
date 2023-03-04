@@ -5,17 +5,17 @@ import (
 	"log"
 	"time"
 
-	"github.com/sauerbraten/timer"
-	"github.com/cfoust/sour/pkg/server/protocol"
+	"github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/entity"
 	"github.com/cfoust/sour/pkg/server/protocol/nmc"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
+	"github.com/cfoust/sour/pkg/server/timer"
 )
 
 type PickupMode interface {
 	HandlesPackets
 	NeedsMapInfo() bool
-	PickupsInitPacket() []interface{}
+	PickupsInitPacket() protocol.Message
 }
 
 type noMapInfo struct{}
@@ -86,27 +86,27 @@ func (m *handlesPickups) NeedsMapInfo() bool {
 	return len(m.pickups) == 0
 }
 
-func (m *handlesPickups) HandlePacket(p *Player, packetType nmc.ID, pkt *protocol.Packet) bool {
-	switch packetType {
-	case nmc.PickupList:
-		if len(m.pickups) > 0 || p.State == playerstate.Spectator {
-			for n, ok := pkt.GetInt(); ok && n >= 0 && len(*pkt) > 0; n, ok = pkt.GetInt() {
-				// read and discard
-			}
-			break
-		}
-		m.initPickups(pkt)
+func (m *handlesPickups) HandlePacket(p *Player, message protocol.Message) bool {
+	switch message.Type() {
+	case protocol.N_ITEMLIST:
+		itemList := message.(*protocol.ItemList)
 
-	case nmc.PickupTry:
-		entityID, ok := pkt.GetInt()
-		if !ok {
-			log.Println("could not read entity ID from entity pickup packet:", p)
+		if len(m.pickups) > 0 || p.State == playerstate.Spectator {
 			break
 		}
+
+		m.initPickups(itemList)
+
+	case protocol.N_ITEMPICKUP:
+		itemPickup := message.(*protocol.ItemPickup)
+
 		if len(m.pickups) == 0 || p.State != playerstate.Alive {
 			break
 		}
-		pu, ok := m.pickups[entityID]
+
+		entityID := itemPickup.Item
+
+		pu, ok := m.pickups[int32(entityID)]
 		if !ok {
 			log.Printf("player tried to pick up unknown ent with ID %d", entityID)
 			break
@@ -125,37 +125,24 @@ func (m *handlesPickups) HandlePacket(p *Player, packetType nmc.ID, pkt *protoco
 		p.Pickup(pu)
 
 	default:
-		log.Println("received unrelated packet", packetType, pkt)
+		log.Println("received unrelated packet", message.Type())
 		return false
 	}
 
 	return true
 }
 
-func (m *handlesPickups) initPickups(pkt *protocol.Packet) {
+func (m *handlesPickups) initPickups(pkt *protocol.ItemList) {
 	const maxPickups = 10_000
 
-	for len(*pkt) > 0 {
-		id, ok := pkt.GetInt()
-		if !ok {
-			log.Println("couldn't read pickup ID from itemlist packet")
-			return
-		}
-		if id < 0 || id > maxPickups {
-			return
-		}
-
-		_typ, ok := pkt.GetInt()
-		if !ok {
-			log.Println("couldn't read pickup type from itemlist packet")
-			return
-		}
-		typ := entity.ID(_typ)
+	for _, item := range pkt.Items {
+		typ := entity.ID(item.Type)
 		if typ < entity.PickupShotgun || typ > entity.PickupQuadDamage {
 			log.Println("pickup type from itemlist packet outside of range [Shotgun..Quad]")
 			return
 		}
 
+		id := int32(item.Index)
 		p := &timedPickup{
 			id:     id,
 			Pickup: entity.Pickups[typ],
@@ -174,14 +161,15 @@ func (m *handlesPickups) initPickups(pkt *protocol.Packet) {
 	}
 }
 
-func (m *handlesPickups) PickupsInitPacket() []interface{} {
-	q := []interface{}{}
+func (m *handlesPickups) PickupsInitPacket() protocol.Message {
+	message := protocol.ItemList{}
+	message.Items = make([]protocol.Item, 0)
 	for id, p := range m.pickups {
 		if p.pendingSpawn.TimeLeft() == 0 {
-			q = append(q, id, p.Typ)
+			message.Items = append(message.Items, protocol.Item{int(id), int(p.Typ)})
 		}
 	}
-	return append(q, -1)
+	return message
 }
 
 func (m *handlesPickups) Pause() {

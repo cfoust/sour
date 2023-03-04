@@ -3,7 +3,7 @@ package game
 import (
 	"time"
 
-	"github.com/cfoust/sour/pkg/server/net/packet"
+	"github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/armour"
 	"github.com/cfoust/sour/pkg/server/protocol/entity"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
@@ -44,16 +44,25 @@ func NewPlayerState() PlayerState {
 	return ps
 }
 
-func (ps *PlayerState) ToWire() []byte {
-	return packet.Encode(
-		ps.LifeSequence,
-		ps.Health,
-		ps.MaxHealth,
-		ps.Armour,
-		ps.ArmourType,
-		ps.SelectedWeapon.ID,
-		weapon.FlattenAmmo(ps.Ammo),
-	)
+func (ps *PlayerState) ToWire() protocol.EntityState {
+	spawnState := protocol.EntityState{
+		int(ps.LifeSequence),
+		int(ps.Health),
+		int(ps.MaxHealth),
+		int(ps.Armour),
+		int(ps.ArmourType),
+		int(ps.SelectedWeapon.ID),
+		make([]protocol.AmmoState, 0),
+	}
+
+	for _, id := range weapon.WeaponsWithAmmo {
+		spawnState.Ammo = append(
+			spawnState.Ammo,
+			protocol.AmmoState{int(ps.Ammo[id])},
+		)
+	}
+
+	return spawnState
 }
 
 func (ps *PlayerState) Spawn() {

@@ -404,12 +404,13 @@ type SetTeam struct {
 func (m SetTeam) Type() MessageCode { return N_SETTEAM }
 
 // N_CURRENTMASTER
+type ClientPrivilege struct {
+	Client    int
+	Privilege int
+}
 type CurrentMaster struct {
-	Mastermode int
-	Clients    []struct {
-		Client    int
-		Privilege int
-	} `type:"term" cmp:"gez"`
+	MasterMode int
+	Clients    []ClientPrivilege `type:"term" cmp:"gez"`
 }
 
 func (m CurrentMaster) Type() MessageCode { return N_CURRENTMASTER }
@@ -418,17 +419,18 @@ func (m CurrentMaster) Type() MessageCode { return N_CURRENTMASTER }
 type MapChange struct {
 	Name     string
 	Mode     int
-	HasItems int
+	HasItems bool
 }
 
 func (m MapChange) Type() MessageCode { return N_MAPCHANGE }
 
 // N_TEAMINFO
+type Team struct {
+	Team  string
+	Frags int
+}
 type TeamInfo struct {
-	Teams []struct {
-		Team  string
-		Frags int
-	} `type:"term" cmp:"len"`
+	Teams []Team `type:"term" cmp:"len"`
 }
 
 func (m TeamInfo) Type() MessageCode { return N_TEAMINFO }
@@ -444,37 +446,33 @@ type InitClient struct {
 func (m InitClient) Type() MessageCode { return N_INITCLIENT }
 
 // N_SPAWNSTATE
-type SpawnState struct {
-	Client       int
+type AmmoState struct {
+	Amount int
+}
+type EntityState struct {
 	LifeSequence int
 	Health       int
 	MaxHealth    int
 	Armour       int
 	Armourtype   int
 	Gunselect    int
-	Ammo         []struct {
-		Amount int
-	} `type:"count" const:"6"`
+	Ammo         []AmmoState `type:"count" const:"6"`
+}
+type SpawnState struct {
+	Client int
+	EntityState
 }
 
 func (m SpawnState) Type() MessageCode { return N_SPAWNSTATE }
 
 type ClientState struct {
-	Id           int
-	State        int
-	Frags        int
-	Flags        int
-	Deaths       int
-	Quadmillis   int
-	Lifesequence int
-	Health       int
-	Maxhealth    int
-	Armour       int
-	Armourtype   int
-	Gunselect    int
-	Ammo         []struct {
-		Amount int
-	} `type:"count" const:"6"`
+	Id         int
+	State      int
+	Frags      int
+	Flags      int
+	Deaths     int
+	Quadmillis int
+	EntityState
 }
 
 // N_RESUME
@@ -714,11 +712,12 @@ type DepositTokens struct {
 func (m DepositTokens) Type() MessageCode { return N_DEPOSITTOKENS }
 
 // N_ITEMLIST
+type Item struct {
+	Index int
+	Type  int
+}
 type ItemList struct {
-	Items []struct {
-		Index int
-		Type  int
-	} `type:"term" cmp:"gez"`
+	Items []Item `type:"term" cmp:"gez"`
 }
 
 func (m ItemList) Type() MessageCode { return N_ITEMLIST }

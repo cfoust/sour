@@ -7,9 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/game"
-	"github.com/cfoust/sour/pkg/server/net/packet"
-	"github.com/cfoust/sour/pkg/server/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/cubecode"
 	"github.com/cfoust/sour/pkg/server/protocol/disconnectreason"
 	"github.com/cfoust/sour/pkg/server/protocol/nmc"
@@ -71,24 +70,24 @@ func (cm *ClientManager) FindClientByName(name string) *Client {
 }
 
 // Send a packet to a client's team, but not the client himself, over the specified channel.
-func (cm *ClientManager) SendToTeam(c *Client, typ nmc.ID, args ...interface{}) {
+func (cm *ClientManager) SendToTeam(c *Client, messages ...protocol.Message) {
 	excludeSelfAndOtherTeams := func(_c *Client) bool {
 		return _c == c || _c.Team != c.Team
 	}
-	cm.broadcast(excludeSelfAndOtherTeams, typ, args...)
+	cm.broadcast(excludeSelfAndOtherTeams, messages...)
 }
 
 // Sends a packet to all clients currently in use.
-func (cm *ClientManager) Broadcast(typ nmc.ID, args ...interface{}) {
-	cm.broadcast(nil, typ, args...)
+func (cm *ClientManager) Broadcast(messages ...protocol.Message) {
+	cm.broadcast(nil, messages...)
 }
 
-func (cm *ClientManager) broadcast(exclude func(*Client) bool, typ nmc.ID, args ...interface{}) {
+func (cm *ClientManager) broadcast(exclude func(*Client) bool, messages ...protocol.Message) {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
 
 	for _, c := range cm.clients {
-		c.Send(typ, args...)
+		c.Send(messages...)
 	}
 }
 
@@ -98,71 +97,104 @@ func exclude(c *Client) func(*Client) bool {
 	}
 }
 
-func (cm *ClientManager) Relay(from *Client, typ nmc.ID, args ...interface{}) {
-	cm.broadcast(exclude(from), typ, args...)
+func (cm *ClientManager) Relay(from *Client, messages ...protocol.Message) {
+	cm.broadcast(exclude(from), messages...)
 }
 
 // Sends 'welcome' information to a newly joined client like map, mode, time left, other players, etc.
 func (s *GameServer) SendWelcome(c *Client) {
-	typ, p := nmc.Welcome, []interface{}{
-		nmc.MapChange, s.Map, s.GameMode.ID(), s.GameMode.NeedsMapInfo(), // currently played mode & map
+	messages := []protocol.Message{
+		protocol.Welcome{},
+		protocol.MapChange{
+			Name:     s.Map,
+			Mode:     int(s.GameMode.ID()),
+			HasItems: s.GameMode.NeedsMapInfo(),
+		},
+		// time left in this round
+		protocol.TimeUp{int(s.Clock.TimeLeft() / time.Second)},
 	}
 
-	p = append(p, nmc.TimeLeft, int32(s.Clock.TimeLeft()/time.Second)) // time left in this round
-
 	if pickupMode, ok := s.GameMode.(game.PickupMode); ok && !s.GameMode.NeedsMapInfo() {
-		p = append(p, nmc.PickupList)
-		p = append(p, pickupMode.PickupsInitPacket()...)
+		messages = append(messages, pickupMode.PickupsInitPacket())
 	}
 
 	// send list of clients which have privilege higher than PRIV_NONE and their respecitve privilege level
-	pupTyp, pup, empty := s.PrivilegedUsersPacket()
+	privileged, empty := s.PrivilegedUsersPacket()
 	if !empty {
-		p = append(p, pupTyp, pup)
+		messages = append(messages, privileged)
 	}
 
 	if s.Clock.Paused() {
-		p = append(p, nmc.PauseGame, 1, -1)
+		messages = append(messages, protocol.PauseGame{true, -1})
 	}
 
 	if teamMode, ok := s.GameMode.(game.TeamMode); ok {
-		p = append(p, nmc.TeamInfo)
+		teamInfo := protocol.TeamInfo{
+			Teams: make([]protocol.Team, 0),
+		}
+
 		teamMode.ForEachTeam(func(t *game.Team) {
 			if t.Frags > 0 {
-				p = append(p, t.Name, t.Frags)
+				teamInfo.Teams = append(teamInfo.Teams, protocol.Team{t.Name, t.Frags})
 			}
 		})
-		p = append(p, "")
+
+		messages = append(messages, teamInfo)
 	}
 
 	// tell the client what team he was put in by the server
-	p = append(p, nmc.SetTeam, c.CN, c.Team.Name, -1)
+	messages = append(messages, protocol.SetTeam{
+		Client: int(c.CN),
+		Team:   c.Team.Name,
+		Reason: -1,
+	})
 
 	// tell the client how to spawn (what health, what armour, what weapons, what ammo, etc.)
 	if c.State == playerstate.Spectator {
-		p = append(p, nmc.Spectator, c.CN, 1)
+		messages = append(messages, protocol.Spectator{
+			Client: int(c.CN),
+			Value:  1,
+		})
 	} else {
 		// TODO: handle spawn delay (e.g. in ctf modes)
-		p = append(p, nmc.SpawnState, c.CN, c.ToWire())
+		messages = append(messages, protocol.SpawnState{
+			Client:      int(c.CN),
+			EntityState: c.ToWire(),
+		})
 	}
 
 	// send other players' state (frags, flags, etc.)
-	p = append(p, nmc.PlayerStateList)
+	resume := protocol.Resume{
+		Clients: make([]protocol.ClientState, 0),
+	}
 	for _, client := range s.Clients.clients {
 		if client != c {
-			p = append(p, client.CN, client.State, client.Frags, client.Flags, client.Deaths, int32(client.QuadTimer.TimeLeft()/time.Millisecond), client.ToWire())
+			resume.Clients = append(
+				resume.Clients,
+				protocol.ClientState{
+					Id:          int(client.CN),
+					State:       int(client.State),
+					Frags:       client.Frags,
+					Flags:       client.Flags,
+					Deaths:      client.Deaths,
+					Quadmillis:  int(client.QuadTimer.TimeLeft() / time.Millisecond),
+					EntityState: client.ToWire(),
+				},
+			)
 		}
 	}
-	p = append(p, -1)
+	messages = append(messages, resume)
 
 	// send other client's state (name, team, playermodel)
 	for _, client := range s.Clients.clients {
 		if client != c {
-			p = append(p, nmc.InitializeClient, client.CN, client.Name, client.Team.Name, client.Model)
+			messages = append(messages, protocol.InitClient{
+				int(client.CN), client.Name, client.Team.Name, int(client.Model),
+			})
 		}
 	}
 
-	c.Send(typ, p...)
+	c.Send(messages...)
 }
 
 // Tells other clients that the client disconnected, giving a disconnect reason in case it's not a normal leave.
@@ -218,18 +250,24 @@ func (cm *ClientManager) PrivilegedUsers() (privileged []*Client) {
 	return
 }
 
-func (s *GameServer) PrivilegedUsersPacket() (typ nmc.ID, p protocol.Packet, noPrivilegedUsers bool) {
-	q := []interface{}{s.MasterMode}
+func (s *GameServer) PrivilegedUsersPacket() (protocol.Message, bool) {
+	message := protocol.CurrentMaster{
+		MasterMode: int(s.MasterMode),
+	}
 
+	privileges := make([]protocol.ClientPrivilege, 0)
 	s.Clients.ForEach(func(c *Client) {
 		if c.Role > role.None {
-			q = append(q, c.CN, c.Role)
+			privileges = append(privileges, protocol.ClientPrivilege{
+				int(c.CN),
+				int(c.Role),
+			})
 		}
 	})
 
-	q = append(q, -1)
+	message.Clients = privileges
 
-	return nmc.CurrentMaster, packet.Encode(q...), len(q) <= 3
+	return message, len(privileges) == 0
 }
 
 // Returns the number of connected clients.
