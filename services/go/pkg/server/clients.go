@@ -24,10 +24,10 @@ type ClientManager struct {
 	mutex   deadlock.RWMutex
 }
 
-func (cm *ClientManager) Add(sessionId uint32) *Client {
+func (cm *ClientManager) Add(sessionId uint32, outgoing Outgoing) *Client {
 	cm.mutex.Lock()
 	cn := uint32(len(cm.clients))
-	c := NewClient(cn, sessionId)
+	c := NewClient(cn, sessionId, outgoing)
 	cm.clients = append(cm.clients, c)
 	cm.mutex.Unlock()
 	return c

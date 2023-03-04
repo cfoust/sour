@@ -282,7 +282,7 @@ type ServerInfo struct {
 	Client      int
 	Protocol    int
 	SessionId   int
-	HasPassword int
+	HasPassword bool
 	Description string
 	Domain      string
 }

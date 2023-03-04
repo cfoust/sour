@@ -6,9 +6,10 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/cfoust/sour/pkg/game/constants"
+	"github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/game"
 	"github.com/cfoust/sour/pkg/server/geom"
-	"github.com/cfoust/sour/pkg/server/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/cubecode"
 	"github.com/cfoust/sour/pkg/server/protocol/disconnectreason"
 	"github.com/cfoust/sour/pkg/server/protocol/mastermode"
@@ -18,6 +19,16 @@ import (
 	"github.com/cfoust/sour/pkg/server/protocol/weapon"
 	"github.com/cfoust/sour/pkg/server/relay"
 )
+
+type ServerPacket struct {
+	// Either the sender (if incoming) or the recipient (if outgoing)
+	sessionId uint32
+	channel   uint8
+	messages  []protocol.Message
+}
+
+type Incoming <-chan ServerPacket
+type Outgoing chan<- ServerPacket
 
 type GameServer struct {
 	*Config
@@ -29,6 +40,9 @@ type GameServer struct {
 	callbacks        chan<- func()
 	rng              *rand.Rand
 
+	incoming chan ServerPacket
+	outgoing chan ServerPacket
+
 	// non-standard stuff
 	Commands        *ServerCommands
 	KeepTeams       bool
@@ -36,9 +50,12 @@ type GameServer struct {
 	ReportStats     bool
 }
 
-func New(conf *Config, commands ...*ServerCommand) (*GameServer, <-chan func()) {
+func New(conf *Config) (*GameServer, <-chan func()) {
 	callbacks := make(chan func())
 	clients := &ClientManager{}
+
+	incoming := make(chan ServerPacket)
+	outgoing := make(chan ServerPacket)
 
 	s := &GameServer{
 		Config: conf,
@@ -50,31 +67,40 @@ func New(conf *Config, commands ...*ServerCommand) (*GameServer, <-chan func()) 
 		relay:     relay.New(),
 		Clients:   clients,
 		callbacks: callbacks,
+		incoming:  incoming,
+		outgoing:  outgoing,
 		rng:       rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 
-	s.Commands = NewCommands(s, commands...)
-
 	return s, callbacks
+}
+
+func (s *GameServer) Incoming() chan<- ServerPacket {
+	return s.incoming
+}
+
+func (s *GameServer) Outgoing() chan<- ServerPacket {
+	return s.outgoing
 }
 
 func (s *GameServer) GameDuration() time.Duration { return s.Config.GameDuration }
 
 func (s *GameServer) Connect(sessionId uint32) *Client {
 	log.Println("connecting")
-	client := s.Clients.Add(sessionId)
+	client := s.Clients.Add(sessionId, s.outgoing)
 
 	client.Positions, client.Packets = s.relay.AddClient(client.CN, func(channel uint8, payload []byte) {
 		panic("TODO")
 	})
 	client.Send(
-		nmc.ServerInfo,
-		client.CN,
-		protocol.Version,
-		client.SessionID,
-		false, // password protection is not used by this implementation
-		s.ServerDescription,
-		"",
+		protocol.ServerInfo{
+			Client:      int(client.CN),
+			Protocol:    constants.PROTOCOL_VERSION,
+			SessionId:   int(client.SessionID),
+			HasPassword: false, // password protection is not used by this implementation
+			Description: s.ServerDescription,
+			Domain:      "",
+		},
 	)
 	log.Println("informed about server")
 

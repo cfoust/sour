@@ -5,9 +5,9 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/game"
 	"github.com/cfoust/sour/pkg/server/protocol/disconnectreason"
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
 	"github.com/cfoust/sour/pkg/server/protocol/role"
 	"github.com/cfoust/sour/pkg/server/relay"
 )
@@ -31,13 +31,16 @@ type Client struct {
 	Positions           *relay.Publisher
 	Packets             *relay.Publisher
 	Authentications     map[string]*Authentication
+
+	outgoing Outgoing
 }
 
-func NewClient(cn uint32, sessionId uint32) *Client {
+func NewClient(cn uint32, sessionId uint32, outgoing Outgoing) *Client {
 	return &Client{
 		Player:          game.NewPlayer(cn),
 		SessionID:       sessionId,
 		Authentications: map[string]*Authentication{},
+		outgoing:        outgoing,
 	}
 }
 
@@ -63,7 +66,14 @@ func (c *Client) String() string {
 	return fmt.Sprintf("%s (%d:%d)", c.Name, c.CN, c.SessionID)
 }
 
-func (c *Client) Send(typ nmc.ID, args ...interface{}) {
-	//c.Peer.Send(1, packet.Encode(typ, packet.Encode(args...)))
-	panic("TODO")
+func (c *Client) SendServerMessage(text string) {
+	c.Send(protocol.ServerMessage{text})
+}
+
+func (c *Client) Send(messages ...protocol.Message) {
+	c.outgoing <- ServerPacket{
+		sessionId: c.SessionID,
+		channel:   1,
+		messages:  messages,
+	}
 }
