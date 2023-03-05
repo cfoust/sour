@@ -105,7 +105,7 @@ func (cm *ClientManager) Relay(from *Client, messages ...protocol.Message) {
 }
 
 // Sends 'welcome' information to a newly joined client like map, mode, time left, other players, etc.
-func (s *GameServer) SendWelcome(c *Client) {
+func (s *Server) SendWelcome(c *Client) {
 	messages := []protocol.Message{
 		protocol.Welcome{},
 		protocol.MapChange{
@@ -234,7 +234,7 @@ func (cm *ClientManager) InformOthersOfJoin(c *Client) {
 	}
 }
 
-func (s *GameServer) MapChange() {
+func (s *Server) MapChange() {
 	s.Clients.ForEach(func(c *Client) {
 		c.Player.PlayerState.Reset()
 		if c.State == playerstate.Spectator {
@@ -257,7 +257,7 @@ func (cm *ClientManager) PrivilegedUsers() (privileged []*Client) {
 	return
 }
 
-func (s *GameServer) PrivilegedUsersPacket() (protocol.Message, bool) {
+func (s *Server) PrivilegedUsersPacket() (protocol.Message, bool) {
 	message := protocol.CurrentMaster{
 		MasterMode: int(s.MasterMode),
 	}

@@ -18,7 +18,7 @@ type ServerCommand struct {
 	aliases     []string
 	description string
 	minRole     role.ID
-	f           func(s *GameServer, c *Client, args []string)
+	f           func(s *Server, c *Client, args []string)
 }
 
 func (cmd *ServerCommand) String() string {
@@ -34,12 +34,12 @@ func (cmd *ServerCommand) Detailed() string {
 }
 
 type ServerCommands struct {
-	s       *GameServer
+	s       *Server
 	byName  map[string]*ServerCommand
 	byAlias map[string]*ServerCommand
 }
 
-func NewCommands(s *GameServer, cmds ...*ServerCommand) *ServerCommands {
+func NewCommands(s *Server, cmds ...*ServerCommand) *ServerCommands {
 	sc := &ServerCommands{
 		s:       s,
 		byName:  map[string]*ServerCommand{},
@@ -118,7 +118,7 @@ var ToggleKeepTeams = &ServerCommand{
 	aliases:     []string{"persist", "persistteams"},
 	description: "keeps teams the same across map change",
 	minRole:     role.Master,
-	f: func(s *GameServer, c *Client, args []string) {
+	f: func(s *Server, c *Client, args []string) {
 		changed := false
 		if len(args) >= 1 {
 			val, err := strconv.Atoi(args[0])
@@ -150,7 +150,7 @@ var ToggleCompetitiveMode = &ServerCommand{
 	aliases:     []string{"comp"},
 	description: "in competitive mode, the server waits for all clients to load the map and auto-pauses when a player leaves the game",
 	minRole:     role.Master,
-	f: func(s *GameServer, c *Client, args []string) {
+	f: func(s *Server, c *Client, args []string) {
 		changed := false
 		if len(args) >= 1 {
 			val, err := strconv.Atoi(args[0])
@@ -190,7 +190,7 @@ var ToggleReportStats = &ServerCommand{
 	aliases:     []string{"repstats"},
 	description: "when enabled, end-game stats of players will be reported at intermission",
 	minRole:     role.Admin,
-	f: func(s *GameServer, c *Client, args []string) {
+	f: func(s *Server, c *Client, args []string) {
 		changed := false
 		if len(args) >= 1 {
 			val, err := strconv.Atoi(args[0])
@@ -222,7 +222,7 @@ var SetTimeLeft = &ServerCommand{
 	aliases:     []string{"time", "settimeleft", "settimeremaining", "timeleft", "timeremaining"},
 	description: "sets the time remaining to play to X minutes and Y seconds",
 	minRole:     role.Admin,
-	f: func(s *GameServer, c *Client, args []string) {
+	f: func(s *Server, c *Client, args []string) {
 		if len(args) < 1 {
 			return
 		}

@@ -1,29 +1,23 @@
 package servers
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	_ "embed"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"math/big"
-	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
-	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
-	"github.com/cfoust/sour/svc/cluster/utils"
 
 	"github.com/repeale/fp-go"
 	"github.com/repeale/fp-go/option"
@@ -33,74 +27,6 @@ import (
 // Sauerbraten servers assign each client a number.
 // NOT the same thing as ClientID.
 type ClientNum int32
-
-type ServerStatus byte
-
-const (
-	ServerStarting ServerStatus = iota
-	ServerStarted
-	ServerLoadingMap
-	ServerHealthy
-	ServerFailure
-	ServerExited
-)
-
-// From the enum in services/server/socket/socket.h
-const (
-	SOCKET_EVENT_CONNECT uint32 = iota
-	SOCKET_EVENT_RECEIVE
-	SOCKET_EVENT_DISCONNECT
-	SOCKET_EVENT_COMMAND
-	SOCKET_EVENT_RESPOND_MAP
-	SOCKET_EVENT_PING
-	SOCKET_EVENT_SERVER_INFO_REQUEST
-)
-
-type ServerEvent uint32
-
-const (
-	// The server is sending a packet to a particular client
-	SERVER_EVENT_PACKET ServerEvent = iota
-	// The server is broadcasting a packet to all clients
-	// We don't want to have to infer this
-	SERVER_EVENT_BROADCAST
-	// The server finished connecting a client
-	SERVER_EVENT_CONNECT
-	// The server forces a client to disconnect
-	SERVER_EVENT_DISCONNECT
-	// The server is requesting a map URL
-	SERVER_EVENT_REQUEST_MAP
-	// When the server is ready to accept connections (after the map loads)
-	SERVER_EVENT_HEALTHY
-	SERVER_EVENT_PONG
-	// When the server becomes aware of a client's name
-	SERVER_EVENT_NAME
-	SERVER_EVENT_SERVER_INFO_REPLY
-	SERVER_EVENT_EDIT
-)
-
-func (e ServerEvent) String() string {
-	switch e {
-	case SERVER_EVENT_PACKET:
-		return "SERVER_EVENT_PACKET"
-	case SERVER_EVENT_BROADCAST:
-		return "SERVER_EVENT_BROADCAST"
-	case SERVER_EVENT_CONNECT:
-		return "SERVER_EVENT_CONNECT"
-	case SERVER_EVENT_DISCONNECT:
-		return "SERVER_EVENT_DISCONNECT"
-	case SERVER_EVENT_REQUEST_MAP:
-		return "SERVER_EVENT_REQUEST_MAP"
-	case SERVER_EVENT_PONG:
-		return "SERVER_EVENT_PONG"
-	case SERVER_EVENT_NAME:
-		return "SERVER_EVENT_NAME"
-	case SERVER_EVENT_SERVER_INFO_REPLY:
-		return "SERVER_EVENT_SERVER_INFO_REPLY"
-	}
-
-	return ""
-}
 
 const (
 	// How long we wait before pruning an unused server
@@ -113,9 +39,9 @@ type MapRequest struct {
 }
 
 type ClientPacket struct {
-	Client ingress.ClientID
-	Packet game.GamePacket
-	Server *GameServer
+	Client   ingress.ClientID
+	Messages []protocol.Message
+	Server   *GameServer
 }
 
 type ClientJoin struct {
@@ -148,30 +74,12 @@ type ServerManager struct {
 	Maps    *assets.AssetFetcher
 
 	serverDescription string
-	serverPath        string
-	// The working directory of all of the servers
-	workingDir string
 
-	connects chan ClientJoin
-	names    chan ClientName
-	kicks    chan ClientKick
-	packets  chan ClientPacket
-}
-
-func (manager *ServerManager) ReceiveKicks() <-chan ClientKick {
-	return manager.kicks
+	packets chan ClientPacket
 }
 
 func (manager *ServerManager) ReceivePackets() <-chan ClientPacket {
 	return manager.packets
-}
-
-func (manager *ServerManager) ReceiveConnects() <-chan ClientJoin {
-	return manager.connects
-}
-
-func (manager *ServerManager) ReceiveNames() <-chan ClientName {
-	return manager.names
 }
 
 func (manager *ServerManager) GetServerInfo() *ServerInfo {
@@ -179,10 +87,6 @@ func (manager *ServerManager) GetServerInfo() *ServerInfo {
 
 	manager.Mutex.Lock()
 	for _, server := range manager.Servers {
-		status := server.GetStatus()
-		if status != ServerHealthy {
-			continue
-		}
 		serverInfo := server.GetServerInfo()
 		info.NumClients += serverInfo.NumClients
 	}
@@ -198,26 +102,7 @@ func NewServerManager(maps *assets.AssetFetcher, serverDescription string, prese
 		serverDescription: serverDescription,
 		presets:           presets,
 		packets:           make(chan ClientPacket, 100),
-		kicks:             make(chan ClientKick, 100),
-		names:             make(chan ClientName, 100),
-		connects:          make(chan ClientJoin, 100),
 	}
-}
-
-func IsPortAvailable(port uint16) (bool, error) {
-	addr := net.UDPAddr{
-		Port: int(port),
-		IP:   net.ParseIP("127.0.0.1"),
-	}
-
-	conn, err := net.ListenUDP("udp", &addr)
-	if err != nil {
-		return false, err
-	}
-
-	defer conn.Close()
-
-	return true, nil
 }
 
 func (manager *ServerManager) Start() error {
@@ -225,14 +110,9 @@ func (manager *ServerManager) Start() error {
 }
 
 func (manager *ServerManager) Shutdown() {
-	manager.Mutex.Lock()
-	defer manager.Mutex.Unlock()
-
 	for _, server := range manager.Servers {
 		server.Shutdown()
 	}
-
-	os.RemoveAll(manager.workingDir)
 }
 
 type Identity struct {
@@ -284,7 +164,7 @@ func (manager *ServerManager) PruneServers(ctx context.Context) {
 			for _, server := range manager.Servers {
 				server.Mutex.RLock()
 				lastEvent := server.LastEvent
-				numClients := server.NumClients
+				numClients := server.NumClients()
 				server.Mutex.RUnlock()
 				if (time.Now().Sub(lastEvent)) < SERVER_MAX_IDLE_TIME || numClients > 0 || server.Alias != "" {
 					continue
@@ -369,23 +249,6 @@ func (manager *ServerManager) FindPreset(presetName string, isVirtualOk bool) op
 	return opt.None[config.ServerPreset]()
 }
 
-// Resolve a config string either to a file on the filesystem, or write one.
-func (manager *ServerManager) ResolveConfig(config string) (filepath string, err error) {
-	// If it exists, just resolve to that file path.
-	if _, err := os.Stat(config); err == nil {
-		return config, nil
-	}
-
-	temp, err := ioutil.TempFile(manager.workingDir, "server-config")
-	if err != nil {
-		return "", err
-	}
-
-	temp.Write([]byte(config))
-
-	return temp.Name(), nil
-}
-
 func (manager *ServerManager) ComputeConfig(preset config.ServerPreset) (string, error) {
 	if len(preset.Inherit) != 0 {
 		found := manager.FindPreset(preset.Inherit, true)
@@ -410,65 +273,20 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		return nil, fmt.Errorf("failed to find server preset %s and there is no default", presetName)
 	}
 
-	preset := found.Value
+	//preset := found.Value
 
-	config, err := manager.ComputeConfig(preset)
-
-	resolvedConfig, err := manager.ResolveConfig(config)
-	if err != nil {
-		return nil, err
-	}
+	// TODO configs
 
 	server := GameServer{
-		Alias:         "",
-		Session:       utils.NewSession(ctx),
-		Connecting:    make(chan bool, 1),
-		LastEvent:     time.Now(),
-		ClientInfo:    make(map[ingress.ClientID]*ClientExtInfo),
-		NumClients:    0,
-		From:          utils.NewMessageProxy(false),
-		To:            utils.NewMessageProxy(true),
-		Entities:      make([]maps.Entity, 0),
-		broadcasts:    make(chan game.Message, 10),
-		connects:      manager.connects,
-		kicks:         manager.kicks,
-		mapRequests:   make(chan MapRequest),
-		packets:       manager.packets,
-		rawBroadcasts: make(chan game.GamePacket),
-		pongs:         make(chan time.Time),
-		rawEdits:      make(chan RawEdit),
-		mapEdits:      make(chan MapEdit, 10),
-		send:          make(chan []byte, 100),
-		subscribers:   make([]chan game.Message, 0),
-		names:         manager.names,
-		Hidden:        false,
+		Alias:     "",
+		LastEvent: time.Now(),
+		Entities:  make([]maps.Entity, 0),
+		Hidden:    false,
 	}
-
-	// We don't want other servers to start while this one is being started
-	// because of port contention
-	manager.Mutex.Lock()
-	defer manager.Mutex.Unlock()
 
 	identity := FindIdentity()
 
 	server.Id = identity.Hash
-	server.configFile = resolvedConfig
-
-	cmd := exec.CommandContext(
-		ctx,
-		//"valgrind",
-		//"--leak-check=full",
-		manager.serverPath,
-		fmt.Sprintf("-S%s", identity.Path),
-		fmt.Sprintf("-C%s", server.configFile),
-	)
-
-	cmd.Dir = manager.workingDir
-
-	server.description = manager.serverDescription
-	server.command = cmd
-	server.path = identity.Path
-	server.exit = make(chan bool, 1)
 
 	manager.Servers = append(manager.Servers, &server)
 

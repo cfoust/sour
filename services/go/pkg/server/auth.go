@@ -9,7 +9,7 @@ import (
 	"github.com/cfoust/sour/pkg/server/protocol/role"
 )
 
-func (s *GameServer) setAuthRole(client *Client, rol role.ID, domain, name string) {
+func (s *Server) setAuthRole(client *Client, rol role.ID, domain, name string) {
 	authUser := fmt.Sprintf("'%s'", cubecode.Magenta(name))
 	if domain != "" {
 		authUser = fmt.Sprintf("'%s' [%s]", cubecode.Magenta(name), cubecode.Green(domain))
@@ -27,7 +27,7 @@ func (s *GameServer) setAuthRole(client *Client, rol role.ID, domain, name strin
 	}
 }
 
-func (s *GameServer) setRole(client *Client, targetCN uint32, rol role.ID) {
+func (s *Server) setRole(client *Client, targetCN uint32, rol role.ID) {
 	target := s.Clients.GetClientByCN(targetCN)
 	if target == nil {
 		client.Send(nmc.ServerMessage, cubecode.Fail(fmt.Sprintf("no client with CN %d", targetCN)))
@@ -57,7 +57,7 @@ func (s *GameServer) setRole(client *Client, targetCN uint32, rol role.ID) {
 	s._setRole(target, rol)
 }
 
-func (s *GameServer) _setRole(client *Client, rol role.ID) {
+func (s *Server) _setRole(client *Client, rol role.ID) {
 	client.Role = rol
 	typ, pup, _ := s.PrivilegedUsersPacket()
 	s.Clients.Broadcast(typ, pup)
