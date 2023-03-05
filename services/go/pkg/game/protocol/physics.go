@@ -2,6 +2,9 @@ package protocol
 
 import (
 	"math"
+
+	"github.com/cfoust/sour/pkg/game/constants"
+	"github.com/cfoust/sour/pkg/game/io"
 )
 
 type Vec struct {
@@ -65,7 +68,7 @@ type PhysicsState struct {
 	Velocity     Vec
 }
 
-func getComponent(p *Packet, flags uint32, k uint32) float64 {
+func getComponent(p *io.Packet, flags uint32, k uint32) float64 {
 	r, _ := p.GetByte()
 	n := int(r)
 	r, _ = p.GetByte()
@@ -131,9 +134,7 @@ func vecToYawPitch(v Vec) (yaw float64, pitch float64) {
 	return yaw, pitch
 }
 
-func readPhysics(p *Packet) PhysicsState {
-	d := PhysicsState{}
-
+func (d *PhysicsState) Unmarshal(p *io.Packet) error {
 	r, _ := p.GetByte()
 	state := r
 	flags, _ := p.GetUint()
@@ -206,11 +207,10 @@ func readPhysics(p *Packet) PhysicsState {
 	}
 
 	d.State = state & 7
-
-	return d
+	return nil
 }
 
-func writeDirection(p *Packet, pitch float64, yaw float64) error {
+func writeDirection(p *io.Packet, pitch float64, yaw float64) error {
 	var dir uint32 = uint32(clamp(
 		int(pitch+90),
 		0,
@@ -228,7 +228,7 @@ func writeDirection(p *Packet, pitch float64, yaw float64) error {
 	)
 }
 
-func writePhysics(p *Packet, state PhysicsState) error {
+func (state PhysicsState) Marshal(p *io.Packet) error {
 	var physState byte = state.State |
 		byte((state.LifeSequence&1)<<3) |
 		byte((state.Move&3)<<4) |
@@ -242,12 +242,12 @@ func writePhysics(p *Packet, state PhysicsState) error {
 		Vec{
 			X: state.O.X,
 			Y: state.O.Y,
-			Z: state.O.Z - DEFAULT_EYE_HEIGHT,
-		}.Scale(DMF),
+			Z: state.O.Z - constants.DEFAULT_EYE_HEIGHT,
+		}.Scale(constants.DMF),
 	)
 
-	var vel uint32 = uint32(minInt32(int32(state.Velocity.Magnitude()*DVELF), 0xFFFF))
-	var fall uint32 = uint32(minInt32(int32(state.Falling.Magnitude()*DVELF), 0xFFFF))
+	var vel uint32 = uint32(minInt32(int32(state.Velocity.Magnitude()*constants.DVELF), 0xFFFF))
+	var fall uint32 = uint32(minInt32(int32(state.Falling.Magnitude()*constants.DVELF), 0xFFFF))
 	var flags uint32 = 0
 	if o.X < 0 || o.X > 0xFFFF {
 		flags |= 1 << 0
