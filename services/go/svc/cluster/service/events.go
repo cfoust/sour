@@ -8,7 +8,6 @@ import (
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/game/io"
 	P "github.com/cfoust/sour/pkg/game/protocol"
-	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
@@ -41,7 +40,7 @@ func (server *Cluster) NotifyClientChange(ctx context.Context, user *User, joine
 		if userServer == otherServer {
 			continue
 		}
-		other.Client.SendMessage(message)
+		other.RawMessage(message)
 	}
 	server.Users.Mutex.RUnlock()
 }
@@ -69,7 +68,7 @@ func (server *Cluster) NotifyNameChange(ctx context.Context, user *User, oldName
 		if clientServer == otherServer {
 			continue
 		}
-		other.Client.SendMessage(message)
+		other.RawMessage(message)
 	}
 	server.Users.Mutex.RUnlock()
 }
@@ -111,36 +110,23 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *User, mess
 
 		otherServer := user.GetServer()
 
-		// On the same server, we can just use chat
-		if senderServer == otherServer {
-			if user.Connection.Type() == ingress.ClientTypeWS {
-				user.Connection.SendGlobalChat(sameMessage)
-			} else {
-				// We lose the formatting, but that's OK
-				m := io.Packet{}
-				m.Put(
-					P.N_TEXT,
-					message,
-				)
-
-				p := io.Packet{}
-				p.Put(
-					P.N_CLIENT,
-					senderNum,
-					len(m),
-				)
-
-				p = append(p, m...)
-
-				user.Send(io.RawPacket{
-					Channel: 1,
-					Data:    p,
-				})
-			}
+		if user.Connection.Type() == ingress.ClientTypeWS {
+			ws := user.Connection.(*ingress.WSClient)
+			ws.SendGlobalChat(sameMessage)
 			continue
 		}
 
-		user.Connection.SendGlobalChat(otherMessage)
+		// On the same server, we can just use chat
+		if senderServer == otherServer {
+			// We lose the formatting, but that's OK
+			user.Send(
+				P.ClientPacket{senderNum, 0},
+				P.Text{message},
+			)
+			continue
+		}
+
+		user.RawMessage(otherMessage)
 	}
 	server.Users.Mutex.RUnlock()
 }
@@ -167,7 +153,7 @@ func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int) {
 			if link.ID == uint8(teleport.Attr1) {
 				logger.Info().Msgf("teleported to %s", link.Destination)
 				go c.RunCommandWithTimeout(
-					user.Context(),
+					user.Ctx(),
 					fmt.Sprintf("go %s", link.Destination),
 					user,
 				)
@@ -177,7 +163,7 @@ func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int) {
 }
 
 func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
-	userCtx := user.Context()
+	userCtx := user.Ctx()
 
 	passthrough := func(channel uint8, message P.Message) {
 		server := user.GetServer()
@@ -470,6 +456,23 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 		select {
 		case <-ctx.Done():
 			return
+
+		// TODO
+		//case event := <-names:
+		//user := server.Users.FindUser(event.Client)
+
+		//if user == nil {
+		//continue
+		//}
+
+		//user.Mutex.Lock()
+		//user.Name = event.Name
+		//user.Mutex.Unlock()
+
+		//logger := user.Logger()
+		//logger.Info().Msg("client has new name")
+		//server.NotifyNameChange(ctx, user, event.Name)
+
 		case <-connect:
 			user.Mutex.Lock()
 			if user.Server != nil {

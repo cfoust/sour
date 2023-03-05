@@ -2,12 +2,11 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
-	"github.com/cfoust/sour/pkg/game"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
@@ -132,25 +131,9 @@ func (server *Cluster) GetUptime() int {
 func (server *Cluster) PollServers(ctx context.Context) {
 	forceDisconnects := server.servers.ReceiveKicks()
 	gamePackets := server.servers.ReceivePackets()
-	names := server.servers.ReceiveNames()
 
 	for {
 		select {
-		case event := <-names:
-			user := server.Users.FindUser(event.Client)
-
-			if user == nil {
-				continue
-			}
-
-			user.Mutex.Lock()
-			user.Name = event.Name
-			user.Mutex.Unlock()
-
-			logger := user.Logger()
-			logger.Info().Msg("client has new name")
-			server.NotifyNameChange(ctx, user, event.Name)
-
 		case event := <-forceDisconnects:
 			user := server.Users.FindUser(event.Client)
 
@@ -166,11 +149,11 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			// TODO ideally we would move clients back to the lobby if they
 			// were not kicked for violent reasons
 			user.Connection.Disconnect(int(event.Reason), event.Text)
-		case clientPacket := <-gamePackets:
-			packet := clientPacket.Packet
-			gameServer := clientPacket.Server
+		case p := <-gamePackets:
+			messages := p.Messages
+			gameServer := p.Server
 
-			user := server.Users.FindUser(clientPacket.Client)
+			user := server.Users.FindUser(p.Client)
 
 			if user == nil {
 				continue
@@ -180,33 +163,11 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				continue
 			}
 
-			gameMessages, err := game.Read(packet.Data, false)
-			if err != nil {
-				log.Warn().
-					Err(err).
-					Msg("server -> client (failed to decode message)")
+			channel := uint8(p.Channel)
 
-				user.Client.Intercept.To <- packet
+			out := make([]P.Message, 0)
 
-				// Forward it anyway
-				user.Send(game.GamePacket{
-					Channel: uint8(packet.Channel),
-					Data:    packet.Data,
-				})
-				continue
-			}
-
-			channel := uint8(packet.Channel)
-			out := make([]byte, 0)
-
-			for _, message := range gameMessages {
-				type_ := message.Type()
-				if !game.IsSpammyMessage(type_) {
-					log.Debug().
-						Str("type", message.Type().String()).
-						Msg("server -> client")
-				}
-
+			for _, message := range messages {
 				newMessage, err := gameServer.From.Process(
 					ctx,
 					channel,
@@ -221,13 +182,19 @@ func (server *Cluster) PollServers(ctx context.Context) {
 					continue
 				}
 
-				out = append(out, newMessage.Data()...)
+				out = append(out, newMessage)
 			}
 
-			user.Send(game.GamePacket{
-				Channel: channel,
-				Data:    out,
-			})
+			for _, message := range out {
+				type_ := message.Type()
+				if !P.IsSpammyMessage(type_) {
+					log.Debug().
+						Str("type", message.Type().String()).
+						Msg("server -> client")
+				}
+			}
+
+			user.SendChannel(channel, out...)
 		case <-ctx.Done():
 			return
 		}
@@ -244,14 +211,15 @@ func (server *Cluster) StartServers(ctx context.Context) {
 }
 
 func (server *Cluster) PollUsers(ctx context.Context, newConnections chan ingress.Connection) {
-	newClients := server.Clients.ReceiveClients()
-
 	for {
 		select {
 		case connection := <-newConnections:
-			server.Clients.AddClient(connection)
-		case client := <-newClients:
-			user := server.Users.AddUser(ctx, client)
+			user, err := server.Users.AddUser(ctx, connection)
+			if err != nil {
+				log.Error().Err(err).Msgf("failed to add user")
+				continue
+			}
+
 			go server.PollUser(ctx, user)
 		case <-ctx.Done():
 			return

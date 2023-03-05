@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
-	"github.com/cfoust/sour/pkg/game/protocol"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/server"
 	"github.com/cfoust/sour/svc/cluster/config"
@@ -39,7 +39,8 @@ type MapRequest struct {
 
 type ClientPacket struct {
 	Client   ingress.ClientID
-	Messages []protocol.Message
+	Channel  uint8
+	Messages []P.Message
 	Server   *GameServer
 }
 
@@ -271,6 +272,9 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		Started:   time.Now(),
 		kicks:     manager.kicks,
 		packets:   manager.packets,
+
+		From: P.NewMessageProxy(false),
+		To:   P.NewMessageProxy(true),
 	}
 
 	server.Id = FindIdentity()

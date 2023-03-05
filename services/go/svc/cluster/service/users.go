@@ -44,10 +44,14 @@ const (
 )
 
 type User struct {
+	*utils.Session
+
 	Id ingress.ClientID
 	// Whether the user is connected (or connecting) to a game server
 	Status UserStatus
 	Name   string
+
+	Connection ingress.Connection
 
 	// Created when the user connects to a server and canceled when they
 	// leave, regardless of reason (network or being disconnected by the
@@ -63,8 +67,6 @@ type User struct {
 	ELO   *ELOState
 
 	SessionUUID string
-
-	Connection ingress.Connection
 
 	// True when the user is loading the map
 	delayMessages bool
@@ -90,11 +92,6 @@ type User struct {
 
 	Mutex deadlock.RWMutex
 	o     *UserOrchestrator
-}
-
-// Valid for the duration of the user's session on the cluster.
-func (u *User) Session() *utils.Session {
-	return u.Connection.Session()
 }
 
 func (c *User) ReceiveConnections() <-chan ConnectionEvent {
@@ -174,19 +171,6 @@ func (c *User) RestoreMessages() {
 	c.delayMessages = false
 	c.Mutex.Unlock()
 	c.sendQueuedMessages()
-}
-
-func (c *User) sendQueuedMessages() {
-	c.Mutex.Lock()
-	for _, message := range c.messageQueue {
-		c.sendMessage(message)
-	}
-	c.messageQueue = make([]string, 0)
-	c.Mutex.Unlock()
-}
-
-func (c *User) sendMessage(message string) {
-	c.Send(P.ServerMessage{message})
 }
 
 func (c *User) SendChannel(channel uint8, messages ...P.Message) <-chan bool {
@@ -324,16 +308,35 @@ func (u *User) GetFormattedName() string {
 	return name
 }
 
-func (u *User) Message(message string) {
-	formatted := fmt.Sprintf("%s %s", game.Magenta("~>"), message)
+func (c *User) sendQueuedMessages() {
+	c.Mutex.Lock()
+	for _, message := range c.messageQueue {
+		c.sendMessage(message)
+	}
+	c.messageQueue = make([]string, 0)
+	c.Mutex.Unlock()
+}
 
+func (c *User) sendMessage(message string) {
+	c.Send(P.ServerMessage{message})
+}
+
+func (u *User) queueMessage(message string) {
 	u.Mutex.Lock()
 	if u.delayMessages {
-		u.messageQueue = append(u.messageQueue, formatted)
+		u.messageQueue = append(u.messageQueue, message)
 	} else {
-		u.sendMessage(formatted)
+		u.sendMessage(message)
 	}
 	u.Mutex.Unlock()
+}
+
+func (u *User) Message(message string) {
+	u.queueMessage(fmt.Sprintf("%s %s", game.Magenta("~>"), message))
+}
+
+func (u *User) RawMessage(message string) {
+	u.queueMessage(message)
 }
 
 func (u *User) Reference() string {
@@ -476,7 +479,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 	u.Space = nil
 	u.Server = server
 	u.Status = UserStatusConnecting
-	u.ServerSession = utils.NewSession(u.Session().Ctx())
+	u.ServerSession = utils.NewSession(u.Session.Ctx())
 	u.Mutex.Unlock()
 
 	connected := make(chan bool, 1)
@@ -522,7 +525,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 				Server: server,
 			}
 
-		case <-u.Session().Ctx().Done():
+		case <-u.Session.Ctx().Done():
 			connected <- false
 		case <-connectCtx.Done():
 			u.RestoreMessages()
@@ -572,7 +575,7 @@ func NewUserOrchestrator(redis *redis.Client, duels []config.DuelType) *UserOrch
 
 func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
 	select {
-	case <-user.Session().Ctx().Done():
+	case <-user.Session.Ctx().Done():
 		u.RemoveUser(user)
 		return
 	case <-ctx.Done():
@@ -604,7 +607,7 @@ func (u *UserOrchestrator) newSessionID() (ingress.ClientID, error) {
 	return 0, fmt.Errorf("Failed to assign client ID")
 }
 
-func (u *UserOrchestrator) AddUser(ctx context.Context) (*User, error) {
+func (u *UserOrchestrator) AddUser(ctx context.Context, connection ingress.Connection) (*User, error) {
 	id, err := u.newSessionID()
 	if err != nil {
 		return nil, err
@@ -614,6 +617,8 @@ func (u *UserOrchestrator) AddUser(ctx context.Context) (*User, error) {
 	user := User{
 		Id:                id,
 		Status:            UserStatusDisconnected,
+		Connection:        connection,
+		Session:           connection.Session(),
 		ELO:               NewELOState(u.Duels),
 		Name:              "unnamed",
 		From:              P.NewMessageProxy(true),

@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"time"
 
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/server"
 
@@ -32,6 +33,9 @@ type GameServer struct {
 	Started   time.Time
 
 	Mutex deadlock.RWMutex
+
+	From *P.MessageProxy
+	To   *P.MessageProxy
 
 	kicks   chan ClientKick
 	packets chan ClientPacket
