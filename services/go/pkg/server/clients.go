@@ -86,6 +86,10 @@ func (cm *ClientManager) broadcast(exclude func(*Client) bool, messages ...proto
 	defer cm.mutex.RUnlock()
 
 	for _, c := range cm.clients {
+		if exclude != nil && exclude(c) {
+			continue
+		}
+
 		c.Send(messages...)
 	}
 }

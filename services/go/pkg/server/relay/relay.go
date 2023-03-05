@@ -121,7 +121,7 @@ func (r *Relay) RemoveClient(cn uint32) error {
 	return nil
 }
 
-func (r *Relay) FlushPositionAndSend(cn uint32, p []protocol.Message) {
+func (r *Relay) FlushPositionAndSend(cn uint32, p protocol.Message) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -139,7 +139,7 @@ func (r *Relay) FlushPositionAndSend(cn uint32, p []protocol.Message) {
 		if _cn == cn {
 			continue
 		}
-		send(0, p)
+		send(0, []protocol.Message{p})
 	}
 }
 
