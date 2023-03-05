@@ -13,7 +13,6 @@ import (
 	"github.com/cfoust/sour/pkg/server/protocol/disconnectreason"
 	"github.com/cfoust/sour/pkg/server/protocol/gamemode"
 	"github.com/cfoust/sour/pkg/server/protocol/mastermode"
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
 	"github.com/cfoust/sour/pkg/server/protocol/role"
 	"github.com/cfoust/sour/pkg/server/protocol/weapon"
@@ -46,24 +45,22 @@ func mapHits(hits []p.Hit) []hit {
 }
 
 // checks if the client is allowed to send a certain type of message to us.
-func isValidMessage(c *Client, networkMessageCode nmc.ID) bool {
-	if networkMessageCode == nmc.Ping {
+func isValidMessage(c *Client, code p.MessageCode) bool {
+	if code == p.N_PING {
 		return true
 	}
 
 	if !c.Joined {
 		if c.AuthRequiredBecause > disconnectreason.None {
-			return networkMessageCode == nmc.AuthAnswer
+			return code == p.N_AUTHANS
 		}
-		return networkMessageCode == nmc.TryJoin
-	} else if networkMessageCode == nmc.TryJoin {
+		return code == p.N_CONNECT
+	} else if code == p.N_CONNECT {
 		return false
 	}
 
-	for _, soNMC := range nmc.ServerOnlyNMCs {
-		if soNMC == networkMessageCode {
-			return false
-		}
+	if p.IsServerOnly(code) {
+		return false
 	}
 
 	return true
@@ -82,7 +79,7 @@ func (s *GameServer) HandlePacket(client *Client, channelID uint8, message p.Mes
 
 	packetType := message.Type()
 
-	if !isValidMessage(client, nmc.ID(packetType)) {
+	if !isValidMessage(client, packetType) {
 		log.Println("invalid network message code", packetType, "from CN", client.CN)
 		s.Disconnect(client, disconnectreason.MessageError)
 		return

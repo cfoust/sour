@@ -385,3 +385,56 @@ func IsSpammyMessage(code MessageCode) bool {
 
 	return false
 }
+
+var SERVER_ONLY = []MessageCode{
+	N_SERVINFO,
+	N_INITCLIENT,
+	N_WELCOME,
+	N_MAPCHANGE,
+	N_SERVMSG,
+	N_DAMAGE,
+	N_HITPUSH,
+	N_SHOTFX,
+	N_EXPLODEFX,
+	N_DIED,
+	N_SPAWNSTATE,
+	N_FORCEDEATH,
+	N_TEAMINFO,
+	N_ITEMSPAWN,
+	N_ITEMACC,
+	N_TIMEUP,
+	N_CDIS,
+	N_CURRENTMASTER,
+	N_PONG,
+	N_RESUME,
+	N_BASESCORE,
+	N_BASEINFO,
+	N_BASEREGEN,
+	N_ANNOUNCE,
+	N_SENDDEMOLIST,
+	N_SENDDEMO,
+	N_DEMOPLAYBACK,
+	N_SENDMAP,
+	N_DROPFLAG,
+	N_SCOREFLAG,
+	N_RETURNFLAG,
+	N_RESETFLAG,
+	N_INVISFLAG,
+	N_CLIENT,
+	N_AUTHCHAL,
+	N_INITAI,
+	N_EXPIRETOKENS,
+	N_DROPTOKENS,
+	N_STEALTOKENS,
+	N_DEMOPACKET,
+}
+
+func IsServerOnly(code MessageCode) bool {
+	for _, comparison := range SERVER_ONLY {
+		if code == comparison {
+			return true
+		}
+	}
+
+	return false
+}
