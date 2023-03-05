@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math/rand"
@@ -17,26 +18,29 @@ import (
 	"github.com/cfoust/sour/pkg/server/protocol/role"
 	"github.com/cfoust/sour/pkg/server/protocol/weapon"
 	"github.com/cfoust/sour/pkg/server/relay"
+	"github.com/cfoust/sour/pkg/utils"
 )
 
 type ServerPacket struct {
 	// Either the sender (if incoming) or the recipient (if outgoing)
-	sessionId uint32
-	channel   uint8
-	messages  []protocol.Message
+	Session  uint32
+	Channel  uint8
+	Messages []protocol.Message
 }
 
 type Incoming <-chan ServerPacket
 type Outgoing chan<- ServerPacket
 
 type GameServer struct {
+	utils.Session
+
 	*Config
 	*State
-	relay   *relay.Relay
+	relay *relay.Relay
+
 	Clients *ClientManager
 
 	pendingMapChange *time.Timer
-	callbacks        chan<- func()
 	rng              *rand.Rand
 
 	incoming chan ServerPacket
@@ -49,8 +53,7 @@ type GameServer struct {
 	ReportStats     bool
 }
 
-func New(conf *Config) (*GameServer, <-chan func()) {
-	callbacks := make(chan func())
+func New(conf *Config) *GameServer {
 	clients := &ClientManager{}
 
 	incoming := make(chan ServerPacket)
@@ -63,22 +66,41 @@ func New(conf *Config) (*GameServer, <-chan func()) {
 			UpSince:    time.Now(),
 			NumClients: clients.NumberOfClientsConnected,
 		},
-		relay:     relay.New(),
-		Clients:   clients,
-		callbacks: callbacks,
-		incoming:  incoming,
-		outgoing:  outgoing,
-		rng:       rand.New(rand.NewSource(time.Now().UnixNano())),
+		relay:    relay.New(),
+		Clients:  clients,
+		incoming: incoming,
+		outgoing: outgoing,
+		rng:      rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 
-	return s, callbacks
+	return s
+}
+
+func (s *GameServer) Poll(ctx context.Context) {
+	s.Session = utils.NewSession(ctx)
+
+	for {
+		select {
+		case <-s.Ctx().Done():
+			return
+		case msg := <-s.incoming:
+			client := s.Clients.GetClientByID(msg.Session)
+			if client == nil {
+				continue
+			}
+
+			for _, message := range msg.Messages {
+				s.HandlePacket(client, msg.Channel, message)
+			}
+		}
+	}
 }
 
 func (s *GameServer) Incoming() chan<- ServerPacket {
 	return s.incoming
 }
 
-func (s *GameServer) Outgoing() chan<- ServerPacket {
+func (s *GameServer) Outgoing() <-chan ServerPacket {
 	return s.outgoing
 }
 
@@ -90,9 +112,9 @@ func (s *GameServer) Connect(sessionId uint32) *Client {
 
 	client.Positions, client.Packets = s.relay.AddClient(client.CN, func(channel uint8, payload []protocol.Message) {
 		s.outgoing <- ServerPacket{
-			sessionId: client.SessionID,
-			channel:   1,
-			messages:  payload,
+			Session:  client.SessionID,
+			Channel:  1,
+			Messages: payload,
 		}
 	})
 	client.Send(

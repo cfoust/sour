@@ -72,8 +72,8 @@ func (c *Client) SendServerMessage(text string) {
 
 func (c *Client) Send(messages ...protocol.Message) {
 	c.outgoing <- ServerPacket{
-		sessionId: c.SessionID,
-		channel:   1,
-		messages:  messages,
+		Session: c.SessionID,
+		Channel:   1,
+		Messages:  messages,
 	}
 }
