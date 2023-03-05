@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/io"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
@@ -115,22 +117,22 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *User, mess
 				user.Connection.SendGlobalChat(sameMessage)
 			} else {
 				// We lose the formatting, but that's OK
-				m := game.Packet{}
+				m := io.Packet{}
 				m.Put(
-					game.N_TEXT,
+					P.N_TEXT,
 					message,
 				)
 
-				p := game.Packet{}
+				p := io.Packet{}
 				p.Put(
-					game.N_CLIENT,
+					P.N_CLIENT,
 					senderNum,
 					len(m),
 				)
 
 				p = append(p, m...)
 
-				user.Send(game.GamePacket{
+				user.Send(io.GamePacket{
 					Channel: 1,
 					Data:    p,
 				})
@@ -177,7 +179,7 @@ func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int) {
 func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 	userCtx := user.Context()
 
-	passthrough := func(channel uint8, message game.Message) {
+	passthrough := func(channel uint8, message P.Message) {
 		server := user.GetServer()
 		if server != nil {
 			server.SendData(
@@ -188,15 +190,15 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 		}
 	}
 
-	chats := user.From.Intercept(game.N_TEXT)
-	blockConnecting := user.From.InterceptWith(func(code game.MessageCode) bool {
-		return !game.IsConnectingMessage(code)
+	chats := user.From.Intercept(P.N_TEXT)
+	blockConnecting := user.From.InterceptWith(func(code P.MessageCode) bool {
+		return !P.IsConnectingMessage(code)
 	})
-	connects := user.From.Intercept(game.N_CONNECT)
-	teleports := user.From.Intercept(game.N_TELEPORT)
-	edits := user.From.InterceptWith(game.IsOwnerOnly)
-	crcs := user.From.Intercept(game.N_MAPCRC)
-	votes := user.From.Intercept(game.N_MAPVOTE)
+	connects := user.From.Intercept(P.N_CONNECT)
+	teleports := user.From.Intercept(P.N_TELEPORT)
+	edits := user.From.InterceptWith(P.IsOwnerOnly)
+	crcs := user.From.Intercept(P.N_MAPCRC)
+	votes := user.From.Intercept(P.N_MAPVOTE)
 
 	for {
 		logger := user.Logger()
@@ -330,7 +332,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 
 			msg.Drop()
 
-			if len(text) >= game.MAXSTRLEN {
+			if len(text) >= io.MAXSTRLEN {
 				removed := len(text) - game.MAXSTRLEN
 				text = text[:game.MAXSTRLEN]
 				user.SendServerMessage(game.Red(
@@ -377,8 +379,8 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 
 func (c *Cluster) PollToMessages(ctx context.Context, user *User) {
 	userCtx := user.Context()
-	serverInfo := user.To.Intercept(game.N_SERVINFO)
-	spawnState := user.To.Intercept(game.N_SPAWNSTATE)
+	serverInfo := user.To.Intercept(P.N_SERVINFO)
+	spawnState := user.To.Intercept(P.N_SPAWNSTATE)
 
 	for {
 		select {
@@ -402,7 +404,7 @@ func (c *Cluster) PollToMessages(ctx context.Context, user *User) {
 			user.Mutex.Unlock()
 
 			p := game.Packet{}
-			p.PutInt(int32(game.N_SERVINFO))
+			p.PutInt(int32(P.N_SERVINFO))
 			p.Put(*info)
 			msg.Replace(p)
 		case msg := <-spawnState.Receive():
@@ -609,19 +611,19 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 
 				out = append(out, newMessage.Data()...)
 
-				if type_ == game.N_SENDDEMO || type_ == game.N_SENDMAP {
+				if type_ == P.N_SENDDEMO || type_ == P.N_SENDMAP {
 					continue
 				}
 
 				filtered = append(filtered, newMessage.Data()...)
 			}
 
-			user.Client.Intercept.To <- game.GamePacket{
+			user.Client.Intercept.To <- io.GamePacket{
 				Data:    filtered,
 				Channel: channel,
 			}
 
-			sendResult(done, game.GamePacket{
+			sendResult(done, io.GamePacket{
 				Channel: channel,
 				Data:    out,
 			})

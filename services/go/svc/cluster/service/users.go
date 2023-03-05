@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
-	"github.com/cfoust/sour/svc/cluster/utils"
 	"github.com/cfoust/sour/svc/cluster/verse"
 
 	"github.com/go-redis/redis/v9"
@@ -46,8 +46,8 @@ type User struct {
 	serverSessionCtx context.Context
 	cancel           context.CancelFunc
 
-	From *utils.MessageProxy
-	To   *utils.MessageProxy
+	From *P.MessageProxy
+	To   *P.MessageProxy
 
 	Mutex deadlock.RWMutex
 	o     *UserOrchestrator
@@ -320,7 +320,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 
 	oldServer := u.GetServer()
 	if oldServer != nil {
-		oldServer.SendDisconnect(u.Id)
+		oldServer.Leave(uint32(u.Id))
 		u.cancel()
 
 		// Remove all the other clients from this client's perspective
@@ -480,8 +480,8 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, client *clients.Client) 
 		ELO:    NewELOState(u.Duels),
 		Client: *client,
 		Name:   "unnamed",
-		From:   utils.NewMessageProxy(true),
-		To:     utils.NewMessageProxy(false),
+		From:   P.NewMessageProxy(true),
+		To:     P.NewMessageProxy(false),
 		o:      u,
 	}
 	u.Users = append(u.Users, &user)

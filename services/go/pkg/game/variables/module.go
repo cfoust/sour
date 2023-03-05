@@ -2,6 +2,8 @@ package variables
 
 import (
 	"fmt"
+
+	"github.com/cfoust/sour/pkg/game/constants"
 )
 
 type VariableType byte
@@ -27,8 +29,6 @@ type FloatVariable float32
 func (v FloatVariable) Type() VariableType {
 	return VariableTypeFloat
 }
-
-const MAXSTRLEN = 260
 
 type StringVariable string
 
@@ -141,7 +141,7 @@ var DEFAULT_VARIABLES = map[string]VariableConstraint{
 	"lightlod":          IntConstraint{0, 0, 10},
 	"lightprecision":    IntConstraint{1, 32, 1024},
 	"maptitle":          StringConstraint{"Untitled Map by Unknown"},
-	"mapversion":        IntConstraint{1, MAP_VERSION, 0},
+	"mapversion":        IntConstraint{1, constants.MAP_VERSION, 0},
 	"minimapclip":       IntConstraint{0, 0, 1},
 	"minimapcolour":     IntConstraint{0, 0, 0xFFFFFF},
 	"minimapheight":     IntConstraint{0, 0, 2 << 16},
@@ -243,8 +243,8 @@ func (v Variables) SetString(name string, value string) error {
 	}
 
 	clean := value
-	if len(value) > MAXSTRLEN {
-		clean = value[:MAXSTRLEN]
+	if len(value) > constants.MAXSTRLEN {
+		clean = value[:constants.MAXSTRLEN]
 	}
 
 	v[name] = StringVariable(clean)

@@ -43,7 +43,6 @@ type Cluster struct {
 	Users       *UserOrchestrator
 	auth        *auth.DiscordService
 	servers     *servers.ServerManager
-	deployments *servers.DeploymentOrchestrator
 	matches     *Matchmaker
 	redis       *redis.Client
 	spaces      *verse.SpaceManager
@@ -62,7 +61,6 @@ func NewCluster(
 ) *Cluster {
 	clients := clients.NewClientManager()
 	v := verse.NewVerse(redis)
-	orchestrator := servers.NewDeploymentOrchestrator(serverManager)
 	server := &Cluster{
 		Users:         NewUserOrchestrator(redis, settings.Matchmaking.Duel),
 		serverCtx:     ctx,
@@ -74,7 +72,6 @@ func NewCluster(
 		matches:       NewMatchmaker(serverManager, settings.Matchmaking.Duel),
 		serverMessage: make(chan []byte, 1),
 		servers:       serverManager,
-		deployments:   orchestrator,
 		startTime:     time.Now(),
 		auth:          auth,
 		redis:         redis,

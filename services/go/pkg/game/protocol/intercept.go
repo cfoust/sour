@@ -1,20 +1,17 @@
-package utils
+package protocol
 
 import (
 	"context"
-	"fmt"
 	"time"
-
-	"github.com/cfoust/sour/pkg/game"
 
 	"github.com/sasha-s/go-deadlock"
 )
 
 type ProxiedMessage struct {
-	Message game.Message
+	Message Message
 	Channel uint8
 	drop    chan bool
-	replace chan []byte
+	replace chan Message
 }
 
 func (p *ProxiedMessage) Drop() {
@@ -25,12 +22,12 @@ func (p *ProxiedMessage) Pass() {
 	p.drop <- false
 }
 
-func (p *ProxiedMessage) Replace(data []byte) {
-	p.replace <- data
+func (p *ProxiedMessage) Replace(message Message) {
+	p.replace <- message
 }
 
 type Handler struct {
-	handles func(code game.MessageCode) bool
+	handles func(code MessageCode) bool
 	recv    chan ProxiedMessage
 	proxy   *MessageProxy
 }
@@ -39,8 +36,8 @@ func (h *Handler) Receive() <-chan ProxiedMessage {
 	return h.recv
 }
 
-func makeCodeSetCheck(codes []game.MessageCode) func(code game.MessageCode) bool {
-	return func(code game.MessageCode) bool {
+func makeCodeSetCheck(codes []MessageCode) func(code MessageCode) bool {
+	return func(code MessageCode) bool {
 		for _, otherCode := range codes {
 			if code == otherCode {
 				return true
@@ -50,7 +47,7 @@ func makeCodeSetCheck(codes []game.MessageCode) func(code game.MessageCode) bool
 	}
 }
 
-func (h *Handler) Handles(code game.MessageCode) bool {
+func (h *Handler) Handles(code MessageCode) bool {
 	return h.handles(code)
 }
 
@@ -64,10 +61,10 @@ type MessageProxy struct {
 	fromClient bool
 }
 
-func (m *MessageProxy) Process(ctx context.Context, channel uint8, message game.Message) (game.Message, error) {
+func (m *MessageProxy) Process(ctx context.Context, channel uint8, message Message) (Message, error) {
 	current := message
 	drop := make(chan bool)
-	replace := make(chan []byte)
+	replace := make(chan Message)
 	m.mutex.Lock()
 	handlers := m.handlers
 	m.mutex.Unlock()
@@ -92,21 +89,14 @@ func (m *MessageProxy) Process(ctx context.Context, channel uint8, message game.
 			}
 			continue
 		case data := <-replace:
-			messages, err := game.Read(data, m.fromClient)
-			if err != nil {
-				return nil, err
-			}
-			if len(messages) != 1 {
-				return nil, fmt.Errorf("handler returned invalid number of messages")
-			}
-			current = messages[0]
+			current = data
 		}
 	}
 
 	return current, nil
 }
 
-func (m *MessageProxy) InterceptWith(check func(game.MessageCode) bool) *Handler {
+func (m *MessageProxy) InterceptWith(check func(MessageCode) bool) *Handler {
 	handler := Handler{
 		handles: check,
 		recv:    make(chan ProxiedMessage),
@@ -118,7 +108,7 @@ func (m *MessageProxy) InterceptWith(check func(game.MessageCode) bool) *Handler
 	return &handler
 }
 
-func (m *MessageProxy) Intercept(codes ...game.MessageCode) *Handler {
+func (m *MessageProxy) Intercept(codes ...MessageCode) *Handler {
 	return m.InterceptWith(makeCodeSetCheck(codes))
 }
 
@@ -135,7 +125,7 @@ func (m *MessageProxy) Remove(handler *Handler) {
 	m.mutex.Unlock()
 }
 
-func (m *MessageProxy) getNext(ctx context.Context, shouldSwallow bool, codes ...game.MessageCode) (game.Message, error) {
+func (m *MessageProxy) getNext(ctx context.Context, shouldSwallow bool, codes ...MessageCode) (Message, error) {
 	handler := m.Intercept(codes...)
 	select {
 	case <-ctx.Done():
@@ -152,7 +142,7 @@ func (m *MessageProxy) getNext(ctx context.Context, shouldSwallow bool, codes ..
 }
 
 type nextResult struct {
-	Message game.Message
+	Message Message
 	Err     error
 }
 
@@ -160,8 +150,8 @@ func (m *MessageProxy) getNextTimeout(
 	ctx context.Context,
 	shouldSwallow bool,
 	timeout time.Duration,
-	codes ...game.MessageCode,
-) (game.Message, error) {
+	codes ...MessageCode,
+) (Message, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -189,15 +179,15 @@ func (m *MessageProxy) getNextTimeout(
 }
 
 // Wait for a message and drop it.
-func (m *MessageProxy) Next(ctx context.Context, codes ...game.MessageCode) (game.Message, error) {
+func (m *MessageProxy) Next(ctx context.Context, codes ...MessageCode) (Message, error) {
 	return m.getNext(ctx, true, codes...)
 }
 
 func (m *MessageProxy) NextTimeout(
 	ctx context.Context,
 	timeout time.Duration,
-	codes ...game.MessageCode,
-) (game.Message, error) {
+	codes ...MessageCode,
+) (Message, error) {
 	return m.getNextTimeout(ctx, true, timeout, codes...)
 }
 
@@ -207,21 +197,21 @@ const (
 
 func (m *MessageProxy) Take(
 	ctx context.Context,
-	codes ...game.MessageCode,
-) (game.Message, error) {
+	codes ...MessageCode,
+) (Message, error) {
 	return m.getNextTimeout(ctx, true, DEFAULT_TIMEOUT, codes...)
 }
 
 // Wait for a message, but don't prevent it from being transmitted.
-func (m *MessageProxy) Wait(ctx context.Context, codes ...game.MessageCode) (game.Message, error) {
+func (m *MessageProxy) Wait(ctx context.Context, codes ...MessageCode) (Message, error) {
 	return m.getNext(ctx, false, codes...)
 }
 
 func (m *MessageProxy) WaitTimeout(
 	ctx context.Context,
 	timeout time.Duration,
-	codes ...game.MessageCode,
-) (game.Message, error) {
+	codes ...MessageCode,
+) (Message, error) {
 	return m.getNextTimeout(ctx, false, timeout, codes...)
 }
 

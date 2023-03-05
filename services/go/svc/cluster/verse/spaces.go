@@ -10,9 +10,9 @@ import (
 
 	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/utils"
 	"github.com/cfoust/sour/svc/cluster/config"
 	gameServers "github.com/cfoust/sour/svc/cluster/servers"
-	"github.com/cfoust/sour/svc/cluster/utils"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -28,7 +28,7 @@ type SpaceInstance struct {
 	Space       *UserSpace
 	PresetSpace *config.PresetSpace
 	Editing     *EditingState
-	Deployment  *gameServers.ServerDeployment
+	Server      *gameServers.GameServer
 }
 
 func (s *SpaceInstance) IsOpenEdit() bool {
@@ -93,7 +93,7 @@ func (s *SpaceInstance) GetLinks(ctx context.Context) ([]Link, error) {
 }
 
 func (s *SpaceInstance) PollEdits(ctx context.Context) {
-	edits := s.Deployment.GetServer().ReceiveMapEdits()
+	edits := s.Server.ReceiveMapEdits()
 	for {
 		select {
 		case <-s.Ctx().Done():
@@ -112,20 +112,20 @@ type SpaceManager struct {
 	utils.Session
 
 	// space id -> instance
-	instances   map[string]*SpaceInstance
-	verse       *Verse
-	deployments *gameServers.DeploymentOrchestrator
-	mutex       deadlock.RWMutex
-	maps        *assets.AssetFetcher
+	instances map[string]*SpaceInstance
+	verse     *Verse
+	servers   *gameServers.ServerManager
+	mutex     deadlock.RWMutex
+	maps      *assets.AssetFetcher
 }
 
-func NewSpaceManager(verse *Verse, deployments *gameServers.DeploymentOrchestrator, maps *assets.AssetFetcher) *SpaceManager {
+func NewSpaceManager(verse *Verse, servers *gameServers.ServerManager, maps *assets.AssetFetcher) *SpaceManager {
 	return &SpaceManager{
-		Session:     utils.NewSession(context.Background()),
-		verse:       verse,
-		deployments: deployments,
-		instances:   make(map[string]*SpaceInstance),
-		maps:        maps,
+		Session:   utils.NewSession(context.Background()),
+		verse:     verse,
+		servers:   servers,
+		instances: make(map[string]*SpaceInstance),
+		maps:      maps,
 	}
 }
 
@@ -155,7 +155,7 @@ func (s *SpaceManager) FindInstance(server *gameServers.GameServer) *SpaceInstan
 	defer s.mutex.RUnlock()
 
 	for _, instance := range s.instances {
-		if instance.Deployment.GetServer() == server {
+		if instance.Server == server {
 			return instance
 		}
 	}

@@ -9,6 +9,8 @@ const DMF = 16.0  // for world locations
 const DNF = 100.0 // for normalized vectors
 const DVELF = 1.0 // for playerspeed based velocity vectors
 
+const MAXSTRLEN = 260
+
 // "services/game/src/shared/ents.h" line 91
 const DEFAULT_EYE_HEIGHT = 14
 

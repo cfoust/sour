@@ -200,6 +200,15 @@ func (s *Server) ConfirmSpawn(client *Client, lifeSequence, _weapon int32) {
 	}
 }
 
+func (s *Server) Leave(sessionId uint32) {
+	client := s.Clients.GetClientByID(sessionId)
+	if client == nil {
+		return
+	}
+
+	s.Disconnect(client, disconnectreason.None)
+}
+
 func (s *Server) Disconnect(client *Client, reason disconnectreason.ID) {
 	s.GameMode.Leave(&client.Player)
 	s.Clock.Leave(&client.Player)
