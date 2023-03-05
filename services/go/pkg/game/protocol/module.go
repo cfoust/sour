@@ -3,6 +3,7 @@ package protocol
 import (
 	"fmt"
 
+	"github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/game/io"
 )
 
@@ -100,16 +101,46 @@ func (m DemoPlayback) Type() MessageCode { return N_DEMOPLAYBACK }
 
 type Hit struct {
 	Target       int
-	Lifesequence int
-	// TODO impl this calc
-	// hit.dist = getint(p)/DMF;
-	Dist int
-	Rays int
-	// TODO
-	// hit.dir[k] = getint(p)/DMF;
-	Dir0 int
-	Dir1 int
-	Dir2 int
+	LifeSequence int
+	Dist         int
+	Rays         int
+	Dir0         int
+	Dir1         int
+	Dir2         int
+}
+
+func (f Hit) Marshal(p *io.Packet) error {
+	return p.Put(
+		f.Target,
+		f.LifeSequence,
+		f.Dist*constants.DMF,
+		f.Rays,
+		f.Dir0*constants.DMF,
+		f.Dir1*constants.DMF,
+		f.Dir2*constants.DMF,
+	)
+}
+
+func (f *Hit) Unmarshal(p *io.Packet) error {
+	err := p.Get(
+		&f.Target,
+		&f.LifeSequence,
+		&f.Dist,
+		&f.Rays,
+		&f.Dir0,
+		&f.Dir1,
+		&f.Dir2,
+	)
+	if err != nil {
+		return err
+	}
+
+	f.Dist /= constants.DMF
+	f.Dir0 /= constants.DMF
+	f.Dir1 /= constants.DMF
+	f.Dir2 /= constants.DMF
+
+	return nil
 }
 
 // N_EXPLODE
@@ -414,7 +445,7 @@ type ClientPrivilege struct {
 }
 type CurrentMaster struct {
 	MasterMode int
-	Clients    []ClientPrivilege `type:"term" cmp:"gez"`
+	Clients    []ClientPrivilege `type:"term"`
 }
 
 func (m CurrentMaster) Type() MessageCode { return N_CURRENTMASTER }
@@ -434,7 +465,7 @@ type Team struct {
 	Frags int
 }
 type TeamInfo struct {
-	Teams []Team `type:"term" cmp:"len"`
+	Teams []Team `type:"term"`
 }
 
 func (m TeamInfo) Type() MessageCode { return N_TEAMINFO }
@@ -481,7 +512,7 @@ type ClientState struct {
 
 // N_RESUME
 type Resume struct {
-	Clients []ClientState `type:"term" cmp:"gez"`
+	Clients []ClientState `type:"term"`
 }
 
 func (m Resume) Type() MessageCode { return N_RESUME }
@@ -490,22 +521,150 @@ func (m Resume) Type() MessageCode { return N_RESUME }
 type TeamScore struct {
 	Score int
 }
+
 type FlagState struct {
 	Version   int
 	Spawn     int
-	Owner     int `type:"cond" cmp:"lz"`
-	Invisible int
-	Dropped   int `type:"cond" cmp:"nz"`
+	Owner     int
+	Invisible bool
+	Dropped   bool
 	Dx        int
 	Dy        int
 	Dz        int
 }
-type InitFlags struct {
+
+func (f FlagState) Marshal(p *io.Packet) error {
+	err := p.Put(
+		f.Version,
+		f.Spawn,
+		f.Owner,
+		f.Invisible,
+	)
+	if err != nil {
+		return err
+	}
+
+	if f.Owner >= 0 {
+		return nil
+	}
+
+	err = p.Put(
+		f.Dropped,
+	)
+	if err != nil {
+		return err
+	}
+
+	if !f.Dropped {
+		return nil
+	}
+
+	err = p.Put(
+		f.Dx*constants.DMF,
+		f.Dy*constants.DMF,
+		f.Dz*constants.DMF,
+	)
+	if err != nil {
+		return err
+	}
+
+	// TODO support m_hold
+
+	return nil
+}
+
+func (f *FlagState) Unmarshal(p *io.Packet) error {
+	err := p.Get(
+		&f.Version,
+		&f.Spawn,
+		&f.Owner,
+		&f.Invisible,
+	)
+	if err != nil {
+		return err
+	}
+
+	if f.Owner >= 0 {
+		return nil
+	}
+
+	err = p.Get(
+		&f.Dropped,
+	)
+	if err != nil {
+		return err
+	}
+
+	if !f.Dropped {
+		return nil
+	}
+
+	err = p.Get(
+		&f.Dx,
+		&f.Dy,
+		&f.Dz,
+	)
+	if err != nil {
+		return err
+	}
+
+	f.Dx /= constants.DMF
+	f.Dy /= constants.DMF
+	f.Dz /= constants.DMF
+
+	// TODO support m_hold
+
+	return nil
+}
+
+type ServerInitFlags struct {
 	Scores [2]TeamScore
 	Flags  []FlagState
 }
 
-func (m InitFlags) Type() MessageCode { return N_INITFLAGS }
+func (m ServerInitFlags) Type() MessageCode { return N_INITFLAGS }
+
+type ClientFlagState struct {
+	Team int
+	Dx   int
+	Dy   int
+	Dz   int
+}
+
+func (f ClientFlagState) Marshal(p *io.Packet) error {
+	return p.Put(
+		f.Team,
+		f.Dx*constants.DMF,
+		f.Dy*constants.DMF,
+		f.Dz*constants.DMF,
+	)
+}
+
+func (f *ClientFlagState) Unmarshal(p *io.Packet) error {
+	err := p.Get(
+		&f.Team,
+		&f.Dx,
+		&f.Dy,
+		&f.Dz,
+	)
+	if err != nil {
+		return err
+	}
+
+	f.Dx /= constants.DMF
+	f.Dy /= constants.DMF
+	f.Dz /= constants.DMF
+
+	// TODO support m_hold
+
+	return nil
+}
+
+type ClientInitFlags struct {
+	Flags []ClientFlagState
+}
+
+func (m ClientInitFlags) Type() MessageCode { return N_INITFLAGS }
 
 // N_DROPFLAG
 type DropFlag struct {
@@ -646,7 +805,7 @@ type ClientTokenState struct {
 type InitTokens struct {
 	TeamScores   [2]TeamScore
 	Tokens       []TokenState
-	ClientTokens []ClientTokenState `type:"term" cmp:"gez"`
+	ClientTokens []ClientTokenState `type:"term"`
 }
 
 func (m InitTokens) Type() MessageCode { return N_INITTOKENS }
@@ -664,7 +823,7 @@ func (m TakeToken) Type() MessageCode { return N_TAKETOKEN }
 type ExpireTokens struct {
 	Tokens []struct {
 		Token int
-	} `type:"term" cmp:"gez"`
+	} `type:"term"`
 }
 
 func (m ExpireTokens) Type() MessageCode { return N_EXPIRETOKENS }
@@ -679,7 +838,7 @@ type DropTokens struct {
 		Token int
 		Team  int
 		Yaw   int
-	} `type:"term" cmp:"gez"`
+	} `type:"term"`
 }
 
 func (m DropTokens) Type() MessageCode { return N_DROPTOKENS }
@@ -698,7 +857,7 @@ type StealTokens struct {
 		Token int
 		Team  int
 		Yaw   int
-	} `type:"term" cmp:"gez"`
+	} `type:"term"`
 }
 
 func (m StealTokens) Type() MessageCode { return N_STEALTOKENS }
@@ -721,7 +880,7 @@ type Item struct {
 	Type  int
 }
 type ItemList struct {
-	Items []Item `type:"term" cmp:"gez"`
+	Items []Item `type:"term"`
 }
 
 func (m ItemList) Type() MessageCode { return N_ITEMLIST }
@@ -1010,7 +1169,6 @@ func init() {
 	registerBoth(&HitPush{})
 	registerBoth(&InitAI{})
 	registerBoth(&InitClient{})
-	registerBoth(&InitFlags{})
 	registerBoth(&InitTokens{})
 	registerBoth(&InvisFlag{})
 	registerBoth(&ItemAck{})
@@ -1066,6 +1224,8 @@ func init() {
 	registerBoth(&TrySpawn{})
 	registerBoth(&Welcome{})
 	registerClient(&SpawnRequest{})
+	registerClient(&ClientInitFlags{})
+	registerServer(&ServerInitFlags{})
 	registerServer(&SpawnResponse{})
 
 	// editing

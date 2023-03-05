@@ -67,3 +67,20 @@ func TestStringTerm(t *testing.T) {
 		},
 	})
 }
+
+func TestEmbeddedStruct(t *testing.T) {
+	type Other struct {
+		A int
+	}
+	type Value struct {
+		Other
+		B int
+	}
+
+	val := Value{
+		B: 3,
+	}
+	val.A = 2
+
+	cmp(t, val)
+}
