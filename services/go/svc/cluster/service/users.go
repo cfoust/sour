@@ -189,8 +189,19 @@ func (c *User) SendChannel(channel uint8, messages ...P.Message) <-chan bool {
 	return out
 }
 
+func (c *User) SendChannelSync(channel uint8, messages ...P.Message) error {
+	if !<-c.SendChannel(channel, messages...) {
+		return fmt.Errorf("client never acknowledged message")
+	}
+	return nil
+}
+
 func (c *User) Send(messages ...P.Message) <-chan bool {
 	return c.SendChannel(1, messages...)
+}
+
+func (c *User) SendSync(messages ...P.Message) error {
+	return c.SendChannelSync(1, messages...)
 }
 
 func (c *User) ReceiveToMessages() <-chan TrackedPacket {

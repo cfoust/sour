@@ -9,5 +9,5 @@ if [ -z "$GITPOD_WORKSPACE_ID" ]; then
   unset GOPATH
 fi
 
-go build -o cluster svc/cluster/main.go
-go build -o sourdump cmd/sourdump/main.go
+go build -gcflags="-e" -o cluster svc/cluster/main.go
+go build -gcflags="-e" -o sourdump cmd/sourdump/main.go

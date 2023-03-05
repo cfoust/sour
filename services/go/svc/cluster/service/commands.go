@@ -127,18 +127,14 @@ func (server *Cluster) CreateGame(ctx context.Context, params *CreateParams, use
 
 	logger = logger.With().Str("server", gameServer.Reference()).Logger()
 
-	err = gameServer.StartAndWait(server.serverCtx)
-	if err != nil {
-		logger.Error().Err(err).Msg("server failed to start")
-		return errors.New("server failed to start")
-	}
+	gameServer.Start(server.serverCtx)
 
 	if opt.IsSome(params.Mode) && opt.IsSome(params.Map) {
-		gameServer.SendCommand(fmt.Sprintf("changemap %s %d", params.Map.Value, params.Mode.Value))
+		gameServer.ChangeMap(int32(params.Mode.Value), params.Map.Value)
 	} else if opt.IsSome(params.Mode) {
-		gameServer.SendCommand(fmt.Sprintf("setmode %d", params.Mode.Value))
+		gameServer.SetMode(int32(params.Mode.Value))
 	} else if opt.IsSome(params.Map) {
-		gameServer.SendCommand(fmt.Sprintf("setmap %s", params.Map.Value))
+		gameServer.SetMap(params.Map.Value)
 	}
 
 	server.lastCreate[user.Connection.Host()] = time.Now()
@@ -148,7 +144,7 @@ func (server *Cluster) CreateGame(ctx context.Context, params *CreateParams, use
 	go server.GivePrivateMatchHelp(server.serverCtx, user, user.Server)
 
 	go func() {
-		ctx, cancel := context.WithTimeout(user.Connection.SessionContext(), time.Second*10)
+		ctx, cancel := context.WithTimeout(user.Connection.Session().Ctx(), time.Second*10)
 		defer cancel()
 
 		select {
@@ -228,8 +224,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 			return true, "", err
 		}
 
-		gameServer := instance.Deployment.GetServer()
-		server.AnnounceInServer(ctx, gameServer, fmt.Sprintf("space alias set to %s", alias))
+		server.AnnounceInServer(ctx, instance.Server, fmt.Sprintf("space alias set to %s", alias))
 		return true, "", nil
 
 	case "desc":
@@ -244,7 +239,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 
 		instance := user.GetSpace()
 		space := instance.Space
-		gameServer := instance.Deployment.GetServer()
+		gameServer := instance.Server
 
 		if len(command) < 6 {
 			return true, "", fmt.Errorf("description too short")
@@ -279,7 +274,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 		editing := space.Editing
 		current := editing.IsOpenEdit()
 		editing.SetOpenEdit(!current)
-		gameServer := space.Deployment.GetServer()
+		gameServer := space.Server
 
 		canEdit := editing.IsOpenEdit()
 
@@ -313,7 +308,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 		user.Mutex.RUnlock()
 
 		for _, gameServer := range server.servers.Servers {
-			if !gameServer.IsReference(target) || !gameServer.IsRunning() {
+			if !gameServer.IsReference(target) {
 				continue
 			}
 
@@ -349,7 +344,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 				serverName = alias
 			}
 
-			_, err = user.ConnectToSpace(instance.Deployment.GetServer(), serverName)
+			_, err = user.ConnectToSpace(instance.Server, serverName)
 			return true, "", err
 		}
 
@@ -428,7 +423,7 @@ func (server *Cluster) RunCommandWithTimeout(ctx context.Context, command string
 // Run a command and inform the user of any errors.
 func (c *Cluster) RunOnBehalf(ctx context.Context, command string, user *User) error {
 	logger := user.Logger()
-	userCtx := user.Context()
+	userCtx := user.Ctx()
 	handled, _, err := c.RunCommandWithTimeout(userCtx, command, user)
 
 	if err != nil {

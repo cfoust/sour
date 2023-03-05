@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 )
@@ -26,30 +27,23 @@ func (c *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) er
 		return fmt.Errorf("failed to generate auth challenge")
 	}
 
-	p := game.Packet{}
-	p.PutInt(int32(game.N_AUTHCHAL))
-	challengeMessage := game.AuthChallenge{
+	user.Send(P.AuthChallenge{
 		Desc:      c.authDomain,
 		Id:        0,
 		Challenge: challenge.Question,
-	}
-	p.Put(challengeMessage)
-	user.Send(game.GamePacket{
-		Channel: 1,
-		Data:    p,
 	})
 
 	msg, err := user.From.NextTimeout(
 		ctx,
 		5*time.Second,
-		game.N_AUTHANS,
+		P.N_AUTHANS,
 	)
 	if err != nil {
 		return err
 	}
 
 	logger := user.Logger()
-	answer := msg.Contents().(*game.AuthAns)
+	answer := msg.(*P.AuthAns)
 
 	if answer.Description != c.authDomain {
 		return fmt.Errorf("user provided key for invalid authdomain")
@@ -107,5 +101,5 @@ func (server *Cluster) GreetClient(ctx context.Context, user *User) {
 		return
 	}
 
-	go server.setupCubeScript(user.Context(), user)
+	go server.setupCubeScript(user.Ctx(), user)
 }

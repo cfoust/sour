@@ -293,6 +293,14 @@ func (s *Server) ChangeMap(mode int32, map_ string) {
 	s.StartGame(s.StartMode(gamemode.ID(mode)), map_)
 }
 
+func (s *Server) SetMode(mode int32) {
+	s.StartGame(s.StartMode(gamemode.ID(mode)), s.Map)
+}
+
+func (s *Server) SetMap(map_ string) {
+	s.StartGame(s.GameMode, map_)
+}
+
 func (s *Server) StartGame(mode game.Mode, mapname string) {
 	if s.Clock != nil {
 		s.Clock.CleanUp()

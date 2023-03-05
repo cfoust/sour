@@ -5,25 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cfoust/sour/pkg/game"
+	C "github.com/cfoust/sour/pkg/game/constants"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 )
 
-func sendClient(user *User, data []byte, channel int) <-chan bool {
-	return user.Send(game.GamePacket{
-		Channel: uint8(channel),
-		Data:    data,
-	})
-}
-
-func sendClientSync(user *User, data []byte, channel int) error {
-	if !<-sendClient(user, data, channel) {
-		return fmt.Errorf("client never acknowledged message")
-	}
-	return nil
-}
-
 func (c *Cluster) waitForMapConsent(ctx context.Context, user *User) error {
-	timeout, cancel := context.WithTimeout(user.Context(), 60*time.Second)
+	timeout, cancel := context.WithTimeout(user.Ctx(), 60*time.Second)
 	defer cancel()
 
 	check := time.NewTicker(250 * time.Millisecond)
@@ -52,13 +39,12 @@ func (c *Cluster) waitForMapConsent(ctx context.Context, user *User) error {
 }
 
 func sendRawMap(ctx context.Context, user *User, data []byte) error {
-	p := game.Packet{}
-	p.Put(game.N_SENDMAP)
-	p = append(p, data...)
-	done := user.Send(game.GamePacket{
-		Channel: 2,
-		Data:    p,
-	})
+	done := user.SendChannel(
+		2,
+		P.SendMap{
+			Map: data,
+		},
+	)
 
 	sendCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	select {
@@ -75,9 +61,9 @@ func sendRawMap(ctx context.Context, user *User, data []byte) error {
 
 const RUN_WAIT_TIMEOUT = 15 * time.Second
 
-func runScriptAndWait(ctx context.Context, user *User, type_ game.MessageCode, code string) (game.Message, error) {
+func runScriptAndWait(ctx context.Context, user *User, type_ P.MessageCode, code string) (P.Message, error) {
 	csError := make(chan error)
-	msgChan := make(chan game.Message)
+	msgChan := make(chan P.Message)
 	go func() {
 		csError <- user.RunCubeScript(ctx, code)
 	}()
@@ -115,39 +101,39 @@ func sendBundle(serverCtx context.Context, user *User, id string, data []byte) e
 	fileName := id[:20]
 
 	user.Message("downloading map assets...")
-	msg, err := runScriptAndWait(serverCtx, user, game.N_GETDEMO, fmt.Sprintf(`
+	msg, err := runScriptAndWait(serverCtx, user, P.N_GETDEMO, fmt.Sprintf(`
 getdemo 0 %s
 `, fileName))
 	if err != nil {
 		return err
 	}
 
-	getDemo := msg.Contents().(*game.GetDemo)
+	getDemo := msg.(*P.GetDemo)
 	tag := getDemo.Tag
 
-	p := game.Packet{}
-	p.Put(
-		game.N_SENDDEMO,
-		tag,
+	err = user.SendChannelSync(
+		2,
+		P.SendDemo{
+			Tag:  tag,
+			Data: data,
+		},
 	)
-	p = append(p, data...)
-	err = sendClientSync(user, p, 2)
 	if err != nil {
 		return err
 	}
 
-	timeout, cancel := context.WithTimeout(user.Context(), 120*time.Second)
+	timeout, cancel := context.WithTimeout(user.Ctx(), 120*time.Second)
 	defer cancel()
 
 	for {
-		msg, err = runScriptAndWait(timeout, user, game.N_SERVCMD, fmt.Sprintf(`
+		msg, err = runScriptAndWait(timeout, user, P.N_SERVCMD, fmt.Sprintf(`
 if (= (findfile demo/%s.dmo) 1) [servcmd ok] [servcmd missing]
 `, fileName))
 		if err != nil {
 			return err
 		}
 
-		cmd := msg.Contents().(*game.ServCMD)
+		cmd := msg.(*P.ServCMD)
 		if cmd.Command != "ok" {
 			logger.Info().Msg("demo missing")
 			time.Sleep(1 * time.Second)
@@ -157,7 +143,7 @@ if (= (findfile demo/%s.dmo) 1) [servcmd ok] [servcmd missing]
 	}
 
 	user.Message("mounting asset layer...")
-	msg, err = runScriptAndWait(serverCtx, user, game.N_SERVCMD, fmt.Sprintf(`
+	msg, err = runScriptAndWait(serverCtx, user, P.N_SERVCMD, fmt.Sprintf(`
 addzip demo/%s.dmo
 servcmd ok
 `, fileName))
@@ -165,7 +151,7 @@ servcmd ok
 		return err
 	}
 
-	cmd := msg.Contents().(*game.ServCMD)
+	cmd := msg.(*P.ServCMD)
 	if cmd.Command != "ok" {
 		return fmt.Errorf("user never ack'd demo")
 	}
@@ -209,20 +195,18 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 			return err
 		}
 
-		p := game.Packet{}
-		p.Put(game.N_SENDMAP)
-		p = append(p, data...)
-
-		user.Send(game.GamePacket{
-			Channel: 2,
-			Data:    p,
-		})
+		user.SendChannel(
+			2,
+			P.SendMap{
+				Map: data,
+			},
+		)
 
 		return nil
 	}
 
 	server.Mutex.RLock()
-	mode := server.Mode
+	mode := int32(server.GameMode.ID())
 	mapName := server.Map
 	server.Mutex.RUnlock()
 
@@ -238,7 +222,7 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 	logger.Info().Str("map", map_.Name).Msg("sending map to client")
 
 	// Specifically in this case we don't need CS
-	if mode == game.MODE_COOP && !map_.HasCFG {
+	if mode == C.MODE_COOP && !map_.HasCFG {
 		data, err := found.GetOGZ(ctx)
 		if err != nil {
 			return err
@@ -247,26 +231,14 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 		return sendRawMap(ctx, user, data)
 	}
 
-	send := func(data []byte, channel uint8) {
-		user.Send(game.GamePacket{
-			Data:    data,
-			Channel: channel,
-		})
-	}
-
 	// You can't SENDMAP outside of coopedit, change to it
-	if mode != game.MODE_COOP {
-		p := game.Packet{}
-		p.Put(
-			game.N_MAPCHANGE,
-			game.MapChange{
-				Name:     "",
-				Mode:     int(game.MODE_COOP),
-				HasItems: 0,
-			},
-		)
-		send(p, 1)
-		user.From.Take(ctx, game.N_MAPCRC)
+	if mode != C.MODE_COOP {
+		user.Send(P.MapChange{
+			Name:     "",
+			Mode:     int32(C.MODE_COOP),
+			HasItems: false,
+		})
+		user.From.Take(ctx, P.N_MAPCRC)
 	}
 
 	// Go to purgatory
@@ -295,25 +267,22 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 	}
 
 	// Then change back
-	p := game.Packet{}
-	p.Put(
-		game.N_MAPCHANGE,
-		game.MapChange{
-			Name:     map_.Name,
-			Mode:     int(mode),
-			HasItems: 1,
-		},
-	)
-	send(p, 1)
-	user.From.Take(ctx, game.N_MAPCRC)
+	user.Send(P.MapChange{
+		Name:     map_.Name,
+		Mode:     int32(mode),
+		HasItems: false,
+	})
+	user.From.Take(ctx, P.N_MAPCRC)
 	logger.Info().Msgf("downloaded map %s (%d)", name, len(data))
 
 	// Changing maps causes the gamelimit to disappear, so the server has
 	// to resend it
-	server.SendCommand("sendtime")
+	// TODO
+	// server.SendCommand("sendtime")
 
-	num := user.GetClientNum()
-	server.SendCommand(fmt.Sprintf("refreshwelcome %d", num))
+	// TODO
+	// num := user.GetClientNum()
+	// server.SendCommand(fmt.Sprintf("refreshwelcome %d", num))
 
 	return nil
 }
