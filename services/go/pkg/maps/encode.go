@@ -4,15 +4,17 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"unsafe"
 	"os"
+	"unsafe"
 
-	"github.com/cfoust/sour/pkg/game"
+	C "github.com/cfoust/sour/pkg/game/constants"
+	"github.com/cfoust/sour/pkg/game/io"
+	V "github.com/cfoust/sour/pkg/game/variables"
 
 	"github.com/cfoust/sour/pkg/maps/worldio"
 )
 
-func saveVSlot(p *game.Buffer, vs *VSlot, prev int32) error {
+func saveVSlot(p *io.Buffer, vs *VSlot, prev int32) error {
 	err := p.Put(
 		vs.Changed,
 		prev,
@@ -89,7 +91,7 @@ func saveVSlot(p *game.Buffer, vs *VSlot, prev int32) error {
 	return nil
 }
 
-func saveVSlots(p *game.Buffer, slots []*VSlot) error {
+func saveVSlots(p *io.Buffer, slots []*VSlot) error {
 	numVSlots := len(slots)
 	if numVSlots == 0 {
 		return nil
@@ -186,7 +188,7 @@ func MapToCXX(cube *Cube) worldio.Cube {
 	return parent
 }
 
-func SaveChildren(p *game.Buffer, cube *Cube, size int32) error {
+func SaveChildren(p *io.Buffer, cube *Cube, size int32) error {
 	buf := make([]byte, 20000000) // 20 MiB
 	root := MapToCXX(cube)
 	numBytes := worldio.Savec_buf(
@@ -203,7 +205,7 @@ func SaveChildren(p *game.Buffer, cube *Cube, size int32) error {
 	return nil
 }
 
-func SavePartial(p *game.Buffer, header Header, state worldio.MapState) error {
+func SavePartial(p *io.Buffer, header Header, state worldio.MapState) error {
 	buf := make([]byte, 20000000) // 20 MiB
 	numBytes := worldio.Partial_save_world(
 		uintptr(unsafe.Pointer(&(buf)[0])),
@@ -219,12 +221,12 @@ func SavePartial(p *game.Buffer, header Header, state worldio.MapState) error {
 }
 
 func (m *GameMap) Encode() ([]byte, error) {
-	p := game.Buffer{}
+	p := io.Buffer{}
 
 	err := p.Put(
 		FileHeader{
 			Magic:      [4]byte{byte('O'), byte('C'), byte('T'), byte('A')},
-			Version:    game.MAP_VERSION,
+			Version:    C.MAP_VERSION,
 			HeaderSize: 40,
 			WorldSize:  m.Header.WorldSize,
 			NumEnts:    int32(len(m.Entities)),
@@ -243,7 +245,7 @@ func (m *GameMap) Encode() ([]byte, error) {
 		return p, err
 	}
 
-	defaults := game.DEFAULT_VARIABLES
+	defaults := V.DEFAULT_VARIABLES
 
 	for key, variable := range m.Vars {
 		defaultValue, defaultExists := defaults[key]
@@ -260,18 +262,18 @@ func (m *GameMap) Encode() ([]byte, error) {
 		}
 
 		switch variable.Type() {
-		case game.VariableTypeInt:
-			err = p.Put(variable.(game.IntVariable))
-		case game.VariableTypeFloat:
-			err = p.Put(variable.(game.FloatVariable))
-		case game.VariableTypeString:
-			value := variable.(game.StringVariable)
-			if len(value) >= game.MAXSTRLEN {
+		case V.VariableTypeInt:
+			err = p.Put(variable.(V.IntVariable))
+		case V.VariableTypeFloat:
+			err = p.Put(variable.(V.FloatVariable))
+		case V.VariableTypeString:
+			value := variable.(V.StringVariable)
+			if len(value) >= C.MAXSTRLEN {
 				return p, fmt.Errorf(
 					"svar value %s is too long (%d > %d)",
 					key,
 					len(value),
-					game.MAXSTRLEN,
+					C.MAXSTRLEN,
 				)
 			}
 			err = p.Put(
@@ -350,4 +352,3 @@ func (m *GameMap) ToFile(path string) error {
 
 	return nil
 }
-

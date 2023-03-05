@@ -5,9 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/cfoust/sour/pkg/game/protocol"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/entity"
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
 	"github.com/cfoust/sour/pkg/server/timer"
 )
@@ -15,7 +14,7 @@ import (
 type PickupMode interface {
 	HandlesPackets
 	NeedsMapInfo() bool
-	PickupsInitPacket() protocol.Message
+	PickupsInitPacket() P.Message
 }
 
 type noMapInfo struct{}
@@ -77,7 +76,7 @@ func (m *handlesPickups) spawnDelayed(p *timedPickup) {
 		panic(fmt.Sprintf("unhandled entity type %d pickup.delay", p.Typ))
 	}
 	p.pendingSpawn = timer.AfterFunc(delay*time.Second, func() {
-		m.s.Broadcast(nmc.PickupSpawn, p.id)
+		m.s.Broadcast(P.ItemSpawn{int(p.id)})
 	})
 	go p.pendingSpawn.Start()
 }
@@ -86,10 +85,10 @@ func (m *handlesPickups) NeedsMapInfo() bool {
 	return len(m.pickups) == 0
 }
 
-func (m *handlesPickups) HandlePacket(p *Player, message protocol.Message) bool {
+func (m *handlesPickups) HandlePacket(p *Player, message P.Message) bool {
 	switch message.Type() {
-	case protocol.N_ITEMLIST:
-		itemList := message.(*protocol.ItemList)
+	case P.N_ITEMLIST:
+		itemList := message.(*P.ItemList)
 
 		if len(m.pickups) > 0 || p.State == playerstate.Spectator {
 			break
@@ -97,8 +96,8 @@ func (m *handlesPickups) HandlePacket(p *Player, message protocol.Message) bool 
 
 		m.initPickups(itemList)
 
-	case protocol.N_ITEMPICKUP:
-		itemPickup := message.(*protocol.ItemPickup)
+	case P.N_ITEMPICKUP:
+		itemPickup := message.(*P.ItemPickup)
 
 		if len(m.pickups) == 0 || p.State != playerstate.Alive {
 			break
@@ -121,7 +120,7 @@ func (m *handlesPickups) HandlePacket(p *Player, message protocol.Message) bool 
 			break
 		}
 		m.spawnDelayed(pu)
-		m.s.Broadcast(nmc.PickupAck, entityID, p.CN)
+		m.s.Broadcast(P.ItemAck{entityID, int(p.CN)})
 		p.Pickup(pu)
 
 	default:
@@ -132,7 +131,7 @@ func (m *handlesPickups) HandlePacket(p *Player, message protocol.Message) bool 
 	return true
 }
 
-func (m *handlesPickups) initPickups(pkt *protocol.ItemList) {
+func (m *handlesPickups) initPickups(pkt *P.ItemList) {
 	const maxPickups = 10_000
 
 	for _, item := range pkt.Items {
@@ -161,11 +160,11 @@ func (m *handlesPickups) initPickups(pkt *protocol.ItemList) {
 	}
 }
 
-func (m *handlesPickups) PickupsInitPacket() protocol.Message {
-	message := protocol.ItemList{}
+func (m *handlesPickups) PickupsInitPacket() P.Message {
+	message := P.ItemList{}
 	for id, p := range m.pickups {
 		if p.pendingSpawn.TimeLeft() == 0 {
-			message.Items = append(message.Items, protocol.Item{int(id), int(p.Typ)})
+			message.Items = append(message.Items, P.Item{int(id), int(p.Typ)})
 		}
 	}
 	return message

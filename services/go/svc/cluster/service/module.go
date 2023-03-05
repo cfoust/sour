@@ -30,7 +30,7 @@ type Cluster struct {
 	// host -> the server created by that host
 	// each host can only have one server at once
 	hostServers   map[string]*servers.GameServer
-	startTime     time.Time
+	started       time.Time
 	authDomain    string
 	settings      config.ClusterSettings
 	serverCtx     context.Context
@@ -67,7 +67,7 @@ func NewCluster(
 		matches:       NewMatchmaker(serverManager, settings.Matchmaking.Duel),
 		serverMessage: make(chan []byte, 1),
 		servers:       serverManager,
-		startTime:     time.Now(),
+		started:       time.Now(),
 		auth:          auth,
 		redis:         redis,
 		verse:         v,
@@ -125,7 +125,7 @@ func (server *Cluster) GetClientInfo() []*servers.ClientExtInfo {
 }
 
 func (server *Cluster) GetUptime() int {
-	return int(time.Now().Sub(server.startTime).Round(time.Second) / time.Second)
+	return int(time.Now().Sub(server.started).Round(time.Second) / time.Second)
 }
 
 func (server *Cluster) PollServers(ctx context.Context) {

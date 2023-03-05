@@ -8,7 +8,6 @@ import (
 
 	"github.com/cfoust/sour/pkg/server/protocol/cubecode"
 	"github.com/cfoust/sour/pkg/server/protocol/mastermode"
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
 	"github.com/cfoust/sour/pkg/server/protocol/role"
 )
 
@@ -74,7 +73,7 @@ func (sc *ServerCommands) PrintCommands(c *Client) {
 			helpLines = append(helpLines, cmd.String())
 		}
 	}
-	c.Send(nmc.ServerMessage, "available commands: "+strings.Join(helpLines, ", "))
+	c.Message("available commands: " + strings.Join(helpLines, ", "))
 }
 
 func (sc *ServerCommands) Handle(c *Client, msg string) {
@@ -92,15 +91,15 @@ func (sc *ServerCommands) Handle(c *Client, msg string) {
 			name = name[1:]
 		}
 		if cmd, ok := sc.byAlias[name]; ok {
-			c.Send(nmc.ServerMessage, cmd.Detailed())
+			c.Message(cmd.Detailed())
 		} else {
-			c.Send(nmc.ServerMessage, cubecode.Fail("unknown command '"+name+"'"))
+			c.Message(cubecode.Fail("unknown command '"+name+"'"))
 		}
 
 	default:
 		cmd, ok := sc.byAlias[command]
 		if !ok {
-			c.Send(nmc.ServerMessage, cubecode.Fail("unknown command '"+command+"'"))
+			c.Message(cubecode.Fail("unknown command '"+command+"'"))
 			return
 		}
 
@@ -130,15 +129,15 @@ var ToggleKeepTeams = &ServerCommand{
 		}
 		if changed {
 			if s.KeepTeams {
-				s.Clients.Broadcast(nmc.ServerMessage, "teams will be kept")
+				s.Clients.Message("teams will be kept")
 			} else {
-				s.Clients.Broadcast(nmc.ServerMessage, "teams will be shuffled")
+				s.Clients.Message("teams will be shuffled")
 			}
 		} else {
 			if s.KeepTeams {
-				c.Send(nmc.ServerMessage, "teams will be kept")
+				c.Message("teams will be kept")
 			} else {
-				c.Send(nmc.ServerMessage, "teams will be shuffled")
+				c.Message("teams will be shuffled")
 			}
 		}
 	},
@@ -170,15 +169,15 @@ var ToggleCompetitiveMode = &ServerCommand{
 		}
 		if changed {
 			if s.CompetitiveMode {
-				s.Clients.Broadcast(nmc.ServerMessage, "competitive mode will be enabled with next game")
+				s.Clients.Message("competitive mode will be enabled with next game")
 			} else {
-				s.Clients.Broadcast(nmc.ServerMessage, "competitive mode will be disabled with next game")
+				s.Clients.Message("competitive mode will be disabled with next game")
 			}
 		} else {
 			if s.CompetitiveMode {
-				c.Send(nmc.ServerMessage, "competitive mode is on")
+				c.Message("competitive mode is on")
 			} else {
-				c.Send(nmc.ServerMessage, "competitive mode is off")
+				c.Message("competitive mode is off")
 			}
 		}
 	},
@@ -202,15 +201,15 @@ var ToggleReportStats = &ServerCommand{
 		}
 		if changed {
 			if s.ReportStats {
-				s.Clients.Broadcast(nmc.ServerMessage, "stats will be reported at intermission")
+				s.Clients.Message("stats will be reported at intermission")
 			} else {
-				s.Clients.Broadcast(nmc.ServerMessage, "stats will not be reported")
+				s.Clients.Message("stats will not be reported")
 			}
 		} else {
 			if s.ReportStats {
-				c.Send(nmc.ServerMessage, "stats reporting is on")
+				c.Message("stats reporting is on")
 			} else {
-				c.Send(nmc.ServerMessage, "stats reporting is off")
+				c.Message("stats reporting is off")
 			}
 		}
 	},
@@ -229,15 +228,15 @@ var SetTimeLeft = &ServerCommand{
 
 		d, err := time.ParseDuration(args[0])
 		if err != nil {
-			c.Send(nmc.ServerMessage, cubecode.Error("could not parse duration: "+err.Error()))
+			c.Message(cubecode.Error("could not parse duration: "+err.Error()))
 			return
 		}
 
 		if d == 0 {
 			d = 1 * time.Second // 0 forces intermission without updating the client's game timer
-			s.Broadcast(nmc.ServerMessage, fmt.Sprintf("%s forced intermission", s.Clients.UniqueName(c)))
+			s.Message(fmt.Sprintf("%s forced intermission", s.Clients.UniqueName(c)))
 		} else {
-			s.Broadcast(nmc.ServerMessage, fmt.Sprintf("%s set the time remaining to %s", s.Clients.UniqueName(c), d))
+			s.Message(fmt.Sprintf("%s set the time remaining to %s", s.Clients.UniqueName(c), d))
 		}
 
 		s.Clock.SetTimeLeft(d)

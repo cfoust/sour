@@ -3,7 +3,7 @@ package game
 import (
 	"sort"
 
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
 )
 
@@ -62,7 +62,7 @@ func (m *teamMode) selectWeakestTeam() *Team {
 func (m *teamMode) Join(p *Player) {
 	team := m.selectTeam(p)
 	team.Add(p)
-	m.s.Broadcast(nmc.SetTeam, p.CN, p.Team.Name, -1)
+	m.s.Broadcast(P.SetTeam{int(p.CN), p.Team.Name, -1})
 }
 
 func (*teamMode) Leave(p *Player) {
@@ -76,7 +76,7 @@ func (m *teamMode) HandleFrag(fragger, victim *Player) {
 	} else {
 		fragger.Frags++
 	}
-	m.s.Broadcast(nmc.Died, victim.CN, fragger.CN, fragger.Frags, fragger.Team.Frags)
+	m.s.Broadcast(P.Died{int(victim.CN), int(fragger.CN), fragger.Frags, fragger.Team.Frags})
 }
 
 func (m *teamMode) ForEachTeam(do func(t *Team)) {
@@ -105,7 +105,7 @@ func (m *teamMode) ChangeTeam(p *Player, newTeamName string, forced bool) {
 		}
 		old.Remove(p)
 		new.Add(p)
-		m.s.Broadcast(nmc.SetTeam, p.CN, p.Team.Name, reason)
+		m.s.Broadcast(P.SetTeam{int(p.CN), p.Team.Name, reason})
 	}
 
 	// try existing teams first

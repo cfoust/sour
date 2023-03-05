@@ -228,7 +228,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 		case msg := <-crcs.Receive():
 			msg.Pass()
 			user.RestoreMessages()
-			crc := msg.Message.Contents().(*game.MapCRC)
+			crc := msg.Message.(*P.MapCRC)
 			// The client does not have the map
 			if crc.Crc == 0 {
 				go func() {

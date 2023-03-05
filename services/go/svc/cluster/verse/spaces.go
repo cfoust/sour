@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
-	"github.com/cfoust/sour/pkg/game"
+	C "github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/utils"
 	"github.com/cfoust/sour/svc/cluster/config"
 	gameServers "github.com/cfoust/sour/svc/cluster/servers"
@@ -93,19 +93,20 @@ func (s *SpaceInstance) GetLinks(ctx context.Context) ([]Link, error) {
 }
 
 func (s *SpaceInstance) PollEdits(ctx context.Context) {
-	edits := s.Server.ReceiveMapEdits()
-	for {
-		select {
-		case <-s.Ctx().Done():
-			return
-		case edit := <-edits:
-			if s.Editing == nil {
-				continue
-			}
-			s.Editing.Process(edit.Client, edit.Message)
-			continue
-		}
-	}
+	// TODO
+	//edits := s.Server.Broadcasts.InterceptWith(P.IsEditMessage)
+	//for {
+	//select {
+	//case <-s.Ctx().Done():
+	//return
+	//case edit := <-edits.Receive():
+	//if s.Editing == nil {
+	//continue
+	//}
+	//s.Editing.Process(edit.Client, edit.Message)
+	//continue
+	//}
+	//}
 }
 
 type SpaceManager struct {
@@ -239,35 +240,20 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 
 	go editing.SavePeriodically(instance.Ctx())
 
-	deployment := s.deployments.NewDeployment(context.Background(), "", true)
-	migrations := deployment.ReceiveMigrations()
-
-	go func() {
-		for {
-			select {
-			case <-deployment.Ctx().Done():
-				return
-			case migration := <-migrations:
-				if instance.Editing != nil {
-					instance.Editing.Checkpoint(ctx)
-				}
-
-				gameServer := migration.New
-				gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
-				gameServer.SendCommand("publicserver 1")
-				gameServer.SendCommand("emptymap")
-
-				migration.Done()
-			}
-		}
-	}()
-
-	err = deployment.Start(ctx)
+	gameServer, err := s.servers.NewServer(instance.Ctx(), "", true)
 	if err != nil {
+		logger.Error().Err(err).Msg("failed to create server for preset")
 		return nil, err
 	}
 
-	instance.Deployment = deployment
+	// TODO
+	// gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
+	// gameServer.SendCommand("publicserver 1")
+	// gameServer.SendCommand("emptymap")
+
+	instance.Server = gameServer
+
+	go gameServer.Start(instance.Ctx())
 
 	go s.WatchInstance(ctx, &instance)
 
@@ -278,12 +264,10 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 	return &instance, nil
 }
 
-func (s *SpaceManager) DoExploreMode(ctx context.Context, deployment *gameServers.ServerDeployment, skipRoot string) {
+func (s *SpaceManager) DoExploreMode(ctx context.Context, gameServer *gameServers.GameServer, skipRoot string) {
 	maps := s.maps.GetMaps(skipRoot)
 
 	cycleMap := func() {
-		gameServer := deployment.GetServer()
-
 		var name string
 		for {
 			index, _ := rand.Int(rand.Reader, big.NewInt(int64(len(maps))))
@@ -301,30 +285,17 @@ func (s *SpaceManager) DoExploreMode(ctx context.Context, deployment *gameServer
 			break
 		}
 
-		gameServer.SendCommand(fmt.Sprintf("changemap %s %d", name, game.MODE_FFA))
+		gameServer.ChangeMap(C.MODE_FFA, name)
 	}
 
 	tick := time.NewTicker(3 * time.Minute)
 
 	cycleMap()
 
-	migrations := deployment.ReceiveMigrations()
-	chats := deployment.GetServer().To.Intercept(game.N_TEXT)
-
 	for {
 		select {
-		case <-deployment.Ctx().Done():
+		case <-gameServer.Ctx().Done():
 			return
-		case msg := <-chats.Receive():
-			message := msg.Message
-			text := message.Contents().(*game.Text).Text
-			log.Info().Msgf("chat %s", text)
-			msg.Pass()
-		case migration := <-migrations:
-			migration.Done()
-			chats.Remove()
-			chats = migration.New.To.Intercept(game.N_TEXT)
-			cycleMap()
 		case <-tick.C:
 			cycleMap()
 			continue
@@ -347,43 +318,32 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 		})
 	}
 
-	deployment := s.deployments.NewDeployment(ctx, presetSpace.Preset, true)
-	migrations := deployment.ReceiveMigrations()
 	logger := s.Logger()
 
-	go func() {
-		for {
-			select {
-			case <-deployment.Ctx().Done():
-				return
-			case migration := <-migrations:
-				migration.New.Alias = config.Alias
-
-				if config.Description != "" {
-					migration.New.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
-				} else {
-					migration.New.SendCommand(fmt.Sprintf("serverdesc \"Sour [%s]\"", config.Alias))
-				}
-
-				migration.Done()
-			}
-		}
-	}()
-
-	err := deployment.Start(ctx)
+	gameServer, err := s.servers.NewServer(ctx, presetSpace.Preset, true)
 	if err != nil {
+		logger.Error().Err(err).Msg("failed to create server for preset")
 		return nil, err
 	}
+
+	gameServer.Alias = config.Alias
+
+	// TODO
+	//if config.Description != "" {
+		//gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", config.Description))
+	//} else {
+		//gameServer.SendCommand(fmt.Sprintf("serverdesc \"Sour [%s]\"", config.Alias))
+	//}
 
 	logger.Info().Msgf("started space %s", config.Alias)
 
 	if presetSpace.ExploreMode {
-		go s.DoExploreMode(ctx, deployment, presetSpace.ExploreModeSkip)
+		go s.DoExploreMode(ctx, gameServer, presetSpace.ExploreModeSkip)
 	}
 
 	instance := SpaceInstance{
 		Session:     utils.NewSession(s.Ctx()),
-		Deployment:  deployment,
+		Server:      gameServer,
 		PresetSpace: &presetSpace,
 		SpaceConfig: SpaceConfig{
 			Alias:       config.Alias,

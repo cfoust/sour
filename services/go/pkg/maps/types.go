@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/cfoust/sour/pkg/game"
+	C "github.com/cfoust/sour/pkg/game/constants"
+	V "github.com/cfoust/sour/pkg/game/variables"
 	"github.com/cfoust/sour/pkg/maps/worldio"
 
 	"github.com/rs/zerolog/log"
@@ -80,7 +81,7 @@ type Entity struct {
 	Attr3    int16
 	Attr4    int16
 	Attr5    int16
-	Type     game.EntityType
+	Type     C.EntityType
 	Reserved byte
 }
 
@@ -385,7 +386,7 @@ func NewVSlot(owner *Slot, index int32) *VSlot {
 type GameMap struct {
 	Header    Header
 	Entities  []Entity
-	Vars      game.Variables
+	Vars      V.Variables
 	WorldRoot *Cube
 	VSlots    []*VSlot
 	C         worldio.MapState
@@ -400,6 +401,7 @@ func (m *GameMap) Destroy() {
 // This is generated using:
 // sourdump -type cfg -index default.textures data/default_map_settings.cfg
 // (that is not the full command, you should be able to infer it though)
+//
 //go:embed default.textures
 var DEFAULT_MAP_SLOTS []byte
 
@@ -424,14 +426,14 @@ func NewMap() (*GameMap, error) {
 	worldio.M.Unlock()
 	map_ := GameMap{
 		Header: Header{
-			Version:    game.MAP_VERSION,
+			Version:    C.MAP_VERSION,
 			GameType:   "fps",
 			HeaderSize: 40,
 			WorldSize:  1024,
 		},
 		Entities:  make([]Entity, 0),
 		WorldRoot: EmptyMap(1024),
-		Vars:      make(map[string]game.Variable),
+		Vars:      make(map[string]V.Variable),
 		VSlots:    make([]*VSlot, 0),
 		C:         c,
 	}

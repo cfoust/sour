@@ -9,6 +9,7 @@ import (
 type Server interface {
 	GameDuration() time.Duration
 	Broadcast(messages ...protocol.Message)
+	Message(message string)
 	Intermission()
 	ForEachPlayer(func(*Player))
 	UniqueName(*Player) string

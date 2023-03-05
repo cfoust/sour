@@ -34,8 +34,9 @@ type GameServer struct {
 
 	Mutex deadlock.RWMutex
 
-	From *P.MessageProxy
-	To   *P.MessageProxy
+	Broadcasts *P.MessageProxy
+	From       *P.MessageProxy
+	To         *P.MessageProxy
 
 	kicks   chan ClientKick
 	packets chan ClientPacket

@@ -4,8 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/cfoust/sour/pkg/server/geom"
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/timer"
 )
 
@@ -72,7 +71,7 @@ func (m *ctf) TouchFlag(p *Player, f *flag) {
 		// player touches her own, dropped flag
 		f.pendingReset.Stop()
 		m.returnFlag(f)
-		m.s.Broadcast(nmc.ReturnFlag, p.CN, f.index, f.version)
+		m.s.Broadcast(P.ReturnFlag{int(p.CN), int(f.index), int(f.version)})
 		return
 	} else {
 		// player touches her own flag at its base
@@ -92,7 +91,17 @@ func (m *ctf) TouchFlag(p *Player, f *flag) {
 		p.Flags++
 		p.Team.Score++
 		f.version++
-		m.s.Broadcast(nmc.ScoreFlag, p.CN, enemyFlag.index, enemyFlag.version, f.index, f.version, 0, f.teamID, p.Team.Score, p.Flags)
+		m.s.Broadcast(P.ScoreFlag{
+			int(p.CN),
+			int(enemyFlag.index),
+			int(enemyFlag.version),
+			int(f.index),
+			int(f.version),
+			0,
+			int(f.teamID),
+			p.Team.Score,
+			p.Flags,
+		})
 		if p.Team.Score >= 10 {
 			m.s.Intermission()
 		}
@@ -107,7 +116,11 @@ func (m *ctf) takeFlag(p *Player, f *flag) {
 	}
 
 	f.version++
-	m.s.Broadcast(nmc.TouchFlag, p.CN, f.index, f.version)
+	m.s.Broadcast(P.TakeFlag{
+		int(p.CN),
+		int(f.index),
+		int(f.version),
+	})
 	f.carrier = p
 }
 
@@ -123,10 +136,26 @@ func (m *ctf) DropFlag(p *Player, f *flag) {
 	f.carrier = nil
 	f.version++
 
-	m.s.Broadcast(nmc.DropFlag, p.CN, f.index, f.version, f.dropLocation.Mul(geom.DMF))
+	m.s.Broadcast(P.DropFlag{
+		int(p.CN),
+		int(f.index),
+		int(f.version),
+		P.Vec{
+			f.dropLocation.X(),
+			f.dropLocation.Y(),
+			f.dropLocation.Z(),
+		},
+	})
+
 	f.pendingReset = timer.AfterFunc(10*time.Second, func() {
 		m.returnFlag(f)
-		m.s.Broadcast(nmc.ResetFlag, f.index, f.version, 0, f.teamID, f.team.Score)
+		m.s.Broadcast(P.ResetFlag{
+			int(f.index),
+			int(f.version),
+			0,
+			int(f.teamID),
+			f.team.Score,
+		})
 	})
 	f.pendingReset.Start()
 }

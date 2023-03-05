@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cfoust/sour/pkg/game/protocol"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/game"
 	"github.com/cfoust/sour/pkg/server/protocol/cubecode"
 	"github.com/cfoust/sour/pkg/server/protocol/disconnectreason"
@@ -69,19 +69,23 @@ func (cm *ClientManager) FindClientByName(name string) *Client {
 }
 
 // Send a packet to a client's team, but not the client himself, over the specified channel.
-func (cm *ClientManager) SendToTeam(c *Client, messages ...protocol.Message) {
+func (cm *ClientManager) SendToTeam(c *Client, messages ...P.Message) {
 	excludeSelfAndOtherTeams := func(_c *Client) bool {
 		return _c == c || _c.Team != c.Team
 	}
 	cm.broadcast(excludeSelfAndOtherTeams, messages...)
 }
 
+func (cm *ClientManager) Message(message string) {
+	cm.Broadcast(P.ServerMessage{message})
+}
+
 // Sends a packet to all clients currently in use.
-func (cm *ClientManager) Broadcast(messages ...protocol.Message) {
+func (cm *ClientManager) Broadcast(messages ...P.Message) {
 	cm.broadcast(nil, messages...)
 }
 
-func (cm *ClientManager) broadcast(exclude func(*Client) bool, messages ...protocol.Message) {
+func (cm *ClientManager) broadcast(exclude func(*Client) bool, messages ...P.Message) {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
 
@@ -100,21 +104,21 @@ func exclude(c *Client) func(*Client) bool {
 	}
 }
 
-func (cm *ClientManager) Relay(from *Client, messages ...protocol.Message) {
+func (cm *ClientManager) Relay(from *Client, messages ...P.Message) {
 	cm.broadcast(exclude(from), messages...)
 }
 
 // Sends 'welcome' information to a newly joined client like map, mode, time left, other players, etc.
 func (s *Server) SendWelcome(c *Client) {
-	messages := []protocol.Message{
-		protocol.Welcome{},
-		protocol.MapChange{
+	messages := []P.Message{
+		P.Welcome{},
+		P.MapChange{
 			Name:     s.Map,
 			Mode:     int(s.GameMode.ID()),
 			HasItems: s.GameMode.NeedsMapInfo(),
 		},
 		// time left in this round
-		protocol.TimeUp{int(s.Clock.TimeLeft() / time.Second)},
+		P.TimeUp{int(s.Clock.TimeLeft() / time.Second)},
 	}
 
 	if pickupMode, ok := s.GameMode.(game.PickupMode); ok && !s.GameMode.NeedsMapInfo() {
@@ -128,15 +132,15 @@ func (s *Server) SendWelcome(c *Client) {
 	}
 
 	if s.Clock.Paused() {
-		messages = append(messages, protocol.PauseGame{true, -1})
+		messages = append(messages, P.PauseGame{true, -1})
 	}
 
 	if teamMode, ok := s.GameMode.(game.TeamMode); ok {
-		teamInfo := protocol.TeamInfo{}
+		teamInfo := P.TeamInfo{}
 
 		teamMode.ForEachTeam(func(t *game.Team) {
 			if t.Frags > 0 {
-				teamInfo.Teams = append(teamInfo.Teams, protocol.Team{t.Name, t.Frags})
+				teamInfo.Teams = append(teamInfo.Teams, P.Team{t.Name, t.Frags})
 			}
 		})
 
@@ -144,7 +148,7 @@ func (s *Server) SendWelcome(c *Client) {
 	}
 
 	// tell the client what team he was put in by the server
-	messages = append(messages, protocol.SetTeam{
+	messages = append(messages, P.SetTeam{
 		Client: int(c.CN),
 		Team:   c.Team.Name,
 		Reason: -1,
@@ -152,25 +156,25 @@ func (s *Server) SendWelcome(c *Client) {
 
 	// tell the client how to spawn (what health, what armour, what weapons, what ammo, etc.)
 	if c.State == playerstate.Spectator {
-		messages = append(messages, protocol.Spectator{
+		messages = append(messages, P.Spectator{
 			Client:     int(c.CN),
 			Spectating: true,
 		})
 	} else {
 		// TODO: handle spawn delay (e.g. in ctf modes)
-		messages = append(messages, protocol.SpawnState{
+		messages = append(messages, P.SpawnState{
 			Client:      int(c.CN),
 			EntityState: c.ToWire(),
 		})
 	}
 
 	// send other players' state (frags, flags, etc.)
-	resume := protocol.Resume{}
+	resume := P.Resume{}
 	for _, client := range s.Clients.clients {
 		if client != c {
 			resume.Clients = append(
 				resume.Clients,
-				protocol.ClientState{
+				P.ClientState{
 					Id:          int(client.CN),
 					State:       int(client.State),
 					Frags:       client.Frags,
@@ -187,7 +191,7 @@ func (s *Server) SendWelcome(c *Client) {
 	// send other client's state (name, team, playermodel)
 	for _, client := range s.Clients.clients {
 		if client != c {
-			messages = append(messages, protocol.InitClient{
+			messages = append(messages, P.InitClient{
 				int(client.CN), client.Name, client.Team.Name, int(client.Model),
 			})
 		}
@@ -198,12 +202,12 @@ func (s *Server) SendWelcome(c *Client) {
 
 // Tells other clients that the client disconnected, giving a disconnect reason in case it's not a normal leave.
 func (cm *ClientManager) Disconnect(c *Client, reason disconnectreason.ID) {
-	cm.Relay(c, protocol.ClientDisconnected{int(c.CN)})
+	cm.Relay(c, P.ClientDisconnected{int(c.CN)})
 
 	msg := ""
 	if reason != disconnectreason.None {
 		msg = fmt.Sprintf("%s disconnected because: %s", cm.UniqueName(c), reason)
-		cm.Relay(c, protocol.ServerMessage{msg})
+		cm.Relay(c, P.ServerMessage{msg})
 	} else {
 		msg = fmt.Sprintf("%s disconnected", cm.UniqueName(c))
 	}
@@ -223,12 +227,12 @@ func (cm *ClientManager) Disconnect(c *Client, reason disconnectreason.ID) {
 
 // Informs all other clients that a client joined the game.
 func (cm *ClientManager) InformOthersOfJoin(c *Client) {
-	cm.Relay(c, protocol.InitClient{
+	cm.Relay(c, P.InitClient{
 		int(c.CN), c.Name, c.Team.Name, int(c.Model),
 	})
 
 	if c.State == playerstate.Spectator {
-		cm.Relay(c, protocol.Spectator{
+		cm.Relay(c, P.Spectator{
 			int(c.CN), true,
 		})
 	}
@@ -241,7 +245,7 @@ func (s *Server) MapChange() {
 			return
 		}
 		s.Spawn(c)
-		c.Send(protocol.SpawnState{
+		c.Send(P.SpawnState{
 			Client:      int(c.CN),
 			EntityState: c.ToWire(),
 		})
@@ -257,14 +261,14 @@ func (cm *ClientManager) PrivilegedUsers() (privileged []*Client) {
 	return
 }
 
-func (s *Server) PrivilegedUsersPacket() (protocol.Message, bool) {
-	message := protocol.CurrentMaster{
+func (s *Server) PrivilegedUsersPacket() (P.Message, bool) {
+	message := P.CurrentMaster{
 		MasterMode: int(s.MasterMode),
 	}
 
 	s.Clients.ForEach(func(c *Client) {
 		if c.Role > role.None {
-			message.Clients = append(message.Clients, protocol.ClientPrivilege{
+			message.Clients = append(message.Clients, P.ClientPrivilege{
 				int(c.CN),
 				int(c.Role),
 			})

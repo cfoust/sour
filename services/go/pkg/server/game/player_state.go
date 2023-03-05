@@ -46,20 +46,18 @@ func NewPlayerState() PlayerState {
 
 func (ps *PlayerState) ToWire() protocol.EntityState {
 	spawnState := protocol.EntityState{
-		int(ps.LifeSequence),
-		int(ps.Health),
-		int(ps.MaxHealth),
-		int(ps.Armour),
-		int(ps.ArmourType),
-		int(ps.SelectedWeapon.ID),
-		make([]protocol.AmmoState, 6),
+		LifeSequence: int(ps.LifeSequence),
+		Health:       int(ps.Health),
+		MaxHealth:    int(ps.MaxHealth),
+		Armour:       int(ps.Armour),
+		Armourtype:   int(ps.ArmourType),
+		Gunselect:    int(ps.SelectedWeapon.ID),
 	}
 
 	for _, id := range weapon.WeaponsWithAmmo {
-		spawnState.Ammo = append(
-			spawnState.Ammo,
-			protocol.AmmoState{int(ps.Ammo[id])},
-		)
+		spawnState.Ammo[id] = protocol.AmmoState{
+			Amount: int(ps.Ammo[id]),
+		}
 	}
 
 	return spawnState

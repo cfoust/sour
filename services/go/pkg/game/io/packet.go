@@ -106,6 +106,15 @@ func (p *Packet) Put(pieces ...interface{}) error {
 	return Marshal(p, pieces...)
 }
 
+func Encode(pieces ...interface{}) ([]byte, error) {
+	p := Packet{}
+	err := p.Put(pieces...)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
 func (p *Packet) GetFloat() (float32, bool) {
 	q := Buffer(*p)
 	value, ok := q.GetFloat()

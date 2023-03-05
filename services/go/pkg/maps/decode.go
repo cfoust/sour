@@ -8,7 +8,8 @@ import (
 	"os"
 	"unsafe"
 
-	"github.com/cfoust/sour/pkg/game"
+	gIO "github.com/cfoust/sour/pkg/game/io"
+	V "github.com/cfoust/sour/pkg/game/variables"
 	"github.com/cfoust/sour/pkg/maps/worldio"
 
 	"github.com/rs/zerolog/log"
@@ -105,7 +106,7 @@ func VSlotsToGo(state worldio.MapState) []*VSlot {
 	return vslots
 }
 
-func LoadPartial(p *game.Buffer, header Header) (worldio.MapState, error) {
+func LoadPartial(p *gIO.Buffer, header Header) (worldio.MapState, error) {
 	state := worldio.Partial_load_world(
 		uintptr(unsafe.Pointer(&(*p)[0])),
 		int64(len(*p)),
@@ -123,7 +124,7 @@ func LoadPartial(p *game.Buffer, header Header) (worldio.MapState, error) {
 }
 
 func decode(data []byte, skipCubes bool) (*GameMap, error) {
-	p := game.Buffer(data)
+	p := gIO.Buffer(data)
 
 	gameMap := GameMap{}
 
@@ -137,7 +138,7 @@ func decode(data []byte, skipCubes bool) (*GameMap, error) {
 	oldFooter := OldFooter{}
 	if header.Version <= 28 {
 		// Reset and read again
-		p = game.Buffer(data)
+		p = gIO.Buffer(data)
 		p.Skip(28) // 7 * 4, like in worldio.cpp
 		err = p.Get(&oldFooter)
 		if err != nil {
@@ -172,22 +173,22 @@ func decode(data []byte, skipCubes bool) (*GameMap, error) {
 	mapHeader.NumVSlots = newFooter.NumVSlots
 
 	//log.Debug().Msgf("Version %d", header.Version)
-	gameMap.Vars = make(map[string]game.Variable)
+	gameMap.Vars = make(map[string]V.Variable)
 
 	for i := 0; i < int(newFooter.NumVars); i++ {
 		_type, _ := p.GetByte()
 		name, _ := p.GetString()
 
-		switch game.VariableType(_type) {
-		case game.VariableTypeInt:
+		switch V.VariableType(_type) {
+		case V.VariableTypeInt:
 			value, _ := p.GetInt()
-			gameMap.Vars[name] = game.IntVariable(value)
-		case game.VariableTypeFloat:
+			gameMap.Vars[name] = V.IntVariable(value)
+		case V.VariableTypeFloat:
 			value, _ := p.GetFloat()
-			gameMap.Vars[name] = game.FloatVariable(value)
-		case game.VariableTypeString:
+			gameMap.Vars[name] = V.FloatVariable(value)
+		case V.VariableTypeString:
 			value, _ := p.GetString()
-			gameMap.Vars[name] = game.StringVariable(value)
+			gameMap.Vars[name] = V.StringVariable(value)
 		}
 	}
 

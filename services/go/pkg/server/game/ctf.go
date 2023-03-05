@@ -3,9 +3,8 @@ package game
 import (
 	"log"
 
-	"github.com/cfoust/sour/pkg/server/protocol"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/gamemode"
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
 )
 
 type CTFMode = FlagMode
@@ -50,17 +49,16 @@ func (m *CTF) NeedsMapInfo() bool {
 	return m.handlesPickups.NeedsMapInfo() || m.ctfMode.NeedsMapInfo()
 }
 
-func (m *CTF) HandlePacket(p *Player, packetType nmc.ID, pkt *protocol.Packet) bool {
-	switch packetType {
-	case nmc.InitFlags,
-		nmc.TouchFlag,
-		nmc.TryDropFlag:
-		return m.ctfMode.HandlePacket(p, packetType, pkt)
-	case nmc.PickupList,
-		nmc.PickupTry:
-		return m.handlesPickups.HandlePacket(p, packetType, pkt)
+func (m *CTF) HandlePacket(p *Player, message P.Message) bool {
+	switch message.Type() {
+
+	case P.N_INITFLAGS, P.N_TAKEFLAG, P.N_TRYDROPFLAG:
+		return m.ctfMode.HandlePacket(p, message)
+
+	case P.N_ITEMLIST, P.N_ITEMPICKUP:
+		return m.handlesPickups.HandlePacket(p, message)
 	default:
-		log.Println("received unrelated packet", packetType, pkt)
+		log.Println("received unrelated packet", message)
 		return false
 	}
 }

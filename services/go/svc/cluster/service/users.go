@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/io"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server"
 	"github.com/cfoust/sour/pkg/utils"
@@ -89,6 +90,9 @@ type User struct {
 
 	From *P.MessageProxy
 	To   *P.MessageProxy
+
+	RawFrom *utils.Topic[io.RawPacket]
+	RawTo   *utils.Topic[io.RawPacket]
 
 	Mutex deadlock.RWMutex
 	o     *UserOrchestrator
@@ -626,6 +630,8 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, connection ingress.Conne
 		Authentication:    make(chan *auth.AuthUser),
 		serverConnections: make(chan ConnectionEvent),
 		o:                 u,
+		RawFrom:           utils.NewTopic[io.RawPacket](),
+		RawTo:             utils.NewTopic[io.RawPacket](),
 	}
 	u.Users = append(u.Users, &user)
 	u.Mutex.Unlock()

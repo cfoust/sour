@@ -3,9 +3,8 @@ package game
 import (
 	"time"
 
-	"github.com/cfoust/sour/pkg/game/protocol"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/gamemode"
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
 )
 
 type Mode interface {
@@ -19,7 +18,7 @@ type Mode interface {
 }
 
 type HandlesPackets interface {
-	HandlePacket(*Player, protocol.Message) bool
+	HandlePacket(*Player, P.Message) bool
 }
 
 type noSpawnWait struct{}
@@ -50,7 +49,9 @@ func (m *teamlessMode) HandleFrag(actor, victim *Player) {
 	} else {
 		actor.Frags++
 	}
-	m.s.Broadcast(nmc.Died, victim.CN, actor.CN, actor.Frags, actor.Team.Frags)
+	m.s.Broadcast(P.Died{
+		int(victim.CN), int(actor.CN), actor.Frags, actor.Team.Frags,
+	})
 }
 
 func (m *teamlessMode) Leave(*Player) {}

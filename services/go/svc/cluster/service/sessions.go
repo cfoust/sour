@@ -8,7 +8,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/cfoust/sour/pkg/game"
+	C "github.com/cfoust/sour/pkg/game/constants"
+	"github.com/cfoust/sour/pkg/game/io"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 
 	"github.com/go-redis/redis/v9"
 )
@@ -16,10 +18,10 @@ import (
 type RecordedPacket struct {
 	From   bool
 	Time   time.Time
-	Packet game.GamePacket
+	Packet io.RawPacket
 }
 
-func NewPacket(from bool, packet game.GamePacket) RecordedPacket {
+func NewPacket(from bool, packet io.RawPacket) RecordedPacket {
 	return RecordedPacket{
 		From:   from,
 		Time:   time.Now(),
@@ -56,13 +58,13 @@ func WriteFile(path string, data []byte) error {
 
 func EncodeDemo(startTime time.Time, messages []RecordedPacket) ([]byte, error) {
 	// Write a valid demo
-	p := game.Buffer{}
+	p := io.Buffer{}
 
 	// The header
 	p.Put(
-		[]byte(game.DEMO_MAGIC),
-		int32(game.DEMO_VERSION),
-		int32(game.PROTOCOL_VERSION),
+		[]byte(C.DEMO_MAGIC),
+		int32(C.DEMO_VERSION),
+		int32(P.PROTOCOL_VERSION),
 	)
 
 	for _, message := range messages {
@@ -93,7 +95,8 @@ func (c *Cluster) GetDemo(ctx context.Context, id string) ([]byte, error) {
 }
 
 func RecordSession(ctx context.Context, redis *redis.Client, shouldSave bool, user *User) error {
-	to, from := user.ReceiveIntercept()
+	to := user.RawTo.Subscribe()
+	from := user.RawFrom.Subscribe()
 
 	start := time.Now()
 
@@ -105,10 +108,10 @@ Outer:
 		select {
 		case <-ctx.Done():
 			break Outer
-		case msg := <-to:
+		case msg := <-to.Recv():
 			toMsg = append(toMsg, NewPacket(false, msg))
 			allMsg = append(allMsg, NewPacket(false, msg))
-		case msg := <-from:
+		case msg := <-from.Recv():
 			allMsg = append(allMsg, NewPacket(true, msg))
 		}
 	}
@@ -127,7 +130,7 @@ Outer:
 		return err
 	}
 
-	key := user.Session
+	key := user.SessionUUID
 
 	pipe := redis.Pipeline()
 	pipe.Set(context.Background(), fmt.Sprintf(DEMO_KEY, key), toDemo, DEMO_TTL)

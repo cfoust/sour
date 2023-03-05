@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/cfoust/sour/pkg/server/protocol/cubecode"
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
 	"github.com/cfoust/sour/pkg/server/protocol/role"
 )
 
@@ -17,11 +16,11 @@ func (s *Server) setAuthRole(client *Client, rol role.ID, domain, name string) {
 
 	if client.Role >= rol {
 		msg := fmt.Sprintf("%s authenticated as %s", s.Clients.UniqueName(client), authUser)
-		s.Clients.Broadcast(nmc.ServerMessage, msg)
+		s.Clients.Message(msg)
 		log.Println(cubecode.SanitizeString(msg))
 	} else {
 		msg := fmt.Sprintf("%s claimed %s privileges as %s", s.Clients.UniqueName(client), rol, authUser)
-		s.Clients.Broadcast(nmc.ServerMessage, msg)
+		s.Clients.Message(msg)
 		log.Println(cubecode.SanitizeString(msg))
 		s._setRole(client, rol)
 	}
@@ -30,14 +29,14 @@ func (s *Server) setAuthRole(client *Client, rol role.ID, domain, name string) {
 func (s *Server) setRole(client *Client, targetCN uint32, rol role.ID) {
 	target := s.Clients.GetClientByCN(targetCN)
 	if target == nil {
-		client.Send(nmc.ServerMessage, cubecode.Fail(fmt.Sprintf("no client with CN %d", targetCN)))
+		client.Message(cubecode.Fail(fmt.Sprintf("no client with CN %d", targetCN)))
 		return
 	}
 	if target.Role == rol {
 		return
 	}
 	if client != target && client.Role <= target.Role || client == target && rol != role.None {
-		client.Send(nmc.ServerMessage, cubecode.Fail("you can't do that"))
+		client.Message(cubecode.Fail("you can't do that"))
 		return
 	}
 
@@ -51,7 +50,7 @@ func (s *Server) setRole(client *Client, targetCN uint32, rol role.ID) {
 	} else {
 		msg = fmt.Sprintf("%s gave %s privileges to %s", s.Clients.UniqueName(client), rol, s.Clients.UniqueName(target))
 	}
-	s.Clients.Broadcast(nmc.ServerMessage, msg)
+	s.Clients.Message(msg)
 	log.Println(cubecode.SanitizeString(msg))
 
 	s._setRole(target, rol)
@@ -59,6 +58,6 @@ func (s *Server) setRole(client *Client, targetCN uint32, rol role.ID) {
 
 func (s *Server) _setRole(client *Client, rol role.ID) {
 	client.Role = rol
-	typ, pup, _ := s.PrivilegedUsersPacket()
-	s.Clients.Broadcast(typ, pup)
+	message, _ := s.PrivilegedUsersPacket()
+	s.Clients.Broadcast(message)
 }

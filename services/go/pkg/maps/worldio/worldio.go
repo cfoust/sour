@@ -7,7 +7,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/io"
 )
 
 var M sync.Mutex
@@ -17,7 +17,7 @@ func CountRefs(state MapState, numSlots int) []int32 {
 	Getrefs(state, uintptr(unsafe.Pointer(&data[0])), numSlots)
 
 	result := make([]int32, 0)
-	buffer := game.Buffer(data)
+	buffer := io.Buffer(data)
 	for i := 0; i < numSlots; i++ {
 		value, ok := buffer.GetInt()
 		if !ok {

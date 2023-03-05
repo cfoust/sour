@@ -12,6 +12,7 @@ import (
 	"github.com/cfoust/sour/pkg/server/geom"
 	"github.com/cfoust/sour/pkg/server/protocol/cubecode"
 	"github.com/cfoust/sour/pkg/server/protocol/disconnectreason"
+	"github.com/cfoust/sour/pkg/server/protocol/gamemode"
 	"github.com/cfoust/sour/pkg/server/protocol/mastermode"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
 	"github.com/cfoust/sour/pkg/server/protocol/role"
@@ -286,6 +287,10 @@ func (s *Server) NumberOfPlayers() (n int) {
 		n++
 	})
 	return
+}
+
+func (s *Server) ChangeMap(mode int32, map_ string) {
+	s.StartGame(s.StartMode(gamemode.ID(mode)), map_)
 }
 
 func (s *Server) StartGame(mode game.Mode, mapname string) {

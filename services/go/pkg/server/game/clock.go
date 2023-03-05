@@ -5,9 +5,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/cfoust/sour/pkg/server/timer"
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
+	"github.com/cfoust/sour/pkg/server/timer"
 )
 
 type Clock interface {
@@ -42,7 +42,7 @@ func NewCasualClock(s Server, m HasTimers) *casualClock {
 func (c *casualClock) Start() {
 	go c.t.Start()
 	log.Println("started game timer, time left:", c.t.TimeLeft())
-	c.s.Broadcast(nmc.TimeLeft, int32(c.t.TimeLeft()/time.Second))
+	c.s.Broadcast(P.TimeUp{int(c.t.TimeLeft() / time.Second)})
 }
 
 func (c *casualClock) Pause(p *Player) {
@@ -53,7 +53,7 @@ func (c *casualClock) Pause(p *Player) {
 	if p != nil {
 		cn = int(p.CN)
 	}
-	c.s.Broadcast(nmc.PauseGame, 1, cn)
+	c.s.Broadcast(P.PauseGame{true, cn})
 	c.t.Pause()
 	c.modeTimers.Pause()
 }
@@ -70,7 +70,7 @@ func (c *casualClock) Resume(p *Player) {
 	if p != nil {
 		cn = int(p.CN)
 	}
-	c.s.Broadcast(nmc.PauseGame, 0, cn)
+	c.s.Broadcast(P.PauseGame{false, cn})
 	c.t.Start()
 	c.modeTimers.Resume()
 }
@@ -78,7 +78,7 @@ func (c *casualClock) Resume(p *Player) {
 func (c *casualClock) Leave(*Player) {}
 
 func (c *casualClock) Stop() {
-	c.s.Broadcast(nmc.TimeLeft, 0)
+	c.s.Broadcast(P.TimeUp{0})
 	log.Println("stopping game timer, time left:", c.t.TimeLeft())
 	c.t.Stop()
 }
@@ -96,7 +96,7 @@ func (c *casualClock) SetTimeLeft(d time.Duration) {
 	if !c.t.SetTimeLeft(d) {
 		log.Println("game timer had already expired")
 	}
-	c.s.Broadcast(nmc.TimeLeft, int32(d/time.Second))
+	c.s.Broadcast(P.TimeUp{int(d / time.Second)})
 }
 
 func (c *casualClock) CleanUp() {
@@ -135,7 +135,7 @@ func (c *competitiveClock) Start() {
 		}
 	})
 	if len(c.mapLoadPending) > 0 {
-		c.s.Broadcast(nmc.ServerMessage, "waiting for all players to load the map")
+		c.s.Message("waiting for all players to load the map")
 		c.Pause(nil)
 	}
 }
@@ -143,7 +143,7 @@ func (c *competitiveClock) Start() {
 func (c *competitiveClock) Spawned(p *Player) {
 	delete(c.mapLoadPending, p)
 	if len(c.mapLoadPending) == 0 {
-		c.s.Broadcast(nmc.ServerMessage, "all players spawned, starting game")
+		c.s.Message("all players spawned, starting game")
 		c.Resume(nil)
 	}
 }
@@ -165,17 +165,17 @@ func (c *competitiveClock) Resume(p *Player) {
 			}
 		}
 		c.pendingResumeActions = nil
-		c.s.Broadcast(nmc.ServerMessage, "resuming aborted")
+		c.s.Message("resuming aborted")
 		return
 	}
 
 	if p != nil {
-		c.s.Broadcast(nmc.ServerMessage, fmt.Sprintf("%s wants to resume the game", c.s.UniqueName(p)))
+		c.s.Message(fmt.Sprintf("%s wants to resume the game", c.s.UniqueName(p)))
 	}
-	c.s.Broadcast(nmc.ServerMessage, "resuming game in 3 seconds")
+	c.s.Message("resuming game in 3 seconds")
 	c.pendingResumeActions = []*time.Timer{
-		time.AfterFunc(1*time.Second, func() { c.s.Broadcast(nmc.ServerMessage, "resuming game in 2 seconds") }),
-		time.AfterFunc(2*time.Second, func() { c.s.Broadcast(nmc.ServerMessage, "resuming game in 1 second") }),
+		time.AfterFunc(1*time.Second, func() { c.s.Message("resuming game in 2 seconds") }),
+		time.AfterFunc(2*time.Second, func() { c.s.Message("resuming game in 1 second") }),
 		time.AfterFunc(3*time.Second, func() {
 			c.casualClock.Resume(p)
 			c.pendingResumeActions = nil
@@ -185,7 +185,7 @@ func (c *competitiveClock) Resume(p *Player) {
 
 func (c *competitiveClock) Leave(p *Player) {
 	if p.State != playerstate.Spectator && !c.Ended() {
-		c.s.Broadcast(nmc.ServerMessage, "a player left the game")
+		c.s.Message("a player left the game")
 		c.Pause(nil)
 	}
 }

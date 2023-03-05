@@ -7,7 +7,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/cfoust/sour/pkg/game"
+	C "github.com/cfoust/sour/pkg/game/constants"
+	P "github.com/cfoust/sour/pkg/game/protocol"
+	"github.com/cfoust/sour/pkg/game/io"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/maps/worldio"
 	"github.com/cfoust/sour/svc/cluster/ingress"
@@ -18,10 +20,10 @@ import (
 type Edit struct {
 	Time    time.Time
 	Sender  ingress.ClientID
-	Message game.Message
+	Message P.Message
 }
 
-func NewEdit(sender ingress.ClientID, message game.Message) *Edit {
+func NewEdit(sender ingress.ClientID, message P.Message) *Edit {
 	return &Edit{
 		Time:    time.Now(),
 		Sender:  sender,
@@ -69,7 +71,7 @@ func (e *EditingState) Checkpoint(ctx context.Context) error {
 
 	err := e.Apply(e.Edits)
 	if err != nil {
-	    return err
+		return err
 	}
 	e.Edits = make([]*Edit, 0)
 
@@ -114,7 +116,7 @@ func (e *EditingState) ClearClipboard(sender ingress.ClientID) {
 	e.mutex.Unlock()
 }
 
-func (e *EditingState) Process(sender ingress.ClientID, message game.Message) {
+func (e *EditingState) Process(sender ingress.ClientID, message P.Message) {
 	e.mutex.Lock()
 	e.Edits = append(e.Edits, NewEdit(sender, message))
 	e.mutex.Unlock()
@@ -144,37 +146,37 @@ func NewEntity(entities *[]maps.Entity, index int, entity maps.Entity) *maps.Ent
 	return &((*entities)[index])
 }
 
-func EditEntity(entities *[]maps.Entity, edit *game.EditEnt) {
+func EditEntity(entities *[]maps.Entity, edit *P.EditEntity) {
 	i := edit.Index
 
-	if i < 0 || i >= game.MAXENTS {
+	if i < 0 || i >= C.MAXENTS {
 		return
 	}
 
 	if len(*entities) <= i {
 		entity := NewEntity(entities, i, maps.Entity{
 			Position: maps.Vector{
-				X: edit.X,
-				Y: edit.Y,
-				Z: edit.Z,
+				X: float32(edit.Position.X),
+				Y: float32(edit.Position.Y),
+				Z: float32(edit.Position.Z),
 			},
 			Attr1: int16(edit.Attr1),
 			Attr2: int16(edit.Attr2),
 			Attr3: int16(edit.Attr3),
 			Attr4: int16(edit.Attr4),
 			Attr5: int16(edit.Attr5),
-			Type:  game.EntityType(edit.Type),
+			Type:  C.EntityType(edit.EntityType),
 		})
 		if entity == nil {
 			return
 		}
 	} else {
 		entity := &(*entities)[i]
-		entity.Type = game.EntityType(edit.Type)
+		entity.Type = C.EntityType(edit.EntityType)
 		entity.Position = maps.Vector{
-			X: edit.X,
-			Y: edit.Y,
-			Z: edit.Z,
+			X: float32(edit.Position.X),
+			Y: float32(edit.Position.Y),
+			Z: float32(edit.Position.Z),
 		}
 		entity.Attr1 = int16(edit.Attr1)
 		entity.Attr2 = int16(edit.Attr2)
@@ -187,8 +189,8 @@ func EditEntity(entities *[]maps.Entity, edit *game.EditEnt) {
 func (e *EditingState) Apply(edits []*Edit) error {
 	buffer := make([]byte, 0)
 	for _, edit := range edits {
-		if edit.Message.Type() == game.N_EDITVAR {
-			varEdit := edit.Message.Contents().(*game.EditVar)
+		if edit.Message.Type() == P.N_EDITVAR {
+			varEdit := edit.Message.(*P.EditVar)
 			err := e.GameMap.Vars.Set(varEdit.Key, varEdit.Value)
 			if err != nil {
 				log.Warn().Err(err).Msgf("setting map variable failed %s=%+v", varEdit.Key, varEdit.Value)
@@ -196,18 +198,23 @@ func (e *EditingState) Apply(edits []*Edit) error {
 			continue
 		}
 
-		if edit.Message.Type() == game.N_EDITENT {
-			entEdit := edit.Message.Contents().(*game.EditEnt)
+		if edit.Message.Type() == P.N_EDITENT {
+			entEdit := edit.Message.(*P.EditEntity)
 			EditEntity(&e.GameMap.Entities, entEdit)
 			continue
 		}
 
-		if edit.Message.Type() == game.N_NEWMAP {
+		if edit.Message.Type() == P.N_NEWMAP {
 			e.GameMap.Entities = make([]maps.Entity, 0)
 		}
 
-		if edit.Message.Type() == game.N_COPY {
-			data := edit.Message.Data()
+		if edit.Message.Type() == P.N_COPY {
+			data, err := io.Encode(edit.Message)
+			if err != nil {
+			    log.Warn().Err(err).Msgf("could not serialize N_COPY")
+			    continue
+			}
+
 			worldio.M.Lock()
 			info := worldio.Store_copy(
 				e.GameMap.C,
@@ -226,8 +233,12 @@ func (e *EditingState) Apply(edits []*Edit) error {
 			continue
 		}
 
-		if edit.Message.Type() == game.N_PASTE {
-			data := edit.Message.Data()
+		if edit.Message.Type() == P.N_PASTE {
+			data, err := io.Encode(edit.Message)
+			if err != nil {
+			    log.Warn().Err(err).Msgf("could not serialize N_PASTE")
+			    continue
+			}
 
 			info, ok := e.Clipboards[edit.Sender]
 			if !ok {
@@ -246,7 +257,12 @@ func (e *EditingState) Apply(edits []*Edit) error {
 			continue
 		}
 
-		buffer = append(buffer, edit.Message.Data()...)
+		data, err := io.Encode(edit.Message)
+		if err != nil {
+			log.Warn().Err(err).Msgf("could not serialize %s", edit.Message.Type())
+			continue
+		}
+		buffer = append(buffer, data...)
 	}
 
 	if len(buffer) == 0 {
