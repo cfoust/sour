@@ -90,9 +90,9 @@ func (m *handlesFlags) initFlags(message *protocol.ClientInitFlags) {
 			team:   m.TeamByFlagTeamID(int32(teamID)),
 			teamID: int32(teamID),
 			spawnLocation: geom.NewVector(
-				float64(clientFlag.Dx),
-				float64(clientFlag.Dy),
-				float64(clientFlag.Dz),
+				clientFlag.Position.X,
+				clientFlag.Position.Y,
+				clientFlag.Position.Z,
 			),
 		})
 	}
@@ -169,9 +169,9 @@ func (m *handlesFlags) FlagsInitPacket() protocol.Message {
 			flagState.Dropped = dropped
 			if dropped {
 				v := f.dropLocation
-				flagState.Dx = v.X()
-				flagState.Dy = v.Y()
-				flagState.Dz = v.Z()
+				flagState.Position.X = v.X()
+				flagState.Position.Y = v.Y()
+				flagState.Position.Z = v.Z()
 			}
 		}
 

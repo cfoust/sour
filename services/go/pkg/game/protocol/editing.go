@@ -232,9 +232,7 @@ func (m EditMaterial) Type() MessageCode { return N_EDITM }
 // N_EDITENT
 type EditEntity struct {
 	Index      int
-	X          float64
-	Y          float64
-	Z          float64
+	Position   Vec
 	EntityType int
 	Attr1      int
 	Attr2      int

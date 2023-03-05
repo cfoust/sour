@@ -493,9 +493,7 @@ type FlagState struct {
 	Owner     int
 	Invisible bool
 	Dropped   bool
-	Dx        float64
-	Dy        float64
-	Dz        float64
+	Position  Vec
 }
 
 func (f FlagState) Marshal(p *io.Packet) error {
@@ -525,9 +523,7 @@ func (f FlagState) Marshal(p *io.Packet) error {
 	}
 
 	err = p.Put(
-		f.Dx,
-		f.Dy,
-		f.Dz,
+		f.Position,
 	)
 	if err != nil {
 		return err
@@ -565,9 +561,7 @@ func (f *FlagState) Unmarshal(p *io.Packet) error {
 	}
 
 	err = p.Get(
-		&f.Dx,
-		&f.Dy,
-		&f.Dz,
+		&f.Position,
 	)
 	if err != nil {
 		return err
@@ -586,10 +580,8 @@ type ServerInitFlags struct {
 func (m ServerInitFlags) Type() MessageCode { return N_INITFLAGS }
 
 type ClientFlagState struct {
-	Team int
-	Dx   float64
-	Dy   float64
-	Dz   float64
+	Team     int
+	Position Vec
 }
 
 type ClientInitFlags struct {
@@ -600,12 +592,10 @@ func (m ClientInitFlags) Type() MessageCode { return N_INITFLAGS }
 
 // N_DROPFLAG
 type DropFlag struct {
-	Client  int
-	Flag    int
-	Version int
-	Dx      int
-	Dy      int
-	Dz      int
+	Client   int
+	Flag     int
+	Version  int
+	Position Vec
 }
 
 func (m DropFlag) Type() MessageCode { return N_DROPFLAG }
@@ -837,9 +827,7 @@ type HitPush struct {
 	Client int
 	Gun    int
 	Damage int
-	Fx     int
-	Fy     int
-	Fz     int
+	From   Vec
 }
 
 func (m HitPush) Type() MessageCode { return N_HITPUSH }
@@ -849,12 +837,8 @@ type ShotFX struct {
 	Client int
 	Gun    int
 	Id     int
-	Fx     int
-	Fy     int
-	Fz     int
-	Tx     int
-	Ty     int
-	Tz     int
+	From   Vec
+	To     Vec
 }
 
 func (m ShotFX) Type() MessageCode { return N_SHOTFX }

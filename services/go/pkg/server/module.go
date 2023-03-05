@@ -321,16 +321,13 @@ func (s *GameServer) HandleShoot(client *Client, wpn weapon.Weapon, id int32, fr
 
 	s.Clients.Relay(
 		client,
-		nmc.ShotEffects,
-		client.CN,
-		wpn.ID,
-		id,
-		from.X(),
-		from.Y(),
-		from.Z(),
-		to.X(),
-		to.Y(),
-		to.Z(),
+		protocol.ShotFX{
+			int(client.CN),
+			int(wpn.ID),
+			int(id),
+			protocol.Vec{from.X(), from.Y(), from.Z()},
+			protocol.Vec{to.X(), to.Y(), to.Z()},
+		},
 	)
 	client.LastShot = time.Now()
 	client.DamagePotential += wpn.Damage * wpn.Rays // TODO: quad damage
@@ -371,10 +368,11 @@ func (s *GameServer) HandleExplode(client *Client, millis int32, wpn weapon.Weap
 
 	s.Clients.Relay(
 		client,
-		nmc.ExplodeEffects,
-		client.CN,
-		wpn.ID,
-		id,
+		protocol.ExplodeFX{
+			int(client.CN),
+			int(wpn.ID),
+			int(id),
+		},
 	)
 
 	// apply damage
@@ -409,15 +407,26 @@ hits:
 
 func (s *GameServer) applyDamage(attacker, victim *Client, damage int32, wpnID weapon.ID, dir *geom.Vector) {
 	victim.ApplyDamage(&attacker.Player, damage, wpnID, dir)
-	s.Clients.Broadcast(nmc.Damage, victim.CN, attacker.CN, damage, victim.Armour, victim.Health)
+	s.Clients.Broadcast(
+		protocol.Damage{
+			int(victim.CN),
+			int(attacker.CN),
+			int(damage),
+			int(victim.Armour),
+			int(victim.Health),
+		},
+	)
 	// TODO: setpushed ???
 	if !dir.IsZero() {
 		dir = dir.Scale(geom.DNF)
-		typ, p := nmc.HitPush, []interface{}{victim.CN, wpnID, damage, dir.X(), dir.Y(), dir.Z()}
+		hitPush := protocol.HitPush{
+			int(victim.CN), int(wpnID), int(damage),
+			protocol.Vec{dir.X(), dir.Y(), dir.Z()},
+		}
 		if victim.Health <= 0 {
-			s.Clients.Broadcast(typ, p...)
+			s.Clients.Broadcast(hitPush)
 		} else {
-			victim.Send(typ, p...)
+			victim.Send(hitPush)
 		}
 	}
 	if victim.Health <= 0 {
