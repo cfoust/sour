@@ -52,7 +52,7 @@ func (ps *PlayerState) ToWire() protocol.EntityState {
 		int(ps.Armour),
 		int(ps.ArmourType),
 		int(ps.SelectedWeapon.ID),
-		make([]protocol.AmmoState, 0),
+		make([]protocol.AmmoState, 6),
 	}
 
 	for _, id := range weapon.WeaponsWithAmmo {

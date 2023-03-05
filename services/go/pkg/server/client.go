@@ -32,7 +32,8 @@ type Client struct {
 	Packets             *relay.Publisher
 	Authentications     map[string]*Authentication
 
-	outgoing Outgoing
+	connected chan bool
+	outgoing  Outgoing
 }
 
 func NewClient(cn uint32, sessionId uint32, outgoing Outgoing) *Client {
@@ -72,8 +73,8 @@ func (c *Client) Message(text string) {
 
 func (c *Client) Send(messages ...protocol.Message) {
 	c.outgoing <- ServerPacket{
-		Session: c.SessionID,
-		Channel:   1,
-		Messages:  messages,
+		Session:  c.SessionID,
+		Channel:  1,
+		Messages: messages,
 	}
 }

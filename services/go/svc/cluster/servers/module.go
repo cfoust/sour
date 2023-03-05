@@ -7,8 +7,6 @@ import (
 	_ "embed"
 	"fmt"
 	"math/big"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +14,7 @@ import (
 	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/maps"
+	"github.com/cfoust/sour/pkg/server"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 
@@ -44,11 +43,6 @@ type ClientPacket struct {
 	Server   *GameServer
 }
 
-type ClientJoin struct {
-	Client ingress.ClientID
-	Num    ClientNum
-}
-
 type ClientKick struct {
 	Client ingress.ClientID
 	Reason int32
@@ -75,11 +69,16 @@ type ServerManager struct {
 
 	serverDescription string
 
+	kicks   chan ClientKick
 	packets chan ClientPacket
 }
 
 func (manager *ServerManager) ReceivePackets() <-chan ClientPacket {
 	return manager.packets
+}
+
+func (manager *ServerManager) ReceiveKicks() <-chan ClientKick {
+	return manager.kicks
 }
 
 func (manager *ServerManager) GetServerInfo() *ServerInfo {
@@ -101,6 +100,7 @@ func NewServerManager(maps *assets.AssetFetcher, serverDescription string, prese
 		Maps:              maps,
 		serverDescription: serverDescription,
 		presets:           presets,
+		kicks:             make(chan ClientKick, 100),
 		packets:           make(chan ClientPacket, 100),
 	}
 }
@@ -115,31 +115,16 @@ func (manager *ServerManager) Shutdown() {
 	}
 }
 
-type Identity struct {
-	Hash string
-	Path string
-}
-
-func FindIdentity() Identity {
-	generate := func() Identity {
+// TODO this is bad, server identifiers can collide
+func FindIdentity() string {
+	generate := func() string {
 		number, _ := rand.Int(rand.Reader, big.NewInt(1000))
 		bytes := sha256.Sum256([]byte(fmt.Sprintf("%d", number)))
 		hash := strings.ToUpper(fmt.Sprintf("%x", bytes)[:4])
-		return Identity{
-			Hash: hash,
-			Path: filepath.Join("/tmp", fmt.Sprintf("qserv_%s.sock", hash)),
-		}
+		return hash
 	}
 
-	for {
-		identity := generate()
-
-		if _, err := os.Stat(identity.Path); !os.IsNotExist(err) {
-			continue
-		}
-
-		return identity
-	}
+	return generate()
 }
 
 func (manager *ServerManager) RemoveServer(server *GameServer) {
@@ -200,44 +185,44 @@ func (manager *ServerManager) ReadEntities(ctx context.Context, server *GameServ
 	return nil
 }
 
-func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameServer) {
-	requests := server.ReceiveMapRequests()
+//func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameServer) {
+//requests := server.ReceiveMapRequests()
 
-	for {
-		select {
-		case request := <-requests:
-			logger := log.With().Str("map", request.Map).Int32("mode", request.Mode).Logger()
+//for {
+//select {
+//case request := <-requests:
+//logger := log.With().Str("map", request.Map).Int32("mode", request.Mode).Logger()
 
-			if request.Map == "" {
-				server.SendMapResponse(request.Map, request.Mode, "", false)
-				continue
-			}
+//if request.Map == "" {
+//server.SendMapResponse(request.Map, request.Mode, "", false)
+//continue
+//}
 
-			server.SetStatus(ServerLoadingMap)
-			data, err := manager.Maps.FetchMapBytes(ctx, request.Map)
-			if err != nil {
-				logger.Error().Err(err).Msg("failed to download map")
-				server.SendMapResponse(request.Map, request.Mode, "", false)
-				continue
-			}
+//server.SetStatus(ServerLoadingMap)
+//data, err := manager.Maps.FetchMapBytes(ctx, request.Map)
+//if err != nil {
+//logger.Error().Err(err).Msg("failed to download map")
+//server.SendMapResponse(request.Map, request.Mode, "", false)
+//continue
+//}
 
-			path := filepath.Join(manager.workingDir, fmt.Sprintf("packages/base/%s.ogz", request.Map))
-			err = assets.WriteBytes(data, path)
-			if err != nil {
-				logger.Error().Err(err).Msg("failed to download map")
-				server.SendMapResponse(request.Map, request.Mode, "", false)
-				continue
-			}
+//path := filepath.Join(manager.workingDir, fmt.Sprintf("packages/base/%s.ogz", request.Map))
+//err = assets.WriteBytes(data, path)
+//if err != nil {
+//logger.Error().Err(err).Msg("failed to download map")
+//server.SendMapResponse(request.Map, request.Mode, "", false)
+//continue
+//}
 
-			server.SendMapResponse(request.Map, request.Mode, path, true)
+//server.SendMapResponse(request.Map, request.Mode, path, true)
 
-			go manager.ReadEntities(ctx, server, data)
-			continue
-		case <-ctx.Done():
-			return
-		}
-	}
-}
+//go manager.ReadEntities(ctx, server, data)
+//continue
+//case <-ctx.Done():
+//return
+//}
+//}
+//}
 
 func (manager *ServerManager) FindPreset(presetName string, isVirtualOk bool) opt.Option[config.ServerPreset] {
 	for _, preset := range manager.presets {
@@ -278,15 +263,17 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 	// TODO configs
 
 	server := GameServer{
+		Server:    server.New(&server.Config{}),
 		Alias:     "",
 		LastEvent: time.Now(),
 		Entities:  make([]maps.Entity, 0),
 		Hidden:    false,
+		Started:   time.Now(),
+		kicks:     manager.kicks,
+		packets:   manager.packets,
 	}
 
-	identity := FindIdentity()
-
-	server.Id = identity.Hash
+	server.Id = FindIdentity()
 
 	manager.Servers = append(manager.Servers, &server)
 
@@ -295,8 +282,6 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		<-server.Ctx().Done()
 		manager.RemoveServer(&server)
 	}()
-
-	go manager.PollMapRequests(ctx, &server)
 
 	return &server, nil
 }

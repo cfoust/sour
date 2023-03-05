@@ -14,7 +14,7 @@ import (
 )
 
 type GameServer struct {
-	server.Server
+	*server.Server
 
 	Id string
 	// Another way for the client to refer to this server
@@ -29,8 +29,12 @@ type GameServer struct {
 
 	// The last time a client connected
 	LastEvent time.Time
+	Started   time.Time
 
 	Mutex deadlock.RWMutex
+
+	kicks   chan ClientKick
+	packets chan ClientPacket
 }
 
 func (server *GameServer) GetEntities() []maps.Entity {
@@ -71,3 +75,61 @@ func (server *GameServer) Shutdown() {
 func (server *GameServer) Start(ctx context.Context) {
 	go server.Poll(ctx)
 }
+
+func (s *GameServer) GetServerInfo() *ServerInfo {
+	return &ServerInfo{
+		NumClients:   int32(s.NumClients()),
+		GamePaused:   s.Clock.Paused(),
+		GameMode:     int32(s.GameMode.ID()),
+		TimeLeft:     int32(s.Clock.TimeLeft() / time.Second),
+		MaxClients:   64,
+		PasswordMode: 0,
+		GameSpeed:    100,
+		Map:          s.Map,
+		Description:  s.ServerDescription,
+	}
+}
+
+func (s *GameServer) GetClientInfo() []*ClientExtInfo {
+	clients := make([]*ClientExtInfo, 0)
+
+	s.Clients.ForEach(func(c *server.Client) {
+		clients = append(clients, &ClientExtInfo{
+			Client:    int(c.CN),
+			Ping:      int(c.Ping),
+			Name:      c.Name,
+			Team:      c.Team.Name,
+			Frags:     c.Frags,
+			Flags:     c.Flags,
+			Deaths:    c.Deaths,
+			TeamKills: c.Teamkills,
+			Damage:    int(c.Damage),
+			Health:    int(c.Health),
+			Armour:    int(c.Armour),
+			GunSelect: int(c.SelectedWeapon.ID),
+			Privilege: int(c.Role),
+			State:     int(c.State),
+			Ip0:       0,
+			Ip1:       0,
+			Ip2:       0,
+		})
+	})
+
+	return clients
+}
+
+func (s *GameServer) GetTeamInfo() *TeamInfo {
+	// TODO get team scores
+
+	return &TeamInfo{
+		IsDeathmatch: false,
+		GameMode:     int(s.GameMode.ID()),
+		TimeLeft:     int(s.Clock.TimeLeft() / time.Second),
+	}
+}
+
+func (s *GameServer) GetUptime() int {
+	return int(time.Now().Sub(s.Started).Round(time.Second) / time.Second)
+}
+
+var _ InfoProvider = (*GameServer)(nil)

@@ -9,7 +9,6 @@ import (
 	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/svc/cluster/auth"
-	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
@@ -39,15 +38,14 @@ type Cluster struct {
 	serverMessage chan []byte
 
 	// Services
-	Clients     *clients.ClientManager
-	Users       *UserOrchestrator
-	auth        *auth.DiscordService
-	servers     *servers.ServerManager
-	matches     *Matchmaker
-	redis       *redis.Client
-	spaces      *verse.SpaceManager
-	verse       *verse.Verse
-	assets      *assets.AssetFetcher
+	Users   *UserOrchestrator
+	auth    *auth.DiscordService
+	servers *servers.ServerManager
+	matches *Matchmaker
+	redis   *redis.Client
+	spaces  *verse.SpaceManager
+	verse   *verse.Verse
+	assets  *assets.AssetFetcher
 }
 
 func NewCluster(
@@ -59,7 +57,6 @@ func NewCluster(
 	auth *auth.DiscordService,
 	redis *redis.Client,
 ) *Cluster {
-	clients := clients.NewClientManager()
 	v := verse.NewVerse(redis)
 	server := &Cluster{
 		Users:         NewUserOrchestrator(redis, settings.Matchmaking.Duel),
@@ -68,7 +65,6 @@ func NewCluster(
 		authDomain:    authDomain,
 		hostServers:   make(map[string]*servers.GameServer),
 		lastCreate:    make(map[string]time.Time),
-		Clients:       clients,
 		matches:       NewMatchmaker(serverManager, settings.Matchmaking.Duel),
 		serverMessage: make(chan []byte, 1),
 		servers:       serverManager,
@@ -76,7 +72,7 @@ func NewCluster(
 		auth:          auth,
 		redis:         redis,
 		verse:         v,
-		spaces:        verse.NewSpaceManager(v, orchestrator, maps),
+		spaces:        verse.NewSpaceManager(v, serverManager, maps),
 		assets:        maps,
 	}
 
@@ -134,55 +130,12 @@ func (server *Cluster) GetUptime() int {
 }
 
 func (server *Cluster) PollServers(ctx context.Context) {
-	connects := server.servers.ReceiveConnects()
 	forceDisconnects := server.servers.ReceiveKicks()
 	gamePackets := server.servers.ReceivePackets()
 	names := server.servers.ReceiveNames()
 
 	for {
 		select {
-		case join := <-connects:
-			user := server.Users.FindUser(join.Client)
-
-			if user == nil {
-				continue
-			}
-
-			user.Mutex.Lock()
-			if user.Server != nil {
-				instance := server.spaces.FindInstance(user.Server)
-				if instance != nil {
-					user.Space = instance
-				}
-				user.Status = clients.ClientStatusConnected
-				user.Num = join.Num
-			}
-			user.Mutex.Unlock()
-
-			logger := user.Logger()
-			logger.Info().Msg("connected to server")
-
-			isHome, err := user.IsAtHome(ctx)
-			if err != nil {
-				logger.Warn().Err(err).Msg("failed seeing if user was at home")
-				continue
-			}
-
-			if isHome {
-				space := user.GetSpace()
-				message := fmt.Sprintf(
-					"welcome to your home (space %s).",
-					space.GetID(),
-				)
-
-				if user.IsLoggedIn() {
-					user.Message(message)
-					user.Message("editing by others is disabled. say #edit to enable it.")
-				} else {
-					user.Message(message + " anyone can edit it. because you are not logged in, it will be deleted in 4 hours")
-				}
-			}
-
 		case event := <-names:
 			user := server.Users.FindUser(event.Client)
 
@@ -281,36 +234,7 @@ func (server *Cluster) PollServers(ctx context.Context) {
 	}
 }
 
-func (server *Cluster) PollMigrations(ctx context.Context) {
-	migrations := server.deployments.ReceiveMigrations()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case migration := <-migrations:
-			oldServer := migration.Old
-
-			users := make([]*User, 0)
-			server.Users.Mutex.RLock()
-			for server, serverUsers := range server.Users.Servers {
-				if server == oldServer {
-					users = serverUsers
-				}
-			}
-			server.Users.Mutex.RUnlock()
-
-			for _, user := range users {
-				user.Connect(migration.New)
-			}
-
-			migration.Done()
-		}
-	}
-}
-
 func (server *Cluster) StartServers(ctx context.Context) {
-	go server.PollMigrations(ctx)
 	go server.PollServers(ctx)
 	for _, presetSpace := range server.settings.Spaces {
 		server.spaces.StartPresetSpace(ctx, presetSpace)

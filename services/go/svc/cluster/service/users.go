@@ -30,6 +30,10 @@ type TrackedPacket struct {
 	Done   chan bool
 }
 
+type ConnectionEvent struct {
+	Server *servers.GameServer
+}
+
 // The status of the user's connection to their game server.
 type UserStatus uint8
 
@@ -40,17 +44,25 @@ const (
 )
 
 type User struct {
-	Name  string
+	Id ingress.ClientID
+	// Whether the user is connected (or connecting) to a game server
+	Status UserStatus
+	Name   string
+
+	// Created when the user connects to a server and canceled when they
+	// leave, regardless of reason (network or being disconnected by the
+	// server)
+	// This is NOT the same thing as Client.Connection.SessionContext(), which refers to
+	// the lifecycle of the client's ingress connection
+	ServerSession utils.Session
+	Server        *servers.GameServer
+	ServerClient  *server.Client
+
 	Auth  *auth.AuthUser
 	Verse *verse.User
 	ELO   *ELOState
 
-	Id ingress.ClientID
-
 	SessionUUID string
-
-	// Whether the user is connected (or connecting) to a game server
-	Status UserStatus
 
 	Connection ingress.Connection
 
@@ -58,7 +70,8 @@ type User struct {
 	delayMessages bool
 	messageQueue  []string
 
-	Authentication chan *auth.AuthUser
+	Authentication    chan *auth.AuthUser
+	serverConnections chan ConnectionEvent
 
 	to chan TrackedPacket
 
@@ -70,16 +83,7 @@ type User struct {
 	sendingMap      bool
 	autoexecKey     string
 
-	Server       *servers.GameServer
-	ServerClient *server.Client
-
-	// Created when the user connects to a server and canceled when they
-	// leave, regardless of reason (network or being disconnected by the
-	// server)
-	// This is NOT the same thing as Client.Connection.SessionContext(), which refers to
-	// the lifecycle of the client's ingress connection
-	ServerSession utils.Session
-	Space         *verse.SpaceInstance
+	Space *verse.SpaceInstance
 
 	From *P.MessageProxy
 	To   *P.MessageProxy
@@ -91,6 +95,10 @@ type User struct {
 // Valid for the duration of the user's session on the cluster.
 func (u *User) Session() *utils.Session {
 	return u.Connection.Session()
+}
+
+func (c *User) ReceiveConnections() <-chan ConnectionEvent {
+	return c.serverConnections
 }
 
 func (c *User) ReceiveAuthentication() <-chan *auth.AuthUser {
@@ -428,8 +436,6 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 
 	u.DelayMessages()
 
-	connected := make(chan bool, 1)
-
 	oldServer := u.GetServer()
 	if oldServer != nil {
 		oldServer.Leave(uint32(u.Id))
@@ -445,7 +451,6 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 					continue
 				}
 
-				// Send N_CDIS
 				otherUser.Mutex.RLock()
 				otherUser.Send(
 					P.ClientDisconnected{
@@ -474,7 +479,9 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 	u.ServerSession = utils.NewSession(u.Session().Ctx())
 	u.Mutex.Unlock()
 
-	serverClient := server.Connect(uint32(u.Id))
+	connected := make(chan bool, 1)
+
+	serverClient, serverConnected := server.Connect(uint32(u.Id))
 	u.ServerClient = serverClient
 
 	serverName := server.Reference()
@@ -485,43 +492,41 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 
 	// Give the client one second to connect.
 	go func() {
-		tick := time.NewTicker(50 * time.Millisecond)
 		connectCtx, cancel := context.WithTimeout(u.ServerSession.Ctx(), time.Second*1)
-
 		defer cancel()
 
-		for {
-			if u.GetStatus() == UserStatusConnected {
-				u.o.Mutex.Lock()
-				users, ok := u.o.Servers[server]
-				newUsers := make([]*User, 0)
-				if ok {
-					for _, otherUser := range users {
-						if u == otherUser {
-							continue
-						}
+		select {
+		case <-serverConnected:
+			u.Mutex.Lock()
+			u.Status = UserStatusConnected
+			u.Mutex.Unlock()
 
-						newUsers = append(newUsers, otherUser)
+			u.o.Mutex.Lock()
+			users, ok := u.o.Servers[server]
+			newUsers := make([]*User, 0)
+			if ok {
+				for _, otherUser := range users {
+					if u == otherUser {
+						continue
 					}
+
+					newUsers = append(newUsers, otherUser)
 				}
-				newUsers = append(newUsers, u)
-				u.o.Servers[u.Server] = newUsers
-				u.o.Mutex.Unlock()
-				connected <- true
-				return
+			}
+			newUsers = append(newUsers, u)
+			u.o.Servers[u.Server] = newUsers
+			u.o.Mutex.Unlock()
+
+			connected <- true
+			u.serverConnections <- ConnectionEvent{
+				Server: server,
 			}
 
-			select {
-			case <-tick.C:
-				continue
-			case <-u.Session().Ctx().Done():
-				connected <- false
-				return
-			case <-connectCtx.Done():
-				u.RestoreMessages()
-				connected <- false
-				return
-			}
+		case <-u.Session().Ctx().Done():
+			connected <- false
+		case <-connectCtx.Done():
+			u.RestoreMessages()
+			connected <- false
 		}
 	}()
 
@@ -607,13 +612,15 @@ func (u *UserOrchestrator) AddUser(ctx context.Context) (*User, error) {
 
 	u.Mutex.Lock()
 	user := User{
-		Id:     id,
-		Status: UserStatusDisconnected,
-		ELO:    NewELOState(u.Duels),
-		Name:   "unnamed",
-		From:   P.NewMessageProxy(true),
-		To:     P.NewMessageProxy(false),
-		o:      u,
+		Id:                id,
+		Status:            UserStatusDisconnected,
+		ELO:               NewELOState(u.Duels),
+		Name:              "unnamed",
+		From:              P.NewMessageProxy(true),
+		To:                P.NewMessageProxy(false),
+		Authentication:    make(chan *auth.AuthUser),
+		serverConnections: make(chan ConnectionEvent),
+		o:                 u,
 	}
 	u.Users = append(u.Users, &user)
 	u.Mutex.Unlock()

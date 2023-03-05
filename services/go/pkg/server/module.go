@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/game"
 	"github.com/cfoust/sour/pkg/server/geom"
@@ -106,30 +105,32 @@ func (s *Server) Outgoing() <-chan ServerPacket {
 
 func (s *Server) GameDuration() time.Duration { return s.Config.GameDuration }
 
-func (s *Server) Connect(sessionId uint32) *Client {
-	log.Println("connecting")
+func (s *Server) Connect(sessionId uint32) (*Client, <-chan bool) {
+	connected := make(chan bool, 1)
+
 	client := s.Clients.Add(sessionId, s.outgoing)
+	client.connected = connected
 
 	client.Positions, client.Packets = s.relay.AddClient(client.CN, func(channel uint8, payload []protocol.Message) {
 		s.outgoing <- ServerPacket{
 			Session:  client.SessionID,
-			Channel:  1,
+			Channel:  channel,
 			Messages: payload,
 		}
 	})
+
 	client.Send(
 		protocol.ServerInfo{
 			Client:      int(client.CN),
-			Protocol:    constants.PROTOCOL_VERSION,
+			Protocol:    protocol.PROTOCOL_VERSION,
 			SessionId:   int(client.SessionID),
 			HasPassword: false, // password protection is not used by this implementation
 			Description: s.ServerDescription,
 			Domain:      "",
 		},
 	)
-	log.Println("informed about server")
 
-	return client
+	return client, connected
 }
 
 func (s *Server) TryJoin(c *Client, name string, playerModel int32, authDomain, authName string) {
@@ -141,6 +142,7 @@ func (s *Server) TryJoin(c *Client, name string, playerModel int32, authDomain, 
 // Puts a client into the current game, using the data the client provided with his nmc.TryJoin packet.
 func (s *Server) Join(c *Client) {
 	c.Joined = true
+	c.connected <- true
 
 	if s.MasterMode == mastermode.Locked {
 		c.State = playerstate.Spectator

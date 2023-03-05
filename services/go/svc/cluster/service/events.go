@@ -420,6 +420,7 @@ func (c *Cluster) PollToMessages(ctx context.Context, user *User) {
 func (c *Cluster) PollUser(ctx context.Context, user *User) {
 	commands := user.Connection.ReceiveCommands()
 	authentication := user.ReceiveAuthentication()
+	connect := user.ReceiveConnections()
 	disconnect := user.Connection.ReceiveDisconnect()
 
 	toServer := user.Connection.ReceivePackets()
@@ -469,6 +470,40 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 		select {
 		case <-ctx.Done():
 			return
+		case <-connect:
+			user.Mutex.Lock()
+			if user.Server != nil {
+				instance := c.spaces.FindInstance(user.Server)
+				if instance != nil {
+					user.Space = instance
+				}
+			}
+			user.Mutex.Unlock()
+
+			logger := user.Logger()
+			logger.Info().Msg("connected to server")
+
+			isHome, err := user.IsAtHome(ctx)
+			if err != nil {
+				logger.Warn().Err(err).Msg("failed seeing if user was at home")
+				continue
+			}
+
+			if isHome {
+				space := user.GetSpace()
+				message := fmt.Sprintf(
+					"welcome to your home (space %s).",
+					space.GetID(),
+				)
+
+				if user.IsLoggedIn() {
+					user.Message(message)
+					user.Message("editing by others is disabled. say #edit to enable it.")
+				} else {
+					user.Message(message + " anyone can edit it. because you are not logged in, it will be deleted in 4 hours")
+				}
+			}
+
 		case authUser := <-authentication:
 			if authUser == nil {
 				c.GreetClient(userCtx, user)

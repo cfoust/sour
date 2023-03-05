@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/enet"
-	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/io"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 
 	"github.com/rs/zerolog/log"
 )
@@ -109,7 +110,7 @@ type ClientExtInfo struct {
 	Ip2       byte
 }
 
-func DecodeClientInfo(p game.Packet) (*ClientExtInfo, error) {
+func DecodeClientInfo(p io.Packet) (*ClientExtInfo, error) {
 	client := ClientExtInfo{}
 	err := p.Get(&client)
 	if err != nil {
@@ -122,7 +123,7 @@ type ServerUptime struct {
 	TimeUp int
 }
 
-func DecodeServerUptime(p game.Packet) (*ServerUptime, error) {
+func DecodeServerUptime(p io.Packet) (*ServerUptime, error) {
 	uptime := ServerUptime{}
 	err := p.Get(&uptime)
 	if err != nil {
@@ -132,9 +133,9 @@ func DecodeServerUptime(p game.Packet) (*ServerUptime, error) {
 }
 
 type TeamScore struct {
-	Team      string
-	Score     int
-	Bases     []int
+	Team  string
+	Score int
+	Bases []int
 }
 
 type TeamInfo struct {
@@ -144,7 +145,7 @@ type TeamInfo struct {
 	Scores       []TeamScore
 }
 
-func DecodeTeamInfo(p game.Packet) (*TeamInfo, error) {
+func DecodeTeamInfo(p io.Packet) (*TeamInfo, error) {
 	info := TeamInfo{}
 	err := p.Get(
 		&info.IsDeathmatch,
@@ -206,7 +207,7 @@ type ServerInfo struct {
 	Description  string
 }
 
-func DecodeServerInfo(p game.Packet) (*ServerInfo, error) {
+func DecodeServerInfo(p io.Packet) (*ServerInfo, error) {
 	info := ServerInfo{}
 
 	var protocol int
@@ -264,11 +265,11 @@ func NewServerInfoService(provider InfoProvider) *ServerInfoService {
 	}
 }
 
-func (s *ServerInfoService) Handle(request *game.Packet, out chan []byte) error {
+func (s *ServerInfoService) Handle(request *io.Packet, out chan []byte) error {
 	// The response includes the entirety of the
 	// request since they use it to calculate ping
 	// time
-	response := game.Packet(*request)
+	response := io.Packet(*request)
 
 	millis, ok := request.GetInt()
 	if !ok {
@@ -313,7 +314,7 @@ func (s *ServerInfoService) Handle(request *game.Packet, out chan []byte) error 
 			response.PutInt(EXT_NO_ERROR)
 
 			// Remember position
-			q := game.Packet(response)
+			q := io.Packet(response)
 			q.PutInt(EXT_PLAYERSTATS_RESP_IDS)
 			if clientNum >= 0 {
 				q.PutInt(clientNum)
@@ -332,7 +333,7 @@ func (s *ServerInfoService) Handle(request *game.Packet, out chan []byte) error 
 				if clientNum < 0 || client.Client != int(clientNum) {
 					break
 				}
-				q = game.Packet(response)
+				q = io.Packet(response)
 				q.PutInt(EXT_PLAYERSTATS_RESP_STATS)
 				q.Put(client)
 				out <- q
@@ -384,7 +385,7 @@ func (s *ServerInfoService) Handle(request *game.Packet, out chan []byte) error 
 	}
 
 	err := response.Put(
-		game.PROTOCOL_VERSION,
+		P.PROTOCOL_VERSION,
 		info.GameMode,
 		info.TimeLeft,
 		info.MaxClients,
@@ -480,7 +481,7 @@ func (s *ServerInfoService) Serve(ctx context.Context, port int, registerMaster 
 		for {
 			select {
 			case event := <-events:
-				request := game.Packet(event.Request)
+				request := io.Packet(event.Request)
 
 				err := s.Handle(&request, event.Response)
 				if err != nil {
@@ -500,3 +501,4 @@ func (s *ServerInfoService) Serve(ctx context.Context, port int, registerMaster 
 func (s *ServerInfoService) Shutdown() {
 	s.datagram.Shutdown()
 }
+

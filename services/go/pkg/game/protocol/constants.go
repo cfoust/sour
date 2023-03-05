@@ -4,6 +4,8 @@ import (
 	"fmt"
 )
 
+const PROTOCOL_VERSION = 260
+
 type MessageCode int32 // network message code
 
 const N_EMPTY MessageCode = -1

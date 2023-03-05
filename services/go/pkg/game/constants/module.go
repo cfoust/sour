@@ -114,6 +114,5 @@ const (
 	EntityTypeFlag                           // FLAG attr1 = angle, attr2 = team
 )
 
-const PROTOCOL_VERSION = 260
 const DEMO_VERSION = 1
 const DEMO_MAGIC = "SAUERBRATEN_DEMO"
