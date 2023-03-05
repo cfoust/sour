@@ -5,23 +5,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cfoust/sour/pkg/server/net/packet"
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
+	"github.com/cfoust/sour/pkg/game/protocol"
 )
 
-type sendFunc func(channel uint8, payload []byte)
+type sendFunc func(channel uint8, payload []protocol.Message)
 
 // Relay relays positional data between clients
 type Relay struct {
 	mutex sync.Mutex
 
-	incPositionsNotifs chan uint32              // channel on which clients notify the broker about new packets
-	incPositions       map[uint32]<-chan []byte // clients' update channels by topic
-	positions          map[uint32][]byte
+	incPositionsNotifs chan uint32                          // channel on which clients notify the broker about new packets
+	incPositions       map[uint32]<-chan []protocol.Message // clients' update channels by topic
+	positions          map[uint32][]protocol.Message
 
 	incClientPacketsNotifs chan uint32
-	incClientPackets       map[uint32]<-chan []byte
-	clientPackets          map[uint32][]byte
+	incClientPackets       map[uint32]<-chan []protocol.Message
+	clientPackets          map[uint32][]protocol.Message
 
 	send map[uint32]sendFunc
 }
@@ -29,12 +28,12 @@ type Relay struct {
 func New() *Relay {
 	r := &Relay{
 		incPositionsNotifs: make(chan uint32),
-		incPositions:       map[uint32]<-chan []byte{},
-		positions:          map[uint32][]byte{},
+		incPositions:       map[uint32]<-chan []protocol.Message{},
+		positions:          map[uint32][]protocol.Message{},
 
 		incClientPacketsNotifs: make(chan uint32),
-		incClientPackets:       map[uint32]<-chan []byte{},
-		clientPackets:          map[uint32][]byte{},
+		incClientPackets:       map[uint32]<-chan []protocol.Message{},
+		clientPackets:          map[uint32][]protocol.Message{},
 
 		send: map[uint32]sendFunc{},
 	}
@@ -52,23 +51,24 @@ func (r *Relay) loop() {
 			// publish positions
 			r.flush(
 				r.positions,
-				func(uint32, []byte) []byte { return nil },
+				func(uint32, []protocol.Message) []protocol.Message { return nil },
 				0,
 			)
 
 			// publish client packets
 			r.flush(
 				r.clientPackets,
-				func(cn uint32, pkt []byte) []byte {
-					p := packet.Encode(nmc.Client, cn)
-					p.PutUint(uint32(len(pkt)))
-					return p
+				func(cn uint32, pkt []protocol.Message) []protocol.Message {
+					return append([]protocol.Message{protocol.ClientPacket{
+						Client: int(cn),
+						// TODO length
+					}}, pkt...)
 				},
 				1,
 			)
 
 		case cn := <-r.incPositionsNotifs:
-			r.receive(cn, r.incPositions, func(pos []byte) {
+			r.receive(cn, r.incPositions, func(pos []protocol.Message) {
 				if len(pos) == 0 {
 					delete(r.positions, cn)
 				} else {
@@ -77,7 +77,7 @@ func (r *Relay) loop() {
 			})
 
 		case cn := <-r.incClientPacketsNotifs:
-			r.receive(cn, r.incClientPackets, func(pkt []byte) {
+			r.receive(cn, r.incClientPackets, func(pkt []protocol.Message) {
 				r.clientPackets[cn] = append(r.clientPackets[cn], pkt...)
 			})
 		}
@@ -121,7 +121,7 @@ func (r *Relay) RemoveClient(cn uint32) error {
 	return nil
 }
 
-func (r *Relay) FlushPositionAndSend(cn uint32, p []byte) {
+func (r *Relay) FlushPositionAndSend(cn uint32, p []protocol.Message) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -143,7 +143,7 @@ func (r *Relay) FlushPositionAndSend(cn uint32, p []byte) {
 	}
 }
 
-func (r *Relay) receive(cn uint32, from map[uint32]<-chan []byte, process func(upd []byte)) {
+func (r *Relay) receive(cn uint32, from map[uint32]<-chan []protocol.Message, process func(upd []protocol.Message)) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -159,7 +159,7 @@ func (r *Relay) receive(cn uint32, from map[uint32]<-chan []byte, process func(u
 	}
 }
 
-func (r *Relay) flush(packets map[uint32][]byte, prefix func(uint32, []byte) []byte, channel uint8) {
+func (r *Relay) flush(packets map[uint32][]protocol.Message, prefix func(uint32, []protocol.Message) []protocol.Message, channel uint8) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -169,7 +169,7 @@ func (r *Relay) flush(packets map[uint32][]byte, prefix func(uint32, []byte) []b
 
 	order := make([]uint32, 0, len(r.send))
 	lengths := map[uint32]int{}
-	combined := make([]byte, 0, 2*len(packets)*40)
+	combined := make([]protocol.Message, 0, 2*len(packets)*40)
 
 	for cn := range r.send {
 		order = append(order, cn)

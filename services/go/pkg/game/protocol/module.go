@@ -930,24 +930,16 @@ func (s *SendDemo) Unmarshal(p *io.Packet) error {
 }
 
 // N_CLIENT
-type ClientInfo struct {
-	Client      int
-	Nummessages int
+type ClientPacket struct {
+	Client int
+	Length int
 }
 
-func (m ClientInfo) Type() MessageCode { return N_CLIENT }
+func (m ClientPacket) Type() MessageCode { return N_CLIENT }
 
 // N_SPAWN <- from server
 type SpawnResponse struct {
-	LifeSequence int
-	Health       int
-	MaxHealth    int
-	Armour       int
-	ArmourType   int
-	GunSelect    int
-	Ammo         [6]struct {
-		Amount int
-	}
+	EntityState
 }
 
 func (m SpawnResponse) Type() MessageCode { return N_SPAWN }
@@ -1059,7 +1051,7 @@ func init() {
 	registerBoth(&ClearBans{})
 	registerBoth(&ClearDemos{})
 	registerBoth(&ClientDisconnected{})
-	registerBoth(&ClientInfo{})
+	registerBoth(&ClientPacket{})
 	registerBoth(&ClientPing{})
 	registerBoth(&Connect{})
 	registerBoth(&CurrentMaster{})

@@ -13,7 +13,6 @@ import (
 	"github.com/cfoust/sour/pkg/server/protocol/cubecode"
 	"github.com/cfoust/sour/pkg/server/protocol/disconnectreason"
 	"github.com/cfoust/sour/pkg/server/protocol/mastermode"
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
 	"github.com/cfoust/sour/pkg/server/protocol/role"
 	"github.com/cfoust/sour/pkg/server/protocol/weapon"
@@ -89,8 +88,12 @@ func (s *GameServer) Connect(sessionId uint32) *Client {
 	log.Println("connecting")
 	client := s.Clients.Add(sessionId, s.outgoing)
 
-	client.Positions, client.Packets = s.relay.AddClient(client.CN, func(channel uint8, payload []byte) {
-		panic("TODO")
+	client.Positions, client.Packets = s.relay.AddClient(client.CN, func(channel uint8, payload []protocol.Message) {
+		s.outgoing <- ServerPacket{
+			sessionId: client.SessionID,
+			channel:   1,
+			messages:  payload,
+		}
 	})
 	client.Send(
 		protocol.ServerInfo{
@@ -166,7 +169,9 @@ func (s *GameServer) ConfirmSpawn(client *Client, lifeSequence, _weapon int32) {
 	client.SelectedWeapon = weapon.ByID(weapon.ID(_weapon))
 	client.LastSpawnAttempt = time.Time{}
 
-	client.Packets.Publish(nmc.ConfirmSpawn, client.ToWire())
+	client.Packets.Publish(protocol.SpawnResponse{
+		client.ToWire(),
+	})
 
 	if clock, competitive := s.GameMode.(game.Competitive); competitive {
 		clock.Spawned(&client.Player)
