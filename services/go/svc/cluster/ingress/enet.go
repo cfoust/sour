@@ -6,25 +6,24 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/enet"
-	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/io"
+	"github.com/cfoust/sour/pkg/utils"
 	"github.com/cfoust/sour/svc/cluster/auth"
 )
 
 type PacketACK struct {
-	Packet game.GamePacket
+	Packet io.RawPacket
 	Done   chan bool
 }
 
 type ENetClient struct {
-	peer   *enet.Peer
-	host   *enet.Host
-	status NetworkStatus
-
-	context context.Context
-	cancel  context.CancelFunc
+	session utils.Session
+	peer    *enet.Peer
+	host    *enet.Host
+	status  NetworkStatus
 
 	toClient       chan PacketACK
-	toServer       chan game.GamePacket
+	toServer       chan io.RawPacket
 	commands       chan ClusterCommand
 	authentication chan *auth.AuthUser
 	disconnect     chan bool
@@ -34,7 +33,7 @@ func NewENetClient() *ENetClient {
 	return &ENetClient{
 		status:         NetworkStatusConnected,
 		toClient:       make(chan PacketACK, CLIENT_MESSAGE_LIMIT),
-		toServer:       make(chan game.GamePacket, CLIENT_MESSAGE_LIMIT),
+		toServer:       make(chan io.RawPacket, CLIENT_MESSAGE_LIMIT),
 		commands:       make(chan ClusterCommand, CLIENT_MESSAGE_LIMIT),
 		authentication: make(chan *auth.AuthUser),
 		disconnect:     make(chan bool, 1),
@@ -62,8 +61,8 @@ func (c *ENetClient) Connect(name string, isHidden bool, shouldCopy bool) {
 func (c *ENetClient) ServerChanged(target string) {
 }
 
-func (c *ENetClient) SessionContext() context.Context {
-	return c.context
+func (c *ENetClient) Session() *utils.Session {
+	return &c.session
 }
 
 func (c *ENetClient) NetworkStatus() NetworkStatus {
@@ -78,7 +77,7 @@ func (c *ENetClient) Type() ClientType {
 	return ClientTypeENet
 }
 
-func (c *ENetClient) Send(packet game.GamePacket) <-chan bool {
+func (c *ENetClient) Send(packet io.RawPacket) <-chan bool {
 	done := make(chan bool, 1)
 	c.toClient <- PacketACK{
 		Packet: packet,
@@ -87,17 +86,17 @@ func (c *ENetClient) Send(packet game.GamePacket) <-chan bool {
 	return done
 }
 
-func (c *ENetClient) SendGlobalChat(message string) {
-	packet := game.Packet{}
-	packet.PutInt(int32(game.N_SERVMSG))
-	packet.PutString(message)
-	c.Send(game.GamePacket{
-		Channel: 1,
-		Data:    packet,
-	})
-}
+//func (c *ENetClient) SendGlobalChat(message string) {
+//packet := game.Packet{}
+//packet.PutInt(int32(game.N_SERVMSG))
+//packet.PutString(message)
+//c.Send(game.GamePacket{
+//Channel: 1,
+//Data:    packet,
+//})
+//}
 
-func (c *ENetClient) ReceivePackets() <-chan game.GamePacket {
+func (c *ENetClient) ReceivePackets() <-chan io.RawPacket {
 	return c.toServer
 }
 
@@ -142,7 +141,7 @@ func (c *ENetClient) Poll(ctx context.Context) {
 }
 
 func (c *ENetClient) Disconnect(reason int, message string) {
-	c.cancel()
+	c.session.Cancel()
 	c.host.Disconnect(c.peer, enet.ID(reason))
 }
 
@@ -208,12 +207,11 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 		case event := <-events:
 			switch event.Type {
 			case enet.EventTypeConnect:
-				ctx, cancel := context.WithCancel(ctx)
+				session := utils.NewSession(ctx)
 
 				client := NewENetClient()
 				client.peer = event.Peer
-				client.context = ctx
-				client.cancel = cancel
+				client.session = session
 				client.host = server.host
 
 				server.newClients <- client
@@ -237,7 +235,7 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 					continue
 				}
 
-				target.toServer <- game.GamePacket{
+				target.toServer <- io.RawPacket{
 					Channel: event.ChannelID,
 					Data:    event.Packet.Data,
 				}
@@ -250,7 +248,7 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 					continue
 				}
 
-				target.cancel()
+				target.session.Cancel()
 				server.RemoveClient(target)
 				target.disconnect <- true
 				break

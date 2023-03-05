@@ -8,7 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/io"
+	"github.com/cfoust/sour/pkg/utils"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/watcher"
 
@@ -121,26 +122,25 @@ type GenericMessage struct {
 }
 
 type WSClient struct {
+	session utils.Session
+
 	host           string
 	deviceType     string
 	status         NetworkStatus
-	toClient       chan game.GamePacket
-	toServer       chan game.GamePacket
+	toClient       chan io.RawPacket
+	toServer       chan io.RawPacket
 	commands       chan ClusterCommand
 	authentication chan *auth.AuthUser
 	disconnect     chan bool
 	send           chan []byte
 	closeSlow      func()
-
-	context context.Context
-	cancel  context.CancelFunc
 }
 
 func NewWSClient() *WSClient {
 	return &WSClient{
 		status:         NetworkStatusConnected,
-		toClient:       make(chan game.GamePacket, CLIENT_MESSAGE_LIMIT),
-		toServer:       make(chan game.GamePacket, CLIENT_MESSAGE_LIMIT),
+		toClient:       make(chan io.RawPacket, CLIENT_MESSAGE_LIMIT),
+		toServer:       make(chan io.RawPacket, CLIENT_MESSAGE_LIMIT),
 		commands:       make(chan ClusterCommand, CLIENT_MESSAGE_LIMIT),
 		authentication: make(chan *auth.AuthUser),
 		send:           make(chan []byte, CLIENT_MESSAGE_LIMIT),
@@ -156,8 +156,8 @@ func (c *WSClient) DeviceType() string {
 	return c.deviceType
 }
 
-func (c *WSClient) SessionContext() context.Context {
-	return c.context
+func (c *WSClient) Session() *utils.Session {
+	return &c.session
 }
 
 func (c *WSClient) NetworkStatus() NetworkStatus {
@@ -184,7 +184,7 @@ func (c *WSClient) Type() ClientType {
 	return ClientTypeWS
 }
 
-func (c *WSClient) Send(packet game.GamePacket) <-chan bool {
+func (c *WSClient) Send(packet io.RawPacket) <-chan bool {
 	done := make(chan bool, 1)
 	c.toClient <- packet
 	// We don't get ACKs over WS (for now, this is unnecessary)
@@ -192,7 +192,7 @@ func (c *WSClient) Send(packet game.GamePacket) <-chan bool {
 	return done
 }
 
-func (c *WSClient) ReceivePackets() <-chan game.GamePacket {
+func (c *WSClient) ReceivePackets() <-chan io.RawPacket {
 	return c.toServer
 }
 
@@ -299,14 +299,11 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 
 	client.deviceType = deviceType
 
-	clientCtx, cancel := context.WithCancel(ctx)
-
-	client.context = clientCtx
-	client.cancel = cancel
+	client.session = utils.NewSession(ctx)
 
 	server.newClients <- client
 
-	defer cancel()
+	defer client.session.Cancel()
 
 	server.AddClient(client)
 	defer server.RemoveClient(client)
@@ -386,7 +383,7 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 			if err := cbor.Unmarshal(msg, &packetMessage); err == nil &&
 				packetMessage.Op == PacketOp {
 
-				client.toServer <- game.GamePacket{
+				client.toServer <- io.RawPacket{
 					Channel: uint8(packetMessage.Channel),
 					Data:    packetMessage.Data,
 				}

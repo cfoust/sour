@@ -2,13 +2,19 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"math"
+	"math/big"
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/io"
 	P "github.com/cfoust/sour/pkg/game/protocol"
+	"github.com/cfoust/sour/pkg/server"
+	"github.com/cfoust/sour/pkg/utils"
+
 	"github.com/cfoust/sour/svc/cluster/auth"
-	"github.com/cfoust/sour/svc/cluster/clients"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
@@ -20,12 +26,42 @@ import (
 	"github.com/sasha-s/go-deadlock"
 )
 
+type TrackedPacket struct {
+	Packet io.RawPacket
+	Done   chan bool
+}
+
+// The status of the user's connection to their game server.
+type UserStatus uint8
+
+const (
+	UserStatusConnecting = iota
+	UserStatusConnected
+	UserStatusDisconnected
+)
+
 type User struct {
-	clients.Client
 	Name  string
 	Auth  *auth.AuthUser
 	Verse *verse.User
 	ELO   *ELOState
+
+	Id ingress.ClientID
+
+	SessionUUID string
+
+	// Whether the user is connected (or connecting) to a game server
+	Status UserStatus
+
+	Connection ingress.Connection
+
+	// True when the user is loading the map
+	delayMessages bool
+	messageQueue  []string
+
+	Authentication chan *auth.AuthUser
+
+	to chan TrackedPacket
 
 	// The user's home ID if they're not authenticated.
 	TempHomeID string
@@ -35,16 +71,16 @@ type User struct {
 	sendingMap      bool
 	autoexecKey     string
 
-	Server *servers.GameServer
-	Space  *verse.SpaceInstance
+	Server       *servers.GameServer
+	ServerClient *server.Client
 
 	// Created when the user connects to a server and canceled when they
 	// leave, regardless of reason (network or being disconnected by the
 	// server)
 	// This is NOT the same thing as Client.Connection.SessionContext(), which refers to
 	// the lifecycle of the client's ingress connection
-	serverSessionCtx context.Context
-	cancel           context.CancelFunc
+	ServerSession utils.Session
+	Space         *verse.SpaceInstance
 
 	From *P.MessageProxy
 	To   *P.MessageProxy
@@ -54,15 +90,24 @@ type User struct {
 }
 
 // Valid for the duration of the user's session on the cluster.
-func (u *User) Context() context.Context {
-	return u.Client.Connection.SessionContext()
+func (u *User) Session() *utils.Session {
+	return u.Connection.Session()
+}
+
+func (c *User) ReceiveAuthentication() <-chan *auth.AuthUser {
+	// WS clients do their own auth (for now)
+	if c.Connection.Type() == ingress.ClientTypeWS {
+		return c.Connection.ReceiveAuthentication()
+	}
+
+	return c.Authentication
 }
 
 func (u *User) Logger() zerolog.Logger {
 	u.Mutex.RLock()
 	logger := log.With().
-		Uint32("id", uint32(u.Client.Id)).
-		Str("session", u.Client.Session).
+		Uint32("id", uint32(u.Id)).
+		Str("session", u.SessionUUID).
 		Str("type", u.Connection.DeviceType()).
 		Str("name", u.Name).
 		Logger()
@@ -95,6 +140,82 @@ func (u *User) GetID() string {
 	}
 
 	return auth.GetID()
+}
+
+func (c *User) GetStatus() UserStatus {
+	c.Mutex.RLock()
+	status := c.Status
+	c.Mutex.RUnlock()
+	return status
+}
+
+func (c *User) GetUserNum() servers.UserNum {
+	c.Mutex.RLock()
+	num := c.Num
+	c.Mutex.RUnlock()
+	return num
+}
+
+func (c *User) GetLifeSequence() int {
+	c.Mutex.RLock()
+	num := c.LifeSequence
+	c.Mutex.RUnlock()
+	return num
+}
+
+func (c *User) DelayMessages() {
+	c.Mutex.Lock()
+	c.delayMessages = true
+	c.Mutex.Unlock()
+}
+
+func (c *User) RestoreMessages() {
+	c.Mutex.Lock()
+	c.delayMessages = false
+	c.Mutex.Unlock()
+	c.sendQueuedMessages()
+}
+
+func (c *User) sendQueuedMessages() {
+	c.Mutex.Lock()
+	for _, message := range c.messageQueue {
+		c.sendMessage(message)
+	}
+	c.messageQueue = make([]string, 0)
+	c.Mutex.Unlock()
+}
+
+func (c *User) sendMessage(message string) {
+	packet := game.Packet{}
+	packet.PutInt(int32(game.N_SERVMSG))
+	packet.PutString(message)
+	c.Connection.Send(game.GamePacket{
+		Channel: 1,
+		Data:    packet,
+	})
+}
+
+func (c *User) Send(packet game.GamePacket) <-chan bool {
+	out := make(chan bool, 1)
+	c.to <- TrackedPacket{
+		Packet: packet,
+		Done:   out,
+	}
+	return out
+}
+
+func (c *User) ReceiveToMessages() <-chan TrackedPacket {
+	return c.to
+}
+
+func (c *User) SendMessage(message string) {
+	c.Mutex.Lock()
+	if c.delayMessages {
+		c.messageQueue = append(c.messageQueue, message)
+	} else {
+		c.sendMessage(message)
+	}
+	c.Mutex.Unlock()
 }
 
 func (u *User) IsLoggedIn() bool {
@@ -466,7 +587,7 @@ func NewUserOrchestrator(redis *redis.Client, duels []config.DuelType) *UserOrch
 
 func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
 	select {
-	case <-user.Context().Done():
+	case <-user.Session().Ctx().Done():
 		u.RemoveUser(user)
 		return
 	case <-ctx.Done():
@@ -474,11 +595,41 @@ func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
 	}
 }
 
-func (u *UserOrchestrator) AddUser(ctx context.Context, client *clients.Client) *User {
+func (u *UserOrchestrator) newSessionID() (ingress.ClientID, error) {
+	u.Mutex.Lock()
+	defer u.Mutex.Unlock()
+
+	for attempts := 0; attempts < math.MaxUint16; attempts++ {
+		number, _ := rand.Int(rand.Reader, big.NewInt(math.MaxUint16))
+		truncated := ingress.ClientID(number.Uint64())
+
+		taken := false
+		for _, user := range u.Users {
+			if user.Id == truncated {
+				taken = true
+			}
+		}
+		if taken {
+			continue
+		}
+
+		return truncated, nil
+	}
+
+	return 0, fmt.Errorf("Failed to assign client ID")
+}
+
+func (u *UserOrchestrator) AddUser(ctx context.Context) (*User, error) {
+	id, err := u.newSessionID()
+	if err != nil {
+		return nil, err
+	}
+
 	u.Mutex.Lock()
 	user := User{
+		Id:     id,
+		Status: UserStatusDisconnected,
 		ELO:    NewELOState(u.Duels),
-		Client: *client,
 		Name:   "unnamed",
 		From:   P.NewMessageProxy(true),
 		To:     P.NewMessageProxy(false),
@@ -492,7 +643,7 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, client *clients.Client) 
 	logger := user.Logger()
 	logger.Info().Str("host", user.Connection.Host()).Msg("user joined")
 
-	return &user
+	return &user, nil
 }
 
 func (u *UserOrchestrator) RemoveUser(user *User) {

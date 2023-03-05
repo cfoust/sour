@@ -10,6 +10,11 @@ type Message interface {
 	Type() MessageCode
 }
 
+type Packet struct {
+	Channel  uint8
+	Messages []Message
+}
+
 var FAILED = fmt.Errorf("failed to unmarshal message")
 
 // N_ADDBOT

@@ -28,7 +28,7 @@ import (
 	"fmt"
 )
 
-type GamePacket struct {
+type RawPacket struct {
 	Channel uint8
 	Data    []byte
 }

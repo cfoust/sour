@@ -132,7 +132,7 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *User, mess
 
 				p = append(p, m...)
 
-				user.Send(io.GamePacket{
+				user.Send(io.RawPacket{
 					Channel: 1,
 					Data:    p,
 				})
@@ -618,12 +618,12 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				filtered = append(filtered, newMessage.Data()...)
 			}
 
-			user.Client.Intercept.To <- io.GamePacket{
+			user.Client.Intercept.To <- io.RawPacket{
 				Data:    filtered,
 				Channel: channel,
 			}
 
-			sendResult(done, io.GamePacket{
+			sendResult(done, io.RawPacket{
 				Channel: channel,
 				Data:    out,
 			})
