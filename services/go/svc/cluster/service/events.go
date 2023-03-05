@@ -83,7 +83,7 @@ func (c *Cluster) AnnounceInServer(ctx context.Context, server *servers.GameServ
 	}
 
 	for _, user := range serverUsers {
-		user.SendServerMessage(message)
+		user.Message(message)
 	}
 
 	c.Users.Mutex.RUnlock()
@@ -264,7 +264,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 				canEditSpace := isOwner || space.IsOpenEdit()
 				if !canEditSpace {
 					user.ConnectToSpace(space.Deployment.GetServer(), space.GetID())
-					user.SendServerMessage("you cannot edit this space.")
+					user.Message("you cannot edit this space.")
 					msg.Drop()
 					continue
 				}
@@ -274,7 +274,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			// For now, users can't edit on named servers (ie the lobby)
 			if server != nil && server.Alias != "" {
 				user.Connect(server)
-				user.SendServerMessage("you cannot edit this server.")
+				user.Message("you cannot edit this server.")
 				msg.Drop()
 				continue
 			}
@@ -335,7 +335,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			if len(text) >= io.MAXSTRLEN {
 				removed := len(text) - game.MAXSTRLEN
 				text = text[:game.MAXSTRLEN]
-				user.SendServerMessage(game.Red(
+				user.Message(game.Red(
 					fmt.Sprintf("your message was too long; we cut off the last %d characters", removed),
 				))
 			}
@@ -361,10 +361,10 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 
 				if err != nil {
 					logger.Error().Err(err).Str("command", command).Msg("user command failed")
-					user.SendServerMessage(game.Red(err.Error()))
+					user.Message(game.Red(err.Error()))
 					return
 				} else if len(response) > 0 {
-					user.SendServerMessage(response)
+					user.Message(response)
 					return
 				}
 

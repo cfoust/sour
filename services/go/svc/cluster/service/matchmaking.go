@@ -72,8 +72,8 @@ func (d *Duel) Logger() zerolog.Logger {
 }
 
 func (d *Duel) broadcast(message string) {
-	d.A.SendServerMessage(message)
-	d.B.SendServerMessage(message)
+	d.A.Message(message)
+	d.B.Message(message)
 }
 
 // Do a period of uninterrupted gameplay, like the warmup or main "struggle" sections.
@@ -545,7 +545,7 @@ func (m *Matchmaker) NotifyProgress(queued *QueuedClient) {
 		select {
 		case <-tick.C:
 			since := time.Now().Sub(queued.JoinTime).Round(time.Second)
-			queued.User.SendServerMessage(fmt.Sprintf("you have been queued for %s for %s", queued.Type, since))
+			queued.User.Message(fmt.Sprintf("you have been queued for %s for %s", queued.Type, since))
 		case <-queued.Context.Done():
 			return
 		}
@@ -562,7 +562,7 @@ func (m *Matchmaker) Queue(user *User, typeName string) error {
 	m.mutex.Lock()
 	for _, queued := range m.queue {
 		if queued.User == user && queued.Type == typeName {
-			user.SendServerMessage(fmt.Sprintf("you are already in the queue for %s", typeName))
+			user.Message(fmt.Sprintf("you are already in the queue for %s", typeName))
 			return nil
 		}
 	}
@@ -581,7 +581,7 @@ func (m *Matchmaker) Queue(user *User, typeName string) error {
 	m.queue = append(m.queue, &queued)
 	m.mutex.Unlock()
 	log.Info().Str("user", user.Reference()).Str("type", queued.Type).Msg("queued for dueling")
-	user.SendServerMessage(fmt.Sprintf("you are now in the queue for %s", queued.Type))
+	user.Message(fmt.Sprintf("you are now in the queue for %s", queued.Type))
 
 	m.queues <- DuelQueue{
 		User: user,
@@ -599,7 +599,7 @@ func (m *Matchmaker) Dequeue(user *User) {
 	for _, queued := range m.queue {
 		if queued.User == user {
 			log.Info().Str("user", user.Reference()).Str("type", queued.Type).Msg("left duel queue")
-			user.SendServerMessage(fmt.Sprintf("you left the queue for %s", queued.Type))
+			user.Message(fmt.Sprintf("you left the queue for %s", queued.Type))
 			queued.Cancel()
 			continue
 		}
@@ -746,15 +746,15 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 
 			if result.IsDraw {
 				message := "the duel ended in a draw, your rating is unchanged"
-				winner.SendServerMessage(message)
-				loser.SendServerMessage(message)
+				winner.Message(message)
+				loser.Message(message)
 				continue
 			}
 
-			winner.SendServerMessage(
+			winner.Message(
 				game.Green("you won! ") + winnerOutcome.String(),
 			)
-			loser.SendServerMessage(
+			loser.Message(
 				game.Red("you lost! ") + loserOutcome.String(),
 			)
 
@@ -776,7 +776,7 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 				if user == winner || user == loser {
 					continue
 				}
-				user.SendServerMessage(message)
+				user.Message(message)
 			}
 			server.Users.Mutex.RUnlock()
 		case queue := <-queues:
@@ -786,7 +786,7 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 					continue
 				}
 
-				client.SendServerMessage(fmt.Sprintf(
+				client.Message(fmt.Sprintf(
 					"%s queued for %s",
 					queue.User.Reference(),
 					queue.Type,

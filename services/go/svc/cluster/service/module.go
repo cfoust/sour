@@ -176,10 +176,10 @@ func (server *Cluster) PollServers(ctx context.Context) {
 				)
 
 				if user.IsLoggedIn() {
-					user.SendServerMessage(message)
-					user.SendServerMessage("editing by others is disabled. say #edit to enable it.")
+					user.Message(message)
+					user.Message("editing by others is disabled. say #edit to enable it.")
 				} else {
-					user.SendServerMessage(message + " anyone can edit it. because you are not logged in, it will be deleted in 4 hours")
+					user.Message(message + " anyone can edit it. because you are not logged in, it will be deleted in 4 hours")
 				}
 			}
 

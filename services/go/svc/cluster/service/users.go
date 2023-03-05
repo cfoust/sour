@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/game/io"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server"
 	"github.com/cfoust/sour/pkg/utils"
@@ -27,7 +26,7 @@ import (
 )
 
 type TrackedPacket struct {
-	Packet io.RawPacket
+	Packet P.Packet
 	Done   chan bool
 }
 
@@ -130,6 +129,13 @@ func (u *User) Logger() zerolog.Logger {
 	return logger
 }
 
+func (u *User) GetClientNum() int {
+	u.Mutex.RLock()
+	num := int(u.ServerClient.CN)
+	u.Mutex.RUnlock()
+	return num
+}
+
 func (u *User) GetID() string {
 	u.Mutex.RLock()
 	auth := u.Auth
@@ -147,20 +153,6 @@ func (c *User) GetStatus() UserStatus {
 	status := c.Status
 	c.Mutex.RUnlock()
 	return status
-}
-
-func (c *User) GetUserNum() servers.UserNum {
-	c.Mutex.RLock()
-	num := c.Num
-	c.Mutex.RUnlock()
-	return num
-}
-
-func (c *User) GetLifeSequence() int {
-	c.Mutex.RLock()
-	num := c.LifeSequence
-	c.Mutex.RUnlock()
-	return num
 }
 
 func (c *User) DelayMessages() {
@@ -186,36 +178,27 @@ func (c *User) sendQueuedMessages() {
 }
 
 func (c *User) sendMessage(message string) {
-	packet := game.Packet{}
-	packet.PutInt(int32(game.N_SERVMSG))
-	packet.PutString(message)
-	c.Connection.Send(game.GamePacket{
-		Channel: 1,
-		Data:    packet,
-	})
+	c.Send(P.ServerMessage{message})
 }
 
-func (c *User) Send(packet game.GamePacket) <-chan bool {
+func (c *User) SendChannel(channel uint8, messages ...P.Message) <-chan bool {
 	out := make(chan bool, 1)
 	c.to <- TrackedPacket{
-		Packet: packet,
-		Done:   out,
+		Packet: P.Packet{
+			channel,
+			messages,
+		},
+		Done: out,
 	}
 	return out
 }
 
-func (c *User) ReceiveToMessages() <-chan TrackedPacket {
-	return c.to
+func (c *User) Send(messages ...P.Message) <-chan bool {
+	return c.SendChannel(1, messages...)
 }
 
-func (c *User) SendMessage(message string) {
-	c.Mutex.Lock()
-	if c.delayMessages {
-		c.messageQueue = append(c.messageQueue, message)
-	} else {
-		c.sendMessage(message)
-	}
-	c.Mutex.Unlock()
+func (c *User) ReceiveToMessages() <-chan TrackedPacket {
+	return c.to
 }
 
 func (u *User) IsLoggedIn() bool {
@@ -266,7 +249,7 @@ func (u *User) GetServer() *servers.GameServer {
 
 func (u *User) ServerSessionContext() context.Context {
 	u.Mutex.RLock()
-	ctx := u.serverSessionCtx
+	ctx := u.ServerSession.Ctx()
 	u.Mutex.RUnlock()
 	return ctx
 }
@@ -333,8 +316,16 @@ func (u *User) GetFormattedName() string {
 	return name
 }
 
-func (u *User) SendServerMessage(message string) {
-	u.Client.SendMessage(fmt.Sprintf("%s %s", game.Magenta("~>"), message))
+func (u *User) Message(message string) {
+	formatted := fmt.Sprintf("%s %s", game.Magenta("~>"), message)
+
+	u.Mutex.Lock()
+	if u.delayMessages {
+		u.messageQueue = append(u.messageQueue, formatted)
+	} else {
+		u.sendMessage(formatted)
+	}
+	u.Mutex.Unlock()
 }
 
 func (u *User) Reference() string {
@@ -376,7 +367,7 @@ func (u *User) AnnounceELO() {
 	}
 	u.Mutex.RUnlock()
 
-	u.SendServerMessage(result)
+	u.Message(result)
 }
 
 func (u *User) HydrateELOState(ctx context.Context, authUser *auth.AuthUser) error {
@@ -442,7 +433,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 	oldServer := u.GetServer()
 	if oldServer != nil {
 		oldServer.Leave(uint32(u.Id))
-		u.cancel()
+		u.ServerSession.Cancel()
 
 		// Remove all the other clients from this client's perspective
 		u.o.Mutex.Lock()
@@ -456,13 +447,11 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 
 				// Send N_CDIS
 				otherUser.Mutex.RLock()
-				packet := game.Packet{}
-				packet.PutInt(int32(game.N_CDIS))
-				packet.PutInt(int32(otherUser.Num))
-				u.Connection.Send(game.GamePacket{
-					Channel: 1,
-					Data:    packet,
-				})
+				otherUser.Send(
+					P.ClientDisconnected{
+						otherUser.GetClientNum(),
+					},
+				)
 				otherUser.Mutex.RUnlock()
 				newUsers = append(newUsers, otherUser)
 			}
@@ -481,14 +470,12 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 	u.Mutex.Lock()
 	u.Space = nil
 	u.Server = server
-	server.Connecting <- true
-	u.Status = clients.ClientStatusConnecting
-	sessionCtx, cancel := context.WithCancel(u.Connection.SessionContext())
-	u.serverSessionCtx = sessionCtx
-	u.cancel = cancel
+	u.Status = UserStatusConnecting
+	u.ServerSession = utils.NewSession(u.Session().Ctx())
 	u.Mutex.Unlock()
 
-	server.SendConnect(u.Id)
+	serverClient := server.Connect(uint32(u.Id))
+	u.ServerClient = serverClient
 
 	serverName := server.Reference()
 	if target != "" {
@@ -499,15 +486,12 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 	// Give the client one second to connect.
 	go func() {
 		tick := time.NewTicker(50 * time.Millisecond)
-		connectCtx, cancel := context.WithTimeout(sessionCtx, time.Second*1)
+		connectCtx, cancel := context.WithTimeout(u.ServerSession.Ctx(), time.Second*1)
 
 		defer cancel()
-		defer func() {
-			<-server.Connecting
-		}()
 
 		for {
-			if u.GetStatus() == clients.ClientStatusConnected {
+			if u.GetStatus() == UserStatusConnected {
 				u.o.Mutex.Lock()
 				users, ok := u.o.Servers[server]
 				newUsers := make([]*User, 0)
@@ -523,7 +507,6 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 				newUsers = append(newUsers, u)
 				u.o.Servers[u.Server] = newUsers
 				u.o.Mutex.Unlock()
-				server.AddClient()
 				connected <- true
 				return
 			}
@@ -531,7 +514,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 			select {
 			case <-tick.C:
 				continue
-			case <-u.Connection.SessionContext().Done():
+			case <-u.Session().Ctx().Done():
 				connected <- false
 				return
 			case <-connectCtx.Done():
@@ -553,15 +536,12 @@ func (u *User) DisconnectFromServer() error {
 
 	u.Mutex.Lock()
 	if u.Server != nil {
-		u.Server.SendDisconnect(u.Client.Id)
-		u.Server.RemoveClient()
+		u.Server.Leave(uint32(u.Id))
 	}
 	u.Server = nil
 	u.Space = nil
-	u.Client.Status = clients.ClientStatusDisconnected
-	if u.cancel != nil {
-		u.cancel()
-	}
+	u.Status = UserStatusDisconnected
+	u.ServerSession.Cancel()
 	u.Mutex.Unlock()
 
 	return nil

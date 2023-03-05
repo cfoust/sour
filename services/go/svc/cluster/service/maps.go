@@ -31,7 +31,7 @@ func (c *Cluster) waitForMapConsent(ctx context.Context, user *User) error {
 	serverCtx := user.ServerSessionContext()
 
 	message := "you are missing assets. run '/do (getservauth)' to allow the server to securely send maps and assets you are missing"
-	user.SendServerMessage(message)
+	user.Message(message)
 
 	for {
 		select {
@@ -46,7 +46,7 @@ func (c *Cluster) waitForMapConsent(ctx context.Context, user *User) error {
 			}
 			return nil
 		case <-warn.C:
-			user.SendServerMessage(message)
+			user.Message(message)
 		}
 	}
 }
@@ -114,7 +114,7 @@ func sendBundle(serverCtx context.Context, user *User, id string, data []byte) e
 
 	fileName := id[:20]
 
-	user.SendServerMessage("downloading map assets...")
+	user.Message("downloading map assets...")
 	msg, err := runScriptAndWait(serverCtx, user, game.N_GETDEMO, fmt.Sprintf(`
 getdemo 0 %s
 `, fileName))
@@ -156,7 +156,7 @@ if (= (findfile demo/%s.dmo) 1) [servcmd ok] [servcmd missing]
 		break
 	}
 
-	user.SendServerMessage("mounting asset layer...")
+	user.Message("mounting asset layer...")
 	msg, err = runScriptAndWait(serverCtx, user, game.N_SERVCMD, fmt.Sprintf(`
 addzip demo/%s.dmo
 servcmd ok
@@ -170,7 +170,7 @@ servcmd ok
 		return fmt.Errorf("user never ack'd demo")
 	}
 
-	user.SendServerMessage("map download complete")
+	user.Message("map download complete")
 
 	return nil
 }
@@ -283,7 +283,7 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 		}
 	}
 
-	user.SendServerMessage("packaging data...")
+	user.Message("packaging data...")
 	data, err := found.GetBundle(ctx)
 	if err != nil {
 		return err

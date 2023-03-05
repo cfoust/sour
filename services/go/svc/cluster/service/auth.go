@@ -56,20 +56,20 @@ func (c *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) er
 	}
 
 	if !challenge.Check(answer.Answer) {
-		user.SendServerMessage(game.Red("failed to login, please regenerate your key"))
+		user.Message(game.Red("failed to login, please regenerate your key"))
 		return fmt.Errorf("client failed auth challenge")
 	}
 
 	authUser, err := c.auth.AuthenticateId(ctx, challenge.Id)
 	if err != nil {
-		user.SendServerMessage(game.Red("failed to login, please regenerate your key"))
+		user.Message(game.Red("failed to login, please regenerate your key"))
 		return fmt.Errorf("could not authenticate by id")
 	}
 
 	// XXX we really need to move all the ENet auth to ingress/enet.go...
 	user.Authentication <- authUser
 
-	user.SendServerMessage(game.Blue(fmt.Sprintf("logged in with Discord as %s", authUser.Discord.Reference())))
+	user.Message(game.Blue(fmt.Sprintf("logged in with Discord as %s", authUser.Discord.Reference())))
 	logger = user.Logger()
 	logger.Info().Msg("logged in with Discord")
 
@@ -79,7 +79,7 @@ func (c *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) er
 func (server *Cluster) GreetClient(ctx context.Context, user *User) {
 	user.AnnounceELO()
 	if user.Auth == nil {
-		user.SendServerMessage("You are not logged in. Your rating will not be saved.")
+		user.Message("You are not logged in. Your rating will not be saved.")
 	}
 	server.NotifyClientChange(ctx, user, true)
 
@@ -97,7 +97,7 @@ func (server *Cluster) GreetClient(ctx context.Context, user *User) {
 		}
 	}
 	server.Users.Mutex.RUnlock()
-	user.SendServerMessage(message)
+	user.Message(message)
 
 	user.Mutex.Lock()
 	user.wasGreeted = true

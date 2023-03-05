@@ -161,10 +161,10 @@ func (s *Server) Join(c *Client) {
 	uniqueName := s.Clients.UniqueName(c)
 	log.Println(cubecode.SanitizeString(fmt.Sprintf("%s connected", uniqueName)))
 
-	c.SendServerMessage(s.MessageOfTheDay)
+	c.Message(s.MessageOfTheDay)
 }
 
-func (s *Server) SendServerMessage(message string) {
+func (s *Server) Message(message string) {
 	s.Broadcast(protocol.ServerMessage{message})
 }
 
@@ -226,27 +226,27 @@ func (s *Server) Disconnect(client *Client, reason disconnectreason.ID) {
 
 func (s *Server) Kick(client *Client, victim *Client, reason string) {
 	if client.Role <= victim.Role {
-		client.SendServerMessage(cubecode.Fail("you can't do that"))
+		client.Message(cubecode.Fail("you can't do that"))
 		return
 	}
 	msg := fmt.Sprintf("%s kicked %s", s.Clients.UniqueName(client), s.Clients.UniqueName(victim))
 	if reason != "" {
 		msg += " for: " + reason
 	}
-	s.SendServerMessage(msg)
+	s.Message(msg)
 	s.Disconnect(victim, disconnectreason.Kick)
 }
 
 func (s *Server) AuthKick(client *Client, rol role.ID, domain, name string, victim *Client, reason string) {
 	if rol <= victim.Role {
-		client.SendServerMessage(cubecode.Fail("you can't do that"))
+		client.Message(cubecode.Fail("you can't do that"))
 		return
 	}
 	msg := fmt.Sprintf("%s as '%s' [%s] kicked %s", s.Clients.UniqueName(client), cubecode.Magenta(name), cubecode.Green(domain), s.Clients.UniqueName(victim))
 	if reason != "" {
 		msg += " for: " + reason
 	}
-	s.SendServerMessage(msg)
+	s.Message(msg)
 	s.Disconnect(victim, disconnectreason.Kick)
 }
 
@@ -272,7 +272,7 @@ func (s *Server) Intermission() {
 		s.StartGame(s.StartMode(s.GameMode.ID()), nextMap)
 	})
 
-	s.SendServerMessage("next up: " + nextMap)
+	s.Message("next up: " + nextMap)
 }
 
 // Returns the number of connected clients playing (i.e. joined and not spectating)
@@ -323,7 +323,7 @@ func (s *Server) StartGame(mode game.Mode, mapname string) {
 	s.Clock.Start()
 	s.MapChange()
 
-	s.SendServerMessage(s.MessageOfTheDay)
+	s.Message(s.MessageOfTheDay)
 }
 
 func (s *Server) SetMasterMode(c *Client, mm mastermode.ID) {
@@ -332,11 +332,11 @@ func (s *Server) SetMasterMode(c *Client, mm mastermode.ID) {
 		return
 	}
 	if mm == mastermode.Open {
-		c.SendServerMessage(cubecode.Fail("'open' mode is not supported by this server"))
+		c.Message(cubecode.Fail("'open' mode is not supported by this server"))
 		return
 	}
 	if c.Role == role.None {
-		c.SendServerMessage(cubecode.Fail("you can't do that"))
+		c.Message(cubecode.Fail("you can't do that"))
 		return
 	}
 	s.MasterMode = mm

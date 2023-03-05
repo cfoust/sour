@@ -66,7 +66,7 @@ func (c *Client) String() string {
 	return fmt.Sprintf("%s (%d:%d)", c.Name, c.CN, c.SessionID)
 }
 
-func (c *Client) SendServerMessage(text string) {
+func (c *Client) Message(text string) {
 	c.Send(protocol.ServerMessage{text})
 }
 

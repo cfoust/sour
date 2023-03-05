@@ -162,12 +162,12 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		if client.Role == role.None {
 			// unprivileged clients can never change spec state of others
 			if spectator != client {
-				client.SendServerMessage(cubecode.Fail("you can't do that"))
+				client.Message(cubecode.Fail("you can't do that"))
 				return
 			}
 			// unprivileged clients can not unspec themselves in mm>=2
 			if client.State == playerstate.Spectator && s.MasterMode >= mastermode.Locked {
-				client.SendServerMessage(cubecode.Fail("you can't do that"))
+				client.Message(cubecode.Fail("you can't do that"))
 				return
 			}
 		}
@@ -203,23 +203,23 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		modeID := gamemode.ID(msg.Mode)
 
 		if !gamemode.Valid(modeID) {
-			client.SendServerMessage(cubecode.Fail(fmt.Sprintf("%s is not implemented on this server", modeID)))
+			client.Message(cubecode.Fail(fmt.Sprintf("%s is not implemented on this server", modeID)))
 			log.Println("invalid gamemode", modeID, "requested")
 			return
 		}
 
 		if s.MasterMode < mastermode.Veto {
-			client.SendServerMessage(cubecode.Fail("this server does not support map voting"))
+			client.Message(cubecode.Fail("this server does not support map voting"))
 			return
 		}
 
 		if client.Role < role.Master {
-			client.SendServerMessage(cubecode.Fail("you can't do that"))
+			client.Message(cubecode.Fail("you can't do that"))
 			return
 		}
 
 		s.StartGame(s.StartMode(modeID), mapname)
-		s.SendServerMessage(fmt.Sprintf("%s forced %s on %s", s.Clients.UniqueName(client), modeID, mapname))
+		s.Message(fmt.Sprintf("%s forced %s on %s", s.Clients.UniqueName(client), modeID, mapname))
 		log.Println(client, "forced", modeID, "on", mapname)
 
 	case p.N_PING:

@@ -94,7 +94,7 @@ func (c *Cluster) waitForConsent(ctx context.Context, u *User, public string) er
 	)
 	u.From.Take(ctx, game.N_CONNECT)
 
-	u.SendServerMessage("run '/do (getservauth)' to allow the server to securely send maps and assets you are missing")
+	u.Message("run '/do (getservauth)' to allow the server to securely send maps and assets you are missing")
 
 	serverInfo := u.To.Intercept(game.N_SERVINFO)
 	servCmd := u.From.Intercept(game.N_SERVCMD)
@@ -158,7 +158,7 @@ func (c *Cluster) setupCubeScript(ctx context.Context, u *User) error {
 
 	private, err := c.redis.Get(ctx, fmt.Sprintf(AUTOEXEC_KEY, public)).Result()
 	if err != nil {
-		u.SendServerMessage(game.Red(
+		u.Message(game.Red(
 			"your consent is invalid or expired",
 		))
 		return c.waitForConsent(ctx, u, public)

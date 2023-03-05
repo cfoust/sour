@@ -29,11 +29,11 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, user *User, gam
 
 	for {
 		gameServer.Mutex.Lock()
-		numClients := gameServer.NumClients
+		numClients := gameServer.NumClients()
 		gameServer.Mutex.Unlock()
 
 		if numClients < 2 {
-			user.SendServerMessage(message)
+			user.Message(message)
 		} else {
 			return
 		}
@@ -390,7 +390,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 		}
 
 		for _, message := range messages {
-			user.SendServerMessage(message)
+			user.Message(message)
 		}
 
 		return true, "", nil
@@ -433,7 +433,7 @@ func (c *Cluster) RunOnBehalf(ctx context.Context, command string, user *User) e
 
 	if err != nil {
 		logger.Error().Err(err).Str("command", command).Msg("failed to run user command")
-		user.SendServerMessage(game.Red(err.Error()))
+		user.Message(game.Red(err.Error()))
 		return err
 	}
 
