@@ -6,8 +6,10 @@ import (
 	"strings"
 
 	"github.com/cfoust/sour/pkg/game"
+	C "github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/game/io"
 	P "github.com/cfoust/sour/pkg/game/protocol"
+	S "github.com/cfoust/sour/pkg/server"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
@@ -165,16 +167,16 @@ func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int) {
 func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 	userCtx := user.Ctx()
 
-	passthrough := func(channel uint8, message P.Message) {
-		server := user.GetServer()
-		if server != nil {
-			server.SendData(
-				user.Id,
-				uint32(channel),
-				message.Data(),
-			)
-		}
-	}
+	//passthrough := func(channel uint8, message P.Message) {
+		//server := user.GetServer()
+		//if server != nil {
+			//server.SendData(
+				//user.Id,
+				//uint32(channel),
+				//message.Data(),
+			//)
+		//}
+	//}
 
 	chats := user.From.Intercept(P.N_TEXT)
 	blockConnecting := user.From.InterceptWith(func(code P.MessageCode) bool {
@@ -205,7 +207,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 				continue
 			}
 
-			vote := msg.Message.Contents().(*game.MapVote)
+			vote := msg.Message.(*P.MapVote)
 			if vote.Mode < 0 || vote.Mode >= len(MODE_NAMES) {
 				msg.Pass()
 				continue
@@ -249,7 +251,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			if space != nil {
 				canEditSpace := isOwner || space.IsOpenEdit()
 				if !canEditSpace {
-					user.ConnectToSpace(space.Deployment.GetServer(), space.GetID())
+					user.ConnectToSpace(space.Server, space.GetID())
 					user.Message("you cannot edit this space.")
 					msg.Drop()
 					continue
@@ -267,12 +269,12 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			msg.Pass()
 		case msg := <-teleports.Receive():
 			message := msg.Message
-			teleport := message.Contents().(*game.Teleport)
+			teleport := message.(*P.Teleport)
 			c.HandleTeleport(ctx, user, teleport.Source)
 			msg.Pass()
 		case msg := <-connects.Receive():
 			message := msg.Message
-			connect := message.Contents().(*game.Connect)
+			connect := message.(*P.Connect)
 			description := connect.AuthDescription
 			name := connect.AuthName
 			msg.Pass()
@@ -307,20 +309,20 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			// (rightfully) disconnects us. This solves a
 			// race condition when switching servers.
 			status := user.GetStatus()
-			if status == clients.ClientStatusConnecting {
+			if status == UserStatusConnecting {
 				msg.Drop()
 				continue
 			}
 			msg.Pass()
 		case msg := <-chats.Receive():
 			message := msg.Message
-			text := message.Contents().(*game.Text).Text
+			text := message.(*P.Text).Text
 
 			msg.Drop()
 
-			if len(text) >= io.MAXSTRLEN {
-				removed := len(text) - game.MAXSTRLEN
-				text = text[:game.MAXSTRLEN]
+			if len(text) >= C.MAXSTRLEN {
+				removed := len(text) - C.MAXSTRLEN
+				text = text[:C.MAXSTRLEN]
 				user.Message(game.Red(
 					fmt.Sprintf("your message was too long; we cut off the last %d characters", removed),
 				))
@@ -332,41 +334,43 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 				continue
 			}
 
-			command := text[1:]
+			msg.Pass()
+
+			// TODO
+			//command := text[1:]
 
 			// Only send this packet after we've checked
 			// whether the cluster should handle it
-			go func() {
-				handled, response, err := c.RunCommandWithTimeout(userCtx, command, user)
+			//go func() {
+			//handled, response, err := c.RunCommandWithTimeout(userCtx, command, user)
 
-				if !handled {
-					passthrough(msg.Channel, message)
-					msg.Pass()
-					return
-				}
+			//if !handled {
+			//passthrough(msg.Channel, message)
+			//msg.Pass()
+			//return
+			//}
 
-				if err != nil {
-					logger.Error().Err(err).Str("command", command).Msg("user command failed")
-					user.Message(game.Red(err.Error()))
-					return
-				} else if len(response) > 0 {
-					user.Message(response)
-					return
-				}
+			//if err != nil {
+			//logger.Error().Err(err).Str("command", command).Msg("user command failed")
+			//user.Message(game.Red(err.Error()))
+			//return
+			//} else if len(response) > 0 {
+			//user.Message(response)
+			//return
+			//}
 
-				if command == "help" {
-					passthrough(msg.Channel, message)
-				}
-			}()
+			//if command == "help" {
+			//passthrough(msg.Channel, message)
+			//}
+			//}()
 			continue
 		}
 	}
 }
 
 func (c *Cluster) PollToMessages(ctx context.Context, user *User) {
-	userCtx := user.Context()
+	userCtx := user.Ctx()
 	serverInfo := user.To.Intercept(P.N_SERVINFO)
-	spawnState := user.To.Intercept(P.N_SPAWNSTATE)
 
 	for {
 		select {
@@ -376,7 +380,7 @@ func (c *Cluster) PollToMessages(ctx context.Context, user *User) {
 			// Inject the auth domain to N_SERVINFO so the
 			// client sends us N_CONNECT with their name
 			// field filled
-			info := msg.Message.Contents().(*game.ServerInfo)
+			info := msg.Message.(*P.ServerInfo)
 
 			user.Mutex.RLock()
 			wasGreeted := user.wasGreeted
@@ -389,16 +393,7 @@ func (c *Cluster) PollToMessages(ctx context.Context, user *User) {
 			user.lastDescription = info.Description
 			user.Mutex.Unlock()
 
-			p := game.Packet{}
-			p.PutInt(int32(P.N_SERVINFO))
-			p.Put(*info)
-			msg.Replace(p)
-		case msg := <-spawnState.Receive():
-			msg.Pass()
-			state := msg.Message.Contents().(*game.SpawnState)
-			user.Mutex.Lock()
-			user.LifeSequence = state.LifeSequence
-			user.Mutex.Unlock()
+			msg.Replace(info)
 		}
 	}
 }
@@ -413,7 +408,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 	toClient := user.ReceiveToMessages()
 
 	// A context valid JUST for the lifetime of the user
-	userCtx := user.Context()
+	userCtx := user.Ctx()
 
 	logger := user.Logger()
 
@@ -433,23 +428,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 
 	go c.PollFromMessages(ctx, user)
 	go c.PollToMessages(ctx, user)
-
-	sendResult := func(out chan bool, packet game.GamePacket) {
-		done := user.Connection.Send(game.GamePacket{
-			Channel: uint8(packet.Channel),
-			Data:    packet.Data,
-		})
-
-		go func() {
-			select {
-			case result := <-done:
-				out <- result
-			case <-userCtx.Done():
-				return
-			}
-
-		}()
-	}
 
 	for {
 		logger = user.Logger()
@@ -548,27 +526,26 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 
 			// We want to get the raw data from the user -- not the
 			// deserialized messages
-			user.Client.Intercept.From <- game.GamePacket{
+			user.RawFrom.Publish(io.RawPacket{
 				Data:    data,
 				Channel: msg.Channel,
-			}
+			})
 
-			gameMessages, err := game.Read(data, true)
+			messages, err := P.Decode(data, true)
 			if err != nil {
 				logger.Error().Err(err).
 					Msg("client -> server (failed to decode message)")
-				server := user.GetServer()
-				if server == nil {
-					continue
-				}
-
-				// Forward it anyway
-				server.SendData(user.Id, uint32(msg.Channel), msg.Data)
 				continue
 			}
 
-			for _, message := range gameMessages {
-				if !game.IsSpammyMessage(message.Type()) {
+			server := user.GetServer()
+			if server == nil {
+				continue
+			}
+
+			processed := make([]P.Message, 0)
+			for _, message := range messages {
+				if !P.IsSpammyMessage(message.Type()) {
 					logger.Debug().Str("code", message.Type().String()).Msg("client -> server")
 				}
 
@@ -586,11 +563,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					continue
 				}
 
-				server := user.GetServer()
-				if server == nil {
-					continue
-				}
-
 				newMessage, err := server.To.Process(
 					ctx,
 					msg.Channel,
@@ -601,33 +573,27 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					continue
 				}
 
-				server.SendData(user.Id, uint32(msg.Channel), newMessage.Data())
+				processed = append(processed, newMessage)
+
+			}
+
+			server.Incoming() <- S.ServerPacket{
+				Session:  uint32(user.Id),
+				Channel:  msg.Channel,
+				Messages: processed,
 			}
 
 		case msg := <-toClient:
 			packet := msg.Packet
 			done := msg.Done
 
-			gameMessages, err := game.Read(packet.Data, false)
-			if err != nil {
-				logger.Warn().
-					Err(err).
-					Msg("cluster -> client (failed to decode message)")
-
-				user.Client.Intercept.To <- packet
-
-				// Forward it anyway
-				sendResult(done, packet)
-				continue
-			}
-
 			channel := uint8(packet.Channel)
 			out := make([]byte, 0)
 			filtered := make([]byte, 0)
 
-			for _, message := range gameMessages {
+			for _, message := range packet.Messages {
 				type_ := message.Type()
-				if !game.IsSpammyMessage(type_) {
+				if !P.IsSpammyMessage(type_) {
 					logger.Debug().
 						Str("type", message.Type().String()).
 						Msg("cluster -> client")
@@ -647,24 +613,40 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					continue
 				}
 
-				out = append(out, newMessage.Data()...)
+				encoded, err := io.Encode(newMessage)
+				if err != nil {
+					log.Error().Err(err).Msgf("failed to encode message")
+					continue
+				}
+
+				out = append(out, encoded...)
 
 				if type_ == P.N_SENDDEMO || type_ == P.N_SENDMAP {
 					continue
 				}
 
-				filtered = append(filtered, newMessage.Data()...)
+				filtered = append(filtered, encoded...)
 			}
 
-			user.Client.Intercept.To <- io.RawPacket{
+			user.RawTo.Publish(io.RawPacket{
 				Data:    filtered,
 				Channel: channel,
-			}
+			})
 
-			sendResult(done, io.RawPacket{
-				Channel: channel,
+			ack := user.Connection.Send(io.RawPacket{
+				Channel: uint8(packet.Channel),
 				Data:    out,
 			})
+
+			go func() {
+				select {
+				case result := <-ack:
+					done <- result
+				case <-userCtx.Done():
+					return
+				}
+
+			}()
 
 		case request := <-commands:
 			command := request.Command

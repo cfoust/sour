@@ -8,34 +8,26 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	C "github.com/cfoust/sour/pkg/game/constants"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 )
 
 //go:embed purgatory.ogz
 var PURGATORY []byte
 
-func makeServerInfo(u *User, domain string) []byte {
+func sendServerInfo(u *User, domain string) {
 	u.Mutex.RLock()
-	info := game.ServerInfo{
-		Client:      int(u.Num),
-		Protocol:    game.PROTOCOL_VERSION,
+	info := P.ServerInfo{
+		Client:      int(u.ServerClient.CN),
+		Protocol:    P.PROTOCOL_VERSION,
 		SessionId:   0,
-		HasPassword: 0,
+		HasPassword: false,
 		Description: u.lastDescription,
 		Domain:      domain,
 	}
 	u.Mutex.RUnlock()
 
-	p := game.Packet{}
-	p.Put(game.N_SERVINFO)
-	p.Put(info)
-	return p
-}
-
-func sendServerInfo(u *User, domain string) {
-	u.Send(game.GamePacket{
-		Channel: 1,
-		Data:    makeServerInfo(u, domain),
-	})
+	u.Send(info)
 }
 
 const (
@@ -92,29 +84,26 @@ func (c *Cluster) waitForConsent(ctx context.Context, u *User, public string) er
 		u,
 		script,
 	)
-	u.From.Take(ctx, game.N_CONNECT)
+	u.From.Take(ctx, P.N_CONNECT)
 
 	u.Message("run '/do (getservauth)' to allow the server to securely send maps and assets you are missing")
 
-	serverInfo := u.To.Intercept(game.N_SERVINFO)
-	servCmd := u.From.Intercept(game.N_SERVCMD)
+	serverInfo := u.To.Intercept(P.N_SERVINFO)
+	servCmd := u.From.Intercept(P.N_SERVCMD)
 
 	defer serverInfo.Remove()
 	defer servCmd.Remove()
 
 	for {
 		select {
-		case <-u.Context().Done():
+		case <-u.Ctx().Done():
 			return nil
 		case msg := <-serverInfo.Receive():
-			info := msg.Message.Contents().(*game.ServerInfo)
+			info := msg.Message.(*P.ServerInfo)
 			info.Domain = script
-			p := game.Packet{}
-			p.PutInt(int32(game.N_SERVINFO))
-			p.Put(*info)
-			msg.Replace(p)
+			msg.Replace(info)
 		case msg := <-servCmd.Receive():
-			cmd := msg.Message.Contents().(*game.ServCMD)
+			cmd := msg.Message.(*P.ServCMD)
 			if cmd.Command != public {
 				msg.Pass()
 				continue
@@ -143,13 +132,13 @@ func (c *Cluster) setupCubeScript(ctx context.Context, u *User) error {
 		domain,
 	)
 
-	msg, err := u.From.Take(ctx, game.N_CONNECT)
+	msg, err := u.From.Take(ctx, P.N_CONNECT)
 	if err != nil {
 		logger.Warn().Msg("never got N_CONNECT")
 		return err
 	}
 
-	connect := msg.Contents().(*game.Connect)
+	connect := msg.(*P.Connect)
 	public := connect.AuthName
 	if public == "" {
 		public = fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("public-%d", time.Now()))))[:10]
@@ -192,8 +181,8 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 %s
 `, key, code)
 
-	if len(script) > game.MAXSTRLEN {
-		return fmt.Errorf("script too long (%d > %d)", len(script), game.MAXSTRLEN)
+	if len(script) > C.MAXSTRLEN {
+		return fmt.Errorf("script too long (%d > %d)", len(script), C.MAXSTRLEN)
 	}
 
 	server := u.GetServer()
@@ -205,25 +194,20 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 		u,
 		script,
 	)
-	u.From.Take(ctx, game.N_CONNECT)
+	u.From.Take(ctx, P.N_CONNECT)
 
-	p := game.Packet{}
-	p.Put(
-		game.N_MAPCHANGE,
-		game.MapChange{
-			Name:     key,
-			Mode:     int(game.MODE_COOP),
-			HasItems: 0,
-		},
-	)
-	sendClient(u, p, 1)
-	u.From.Take(ctx, game.N_MAPCRC)
+	u.Send(P.MapChange{
+		Name:     key,
+		Mode:     int(C.MODE_COOP),
+		HasItems: false,
+	})
+	u.From.Take(ctx, P.N_MAPCRC)
 
 	sendServerInfo(
 		u,
 		"",
 	)
-	u.From.Take(ctx, game.N_CONNECT)
+	u.From.Take(ctx, P.N_CONNECT)
 
 	return nil
 }

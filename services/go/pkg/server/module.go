@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/cfoust/sour/pkg/game/protocol"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/game"
 	"github.com/cfoust/sour/pkg/server/geom"
 	"github.com/cfoust/sour/pkg/server/protocol/cubecode"
@@ -25,7 +25,7 @@ type ServerPacket struct {
 	// Either the sender (if incoming) or the recipient (if outgoing)
 	Session  uint32
 	Channel  uint8
-	Messages []protocol.Message
+	Messages []P.Message
 }
 
 type Incoming <-chan ServerPacket
@@ -111,8 +111,8 @@ func (s *Server) Connect(sessionId uint32) (*Client, <-chan bool) {
 
 	client := s.Clients.Add(sessionId, s.outgoing)
 	client.connected = connected
-
-	client.Positions, client.Packets = s.relay.AddClient(client.CN, func(channel uint8, payload []protocol.Message) {
+	client.server = s
+	client.Positions, client.Packets = s.relay.AddClient(client.CN, func(channel uint8, payload []P.Message) {
 		s.outgoing <- ServerPacket{
 			Session:  client.SessionID,
 			Channel:  channel,
@@ -121,9 +121,9 @@ func (s *Server) Connect(sessionId uint32) (*Client, <-chan bool) {
 	})
 
 	client.Send(
-		protocol.ServerInfo{
+		P.ServerInfo{
 			Client:      int(client.CN),
-			Protocol:    protocol.PROTOCOL_VERSION,
+			Protocol:    P.PROTOCOL_VERSION,
 			SessionId:   int(client.SessionID),
 			HasPassword: false, // password protection is not used by this implementation
 			Description: s.ServerDescription,
@@ -134,7 +134,29 @@ func (s *Server) Connect(sessionId uint32) (*Client, <-chan bool) {
 	return client, connected
 }
 
+// Send the server info to clients again, which updates the description on the
+// scoreboard.
+func (s *Server) RefreshServerInfo() {
+	s.Clients.ForEach(func(c *Client) {
+		c.Send(
+			P.ServerInfo{
+				Client:      int(c.CN),
+				Protocol:    P.PROTOCOL_VERSION,
+				SessionId:   int(c.SessionID),
+				HasPassword: false, // password protection is not used by this implementation
+				Description: s.ServerDescription,
+				Domain:      "",
+			},
+		)
+	})
+}
+
 func (s *Server) TryJoin(c *Client, name string, playerModel int32, authDomain, authName string) {
+	// ignore this if the user has already joined
+	if c.Joined {
+		return
+	}
+
 	c.Name = name
 	c.Model = playerModel
 	s.Join(c)
@@ -168,10 +190,10 @@ func (s *Server) Join(c *Client) {
 }
 
 func (s *Server) Message(message string) {
-	s.Broadcast(protocol.ServerMessage{message})
+	s.Broadcast(P.ServerMessage{message})
 }
 
-func (s *Server) Broadcast(messages ...protocol.Message) {
+func (s *Server) Broadcast(messages ...P.Message) {
 	s.Clients.Broadcast(messages...)
 }
 
@@ -194,7 +216,7 @@ func (s *Server) ConfirmSpawn(client *Client, lifeSequence, _weapon int32) {
 	client.SelectedWeapon = weapon.ByID(weapon.ID(_weapon))
 	client.LastSpawnAttempt = time.Time{}
 
-	client.Packets.Publish(protocol.SpawnResponse{
+	client.Packets.Publish(P.SpawnResponse{
 		client.ToWire(),
 	})
 
@@ -289,6 +311,10 @@ func (s *Server) NumberOfPlayers() (n int) {
 	return
 }
 
+func (s *Server) EmptyMap() {
+	s.StartGame(s.StartMode(gamemode.CoopEdit), "")
+}
+
 func (s *Server) ChangeMap(mode int32, map_ string) {
 	s.StartGame(s.StartMode(gamemode.ID(mode)), map_)
 }
@@ -329,7 +355,7 @@ func (s *Server) StartGame(mode game.Mode, mapname string) {
 	}
 
 	s.Broadcast(
-		protocol.MapChange{
+		P.MapChange{
 			Name:     s.Map,
 			Mode:     int(s.GameMode.ID()),
 			HasItems: s.GameMode.NeedsMapInfo(),
@@ -354,8 +380,16 @@ func (s *Server) SetMasterMode(c *Client, mm mastermode.ID) {
 		c.Message(cubecode.Fail("you can't do that"))
 		return
 	}
+	s._SetMasterMode(mm)
+}
+
+func (s *Server) SetPublicServer(mm mastermode.ID) {
+	s._SetMasterMode(mm)
+}
+
+func (s *Server) _SetMasterMode(mm mastermode.ID) {
 	s.MasterMode = mm
-	s.Clients.Broadcast(protocol.MasterMode{int(mm)})
+	s.Clients.Broadcast(P.MasterMode{int(mm)})
 }
 
 type hit struct {
@@ -372,12 +406,12 @@ func (s *Server) HandleShoot(client *Client, wpn weapon.Weapon, id int32, from, 
 
 	s.Clients.Relay(
 		client,
-		protocol.ShotFX{
+		P.ShotFX{
 			int(client.CN),
 			int(wpn.ID),
 			int(id),
-			protocol.Vec{from.X(), from.Y(), from.Z()},
-			protocol.Vec{to.X(), to.Y(), to.Z()},
+			P.Vec{from.X(), from.Y(), from.Z()},
+			P.Vec{to.X(), to.Y(), to.Z()},
 		},
 	)
 	client.LastShot = time.Now()
@@ -419,7 +453,7 @@ func (s *Server) HandleExplode(client *Client, millis int32, wpn weapon.Weapon, 
 
 	s.Clients.Relay(
 		client,
-		protocol.ExplodeFX{
+		P.ExplodeFX{
 			int(client.CN),
 			int(wpn.ID),
 			int(id),
@@ -459,7 +493,7 @@ hits:
 func (s *Server) applyDamage(attacker, victim *Client, damage int32, wpnID weapon.ID, dir *geom.Vector) {
 	victim.ApplyDamage(&attacker.Player, damage, wpnID, dir)
 	s.Clients.Broadcast(
-		protocol.Damage{
+		P.Damage{
 			int(victim.CN),
 			int(attacker.CN),
 			int(damage),
@@ -470,9 +504,9 @@ func (s *Server) applyDamage(attacker, victim *Client, damage int32, wpnID weapo
 	// TODO: setpushed ???
 	if !dir.IsZero() {
 		dir = dir.Scale(geom.DNF)
-		hitPush := protocol.HitPush{
+		hitPush := P.HitPush{
 			int(victim.CN), int(wpnID), int(damage),
-			protocol.Vec{dir.X(), dir.Y(), dir.Z()},
+			P.Vec{dir.X(), dir.Y(), dir.Z()},
 		}
 		if victim.Health <= 0 {
 			s.Clients.Broadcast(hitPush)

@@ -153,7 +153,7 @@ func (server *Cluster) CreateGame(ctx context.Context, params *CreateParams, use
 				return
 			}
 
-			gameServer.SendCommand(fmt.Sprintf("grantmaster %d", user.GetClientNum()))
+			user.ServerClient.GrantMaster()
 		case <-ctx.Done():
 			return
 		}
@@ -255,8 +255,8 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 			return true, "", err
 		}
 
-		gameServer.SendCommand(fmt.Sprintf("serverdesc \"%s\"", description))
-		gameServer.SendCommand("refreshserverinfo")
+		gameServer.ServerDescription = fmt.Sprintf("serverdesc \"%s\"", description)
+		gameServer.RefreshServerInfo()
 		return true, "", nil
 
 	case "edit":

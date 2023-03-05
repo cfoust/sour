@@ -37,7 +37,7 @@ func (c *Cluster) GoHome(ctx context.Context, user *User) error {
 	    return err
 	}
 
-	_, err = user.ConnectToSpace(instance.Deployment.GetServer(), space.GetID())
+	_, err = user.ConnectToSpace(instance.Server, space.GetID())
 
 	return err
 }

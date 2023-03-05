@@ -34,6 +34,8 @@ type Client struct {
 
 	connected chan bool
 	outgoing  Outgoing
+
+	server *Server
 }
 
 func NewClient(cn uint32, sessionId uint32, outgoing Outgoing) *Client {
@@ -43,6 +45,10 @@ func NewClient(cn uint32, sessionId uint32, outgoing Outgoing) *Client {
 		Authentications: map[string]*Authentication{},
 		outgoing:        outgoing,
 	}
+}
+
+func (c *Client) GrantMaster() {
+	c.server._setRole(c, role.Master)
 }
 
 // Resets the client object.
