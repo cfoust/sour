@@ -3,6 +3,8 @@ package io
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/cfoust/sour/pkg/game/constants"
 )
 
 type Unmarshalable interface {
@@ -191,12 +193,12 @@ func UnmarshalValue(p *Packet, type_ reflect.Type, valuePtr reflect.Value) error
 		} else {
 			value.SetBool(false)
 		}
-	case reflect.Float32:
-		readValue, ok := p.GetFloat()
+	case reflect.Float64:
+		readValue, ok := p.GetInt()
 		if !ok {
 			return fmt.Errorf("error reading float")
 		}
-		value.SetFloat(float64(readValue))
+		value.SetFloat(float64(readValue) / constants.DMF)
 	case reflect.Uint:
 		readValue, ok := p.GetUint()
 		if !ok {
@@ -341,8 +343,8 @@ func MarshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 		p.PutInt(int32(value.Int()))
 	case reflect.Uint8:
 		p.PutByte(byte(value.Uint()))
-	case reflect.Float32:
-		p.PutFloat(float32(value.Float()))
+	case reflect.Float64:
+		p.PutInt(int32(value.Float() * constants.DMF))
 	case reflect.Bool:
 		boolean := value.Bool()
 		if boolean {

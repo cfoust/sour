@@ -3,12 +3,12 @@ package game
 import (
 	"time"
 
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
+	"github.com/cfoust/sour/pkg/game/protocol"
 )
 
 type Server interface {
 	GameDuration() time.Duration
-	Broadcast(nmc.ID, ...interface{})
+	Broadcast(messages ...protocol.Message)
 	Intermission()
 	ForEachPlayer(func(*Player))
 	UniqueName(*Player) string

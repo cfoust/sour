@@ -3,7 +3,6 @@ package protocol
 import (
 	"fmt"
 
-	"github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/game/io"
 	"github.com/cfoust/sour/pkg/game/variables"
 )
@@ -233,9 +232,9 @@ func (m EditMaterial) Type() MessageCode { return N_EDITM }
 // N_EDITENT
 type EditEntity struct {
 	Index      int
-	X          float32
-	Y          float32
-	Z          float32
+	X          float64
+	Y          float64
+	Z          float64
 	EntityType int
 	Attr1      int
 	Attr2      int
@@ -245,33 +244,6 @@ type EditEntity struct {
 }
 
 func (m EditEntity) Type() MessageCode { return N_EDITENT }
-
-func (e *EditEntity) Unmarshal(p *io.Packet) error {
-	var X int
-	var Y int
-	var Z int
-	err := p.Get(
-		&e.Index,
-		&X,
-		&Y,
-		&Z,
-		&e.EntityType,
-		&e.Attr1,
-		&e.Attr2,
-		&e.Attr3,
-		&e.Attr4,
-		&e.Attr5,
-	)
-	if err != nil {
-		return err
-	}
-
-	e.X = float32(X) / constants.DMF
-	e.Y = float32(Y) / constants.DMF
-	e.Z = float32(Z) / constants.DMF
-
-	return nil
-}
 
 // N_COPY
 type Copy struct {

@@ -129,18 +129,22 @@ func (s *GameServer) Join(c *Client) {
 	}
 	s.SendWelcome(c) // tells client about her team
 	if flagMode, ok := s.GameMode.(game.FlagMode); ok {
-		c.Send(nmc.InitFlags, flagMode.FlagsInitPacket()...)
+		c.Send(flagMode.FlagsInitPacket())
 	}
 	s.Clients.InformOthersOfJoin(c)
 
 	uniqueName := s.Clients.UniqueName(c)
 	log.Println(cubecode.SanitizeString(fmt.Sprintf("%s connected", uniqueName)))
 
-	c.Send(nmc.ServerMessage, s.MessageOfTheDay)
+	c.SendServerMessage(s.MessageOfTheDay)
+}
+
+func (s *GameServer) SendServerMessage(message string) {
+	s.Broadcast(protocol.ServerMessage{message})
 }
 
 func (s *GameServer) Broadcast(messages ...protocol.Message) {
-	s.Clients.Broadcast(messages)
+	s.Clients.Broadcast(messages...)
 }
 
 func (s *GameServer) UniqueName(p *game.Player) string {
@@ -186,27 +190,27 @@ func (s *GameServer) Disconnect(client *Client, reason disconnectreason.ID) {
 
 func (s *GameServer) Kick(client *Client, victim *Client, reason string) {
 	if client.Role <= victim.Role {
-		client.Send(nmc.ServerMessage, cubecode.Fail("you can't do that"))
+		client.SendServerMessage(cubecode.Fail("you can't do that"))
 		return
 	}
 	msg := fmt.Sprintf("%s kicked %s", s.Clients.UniqueName(client), s.Clients.UniqueName(victim))
 	if reason != "" {
 		msg += " for: " + reason
 	}
-	s.Clients.Broadcast(nmc.ServerMessage, msg)
+	s.SendServerMessage(msg)
 	s.Disconnect(victim, disconnectreason.Kick)
 }
 
 func (s *GameServer) AuthKick(client *Client, rol role.ID, domain, name string, victim *Client, reason string) {
 	if rol <= victim.Role {
-		client.Send(nmc.ServerMessage, cubecode.Fail("you can't do that"))
+		client.SendServerMessage(cubecode.Fail("you can't do that"))
 		return
 	}
 	msg := fmt.Sprintf("%s as '%s' [%s] kicked %s", s.Clients.UniqueName(client), cubecode.Magenta(name), cubecode.Green(domain), s.Clients.UniqueName(victim))
 	if reason != "" {
 		msg += " for: " + reason
 	}
-	s.Clients.Broadcast(nmc.ServerMessage, msg)
+	s.SendServerMessage(msg)
 	s.Disconnect(victim, disconnectreason.Kick)
 }
 
@@ -232,7 +236,7 @@ func (s *GameServer) Intermission() {
 		s.StartGame(s.StartMode(s.GameMode.ID()), nextMap)
 	})
 
-	s.Clients.Broadcast(nmc.ServerMessage, "next up: "+nextMap)
+	s.SendServerMessage("next up: " + nextMap)
 }
 
 // Returns the number of connected clients playing (i.e. joined and not spectating)
@@ -244,15 +248,6 @@ func (s *GameServer) NumberOfPlayers() (n int) {
 		n++
 	})
 	return
-}
-
-func (s *GameServer) ReAuthClients(domain string) {
-	s.Clients.ForEach(func(c *Client) {
-		if _, ok := c.Authentications[domain]; ok {
-			delete(c.Authentications, domain)
-			c.Send(nmc.RequestAuth, domain)
-		}
-	})
 }
 
 func (s *GameServer) StartGame(mode game.Mode, mapname string) {
@@ -282,11 +277,17 @@ func (s *GameServer) StartGame(mode game.Mode, mapname string) {
 		s.ForEachPlayer(teamedMode.Join)
 	}
 
-	s.Broadcast(nmc.MapChange, s.Map, s.GameMode.ID(), s.GameMode.NeedsMapInfo())
+	s.Broadcast(
+		protocol.MapChange{
+			Name:     s.Map,
+			Mode:     int(s.GameMode.ID()),
+			HasItems: s.GameMode.NeedsMapInfo(),
+		},
+	)
 	s.Clock.Start()
 	s.MapChange()
 
-	s.Clients.Broadcast(nmc.ServerMessage, s.MessageOfTheDay)
+	s.SendServerMessage(s.MessageOfTheDay)
 }
 
 func (s *GameServer) SetMasterMode(c *Client, mm mastermode.ID) {
@@ -295,15 +296,15 @@ func (s *GameServer) SetMasterMode(c *Client, mm mastermode.ID) {
 		return
 	}
 	if mm == mastermode.Open {
-		c.Send(nmc.ServerMessage, cubecode.Fail("'open' mode is not supported by this server"))
+		c.SendServerMessage(cubecode.Fail("'open' mode is not supported by this server"))
 		return
 	}
 	if c.Role == role.None {
-		c.Send(nmc.ServerMessage, cubecode.Fail("you can't do that"))
+		c.SendServerMessage(cubecode.Fail("you can't do that"))
 		return
 	}
 	s.MasterMode = mm
-	s.Clients.Broadcast(nmc.MasterMode, mm)
+	s.Clients.Broadcast(protocol.MasterMode{int(mm)})
 }
 
 type hit struct {

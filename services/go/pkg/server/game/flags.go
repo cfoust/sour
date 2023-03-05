@@ -13,7 +13,7 @@ import (
 
 type FlagMode interface {
 	NeedsMapInfo() bool
-	FlagsInitPacket() []interface{}
+	FlagsInitPacket() protocol.Message
 }
 
 type flagMode interface {
@@ -139,18 +139,14 @@ func (m *handlesFlags) dropAllFlags(p *Player) {
 	}
 }
 
-func (m *handlesFlags) FlagsInitPacket() []interface{} {
-	q := []interface{}{}
-
-	for _, f := range m.flags {
-		if f.team == nil {
-			log.Printf("flag with index '%d' has no team!", f.index)
-			continue
-		}
-		q = append(q, f.team.Score)
+func (m *handlesFlags) FlagsInitPacket() protocol.Message {
+	message := protocol.ServerInitFlags{
+		Scores: [2]protocol.TeamScore{
+			{m.flags[0].team.Score},
+			{m.flags[1].team.Score},
+		},
 	}
 
-	q = append(q, len(m.flags))
 	for _, f := range m.flags {
 		if f == nil || f.team == nil {
 			continue
@@ -160,17 +156,29 @@ func (m *handlesFlags) FlagsInitPacket() []interface{} {
 		if f.carrier != nil {
 			carrierCN = int32(f.carrier.CN)
 		}
-		q = append(q, f.version, 0, carrierCN, 0)
+
+		flagState := protocol.FlagState{
+			Version:   int(f.version),
+			Spawn:     0,
+			Owner:     int(carrierCN),
+			Invisible: false,
+		}
+
 		if f.carrier == nil {
 			dropped := !f.dropTime.IsZero()
-			q = append(q, dropped)
+			flagState.Dropped = dropped
 			if dropped {
-				q = append(q, f.dropLocation.Mul(geom.DMF))
+				v := f.dropLocation
+				flagState.Dx = v.X()
+				flagState.Dy = v.Y()
+				flagState.Dz = v.Z()
 			}
 		}
+
+		message.Flags = append(message.Flags, flagState)
 	}
 
-	return q
+	return message
 }
 
 func (m *handlesFlags) HandleFrag(actor, victim *Player) {

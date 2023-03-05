@@ -3,7 +3,6 @@ package protocol
 import (
 	"fmt"
 
-	"github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/game/io"
 )
 
@@ -102,45 +101,11 @@ func (m DemoPlayback) Type() MessageCode { return N_DEMOPLAYBACK }
 type Hit struct {
 	Target       int
 	LifeSequence int
-	Dist         int
+	Dist         float64
 	Rays         int
-	Dir0         int
-	Dir1         int
-	Dir2         int
-}
-
-func (f Hit) Marshal(p *io.Packet) error {
-	return p.Put(
-		f.Target,
-		f.LifeSequence,
-		f.Dist*constants.DMF,
-		f.Rays,
-		f.Dir0*constants.DMF,
-		f.Dir1*constants.DMF,
-		f.Dir2*constants.DMF,
-	)
-}
-
-func (f *Hit) Unmarshal(p *io.Packet) error {
-	err := p.Get(
-		&f.Target,
-		&f.LifeSequence,
-		&f.Dist,
-		&f.Rays,
-		&f.Dir0,
-		&f.Dir1,
-		&f.Dir2,
-	)
-	if err != nil {
-		return err
-	}
-
-	f.Dist /= constants.DMF
-	f.Dir0 /= constants.DMF
-	f.Dir1 /= constants.DMF
-	f.Dir2 /= constants.DMF
-
-	return nil
+	Dir0         float64
+	Dir1         float64
+	Dir2         float64
 }
 
 // N_EXPLODE
@@ -528,9 +493,9 @@ type FlagState struct {
 	Owner     int
 	Invisible bool
 	Dropped   bool
-	Dx        int
-	Dy        int
-	Dz        int
+	Dx        float64
+	Dy        float64
+	Dz        float64
 }
 
 func (f FlagState) Marshal(p *io.Packet) error {
@@ -560,9 +525,9 @@ func (f FlagState) Marshal(p *io.Packet) error {
 	}
 
 	err = p.Put(
-		f.Dx*constants.DMF,
-		f.Dy*constants.DMF,
-		f.Dz*constants.DMF,
+		f.Dx,
+		f.Dy,
+		f.Dz,
 	)
 	if err != nil {
 		return err
@@ -608,10 +573,6 @@ func (f *FlagState) Unmarshal(p *io.Packet) error {
 		return err
 	}
 
-	f.Dx /= constants.DMF
-	f.Dy /= constants.DMF
-	f.Dz /= constants.DMF
-
 	// TODO support m_hold
 
 	return nil
@@ -626,38 +587,9 @@ func (m ServerInitFlags) Type() MessageCode { return N_INITFLAGS }
 
 type ClientFlagState struct {
 	Team int
-	Dx   int
-	Dy   int
-	Dz   int
-}
-
-func (f ClientFlagState) Marshal(p *io.Packet) error {
-	return p.Put(
-		f.Team,
-		f.Dx*constants.DMF,
-		f.Dy*constants.DMF,
-		f.Dz*constants.DMF,
-	)
-}
-
-func (f *ClientFlagState) Unmarshal(p *io.Packet) error {
-	err := p.Get(
-		&f.Team,
-		&f.Dx,
-		&f.Dy,
-		&f.Dz,
-	)
-	if err != nil {
-		return err
-	}
-
-	f.Dx /= constants.DMF
-	f.Dy /= constants.DMF
-	f.Dz /= constants.DMF
-
-	// TODO support m_hold
-
-	return nil
+	Dx   float64
+	Dy   float64
+	Dz   float64
 }
 
 type ClientInitFlags struct {
