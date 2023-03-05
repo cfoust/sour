@@ -4,12 +4,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/sauerbraten/timer"
+	"github.com/cfoust/sour/pkg/game/protocol"
 
 	"github.com/cfoust/sour/pkg/server/geom"
-	"github.com/cfoust/sour/pkg/server/protocol"
-	"github.com/cfoust/sour/pkg/server/protocol/nmc"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
+	"github.com/cfoust/sour/pkg/server/timer"
 )
 
 type FlagMode interface {
@@ -60,15 +59,17 @@ func (m *handlesFlags) NeedsMapInfo() bool {
 	return len(m.flags) == 0
 }
 
-func (m *handlesFlags) HandlePacket(p *Player, packetType nmc.ID, pkt *protocol.Packet) bool {
-	switch packetType {
-	case nmc.InitFlags:
-		m.initFlags(pkt)
+func (m *handlesFlags) HandlePacket(p *Player, message protocol.Message) bool {
+	switch message.Type() {
+	case protocol.N_INITFLAGS:
+		initFlags := message.(*protocol.ClientInitFlags)
+		m.initFlags(initFlags)
 
-	case nmc.TouchFlag:
-		m.touchFlag(p, pkt)
+	case protocol.N_TAKEFLAG:
+		takeFlag := message.(*protocol.TakeFlag)
+		m.touchFlag(p, takeFlag)
 
-	case nmc.TryDropFlag:
+	case protocol.N_TRYDROPFLAG:
 		m.dropAllFlags(p)
 
 	default:
@@ -78,33 +79,21 @@ func (m *handlesFlags) HandlePacket(p *Player, packetType nmc.ID, pkt *protocol.
 	return true
 }
 
-func (m *handlesFlags) initFlags(pkt *protocol.Packet) {
-	numFlags, ok := pkt.GetInt()
-	if !ok {
-		log.Println("could not read number of flags from initflags packet (packet too short):", pkt)
-		return
-	}
-
+func (m *handlesFlags) initFlags(message *protocol.ClientInitFlags) {
 	flags := []*flag{}
-	for i := int32(0); i < numFlags; i++ {
-		teamID, ok := pkt.GetInt()
-		if !ok {
-			log.Println("could not read flag team from initflags packet (packet too short):", pkt)
-			return
-		}
 
-		spawnLocation, ok := pkt.GetVector()
-		if !ok {
-			log.Println("could not read flag spawn location from initflags packet (packet too short):", pkt)
-			return
-		}
-		spawnLocation = spawnLocation.Mul(1 / geom.DMF)
+	for i, clientFlag := range message.Flags {
+		teamID := clientFlag.Team
 
 		flags = append(flags, &flag{
-			index:         i,
-			team:          m.TeamByFlagTeamID(teamID),
-			teamID:        teamID,
-			spawnLocation: spawnLocation,
+			index:  int32(i),
+			team:   m.TeamByFlagTeamID(int32(teamID)),
+			teamID: int32(teamID),
+			spawnLocation: geom.NewVector(
+				float64(clientFlag.Dx),
+				float64(clientFlag.Dy),
+				float64(clientFlag.Dz),
+			),
 		})
 	}
 
@@ -113,22 +102,19 @@ func (m *handlesFlags) initFlags(pkt *protocol.Packet) {
 		return
 	}
 
-	ok = m.InitFlags(flags)
+	ok := m.InitFlags(flags)
 	if ok {
 		m.flags = flags
 	}
 }
 
-func (m *handlesFlags) touchFlag(p *Player, pkt *protocol.Packet) {
+func (m *handlesFlags) touchFlag(p *Player, message *protocol.TakeFlag) {
 	if p.State != playerstate.Alive {
 		return
 	}
 
-	i, ok := pkt.GetInt()
-	if !ok {
-		log.Println("could not read flag index from takeflag packet (packet too short):", pkt)
-		return
-	}
+	i := message.Flag
+
 	if i < 0 || len(m.flags) <= int(i) {
 		log.Printf("flag index %d from takeflag packet out of range [0..%d]", i, len(m.flags))
 		return
@@ -138,12 +124,7 @@ func (m *handlesFlags) touchFlag(p *Player, pkt *protocol.Packet) {
 		return
 	}
 
-	version, ok := pkt.GetInt()
-	if !ok {
-		log.Println("could not read flag version from takeflag packet (packet too short):", pkt)
-		return
-	}
-	if f.version != version {
+	if f.version != int32(message.Version) {
 		return
 	}
 

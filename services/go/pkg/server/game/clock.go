@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/sauerbraten/timer"
+	"github.com/cfoust/sour/pkg/server/timer"
 	"github.com/cfoust/sour/pkg/server/protocol/nmc"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
 )

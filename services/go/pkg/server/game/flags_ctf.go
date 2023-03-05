@@ -4,9 +4,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/sauerbraten/timer"
 	"github.com/cfoust/sour/pkg/server/geom"
 	"github.com/cfoust/sour/pkg/server/protocol/nmc"
+	"github.com/cfoust/sour/pkg/server/timer"
 )
 
 type ctf struct {
