@@ -34,9 +34,6 @@ import (
 // NOT the same thing as ClientID.
 type ClientNum int32
 
-//go:embed qserv/qserv
-var QSERV_EXECUTABLE []byte
-
 type ServerStatus byte
 
 const (
@@ -224,41 +221,6 @@ func IsPortAvailable(port uint16) (bool, error) {
 }
 
 func (manager *ServerManager) Start() error {
-	tempDir, err := ioutil.TempDir("", "qserv")
-	if err != nil {
-		return err
-	}
-
-	manager.workingDir = tempDir
-
-	err = os.MkdirAll(filepath.Join(tempDir, "packages/base"), 0755)
-	if err != nil {
-		return err
-	}
-
-	qservPath := filepath.Join(tempDir, "qserv")
-
-	// Copy the qserv executable out
-	out, err := os.Create(qservPath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	reader := bytes.NewReader(QSERV_EXECUTABLE)
-
-	_, err = io.Copy(out, reader)
-	if err != nil {
-		return err
-	}
-
-	err = out.Chmod(0774)
-	if err != nil {
-		return err
-	}
-
-	manager.serverPath = qservPath
-
 	return nil
 }
 

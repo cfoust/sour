@@ -101,11 +101,9 @@ func (m DemoPlayback) Type() MessageCode { return N_DEMOPLAYBACK }
 type Hit struct {
 	Target       int
 	LifeSequence int
-	Dist         float64
+	Distance     float64
 	Rays         int
-	Dir0         float64
-	Dir1         float64
-	Dir2         float64
+	Direction    Vec
 }
 
 // N_EXPLODE
@@ -228,15 +226,11 @@ func (m SetMaster) Type() MessageCode { return N_SETMASTER }
 
 // N_SHOOT
 type Shoot struct {
-	Id    int
-	Gun   int
-	From0 int
-	From1 int
-	From2 int
-	To0   int
-	To1   int
-	To2   int
-	Hits  []Hit
+	Id   int
+	Gun  int
+	From Vec
+	To   Vec
+	Hits []Hit
 }
 
 func (m Shoot) Type() MessageCode { return N_SHOOT }
