@@ -277,10 +277,8 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 
 	// Changing maps causes the gamelimit to disappear, so the server has
 	// to resend it
-	server.SendCommand("sendtime")
-
-	num := user.GetClientNum()
-	server.SendCommand(fmt.Sprintf("refreshwelcome %d", num))
+	server.RefreshTime()
+	user.ServerClient.RefreshWelcome()
 
 	return nil
 }

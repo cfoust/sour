@@ -151,6 +151,35 @@ func (s *Server) RefreshServerInfo() {
 	})
 }
 
+func (s *Server) SetDescription(description string) {
+	s.ServerDescription = description
+	s.RefreshServerInfo()
+}
+
+func (s *Server) RefreshTime() {
+	s.Broadcast(P.TimeUp{int(s.Clock.TimeLeft() / time.Second)})
+}
+
+func (s *Server) BroadcastTime(seconds int) {
+	s.Broadcast(P.TimeUp{seconds})
+}
+
+// Forcibly respawn a player. Passing nil respawns all non-spectating players.
+func (s *Server) ForceRespawn(target *Client) {
+	s.Clients.ForEach(func(c *Client) {
+		if target != nil && c != target {
+			return
+		}
+
+		if c.State == playerstate.Spectator {
+			return
+		}
+
+		s.Spawn(c)
+		c.Send(P.SpawnState{int(c.CN), c.ToWire()})
+	})
+}
+
 func (s *Server) TryJoin(c *Client, name string, playerModel int32, authDomain, authName string) {
 	// ignore this if the user has already joined
 	if c.Joined {

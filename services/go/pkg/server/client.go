@@ -51,6 +51,10 @@ func (c *Client) GrantMaster() {
 	c.server._setRole(c, role.Master)
 }
 
+func (c *Client) RefreshWelcome() {
+	c.server.SendWelcome(c)
+}
+
 // Resets the client object.
 func (c *Client) Reset() {
 	c.Player.Reset()

@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cfoust/sour/pkg/mmr"
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/mmr"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
@@ -113,9 +113,8 @@ func (d *Duel) runPhase(ctx context.Context, numSeconds uint, title string) {
 		announceIndex = i
 	}
 
-	d.server.SendCommand(fmt.Sprintf("settime %d", numSeconds))
-	d.server.SendCommand(fmt.Sprintf("serverdesc \"Sour %s\"", title))
-	d.server.SendCommand("refreshserverinfo")
+	d.server.BroadcastTime(int(numSeconds))
+	d.server.SetDescription(fmt.Sprintf("serverdesc \"Sour %s\"", title))
 
 	for {
 		select {
@@ -202,15 +201,15 @@ func (d *Duel) setPhase(phase DuelPhase) {
 
 func (d *Duel) Respawn(ctx context.Context, user *User) {
 	if d.Type.ForceRespawn == config.RespawnTypeAll {
-		d.server.SendCommand("forcerespawn -1")
+		d.server.ForceRespawn(nil)
 	} else if d.Type.ForceRespawn == config.RespawnTypeDead {
-		d.server.SendCommand(fmt.Sprintf("forcerespawn %d", user.GetClientNum()))
+		d.server.ForceRespawn(user.ServerClient)
 	}
 
 	if d.Type.PauseOnDeath {
-		d.server.SendCommand("pausegame 1")
+		d.server.Clock.Pause(nil)
 		d.doCountdown(ctx, 1)
-		d.server.SendCommand("pausegame 0")
+		d.server.Clock.Resume(nil)
 	}
 }
 
@@ -319,7 +318,7 @@ func (d *Duel) Run(ctx context.Context) {
 			select {
 			case <-matchContext.Done():
 				return
-			case <-user.Context().Done():
+			case <-user.Ctx().Done():
 				logger.Info().Msgf("user %s disconnected from cluster, ending match", user.Reference())
 				matchResult <- d.getLeaveWinner(user)
 				cancelMatch()
@@ -569,7 +568,7 @@ func (m *Matchmaker) Queue(user *User, typeName string) error {
 	m.mutex.Unlock()
 
 	m.mutex.Lock()
-	context, cancel := context.WithCancel(user.Context())
+	context, cancel := context.WithCancel(user.Ctx())
 	queued := QueuedClient{
 		Type:     duelType.Value.Name,
 		Context:  context,
@@ -635,7 +634,7 @@ func (m *Matchmaker) Poll(ctx context.Context) {
 			// First prune the list of any clients that are gone
 			cleaned := make([]*QueuedClient, 0)
 			for _, queued := range m.queue {
-				if queued.User.Client.Connection.NetworkStatus() == ingress.NetworkStatusDisconnected {
+				if queued.User.Connection.NetworkStatus() == ingress.NetworkStatusDisconnected {
 					logger := queued.User.Logger()
 					logger.Info().Msg("pruning disconnected client")
 					continue
