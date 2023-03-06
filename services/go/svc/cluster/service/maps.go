@@ -108,7 +108,7 @@ getdemo 0 %s
 		return err
 	}
 
-	getDemo := msg.(*P.GetDemo)
+	getDemo := msg.(P.GetDemo)
 	tag := getDemo.Tag
 
 	err = user.SendChannelSync(
@@ -133,7 +133,7 @@ if (= (findfile demo/%s.dmo) 1) [servcmd ok] [servcmd missing]
 			return err
 		}
 
-		cmd := msg.(*P.ServCMD)
+		cmd := msg.(P.ServCMD)
 		if cmd.Command != "ok" {
 			logger.Info().Msg("demo missing")
 			time.Sleep(1 * time.Second)
@@ -151,7 +151,7 @@ servcmd ok
 		return err
 	}
 
-	cmd := msg.(*P.ServCMD)
+	cmd := msg.(P.ServCMD)
 	if cmd.Command != "ok" {
 		return fmt.Errorf("user never ack'd demo")
 	}

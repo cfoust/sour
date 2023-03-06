@@ -207,7 +207,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 				continue
 			}
 
-			vote := msg.Message.(*P.MapVote)
+			vote := msg.Message.(P.MapVote)
 			if vote.Mode < 0 || vote.Mode >= len(MODE_NAMES) {
 				msg.Pass()
 				continue
@@ -230,7 +230,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 		case msg := <-crcs.Receive():
 			msg.Pass()
 			user.RestoreMessages()
-			crc := msg.Message.(*P.MapCRC)
+			crc := msg.Message.(P.MapCRC)
 			// The client does not have the map
 			if crc.Crc == 0 {
 				go func() {
@@ -269,12 +269,12 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			msg.Pass()
 		case msg := <-teleports.Receive():
 			message := msg.Message
-			teleport := message.(*P.Teleport)
+			teleport := message.(P.Teleport)
 			c.HandleTeleport(ctx, user, teleport.Source)
 			msg.Pass()
 		case msg := <-connects.Receive():
 			message := msg.Message
-			connect := message.(*P.Connect)
+			connect := message.(P.Connect)
 			description := connect.AuthDescription
 			name := connect.AuthName
 			msg.Pass()
@@ -316,7 +316,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			msg.Pass()
 		case msg := <-chats.Receive():
 			message := msg.Message
-			text := message.(*P.Text).Text
+			text := message.(P.Text).Text
 
 			msg.Drop()
 
@@ -380,7 +380,7 @@ func (c *Cluster) PollToMessages(ctx context.Context, user *User) {
 			// Inject the auth domain to N_SERVINFO so the
 			// client sends us N_CONNECT with their name
 			// field filled
-			info := msg.Message.(*P.ServerInfo)
+			info := msg.Message.(P.ServerInfo)
 
 			user.Mutex.RLock()
 			wasGreeted := user.wasGreeted
@@ -584,6 +584,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			}
 
 		case msg := <-toClient:
+			log.Info().Msgf("message to client")
 			packet := msg.Packet
 			done := msg.Done
 

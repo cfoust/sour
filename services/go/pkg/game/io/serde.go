@@ -43,6 +43,10 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 		return fmt.Errorf("cannot unmarshal non-struct")
 	}
 
+	if u, ok := value.Addr().Interface().(Unmarshalable); ok {
+		return u.Unmarshal(p)
+	}
+
 	for i := 0; i < type_.NumField(); i++ {
 		field := type_.Field(i)
 		fieldValue := value.Field(i)
@@ -169,9 +173,7 @@ func UnmarshalValue(p *Packet, type_ reflect.Type, valuePtr reflect.Value) error
 	value := valuePtr.Elem()
 
 	switch type_.Kind() {
-	case reflect.Int32:
-		fallthrough
-	case reflect.Int:
+	case reflect.Int32, reflect.Int:
 		readValue, ok := p.GetInt()
 		if !ok {
 			return fmt.Errorf("error reading int")

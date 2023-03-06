@@ -225,7 +225,7 @@ func (d *Duel) PollDeaths(ctx context.Context) {
 				if message.Type() != P.N_DIED {
 					continue
 				}
-				died := message.(*P.Died)
+				died := message.(P.Died)
 
 				var killed *User
 

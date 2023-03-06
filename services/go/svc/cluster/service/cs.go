@@ -99,11 +99,11 @@ func (c *Cluster) waitForConsent(ctx context.Context, u *User, public string) er
 		case <-u.Ctx().Done():
 			return nil
 		case msg := <-serverInfo.Receive():
-			info := msg.Message.(*P.ServerInfo)
+			info := msg.Message.(P.ServerInfo)
 			info.Domain = script
 			msg.Replace(info)
 		case msg := <-servCmd.Receive():
-			cmd := msg.Message.(*P.ServCMD)
+			cmd := msg.Message.(P.ServCMD)
 			if cmd.Command != public {
 				msg.Pass()
 				continue
@@ -138,7 +138,7 @@ func (c *Cluster) setupCubeScript(ctx context.Context, u *User) error {
 		return err
 	}
 
-	connect := msg.(*P.Connect)
+	connect := msg.(P.Connect)
 	public := connect.AuthName
 	if public == "" {
 		public = fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("public-%d", time.Now()))))[:10]

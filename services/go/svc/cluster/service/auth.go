@@ -43,7 +43,7 @@ func (c *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) er
 	}
 
 	logger := user.Logger()
-	answer := msg.(*P.AuthAns)
+	answer := msg.(P.AuthAns)
 
 	if answer.Description != c.authDomain {
 		return fmt.Errorf("user provided key for invalid authdomain")

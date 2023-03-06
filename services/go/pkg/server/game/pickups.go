@@ -88,7 +88,7 @@ func (m *handlesPickups) NeedsMapInfo() bool {
 func (m *handlesPickups) HandlePacket(p *Player, message P.Message) bool {
 	switch message.Type() {
 	case P.N_ITEMLIST:
-		itemList := message.(*P.ItemList)
+		itemList := message.(P.ItemList)
 
 		if len(m.pickups) > 0 || p.State == playerstate.Spectator {
 			break
@@ -97,7 +97,7 @@ func (m *handlesPickups) HandlePacket(p *Player, message P.Message) bool {
 		m.initPickups(itemList)
 
 	case P.N_ITEMPICKUP:
-		itemPickup := message.(*P.ItemPickup)
+		itemPickup := message.(P.ItemPickup)
 
 		if len(m.pickups) == 0 || p.State != playerstate.Alive {
 			break
@@ -131,7 +131,7 @@ func (m *handlesPickups) HandlePacket(p *Player, message P.Message) bool {
 	return true
 }
 
-func (m *handlesPickups) initPickups(pkt *P.ItemList) {
+func (m *handlesPickups) initPickups(pkt P.ItemList) {
 	const maxPickups = 10_000
 
 	for _, item := range pkt.Items {

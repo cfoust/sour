@@ -326,3 +326,6 @@ func (state PhysicsState) Marshal(p *io.Packet) error {
 
 	return nil
 }
+
+var _ io.Marshalable = (*PhysicsState)(nil)
+var _ io.Unmarshalable = (*PhysicsState)(nil)

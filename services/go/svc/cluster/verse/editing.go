@@ -146,7 +146,7 @@ func NewEntity(entities *[]maps.Entity, index int, entity maps.Entity) *maps.Ent
 	return &((*entities)[index])
 }
 
-func EditEntity(entities *[]maps.Entity, edit *P.EditEntity) {
+func EditEntity(entities *[]maps.Entity, edit P.EditEntity) {
 	i := edit.Index
 
 	if i < 0 || i >= C.MAXENTS {
@@ -190,7 +190,7 @@ func (e *EditingState) Apply(edits []*Edit) error {
 	buffer := make([]byte, 0)
 	for _, edit := range edits {
 		if edit.Message.Type() == P.N_EDITVAR {
-			varEdit := edit.Message.(*P.EditVar)
+			varEdit := edit.Message.(P.EditVar)
 			err := e.GameMap.Vars.Set(varEdit.Key, varEdit.Value)
 			if err != nil {
 				log.Warn().Err(err).Msgf("setting map variable failed %s=%+v", varEdit.Key, varEdit.Value)
@@ -199,7 +199,7 @@ func (e *EditingState) Apply(edits []*Edit) error {
 		}
 
 		if edit.Message.Type() == P.N_EDITENT {
-			entEdit := edit.Message.(*P.EditEntity)
+			entEdit := edit.Message.(P.EditEntity)
 			EditEntity(&e.GameMap.Entities, entEdit)
 			continue
 		}

@@ -25,7 +25,7 @@ import (
 )
 
 func main() {
-	debug := flag.Bool("debug", false, "Whether to enable debug logging.")
+	debug := flag.Bool("debug", true, "Whether to enable debug logging.")
 	cpuProfile := flag.String("cpu", "", "Write cpu profile to `file`.")
 	memProfile := flag.String("memory", "", "Write memory profile to `file`.")
 	flag.Parse()
