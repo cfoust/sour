@@ -291,6 +291,7 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 					Client:   ingress.ClientID(packet.Session),
 					Channel:  packet.Channel,
 					Messages: packet.Messages,
+					Server:   &server,
 				}
 			case <-server.Ctx().Done():
 				return

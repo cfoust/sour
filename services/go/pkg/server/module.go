@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"time"
 
@@ -19,6 +18,8 @@ import (
 	"github.com/cfoust/sour/pkg/server/protocol/weapon"
 	"github.com/cfoust/sour/pkg/server/relay"
 	"github.com/cfoust/sour/pkg/utils"
+
+	"github.com/rs/zerolog/log"
 )
 
 type ServerPacket struct {
@@ -245,7 +246,7 @@ func (s *Server) Join(c *Client) {
 	s.Clients.InformOthersOfJoin(c)
 
 	uniqueName := s.Clients.UniqueName(c)
-	log.Println(cubecode.SanitizeString(fmt.Sprintf("%s connected", uniqueName)))
+	log.Info().Msg(cubecode.SanitizeString(fmt.Sprintf("%s connected", uniqueName)))
 
 	c.Message(s.MessageOfTheDay)
 }
@@ -430,7 +431,7 @@ func (s *Server) StartGame(mode game.Mode, mapname string) {
 
 func (s *Server) SetMasterMode(c *Client, mm mastermode.ID) {
 	if mm < mastermode.Open || mm > mastermode.Private {
-		log.Println("invalid mastermode", mm, "requested")
+		log.Info().Msgf("invalid mastermode %d requested", mm)
 		return
 	}
 	if mm == mastermode.Open {
