@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	C "github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/assets"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/maps"
@@ -280,6 +281,8 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 	}
 
 	server.Id = FindIdentity()
+
+	server.ChangeMap(C.MODE_FFA, "complex")
 
 	go server.Poll(ctx)
 

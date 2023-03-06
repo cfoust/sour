@@ -55,7 +55,7 @@ func (ps *PlayerState) ToWire() protocol.EntityState {
 	}
 
 	for _, id := range weapon.WeaponsWithAmmo {
-		spawnState.Ammo[id] = protocol.AmmoState{
+		spawnState.Ammo[id - 1] = protocol.AmmoState{
 			Amount: int(ps.Ammo[id]),
 		}
 	}
