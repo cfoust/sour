@@ -61,7 +61,7 @@ func Decode(b []byte, fromClient bool) ([]Message, error) {
 	return messages, nil
 }
 
-func Encode(messages []Message) ([]byte, error) {
+func Encode(messages ...Message) ([]byte, error) {
 	p := io.Packet{}
 
 	for _, message := range messages {

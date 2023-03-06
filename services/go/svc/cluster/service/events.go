@@ -613,7 +613,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					continue
 				}
 
-				encoded, err := io.Encode(newMessage)
+				encoded, err := P.Encode(newMessage)
 				if err != nil {
 					log.Error().Err(err).Msgf("failed to encode message")
 					continue

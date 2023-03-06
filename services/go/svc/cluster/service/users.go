@@ -638,6 +638,7 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, connection ingress.Conne
 		Name:              "unnamed",
 		From:              P.NewMessageProxy(true),
 		To:                P.NewMessageProxy(false),
+		to:                make(chan TrackedPacket, 1000),
 		Authentication:    make(chan *auth.AuthUser),
 		serverConnections: make(chan ConnectionEvent),
 		o:                 u,
