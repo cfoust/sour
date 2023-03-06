@@ -538,6 +538,8 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				continue
 			}
 
+			logger.Info().Msgf("messages to server %+v", messages)
+
 			server := user.GetServer()
 			if server == nil {
 				continue

@@ -29,8 +29,6 @@ func Decode(b []byte, fromClient bool) ([]Message, error) {
 	messages := make([]Message, 0)
 	p := io.Packet(b)
 
-	slice := reflect.ValueOf(messages)
-
 	for len(p) > 0 {
 		type_, ok := p.GetInt()
 		if !ok {
@@ -55,7 +53,8 @@ func Decode(b []byte, fromClient bool) ([]Message, error) {
 			return nil, err
 		}
 
-		reflect.Append(slice, resultValue)
+		message := resultValue.Elem().Interface().(Message)
+		messages = append(messages, message)
 	}
 
 	return messages, nil

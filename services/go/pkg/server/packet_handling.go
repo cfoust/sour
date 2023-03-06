@@ -90,7 +90,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 	// channel 0 traffic
 
 	case p.N_POS:
-		msg := message.(*p.Pos)
+		msg := message.(p.Pos)
 
 		// client sending his position and movement in the world
 		if client.State == playerstate.Alive {
@@ -101,13 +101,13 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		return
 
 	case p.N_JUMPPAD:
-		msg := message.(*p.JumpPad)
+		msg := message.(p.JumpPad)
 		if client.State == playerstate.Alive {
 			s.relay.FlushPositionAndSend(client.CN, msg)
 		}
 
 	case p.N_TELEPORT:
-		msg := message.(*p.Teleport)
+		msg := message.(p.Teleport)
 
 		if client.State == playerstate.Alive {
 			s.relay.FlushPositionAndSend(client.CN, msg)
@@ -116,11 +116,11 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 	// channel 1 traffic
 
 	case p.N_CONNECT:
-		msg := message.(*p.Connect)
+		msg := message.(p.Connect)
 		s.TryJoin(client, msg.Name, int32(msg.Model), msg.AuthDescription, msg.AuthName)
 
 	case p.N_SETMASTER:
-		msg := message.(*p.SetMaster)
+		msg := message.(p.SetMaster)
 		cn := uint32(msg.Client)
 
 		switch msg.Master {
@@ -134,7 +134,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		}
 
 	case p.N_KICK:
-		msg := message.(*p.Kick)
+		msg := message.(p.Kick)
 
 		cn := uint32(msg.Victim)
 
@@ -146,12 +146,12 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		s.Kick(client, victim, msg.Reason)
 
 	case p.N_MASTERMODE:
-		msg := message.(*p.MasterMode)
+		msg := message.(p.MasterMode)
 		mm := mastermode.ID(msg.MasterMode)
 		s.SetMasterMode(client, mm)
 
 	case p.N_SPECTATOR:
-		msg := message.(*p.Spectator)
+		msg := message.(p.Spectator)
 
 		spectator := s.Clients.GetClientByCN(uint32(msg.Client))
 		if spectator == nil {
@@ -193,7 +193,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		s.Clients.Broadcast(p.Spectator{int(spectator.CN), toggle})
 
 	case p.N_MAPVOTE:
-		msg := message.(*p.MapVote)
+		msg := message.(p.MapVote)
 
 		mapname := msg.Map
 		if mapname == "" {
@@ -223,20 +223,20 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		log.Println(client, "forced", modeID, "on", mapname)
 
 	case p.N_PING:
-		msg := message.(*p.Ping)
+		msg := message.(p.Ping)
 
 		// client pinging server → send pong
 		client.Send(p.Pong{msg.Cmillis})
 
 	case p.N_CLIENTPING:
-		msg := message.(*p.ClientPing)
+		msg := message.(p.ClientPing)
 
 		// client sending the amount of lag he measured to the server → broadcast to other clients
 		client.Ping = int32(msg.Ping)
 		client.Packets.Publish(p.ClientPing{int(client.Ping)})
 
 	case p.N_TEXT:
-		msg := message.(*p.Text).Text
+		msg := message.(p.Text).Text
 
 		// client sending chat message → broadcast to other clients
 		if strings.HasPrefix(msg, "#") {
@@ -247,11 +247,11 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 
 	case p.N_SAYTEAM:
 		// client sending team chat message → pass on to team immediately
-		msg := message.(*p.SayTeam).Text
+		msg := message.(p.SayTeam).Text
 		s.Clients.SendToTeam(client, p.SayTeam{msg})
 
 	case p.N_SWITCHNAME:
-		msg := message.(*p.SwitchName)
+		msg := message.(p.SwitchName)
 
 		newName := cubecode.Filter(msg.Name, false)
 
@@ -263,7 +263,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		client.Packets.Publish(msg)
 
 	case p.N_SWITCHTEAM:
-		msg := message.(*p.SwitchTeam)
+		msg := message.(p.SwitchTeam)
 
 		teamName := msg.Team
 
@@ -279,7 +279,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		teamMode.ChangeTeam(&client.Player, teamName, false)
 
 	case p.N_SETTEAM:
-		msg := message.(*p.SetTeam)
+		msg := message.(p.SetTeam)
 
 		victim := s.Clients.GetClientByCN(uint32(msg.Client))
 		teamName := msg.Team
@@ -296,7 +296,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		teamMode.ChangeTeam(&victim.Player, teamName, true)
 
 	case p.N_MAPCRC:
-		//msg := message.(*p.MapCRC)
+		//msg := message.(p.MapCRC)
 		// client sends crc hash of his map file
 		// TODO
 		//clientMapName := p.GetString()
@@ -311,11 +311,11 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		client.Send(p.SpawnState{int(client.CN), client.ToWire()})
 
 	case p.N_SPAWN:
-		msg := message.(*p.SpawnRequest)
+		msg := message.(p.SpawnRequest)
 		s.ConfirmSpawn(client, int32(msg.LifeSequence), int32(msg.GunSelect))
 
 	case p.N_GUNSELECT:
-		msg := message.(*p.GunSelect)
+		msg := message.(p.GunSelect)
 		requested := weapon.ID(msg.GunSelect)
 		selected, ok := client.SelectWeapon(requested)
 		if !ok {
@@ -324,7 +324,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		client.Packets.Publish(p.GunSelect{int(selected.ID)})
 
 	case p.N_SHOOT:
-		msg := message.(*p.Shoot)
+		msg := message.(p.Shoot)
 
 		wpn := weapon.ByID(weapon.ID(msg.Gun))
 		if time.Now().Before(client.GunReloadEnd) || client.Ammo[wpn.ID] <= 0 {
@@ -349,7 +349,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		)
 
 	case p.N_EXPLODE:
-		msg := message.(*p.Explode)
+		msg := message.(p.Explode)
 		wpn := weapon.ByID(weapon.ID(msg.Gun))
 		s.HandleExplode(client, int32(msg.Cmillis), wpn, int32(msg.Id), mapHits(msg.Hits))
 
@@ -357,11 +357,11 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		s.GameMode.HandleFrag(&client.Player, &client.Player)
 
 	case p.N_SOUND:
-		msg := message.(*p.Sound)
+		msg := message.(p.Sound)
 		client.Packets.Publish(msg)
 
 	case p.N_PAUSEGAME:
-		msg := message.(*p.PauseGame)
+		msg := message.(p.PauseGame)
 		if s.MasterMode < mastermode.Locked {
 			if client.Role == role.None {
 				return
@@ -374,7 +374,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message p.Message
 		}
 
 	case p.N_SERVCMD:
-		msg := message.(*p.ServCMD)
+		msg := message.(p.ServCMD)
 		s.Commands.Handle(client, msg.Command)
 
 	default:
