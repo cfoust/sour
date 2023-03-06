@@ -2,6 +2,7 @@ package io
 
 import (
 	"testing"
+	"fmt"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -15,6 +16,7 @@ func cmp[T any](t *testing.T, before T) {
 	err = p.Get(&after)
 	assert.NoError(t, err)
 
+	t.Logf("%+v", after)
 	assert.Equal(t, before, after, "should yield same result")
 }
 
@@ -83,4 +85,43 @@ func TestEmbeddedStruct(t *testing.T) {
 	val.A = 2
 
 	cmp(t, val)
+}
+
+type CustomMarshal struct {
+	Num string
+}
+
+func (s *CustomMarshal) Unmarshal(p *Packet) error {
+	value, ok := p.GetInt()
+	if !ok {
+	    return fmt.Errorf("failure")
+	}
+
+	if value == 1 {
+		s.Num = "ok"
+	} else {
+		s.Num = "not ok"
+	}
+
+	return nil
+}
+
+func (s *CustomMarshal) Marshal(p *Packet) error {
+	if s.Num == "ok" {
+		return p.Put(1)
+	} else {
+		return p.Put(0)
+	}
+}
+
+func TestMarshalable(t *testing.T) {
+	type Value struct {
+		A CustomMarshal
+	}
+
+	cmp(t, Value{
+		A: CustomMarshal{
+			Num: "ok",
+		},
+	})
 }
