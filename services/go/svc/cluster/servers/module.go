@@ -264,7 +264,9 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 	// TODO configs
 
 	server := GameServer{
-		Server:    server.New(&server.Config{}),
+		Server: server.New(ctx, &server.Config{
+			GameDuration: 10 * time.Minute,
+		}),
 		Alias:     "",
 		LastEvent: time.Now(),
 		Entities:  make([]maps.Entity, 0),
@@ -278,6 +280,23 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 	}
 
 	server.Id = FindIdentity()
+
+	go server.Poll(ctx)
+
+	go func() {
+		for {
+			select {
+			case packet := <-server.Outgoing():
+				manager.packets <- ClientPacket{
+					Client:   ingress.ClientID(packet.Session),
+					Channel:  packet.Channel,
+					Messages: packet.Messages,
+				}
+			case <-server.Ctx().Done():
+				return
+			}
+		}
+	}()
 
 	manager.Servers = append(manager.Servers, &server)
 

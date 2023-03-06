@@ -127,8 +127,6 @@ func (server *Cluster) CreateGame(ctx context.Context, params *CreateParams, use
 
 	logger = logger.With().Str("server", gameServer.Reference()).Logger()
 
-	gameServer.Start(server.serverCtx)
-
 	if opt.IsSome(params.Mode) && opt.IsSome(params.Map) {
 		gameServer.ChangeMap(int32(params.Mode.Value), params.Map.Value)
 	} else if opt.IsSome(params.Mode) {

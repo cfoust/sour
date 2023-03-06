@@ -252,8 +252,6 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 
 	instance.Server = gameServer
 
-	go gameServer.Start(instance.Ctx())
-
 	go s.WatchInstance(ctx, &instance)
 
 	go instance.PollEdits(instance.Ctx())

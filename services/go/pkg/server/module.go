@@ -46,6 +46,8 @@ type Server struct {
 	incoming chan ServerPacket
 	outgoing chan ServerPacket
 
+	Broadcasts *utils.Topic[[]P.Message]
+
 	// non-standard stuff
 	Commands        *ServerCommands
 	KeepTeams       bool
@@ -53,14 +55,20 @@ type Server struct {
 	ReportStats     bool
 }
 
-func New(conf *Config) *Server {
-	clients := &ClientManager{}
+func New(ctx context.Context, conf *Config) *Server {
+	broadcasts := utils.NewTopic[[]P.Message]()
+
+	clients := &ClientManager{
+		broadcasts: broadcasts,
+	}
 
 	incoming := make(chan ServerPacket)
 	outgoing := make(chan ServerPacket)
 
 	s := &Server{
-		Config: conf,
+		Session: utils.NewSession(ctx),
+		Broadcasts: broadcasts,
+		Config:     conf,
 		State: &State{
 			MasterMode: mastermode.Auth,
 			UpSince:    time.Now(),
@@ -77,8 +85,6 @@ func New(conf *Config) *Server {
 }
 
 func (s *Server) Poll(ctx context.Context) {
-	s.Session = utils.NewSession(ctx)
-
 	for {
 		select {
 		case <-s.Ctx().Done():
@@ -164,6 +170,14 @@ func (s *Server) BroadcastTime(seconds int) {
 	s.Broadcast(P.TimeUp{seconds})
 }
 
+func (s *Server) Pause() {
+	s.Clock.Pause(nil)
+}
+
+func (s *Server) Resume() {
+	s.Clock.Pause(nil)
+}
+
 // Forcibly respawn a player. Passing nil respawns all non-spectating players.
 func (s *Server) ForceRespawn(target *Client) {
 	s.Clients.ForEach(func(c *Client) {
@@ -177,6 +191,24 @@ func (s *Server) ForceRespawn(target *Client) {
 
 		s.Spawn(c)
 		c.Send(P.SpawnState{int(c.CN), c.ToWire()})
+	})
+}
+
+// Kill all players, reset their scores (if resetFrags is true), and respawn them.
+func (s *Server) ResetPlayers(resetFrags bool) {
+	s.Clients.ForEach(func(c *Client) {
+		c.Die()
+
+		if resetFrags {
+			c.Frags = 0
+			c.Deaths = 0
+			c.Teamkills = 0
+			c.Team.Frags = 0
+		}
+
+		s.Broadcast(P.Died{
+			int(c.CN), int(c.CN), c.Frags, c.Team.Frags,
+		})
 	})
 }
 

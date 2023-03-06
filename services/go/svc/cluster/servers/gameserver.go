@@ -1,7 +1,6 @@
 package servers
 
 import (
-	"context"
 	_ "embed"
 	"time"
 
@@ -34,7 +33,6 @@ type GameServer struct {
 
 	Mutex deadlock.RWMutex
 
-	Broadcasts *P.MessageProxy
 	From       *P.MessageProxy
 	To         *P.MessageProxy
 
@@ -75,10 +73,6 @@ func (server *GameServer) Logger() zerolog.Logger {
 
 func (server *GameServer) Shutdown() {
 	server.Cancel()
-}
-
-func (server *GameServer) Start(ctx context.Context) {
-	go server.Poll(ctx)
 }
 
 func (s *GameServer) GetServerInfo() *ServerInfo {

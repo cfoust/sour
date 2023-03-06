@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
+	V "github.com/cfoust/sour/pkg/game/variables"
 	"github.com/cfoust/sour/pkg/assets"
-	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/min"
 
@@ -66,14 +66,14 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 
 	// Some variables contain textures
 	if skybox, ok := _map.Vars["skybox"]; ok {
-		value := string(skybox.(game.StringVariable))
+		value := string(skybox.(V.StringVariable))
 		for _, path := range processor.FindCubemap(min.NormalizeTexture(value)) {
 			addFile(path)
 		}
 	}
 
 	if cloudlayer, ok := _map.Vars["cloudlayer"]; ok {
-		value := string(cloudlayer.(game.StringVariable))
+		value := string(cloudlayer.(V.StringVariable))
 		resolved := processor.FindTexture(min.NormalizeTexture(value))
 
 		if resolved != nil {
@@ -82,7 +82,7 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 	}
 
 	if cloudbox, ok := _map.Vars["cloudbox"]; ok {
-		value := string(cloudbox.(game.StringVariable))
+		value := string(cloudbox.(V.StringVariable))
 		for _, path := range processor.FindCubemap(min.NormalizeTexture(value)) {
 			addFile(path)
 		}

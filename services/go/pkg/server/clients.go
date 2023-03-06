@@ -13,13 +13,15 @@ import (
 	"github.com/cfoust/sour/pkg/server/protocol/disconnectreason"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
 	"github.com/cfoust/sour/pkg/server/protocol/role"
+	"github.com/cfoust/sour/pkg/utils"
 
 	"github.com/sasha-s/go-deadlock"
 )
 
 type ClientManager struct {
-	clients []*Client
-	mutex   deadlock.RWMutex
+	clients    []*Client
+	mutex      deadlock.RWMutex
+	broadcasts *utils.Topic[[]P.Message]
 }
 
 func (cm *ClientManager) Add(sessionId uint32, outgoing Outgoing) *Client {
@@ -88,6 +90,8 @@ func (cm *ClientManager) Broadcast(messages ...P.Message) {
 func (cm *ClientManager) broadcast(exclude func(*Client) bool, messages ...P.Message) {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
+
+	cm.broadcasts.Publish(messages)
 
 	for _, c := range cm.clients {
 		if exclude != nil && exclude(c) {

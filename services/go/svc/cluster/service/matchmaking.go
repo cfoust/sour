@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/mmr"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
@@ -207,26 +208,29 @@ func (d *Duel) Respawn(ctx context.Context, user *User) {
 	}
 
 	if d.Type.PauseOnDeath {
-		d.server.Clock.Pause(nil)
+		d.server.Pause()
 		d.doCountdown(ctx, 1)
-		d.server.Clock.Resume(nil)
+		d.server.Resume()
 	}
 }
 
 func (d *Duel) PollDeaths(ctx context.Context) {
-	broadcasts := d.server.BroadcastSubscribe()
-	defer d.server.BroadcastUnsubscribe(broadcasts)
+	broadcasts := d.server.Broadcasts.Subscribe()
+	defer broadcasts.Done()
 
 	for {
 		select {
-		case msg := <-broadcasts:
-			if msg.Type() == game.N_DIED {
-				died := msg.Contents().(*game.Died)
+		case messages := <-broadcasts.Recv():
+			for _, message := range messages {
+				if message.Type() != P.N_DIED {
+					continue
+				}
+				died := message.(*P.Died)
 
 				var killed *User
 
-				numA := int(d.A.Client.GetClientNum())
-				numB := int(d.B.Client.GetClientNum())
+				numA := int(d.A.GetClientNum())
+				numB := int(d.B.GetClientNum())
 
 				if died.Client == numA {
 					killed = d.A
@@ -360,17 +364,10 @@ func (d *Duel) Run(ctx context.Context) {
 
 	logger = logger.With().Str("server", gameServer.Reference()).Logger()
 
-	err = gameServer.StartAndWait(ctx)
-	if err != nil {
-		logger.Error().Err(err).Msg("server failed to start")
-		failure()
-		return
-	}
-
-	gameServer.SendCommand("pausegame 1")
-	gameServer.SendCommand(fmt.Sprintf("serverdesc \"Sour %s\"", game.Red("Duel")))
+	gameServer.Pause()
+	gameServer.SetDescription(fmt.Sprintf("serverdesc \"Sour %s\"", game.Red("Duel")))
 	// Lock down master regardless of the user's settings
-	gameServer.SendCommand("publicserver 1")
+	// TODO gameServer.SendCommand("publicserver 1")
 
 	if matchContext.Err() != nil {
 		return
@@ -396,15 +393,15 @@ func (d *Duel) Run(ctx context.Context) {
 		return
 	}
 
-	gameServer.SendCommand("pausegame 0")
+	d.server.Resume()
 	d.broadcast(fmt.Sprintf("Duel: You must win by at least %d frags. You are respawned automatically. Disconnecting counts as a loss.", d.Type.WinThreshold))
 
 	// Start with a warmup
 	d.broadcast(game.Blue("Warmup"))
 	d.broadcast("Leaving the match during the warmup does not count as a loss.")
 	d.runPhase(matchContext, d.Type.WarmupSeconds, game.Blue("Warmup"))
-	gameServer.SendCommand("resetplayers 1")
-	gameServer.SendCommand("forcerespawn -1")
+	gameServer.ResetPlayers(true)
+	gameServer.ForceRespawn(nil)
 
 	if matchContext.Err() != nil {
 		return
@@ -415,9 +412,9 @@ func (d *Duel) Run(ctx context.Context) {
 	d.setPhase(DuelPhaseBattle)
 
 	d.broadcast(game.Red("Get ready!"))
-	gameServer.SendCommand("pausegame 1")
+	gameServer.Pause()
 	d.doCountdown(matchContext, 5)
-	gameServer.SendCommand("pausegame 0")
+	gameServer.Resume()
 	d.broadcast(game.Green("GO!"))
 
 	if matchContext.Err() != nil {
@@ -444,11 +441,11 @@ func (d *Duel) Run(ctx context.Context) {
 		d.setPhase(DuelPhaseOvertime)
 
 		d.broadcast(game.Red("Overtime"))
-		gameServer.SendCommand("resetplayers 0")
+		gameServer.ResetPlayers(false)
 
-		gameServer.SendCommand("pausegame 1")
+		gameServer.Pause()
 		d.doCountdown(matchContext, 5)
-		gameServer.SendCommand("pausegame 0")
+		gameServer.Resume()
 
 		d.broadcast(game.Red("GO!"))
 		d.runPhase(matchContext, d.Type.OvertimeSeconds, game.Red("Overtime"))

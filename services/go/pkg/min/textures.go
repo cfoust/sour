@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/io"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/maps/worldio"
 
@@ -256,7 +256,7 @@ func (processor *Processor) ResetTextures(n int32) {
 }
 
 func (processor *Processor) SaveTextureIndex(path string) error {
-	p := game.Packet{}
+	p := io.Packet{}
 	err := p.Put(processor.Textures)
 	if err != nil {
 		return err

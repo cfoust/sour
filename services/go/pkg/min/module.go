@@ -11,7 +11,7 @@ import (
 
 	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/cs"
-	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/io"
 	"github.com/cfoust/sour/pkg/maps"
 )
 
@@ -216,7 +216,7 @@ func (t TextureReset) Op() TextureChangeType {
 
 type TextureIndex []TextureChange
 
-func (t TextureIndex) Marshal(p *game.Packet) error {
+func (t TextureIndex) Marshal(p *io.Packet) error {
 	err := p.Put(len(t))
 	if err != nil {
 		return err
@@ -244,7 +244,7 @@ func (t TextureIndex) Marshal(p *game.Packet) error {
 	return nil
 }
 
-func (t *TextureIndex) Unmarshal(p *game.Packet) error {
+func (t *TextureIndex) Unmarshal(p *io.Packet) error {
 	numChanges, ok := p.GetInt()
 	if !ok {
 		return fmt.Errorf("could not read number of textures")
