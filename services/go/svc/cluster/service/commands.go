@@ -253,8 +253,7 @@ func (server *Cluster) RunCommand(ctx context.Context, command string, user *Use
 			return true, "", err
 		}
 
-		gameServer.ServerDescription = fmt.Sprintf("serverdesc \"%s\"", description)
-		gameServer.RefreshServerInfo()
+		gameServer.SetDescription(description)
 		return true, "", nil
 
 	case "edit":

@@ -115,7 +115,7 @@ func (d *Duel) runPhase(ctx context.Context, numSeconds uint, title string) {
 	}
 
 	d.server.BroadcastTime(int(numSeconds))
-	d.server.SetDescription(fmt.Sprintf("serverdesc \"Sour %s\"", title))
+	d.server.SetDescription(fmt.Sprintf("Sour %s", title))
 
 	for {
 		select {
@@ -365,7 +365,7 @@ func (d *Duel) Run(ctx context.Context) {
 	logger = logger.With().Str("server", gameServer.Reference()).Logger()
 
 	gameServer.Pause()
-	gameServer.SetDescription(fmt.Sprintf("serverdesc \"Sour %s\"", game.Red("Duel")))
+	gameServer.SetDescription(fmt.Sprintf("Sour %s", game.Red("Duel")))
 	// Lock down master regardless of the user's settings
 	// TODO gameServer.SendCommand("publicserver 1")
 

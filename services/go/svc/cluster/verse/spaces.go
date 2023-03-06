@@ -246,7 +246,7 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 		return nil, err
 	}
 
-	gameServer.ServerDescription = fmt.Sprintf("serverdesc \"%s\"", config.Description)
+	gameServer.SetDescription(config.Description)
 	// TODO gameServer.SendCommand("publicserver 1")
 	gameServer.EmptyMap()
 
@@ -326,9 +326,9 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 	gameServer.Alias = config.Alias
 
 	if config.Description != "" {
-		gameServer.ServerDescription = fmt.Sprintf("serverdesc \"%s\"", config.Description)
+		gameServer.SetDescription(config.Description)
 	} else {
-		gameServer.ServerDescription = fmt.Sprintf("serverdesc \"Sour [%s]\"", config.Alias)
+		gameServer.SetDescription(fmt.Sprintf("Sour [%s]", config.Alias))
 	}
 
 	logger.Info().Msgf("started space %s", config.Alias)
