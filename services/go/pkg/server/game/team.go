@@ -9,8 +9,8 @@ var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 type Team struct {
 	Name    string
-	Frags   int
-	Score   int
+	Frags   int32
+	Score   int32
 	Players map[*Player]struct{}
 }
 

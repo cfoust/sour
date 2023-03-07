@@ -60,8 +60,8 @@ func (r *Relay) loop() {
 				r.clientPackets,
 				func(cn uint32, pkt []protocol.Message) []protocol.Message {
 					return append([]protocol.Message{protocol.ClientPacket{
-						Client: int(cn),
-						// TODO length
+						Client: int32(cn),
+						// Length is handled by cluster
 					}}, pkt...)
 				},
 				1,

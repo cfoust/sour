@@ -135,9 +135,9 @@ func (s *Server) Connect(sessionId uint32) (*Client, <-chan bool) {
 
 	client.Send(
 		P.ServerInfo{
-			Client:      int(client.CN),
+			Client:      int32(client.CN),
 			Protocol:    P.PROTOCOL_VERSION,
-			SessionId:   int(client.SessionID),
+			SessionId:   int32(client.SessionID),
 			HasPassword: false, // password protection is not used by this implementation
 			Description: s.ServerDescription,
 			Domain:      "",
@@ -153,9 +153,9 @@ func (s *Server) RefreshServerInfo() {
 	s.Clients.ForEach(func(c *Client) {
 		c.Send(
 			P.ServerInfo{
-				Client:      int(c.CN),
+				Client:      int32(c.CN),
 				Protocol:    P.PROTOCOL_VERSION,
-				SessionId:   int(c.SessionID),
+				SessionId:   int32(c.SessionID),
 				HasPassword: false, // password protection is not used by this implementation
 				Description: s.ServerDescription,
 				Domain:      "",
@@ -170,11 +170,11 @@ func (s *Server) SetDescription(description string) {
 }
 
 func (s *Server) RefreshTime() {
-	s.Broadcast(P.TimeUp{int(s.Clock.TimeLeft() / time.Second)})
+	s.Broadcast(P.TimeUp{int32(s.Clock.TimeLeft() / time.Second)})
 }
 
 func (s *Server) BroadcastTime(seconds int) {
-	s.Broadcast(P.TimeUp{seconds})
+	s.Broadcast(P.TimeUp{int32(seconds)})
 }
 
 func (s *Server) Pause() {
@@ -197,7 +197,7 @@ func (s *Server) ForceRespawn(target *Client) {
 		}
 
 		s.Spawn(c)
-		c.Send(P.SpawnState{int(c.CN), c.ToWire()})
+		c.Send(P.SpawnState{int32(c.CN), c.ToWire()})
 	})
 }
 
@@ -214,7 +214,7 @@ func (s *Server) ResetPlayers(resetFrags bool) {
 		}
 
 		s.Broadcast(P.Died{
-			int(c.CN), int(c.CN), c.Frags, c.Team.Frags,
+			int32(c.CN), int32(c.CN), c.Frags, c.Team.Frags,
 		})
 	})
 }
@@ -425,7 +425,7 @@ func (s *Server) StartGame(mode game.Mode, mapname string) {
 	s.Broadcast(
 		P.MapChange{
 			Name:     s.Map,
-			Mode:     int(s.GameMode.ID()),
+			Mode:     int32(s.GameMode.ID()),
 			HasItems: s.GameMode.NeedsMapInfo(),
 		},
 	)
@@ -457,7 +457,7 @@ func (s *Server) SetPublicServer(mm mastermode.ID) {
 
 func (s *Server) _SetMasterMode(mm mastermode.ID) {
 	s.MasterMode = mm
-	s.Clients.Broadcast(P.MasterMode{int(mm)})
+	s.Clients.Broadcast(P.MasterMode{int32(mm)})
 }
 
 type hit struct {
@@ -475,9 +475,9 @@ func (s *Server) HandleShoot(client *Client, wpn weapon.Weapon, id int32, from, 
 	s.Clients.Relay(
 		client,
 		P.ShotFX{
-			int(client.CN),
-			int(wpn.ID),
-			int(id),
+			int32(client.CN),
+			int32(wpn.ID),
+			id,
 			P.Vec{from.X(), from.Y(), from.Z()},
 			P.Vec{to.X(), to.Y(), to.Z()},
 		},
@@ -522,9 +522,9 @@ func (s *Server) HandleExplode(client *Client, millis int32, wpn weapon.Weapon, 
 	s.Clients.Relay(
 		client,
 		P.ExplodeFX{
-			int(client.CN),
-			int(wpn.ID),
-			int(id),
+			int32(client.CN),
+			int32(wpn.ID),
+			id,
 		},
 	)
 
@@ -562,18 +562,18 @@ func (s *Server) applyDamage(attacker, victim *Client, damage int32, wpnID weapo
 	victim.ApplyDamage(&attacker.Player, damage, wpnID, dir)
 	s.Clients.Broadcast(
 		P.Damage{
-			int(victim.CN),
-			int(attacker.CN),
-			int(damage),
-			int(victim.Armour),
-			int(victim.Health),
+			int32(victim.CN),
+			int32(attacker.CN),
+			damage,
+			victim.Armour,
+			victim.Health,
 		},
 	)
 	// TODO: setpushed ???
 	if !dir.IsZero() {
 		dir = dir.Scale(geom.DNF)
 		hitPush := P.HitPush{
-			int(victim.CN), int(wpnID), int(damage),
+			int32(victim.CN), int32(wpnID), damage,
 			P.Vec{dir.X(), dir.Y(), dir.Z()},
 		}
 		if victim.Health <= 0 {

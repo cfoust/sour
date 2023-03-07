@@ -202,7 +202,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 			}
 			// todo: checkmap
 		}
-		s.Clients.Broadcast(P.Spectator{int(spectator.CN), toggle})
+		s.Clients.Broadcast(P.Spectator{int32(spectator.CN), toggle})
 
 	case P.N_MAPVOTE:
 		msg := message.(P.MapVote)
@@ -245,7 +245,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 
 		// client sending the amount of lag he measured to the server → broadcast to other clients
 		client.Ping = int32(msg.Ping)
-		client.Packets.Publish(P.ClientPing{int(client.Ping)})
+		client.Packets.Publish(P.ClientPing{int32(client.Ping)})
 
 	case P.N_TEXT:
 		msg := message.(P.Text).Text
@@ -315,7 +315,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 			return
 		}
 		s.Spawn(client)
-		client.Send(P.SpawnState{int(client.CN), client.ToWire()})
+		client.Send(P.SpawnState{int32(client.CN), client.ToWire()})
 
 	case P.N_SPAWN:
 		msg := message.(P.SpawnRequest)
@@ -328,7 +328,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 		if !ok {
 			break
 		}
-		client.Packets.Publish(P.GunSelect{int(selected.ID)})
+		client.Packets.Publish(P.GunSelect{int32(selected.ID)})
 
 	case P.N_SHOOT:
 		msg := message.(P.Shoot)

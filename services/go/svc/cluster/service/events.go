@@ -122,7 +122,7 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *User, mess
 		if senderServer == otherServer {
 			// We lose the formatting, but that's OK
 			user.Send(
-				P.ClientPacket{senderNum, 0},
+				P.ClientPacket{int32(senderNum), 0},
 				P.Text{message},
 			)
 			continue
@@ -133,7 +133,7 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *User, mess
 	server.Users.Mutex.RUnlock()
 }
 
-func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int) {
+func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int32) {
 	logger := user.Logger()
 
 	space := user.GetSpace()
@@ -145,7 +145,7 @@ func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int) {
 		}
 
 		entities := server.GetEntities()
-		if source < 0 || source >= len(entities) {
+		if source < 0 || source >= int32(len(entities)) {
 			return
 		}
 
@@ -208,7 +208,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			}
 
 			vote := msg.Message.(P.MapVote)
-			if vote.Mode < 0 || vote.Mode >= len(MODE_NAMES) {
+			if vote.Mode < 0 || vote.Mode >= int32(len(MODE_NAMES)) {
 				msg.Pass()
 				continue
 			}

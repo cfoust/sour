@@ -476,7 +476,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 				otherUser.Mutex.RLock()
 				otherUser.Send(
 					P.ClientDisconnected{
-						otherUser.GetClientNum(),
+						int32(otherUser.GetClientNum()),
 					},
 				)
 				otherUser.Mutex.RUnlock()

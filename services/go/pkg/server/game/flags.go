@@ -158,9 +158,9 @@ func (m *handlesFlags) FlagsInitPacket() protocol.Message {
 		}
 
 		flagState := protocol.FlagState{
-			Version:   int(f.version),
+			Version:   f.version,
 			Spawn:     0,
-			Owner:     int(carrierCN),
+			Owner:     int32(carrierCN),
 			Invisible: false,
 		}
 

@@ -52,8 +52,8 @@ type Duel struct {
 	oldAServer *servers.GameServer
 	oldBServer *servers.GameServer
 
-	scoreA   int
-	scoreB   int
+	scoreA   int32
+	scoreB   int32
 	Manager  *servers.ServerManager
 	Finished chan DuelDone
 	server   *servers.GameServer
@@ -180,7 +180,7 @@ func (d *Duel) getLeaveWinner(user *User) DuelResult {
 	return result
 }
 
-func abs(x, y int) int {
+func abs(x, y int32) int32 {
 	if x < y {
 		return y - x
 	}
@@ -229,8 +229,8 @@ func (d *Duel) PollDeaths(ctx context.Context) {
 
 				var killed *User
 
-				numA := int(d.A.GetClientNum())
-				numB := int(d.B.GetClientNum())
+				numA := int32(d.A.GetClientNum())
+				numB := int32(d.B.GetClientNum())
 
 				if died.Client == numA {
 					killed = d.A
@@ -434,7 +434,7 @@ func (d *Duel) Run(ctx context.Context) {
 		overtimeB := d.scoreB
 		d.Mutex.Unlock()
 
-		if abs(overtimeA, overtimeB) >= int(d.Type.WinThreshold) {
+		if abs(overtimeA, overtimeB) >= int32(d.Type.WinThreshold) {
 			break
 		}
 

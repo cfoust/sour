@@ -342,7 +342,7 @@ func (m PauseGame) Type() MessageCode { return N_PAUSEGAME }
 
 // N_TIMEUP
 type TimeUp struct {
-	Value int32
+	Remaining int32
 }
 
 func (m TimeUp) Type() MessageCode { return N_TIMEUP }

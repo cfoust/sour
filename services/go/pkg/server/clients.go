@@ -118,11 +118,11 @@ func (s *Server) SendWelcome(c *Client) {
 		P.Welcome{},
 		P.MapChange{
 			Name:     s.Map,
-			Mode:     int(s.GameMode.ID()),
+			Mode:     int32(s.GameMode.ID()),
 			HasItems: s.GameMode.NeedsMapInfo(),
 		},
 		// time left in this round
-		P.TimeUp{int(s.Clock.TimeLeft() / time.Second)},
+		P.TimeUp{int32(s.Clock.TimeLeft() / time.Second)},
 	}
 
 	if pickupMode, ok := s.GameMode.(game.PickupMode); ok && !s.GameMode.NeedsMapInfo() {
@@ -153,7 +153,7 @@ func (s *Server) SendWelcome(c *Client) {
 
 	// tell the client what team he was put in by the server
 	messages = append(messages, P.SetTeam{
-		Client: int(c.CN),
+		Client: int32(c.CN),
 		Team:   c.Team.Name,
 		Reason: -1,
 	})
@@ -161,13 +161,13 @@ func (s *Server) SendWelcome(c *Client) {
 	// tell the client how to spawn (what health, what armour, what weapons, what ammo, etc.)
 	if c.State == playerstate.Spectator {
 		messages = append(messages, P.Spectator{
-			Client:     int(c.CN),
+			Client:     int32(c.CN),
 			Spectating: true,
 		})
 	} else {
 		// TODO: handle spawn delay (e.g. in ctf modes)
 		messages = append(messages, P.SpawnState{
-			Client:      int(c.CN),
+			Client:      int32(c.CN),
 			EntityState: c.ToWire(),
 		})
 	}
@@ -179,12 +179,12 @@ func (s *Server) SendWelcome(c *Client) {
 			resume.Clients = append(
 				resume.Clients,
 				P.ClientState{
-					Id:          int(client.CN),
-					State:       int(client.State),
+					Id:          int32(client.CN),
+					State:       int32(client.State),
 					Frags:       client.Frags,
 					Flags:       client.Flags,
 					Deaths:      client.Deaths,
-					Quadmillis:  int(client.QuadTimer.TimeLeft() / time.Millisecond),
+					Quadmillis:  int32(client.QuadTimer.TimeLeft() / time.Millisecond),
 					EntityState: client.ToWire(),
 				},
 			)
@@ -196,7 +196,7 @@ func (s *Server) SendWelcome(c *Client) {
 	for _, client := range s.Clients.clients {
 		if client != c {
 			messages = append(messages, P.InitClient{
-				int(client.CN), client.Name, client.Team.Name, int(client.Model),
+				int32(client.CN), client.Name, client.Team.Name, int32(client.Model),
 			})
 		}
 	}
@@ -206,7 +206,7 @@ func (s *Server) SendWelcome(c *Client) {
 
 // Tells other clients that the client disconnected, giving a disconnect reason in case it's not a normal leave.
 func (cm *ClientManager) Disconnect(c *Client, reason disconnectreason.ID) {
-	cm.Relay(c, P.ClientDisconnected{int(c.CN)})
+	cm.Relay(c, P.ClientDisconnected{int32(c.CN)})
 
 	msg := ""
 	if reason != disconnectreason.None {
@@ -232,12 +232,12 @@ func (cm *ClientManager) Disconnect(c *Client, reason disconnectreason.ID) {
 // Informs all other clients that a client joined the game.
 func (cm *ClientManager) InformOthersOfJoin(c *Client) {
 	cm.Relay(c, P.InitClient{
-		int(c.CN), c.Name, c.Team.Name, int(c.Model),
+		int32(c.CN), c.Name, c.Team.Name, int32(c.Model),
 	})
 
 	if c.State == playerstate.Spectator {
 		cm.Relay(c, P.Spectator{
-			int(c.CN), true,
+			int32(c.CN), true,
 		})
 	}
 }
@@ -250,7 +250,7 @@ func (s *Server) MapChange() {
 		}
 		s.Spawn(c)
 		c.Send(P.SpawnState{
-			Client:      int(c.CN),
+			Client:      int32(c.CN),
 			EntityState: c.ToWire(),
 		})
 	})
@@ -267,14 +267,14 @@ func (cm *ClientManager) PrivilegedUsers() (privileged []*Client) {
 
 func (s *Server) PrivilegedUsersPacket() (P.Message, bool) {
 	message := P.CurrentMaster{
-		MasterMode: int(s.MasterMode),
+		MasterMode: int32(s.MasterMode),
 	}
 
 	s.Clients.ForEach(func(c *Client) {
 		if c.Role > role.None {
 			message.Clients = append(message.Clients, P.ClientPrivilege{
-				int(c.CN),
-				int(c.Role),
+				int32(c.CN),
+				int32(c.Role),
 			})
 		}
 	})

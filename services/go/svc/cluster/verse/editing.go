@@ -147,7 +147,7 @@ func NewEntity(entities *[]maps.Entity, index int, entity maps.Entity) *maps.Ent
 }
 
 func EditEntity(entities *[]maps.Entity, edit P.EditEntity) {
-	i := edit.Index
+	i := int(edit.Index)
 
 	if i < 0 || i >= C.MAXENTS {
 		return

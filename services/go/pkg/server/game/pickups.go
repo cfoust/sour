@@ -76,7 +76,7 @@ func (m *handlesPickups) spawnDelayed(p *timedPickup) {
 		panic(fmt.Sprintf("unhandled entity type %d pickup.delay", p.Typ))
 	}
 	p.pendingSpawn = timer.AfterFunc(delay*time.Second, func() {
-		m.s.Broadcast(P.ItemSpawn{int(p.id)})
+		m.s.Broadcast(P.ItemSpawn{p.id})
 	})
 	go p.pendingSpawn.Start()
 }
@@ -120,7 +120,7 @@ func (m *handlesPickups) HandlePacket(p *Player, message P.Message) bool {
 			break
 		}
 		m.spawnDelayed(pu)
-		m.s.Broadcast(P.ItemAck{entityID, int(p.CN)})
+		m.s.Broadcast(P.ItemAck{entityID, int32(p.CN)})
 		p.Pickup(pu)
 
 	default:
@@ -164,7 +164,7 @@ func (m *handlesPickups) PickupsInitPacket() P.Message {
 	message := P.ItemList{}
 	for id, p := range m.pickups {
 		if p.pendingSpawn.TimeLeft() == 0 {
-			message.Items = append(message.Items, P.Item{int(id), int(p.Typ)})
+			message.Items = append(message.Items, P.Item{id, int32(p.Typ)})
 		}
 	}
 	return message

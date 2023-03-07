@@ -33,12 +33,12 @@ type PlayerState struct {
 	LifeSequence    int32
 	LastDeath       time.Time
 	MaxHealth       int32
-	Frags           int
-	Deaths          int
-	Teamkills       int
+	Frags           int32
+	Deaths          int32
+	Teamkills       int32
 	DamagePotential int32
 	Damage          int32
-	Flags           int
+	Flags           int32
 }
 
 func NewPlayerState() PlayerState {
@@ -49,17 +49,17 @@ func NewPlayerState() PlayerState {
 
 func (ps *PlayerState) ToWire() protocol.EntityState {
 	spawnState := protocol.EntityState{
-		LifeSequence: int(ps.LifeSequence),
-		Health:       int(ps.Health),
-		MaxHealth:    int(ps.MaxHealth),
-		Armour:       int(ps.Armour),
-		Armourtype:   int(ps.ArmourType),
-		Gunselect:    int(ps.SelectedWeapon.ID),
+		LifeSequence: ps.LifeSequence,
+		Health:       ps.Health,
+		MaxHealth:    ps.MaxHealth,
+		Armour:       ps.Armour,
+		Armourtype:   int32(ps.ArmourType),
+		Gunselect:    int32(ps.SelectedWeapon.ID),
 	}
 
 	for _, id := range weapon.WeaponsWithAmmo {
 		spawnState.Ammo[id - 1] = protocol.AmmoState{
-			Amount: int(ps.Ammo[id]),
+			Amount: ps.Ammo[id],
 		}
 	}
 

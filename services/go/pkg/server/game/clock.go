@@ -42,18 +42,23 @@ func NewCasualClock(s Server, m HasTimers) *casualClock {
 func (c *casualClock) Start() {
 	go c.t.Start()
 	log.Println("started game timer, time left:", c.t.TimeLeft())
-	c.s.Broadcast(P.TimeUp{int(c.t.TimeLeft() / time.Second)})
+	c.s.Broadcast(P.TimeUp{
+		Remaining: int32(c.t.TimeLeft() / time.Second),
+	})
 }
 
 func (c *casualClock) Pause(p *Player) {
 	if c.t.Paused() {
 		return
 	}
-	cn := -1
+	var cn int32 = -1
 	if p != nil {
-		cn = int(p.CN)
+		cn = int32(p.CN)
 	}
-	c.s.Broadcast(P.PauseGame{true, cn})
+	c.s.Broadcast(P.PauseGame{
+		Paused: true,
+		Client: cn,
+	})
 	c.t.Pause()
 	c.modeTimers.Pause()
 }
@@ -66,11 +71,14 @@ func (c *casualClock) Resume(p *Player) {
 	if !c.t.Paused() {
 		return
 	}
-	cn := -1
+	var cn int32 = -1
 	if p != nil {
-		cn = int(p.CN)
+		cn = int32(p.CN)
 	}
-	c.s.Broadcast(P.PauseGame{false, cn})
+	c.s.Broadcast(P.PauseGame{
+		Paused: false,
+		Client: cn,
+	})
 	c.t.Start()
 	c.modeTimers.Resume()
 }
@@ -96,7 +104,7 @@ func (c *casualClock) SetTimeLeft(d time.Duration) {
 	if !c.t.SetTimeLeft(d) {
 		log.Println("game timer had already expired")
 	}
-	c.s.Broadcast(P.TimeUp{int(d / time.Second)})
+	c.s.Broadcast(P.TimeUp{int32(d / time.Second)})
 }
 
 func (c *casualClock) CleanUp() {

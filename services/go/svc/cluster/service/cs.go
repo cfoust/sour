@@ -18,7 +18,7 @@ var PURGATORY []byte
 func sendServerInfo(u *User, domain string) {
 	u.Mutex.RLock()
 	info := P.ServerInfo{
-		Client:      int(u.ServerClient.CN),
+		Client:      int32(u.ServerClient.CN),
 		Protocol:    P.PROTOCOL_VERSION,
 		SessionId:   0,
 		HasPassword: false,
@@ -198,7 +198,7 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 
 	u.Send(P.MapChange{
 		Name:     key,
-		Mode:     int(C.MODE_COOP),
+		Mode:     int32(C.MODE_COOP),
 		HasItems: false,
 	})
 	u.From.Take(ctx, P.N_MAPCRC)

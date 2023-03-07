@@ -95,16 +95,16 @@ type ClientExtInfo struct {
 	Ping      int
 	Name      string
 	Team      string
-	Frags     int
-	Flags     int
-	Deaths    int
-	TeamKills int
-	Damage    int
-	Health    int
-	Armour    int
-	GunSelect int
-	Privilege int
-	State     int
+	Frags     int32
+	Flags     int32
+	Deaths    int32
+	TeamKills int32
+	Damage    int32
+	Health    int32
+	Armour    int32
+	GunSelect int32
+	Privilege int32
+	State     int32
 	Ip0       byte
 	Ip1       byte
 	Ip2       byte
@@ -501,4 +501,3 @@ func (s *ServerInfoService) Serve(ctx context.Context, port int, registerMaster 
 func (s *ServerInfoService) Shutdown() {
 	s.datagram.Shutdown()
 }
-
