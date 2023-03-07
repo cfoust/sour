@@ -29,6 +29,11 @@ type ServerPacket struct {
 	Messages []P.Message
 }
 
+type MapEdit struct {
+	Client  uint32
+	Message P.Message
+}
+
 type Incoming <-chan ServerPacket
 type Outgoing chan<- ServerPacket
 
@@ -48,6 +53,7 @@ type Server struct {
 	outgoing chan ServerPacket
 
 	Broadcasts *utils.Topic[[]P.Message]
+	Edits      *utils.Topic[MapEdit]
 
 	// non-standard stuff
 	Commands        *ServerCommands
@@ -67,7 +73,7 @@ func New(ctx context.Context, conf *Config) *Server {
 	outgoing := make(chan ServerPacket)
 
 	s := &Server{
-		Session: utils.NewSession(ctx),
+		Session:    utils.NewSession(ctx),
 		Broadcasts: broadcasts,
 		Config:     conf,
 		State: &State{

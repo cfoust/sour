@@ -7,6 +7,6 @@ const (
 	Dead
 	_ // Spawning, not used on server side
 	_ // Lagged, not used on server side
-	_ // Editing, not used in this implementation
+	Editing
 	Spectator
 )

@@ -14,6 +14,9 @@ import (
 type PlayerState struct {
 	State playerstate.ID
 
+	// The user's state before entering edit mode
+	EditState playerstate.ID
+
 	// fields that reset at spawn
 	LastSpawnAttempt time.Time
 	QuadTimer        *timer.Timer

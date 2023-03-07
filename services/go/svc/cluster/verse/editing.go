@@ -8,8 +8,8 @@ import (
 	"unsafe"
 
 	C "github.com/cfoust/sour/pkg/game/constants"
-	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/game/io"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/maps/worldio"
 	"github.com/cfoust/sour/svc/cluster/ingress"
@@ -209,10 +209,10 @@ func (e *EditingState) Apply(edits []*Edit) error {
 		}
 
 		if edit.Message.Type() == P.N_COPY {
-			data, err := io.Encode(edit.Message)
+			data, err := P.Encode(edit.Message)
 			if err != nil {
-			    log.Warn().Err(err).Msgf("could not serialize N_COPY")
-			    continue
+				log.Warn().Err(err).Msgf("could not serialize N_COPY")
+				continue
 			}
 
 			worldio.M.Lock()
@@ -234,10 +234,10 @@ func (e *EditingState) Apply(edits []*Edit) error {
 		}
 
 		if edit.Message.Type() == P.N_PASTE {
-			data, err := io.Encode(edit.Message)
+			data, err := P.Encode(edit.Message)
 			if err != nil {
-			    log.Warn().Err(err).Msgf("could not serialize N_PASTE")
-			    continue
+				log.Warn().Err(err).Msgf("could not serialize N_PASTE")
+				continue
 			}
 
 			info, ok := e.Clipboards[edit.Sender]

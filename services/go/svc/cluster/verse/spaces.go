@@ -13,6 +13,7 @@ import (
 	"github.com/cfoust/sour/pkg/utils"
 	"github.com/cfoust/sour/svc/cluster/config"
 	gameServers "github.com/cfoust/sour/svc/cluster/servers"
+	"github.com/cfoust/sour/svc/cluster/ingress"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -93,20 +94,19 @@ func (s *SpaceInstance) GetLinks(ctx context.Context) ([]Link, error) {
 }
 
 func (s *SpaceInstance) PollEdits(ctx context.Context) {
-	// TODO
-	//edits := s.Server.Broadcasts.InterceptWith(P.IsEditMessage)
-	//for {
-	//select {
-	//case <-s.Ctx().Done():
-	//return
-	//case edit := <-edits.Receive():
-	//if s.Editing == nil {
-	//continue
-	//}
-	//s.Editing.Process(edit.Client, edit.Message)
-	//continue
-	//}
-	//}
+	edits := s.Server.Edits.Subscribe()
+	for {
+		select {
+		case <-s.Ctx().Done():
+			return
+		case edit := <-edits.Recv():
+			if s.Editing == nil {
+				continue
+			}
+			s.Editing.Process(ingress.ClientID(edit.Client), edit.Message)
+			continue
+		}
+	}
 }
 
 type SpaceManager struct {

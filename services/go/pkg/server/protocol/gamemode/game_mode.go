@@ -142,7 +142,7 @@ func Parse(s string) ID {
 
 func Valid(gm ID) bool {
 	switch gm {
-	case FFA, Insta, Effic, Tactics,
+	case FFA, CoopEdit, Insta, Effic, Tactics,
 		Teamplay, InstaTeam, EfficTeam, TacticsTeam,
 		CTF, InstaCTF, EfficCTF:
 		return true

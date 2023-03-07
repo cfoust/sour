@@ -11,6 +11,8 @@ func (s *Server) StartMode(id gamemode.ID) game.Mode {
 	switch id {
 	case gamemode.FFA:
 		return game.NewFFA(s)
+	case gamemode.CoopEdit:
+		return game.NewCoopEdit(s)
 	case gamemode.Insta:
 		return game.NewInsta(s)
 	case gamemode.InstaTeam:

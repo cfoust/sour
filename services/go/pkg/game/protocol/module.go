@@ -1008,7 +1008,7 @@ func (m SwitchModel) Type() MessageCode { return N_SWITCHMODEL }
 
 // N_EDITMODE
 type EditMode struct {
-	Value int
+	Enabled bool
 }
 
 func (m EditMode) Type() MessageCode { return N_EDITMODE }
