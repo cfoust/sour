@@ -1,8 +1,8 @@
 package io
 
 import (
-	"testing"
 	"fmt"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -94,7 +94,7 @@ type CustomMarshal struct {
 func (s *CustomMarshal) Unmarshal(p *Packet) error {
 	value, ok := p.GetInt()
 	if !ok {
-	    return fmt.Errorf("failure")
+		return fmt.Errorf("failure")
 	}
 
 	if value == 1 {
@@ -113,6 +113,8 @@ func (s *CustomMarshal) Marshal(p *Packet) error {
 		return p.Put(0)
 	}
 }
+
+var _ Marshalable = (*CustomMarshal)(nil)
 
 func TestMarshalable(t *testing.T) {
 	type Value struct {

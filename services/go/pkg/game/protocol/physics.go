@@ -57,7 +57,7 @@ func minInt32(a int32, b int32) int32 {
 
 type PhysicsState struct {
 	State        byte
-	LifeSequence int
+	LifeSequence int32
 	Yaw          float64
 	Roll         float64
 	Pitch        float64
@@ -328,4 +328,3 @@ func (state PhysicsState) Marshal(p *io.Packet) error {
 }
 
 var _ io.Marshalable = (*PhysicsState)(nil)
-var _ io.Unmarshalable = (*PhysicsState)(nil)

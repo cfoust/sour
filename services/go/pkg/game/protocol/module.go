@@ -19,7 +19,7 @@ var FAILED = fmt.Errorf("failed to unmarshal message")
 
 // N_ADDBOT
 type AddBot struct {
-	NumBots int
+	NumBots int32
 }
 
 func (m AddBot) Type() MessageCode { return N_ADDBOT }
@@ -27,7 +27,7 @@ func (m AddBot) Type() MessageCode { return N_ADDBOT }
 // N_AUTHANS
 type AuthAns struct {
 	Description string
-	Id          int
+	Id          int32
 	Answer      string
 }
 
@@ -37,7 +37,7 @@ func (m AuthAns) Type() MessageCode { return N_AUTHANS }
 type AuthKick struct {
 	Description string
 	Answer      string
-	Victim      int
+	Victim      int32
 }
 
 func (m AuthKick) Type() MessageCode { return N_AUTHKICK }
@@ -52,14 +52,14 @@ func (m AuthTry) Type() MessageCode { return N_AUTHTRY }
 
 // N_BOTBALANCE
 type BotBalance struct {
-	Balance int
+	Balance int32
 }
 
 func (m BotBalance) Type() MessageCode { return N_BOTBALANCE }
 
 // N_BOTLIMIT
 type BotLimit struct {
-	Limit int
+	Limit int32
 }
 
 func (m BotLimit) Type() MessageCode { return N_BOTLIMIT }
@@ -78,7 +78,7 @@ func (m ClearBans) Type() MessageCode { return N_CLEARBANS }
 
 // N_CLEARDEMOS
 type ClearDemos struct {
-	Demo int
+	Demo int32
 }
 
 func (m ClearDemos) Type() MessageCode { return N_CLEARDEMOS }
@@ -97,25 +97,25 @@ func (m DemoPacket) Type() MessageCode { return N_DEMOPACKET }
 
 // N_DEMOPLAYBACK
 type DemoPlayback struct {
-	On     int
-	Client int
+	On     int32
+	Client int32
 }
 
 func (m DemoPlayback) Type() MessageCode { return N_DEMOPLAYBACK }
 
 type Hit struct {
-	Target       int
-	LifeSequence int
+	Target       int32
+	LifeSequence int32
 	Distance     float64
-	Rays         int
+	Rays         int32
 	Direction    Vec
 }
 
 // N_EXPLODE
 type Explode struct {
-	Cmillis int
-	Gun     int
-	Id      int
+	Cmillis int32
+	Gun     int32
+	Id      int32
 	Hits    []Hit
 }
 
@@ -129,23 +129,23 @@ func (m ForceIntermission) Type() MessageCode { return N_FORCEINTERMISSION }
 
 // N_FROMAI
 type FromAI struct {
-	Qcn int
+	Qcn int32
 }
 
 func (m FromAI) Type() MessageCode { return N_FROMAI }
 
 // N_GAMESPEED
 type GameSpeed struct {
-	Speed  int
-	Client int
+	Speed  int32
+	Client int32
 }
 
 func (m GameSpeed) Type() MessageCode { return N_GAMESPEED }
 
 // N_GETDEMO
 type GetDemo struct {
-	Demo int
-	Tag  int
+	Demo int32
+	Tag  int32
 }
 
 func (m GetDemo) Type() MessageCode { return N_GETDEMO }
@@ -158,14 +158,14 @@ func (m GetMap) Type() MessageCode { return N_GETMAP }
 
 // N_ITEMPICKUP
 type ItemPickup struct {
-	Item int
+	Item int32
 }
 
 func (m ItemPickup) Type() MessageCode { return N_ITEMPICKUP }
 
 // N_KICK
 type Kick struct {
-	Victim int
+	Victim int32
 	Reason string
 }
 
@@ -180,7 +180,7 @@ func (m ListDemos) Type() MessageCode { return N_LISTDEMOS }
 // N_MAPCRC
 type MapCRC struct {
 	Map string
-	Crc int
+	Crc int32
 }
 
 func (m MapCRC) Type() MessageCode { return N_MAPCRC }
@@ -188,14 +188,14 @@ func (m MapCRC) Type() MessageCode { return N_MAPCRC }
 // N_MAPVOTE
 type MapVote struct {
 	Map  string
-	Mode int
+	Mode int32
 }
 
 func (m MapVote) Type() MessageCode { return N_MAPVOTE }
 
 // N_RECORDDEMO
 type RecordDemo struct {
-	Enabled int
+	Enabled int32
 }
 
 func (m RecordDemo) Type() MessageCode { return N_RECORDDEMO }
@@ -222,8 +222,8 @@ func (m ServCMD) Type() MessageCode { return N_SERVCMD }
 
 // N_SETMASTER
 type SetMaster struct {
-	Client   int
-	Master   int
+	Client   int32
+	Master   int32
 	Password string
 }
 
@@ -231,8 +231,8 @@ func (m SetMaster) Type() MessageCode { return N_SETMASTER }
 
 // N_SHOOT
 type Shoot struct {
-	Id   int
-	Gun  int
+	Id   int32
+	Gun  int32
 	From Vec
 	To   Vec
 	Hits []Hit
@@ -268,7 +268,7 @@ func (m TryDropFlag) Type() MessageCode { return N_TRYDROPFLAG }
 // N_CONNECT
 type Connect struct {
 	Name            string
-	Model           int
+	Model           int32
 	Password        string
 	AuthDescription string
 	AuthName        string
@@ -278,9 +278,9 @@ func (m Connect) Type() MessageCode { return N_CONNECT }
 
 // N_SERVINFO
 type ServerInfo struct {
-	Client      int
-	Protocol    int
-	SessionId   int
+	Client      int32
+	Protocol    int32
+	SessionId   int32
 	HasPassword bool
 	Description string
 	Domain      string
@@ -297,7 +297,7 @@ func (m Welcome) Type() MessageCode { return N_WELCOME }
 // N_AUTHCHAL
 type AuthChallenge struct {
 	Desc      string
-	Id        int
+	Id        int32
 	Challenge string
 }
 
@@ -305,21 +305,21 @@ func (m AuthChallenge) Type() MessageCode { return N_AUTHCHAL }
 
 // N_PONG
 type Pong struct {
-	Cmillis int
+	Cmillis int32
 }
 
 func (m Pong) Type() MessageCode { return N_PONG }
 
 // N_PING
 type Ping struct {
-	Cmillis int
+	Cmillis int32
 }
 
 func (m Ping) Type() MessageCode { return N_PING }
 
 // N_POS
 type Pos struct {
-	Client int
+	Client int32
 	State  PhysicsState
 }
 
@@ -335,59 +335,59 @@ func (m ServerMessage) Type() MessageCode { return N_SERVMSG }
 // N_PAUSEGAME
 type PauseGame struct {
 	Paused bool
-	Client int
+	Client int32
 }
 
 func (m PauseGame) Type() MessageCode { return N_PAUSEGAME }
 
 // N_TIMEUP
 type TimeUp struct {
-	Value int
+	Value int32
 }
 
 func (m TimeUp) Type() MessageCode { return N_TIMEUP }
 
 // N_ANNOUNCE
 type Announce struct {
-	Announcement int
+	Announcement int32
 }
 
 func (m Announce) Type() MessageCode { return N_ANNOUNCE }
 
 // N_MASTERMODE
 type MasterMode struct {
-	MasterMode int
+	MasterMode int32
 }
 
 func (m MasterMode) Type() MessageCode { return N_MASTERMODE }
 
 // N_CDIS
 type ClientDisconnected struct {
-	Client int
+	Client int32
 }
 
 func (m ClientDisconnected) Type() MessageCode { return N_CDIS }
 
 // N_JUMPPAD
 type JumpPad struct {
-	Client  int
-	JumpPad int
+	Client  int32
+	JumpPad int32
 }
 
 func (m JumpPad) Type() MessageCode { return N_JUMPPAD }
 
 // N_TELEPORT
 type Teleport struct {
-	Client      int
-	Source      int
-	Destination int
+	Client      int32
+	Source      int32
+	Destination int32
 }
 
 func (m Teleport) Type() MessageCode { return N_TELEPORT }
 
 // N_SPECTATOR
 type Spectator struct {
-	Client     int
+	Client     int32
 	Spectating bool
 }
 
@@ -395,20 +395,20 @@ func (m Spectator) Type() MessageCode { return N_SPECTATOR }
 
 // N_SETTEAM
 type SetTeam struct {
-	Client int
+	Client int32
 	Team   string
-	Reason int
+	Reason int32
 }
 
 func (m SetTeam) Type() MessageCode { return N_SETTEAM }
 
 // N_CURRENTMASTER
 type ClientPrivilege struct {
-	Client    int
-	Privilege int
+	Client    int32
+	Privilege int32
 }
 type CurrentMaster struct {
-	MasterMode int
+	MasterMode int32
 	Clients    []ClientPrivilege `type:"term"`
 }
 
@@ -417,7 +417,7 @@ func (m CurrentMaster) Type() MessageCode { return N_CURRENTMASTER }
 // N_MAPCHANGE
 type MapChange struct {
 	Name     string
-	Mode     int
+	Mode     int32
 	HasItems bool
 }
 
@@ -426,7 +426,7 @@ func (m MapChange) Type() MessageCode { return N_MAPCHANGE }
 // N_TEAMINFO
 type Team struct {
 	Team  string
-	Frags int
+	Frags int32
 }
 type TeamInfo struct {
 	Teams []Team `type:"term"`
@@ -436,41 +436,41 @@ func (m TeamInfo) Type() MessageCode { return N_TEAMINFO }
 
 // N_INITCLIENT
 type InitClient struct {
-	Client      int
+	Client      int32
 	Name        string
 	Team        string
-	Playermodel int
+	Playermodel int32
 }
 
 func (m InitClient) Type() MessageCode { return N_INITCLIENT }
 
 // N_SPAWNSTATE
 type AmmoState struct {
-	Amount int
+	Amount int32
 }
 type EntityState struct {
-	LifeSequence int
-	Health       int
-	MaxHealth    int
-	Armour       int
-	Armourtype   int
-	Gunselect    int
+	LifeSequence int32
+	Health       int32
+	MaxHealth    int32
+	Armour       int32
+	Armourtype   int32
+	Gunselect    int32
 	Ammo         [6]AmmoState
 }
 type SpawnState struct {
-	Client int
+	Client int32
 	EntityState
 }
 
 func (m SpawnState) Type() MessageCode { return N_SPAWNSTATE }
 
 type ClientState struct {
-	Id         int
-	State      int
-	Frags      int
-	Flags      int
-	Deaths     int
-	Quadmillis int
+	Id         int32
+	State      int32
+	Frags      int32
+	Flags      int32
+	Deaths     int32
+	Quadmillis int32
 	EntityState
 }
 
@@ -483,13 +483,13 @@ func (m Resume) Type() MessageCode { return N_RESUME }
 
 // N_INITFLAGS
 type TeamScore struct {
-	Score int
+	Score int32
 }
 
 type FlagState struct {
-	Version   int
-	Spawn     int
-	Owner     int
+	Version   int32
+	Spawn     int32
+	Owner     int32
 	Invisible bool
 	Dropped   bool
 	Position  Vec
@@ -579,7 +579,7 @@ type ServerInitFlags struct {
 func (m ServerInitFlags) Type() MessageCode { return N_INITFLAGS }
 
 type ClientFlagState struct {
-	Team     int
+	Team     int32
 	Position Vec
 }
 
@@ -591,9 +591,9 @@ func (m ClientInitFlags) Type() MessageCode { return N_INITFLAGS }
 
 // N_DROPFLAG
 type DropFlag struct {
-	Client   int
-	Flag     int
-	Version  int
+	Client   int32
+	Flag     int32
+	Version  int32
 	Position Vec
 }
 
@@ -601,63 +601,63 @@ func (m DropFlag) Type() MessageCode { return N_DROPFLAG }
 
 // N_SCOREFLAG
 type ScoreFlag struct {
-	Client       int
-	Relayflag    int
-	Relayversion int
-	Goalflag     int
-	Goalversion  int
-	Goalspawn    int
-	Team         int
-	Score        int
-	Oflags       int
+	Client       int32
+	Relayflag    int32
+	Relayversion int32
+	Goalflag     int32
+	Goalversion  int32
+	Goalspawn    int32
+	Team         int32
+	Score        int32
+	Oflags       int32
 }
 
 func (m ScoreFlag) Type() MessageCode { return N_SCOREFLAG }
 
 // N_RETURNFLAG
 type ReturnFlag struct {
-	Client  int
-	Flag    int
-	Version int
+	Client  int32
+	Flag    int32
+	Version int32
 }
 
 func (m ReturnFlag) Type() MessageCode { return N_RETURNFLAG }
 
 // N_TAKEFLAG
 type TakeFlag struct {
-	Client  int
-	Flag    int
-	Version int
+	Client  int32
+	Flag    int32
+	Version int32
 }
 
 func (m TakeFlag) Type() MessageCode { return N_TAKEFLAG }
 
 // N_RESETFLAG
 type ResetFlag struct {
-	Flag    int
-	Version int
-	Spawn   int
-	Team    int
-	Score   int
+	Flag    int32
+	Version int32
+	Spawn   int32
+	Team    int32
+	Score   int32
 }
 
 func (m ResetFlag) Type() MessageCode { return N_RESETFLAG }
 
 // N_INVISFLAG
 type InvisFlag struct {
-	Flag      int
-	Invisible int
+	Flag      int32
+	Invisible int32
 }
 
 func (m InvisFlag) Type() MessageCode { return N_INVISFLAG }
 
 // N_BASES
 type BaseState struct {
-	AmmoType  int
+	AmmoType  int32
 	Owner     string
 	Enemy     string
-	Converted int
-	AmmoCount int
+	Converted int32
+	AmmoCount int32
 }
 type Bases struct {
 	Bases []BaseState
@@ -667,28 +667,28 @@ func (m Bases) Type() MessageCode { return N_BASES }
 
 // N_BASEINFO
 type BaseInfo struct {
-	Base      int
+	Base      int32
 	Owner     string
 	Enemy     string
-	Converted int
-	AmmoCount int
+	Converted int32
+	AmmoCount int32
 }
 
 func (m BaseInfo) Type() MessageCode { return N_BASEINFO }
 
 // N_BASESCORE
 type BaseScore struct {
-	Base  int
+	Base  int32
 	Team  string
-	Total int
+	Total int32
 }
 
 func (m BaseScore) Type() MessageCode { return N_BASESCORE }
 
 // N_REPAMMO
 type ReplenishAmmo struct {
-	Client   int
-	Ammotype int
+	Client   int32
+	Ammotype int32
 }
 
 func (m ReplenishAmmo) Type() MessageCode { return N_REPAMMO }
@@ -701,27 +701,27 @@ func (m TrySpawn) Type() MessageCode { return N_TRYSPAWN }
 
 // N_BASEREGEN
 type BaseRegen struct {
-	Client   int
-	Health   int
-	Armour   int
-	Ammotype int
-	Ammo     int
+	Client   int32
+	Health   int32
+	Armour   int32
+	Ammotype int32
+	Ammo     int32
 }
 
 func (m BaseRegen) Type() MessageCode { return N_BASEREGEN }
 
 // N_INITTOKENS
 type TokenState struct {
-	Token int
-	Team  int
-	Yaw   int
-	X     int
-	Y     int
-	Z     int
+	Token int32
+	Team  int32
+	Yaw   int32
+	X     int32
+	Y     int32
+	Z     int32
 }
 type ClientTokenState struct {
-	Client int
-	Count  int
+	Client int32
+	Count  int32
 }
 type InitTokens struct {
 	TeamScores   [2]TeamScore
@@ -733,9 +733,9 @@ func (m InitTokens) Type() MessageCode { return N_INITTOKENS }
 
 // N_TAKETOKEN
 type TakeToken struct {
-	Client int
-	Token  int
-	Total  int
+	Client int32
+	Token  int32
+	Total  int32
 }
 
 func (m TakeToken) Type() MessageCode { return N_TAKETOKEN }
@@ -743,7 +743,7 @@ func (m TakeToken) Type() MessageCode { return N_TAKETOKEN }
 // N_EXPIRETOKENS
 type ExpireTokens struct {
 	Tokens []struct {
-		Token int
+		Token int32
 	} `type:"term"`
 }
 
@@ -751,14 +751,14 @@ func (m ExpireTokens) Type() MessageCode { return N_EXPIRETOKENS }
 
 // N_DROPTOKENS
 type DropTokens struct {
-	Client int
-	Dropx  int
-	Dropy  int
-	Dropz  int
+	Client int32
+	Dropx  int32
+	Dropy  int32
+	Dropz  int32
 	Tokens []struct {
-		Token int
-		Team  int
-		Yaw   int
+		Token int32
+		Team  int32
+		Yaw   int32
 	} `type:"term"`
 }
 
@@ -766,18 +766,18 @@ func (m DropTokens) Type() MessageCode { return N_DROPTOKENS }
 
 // N_STEALTOKENS
 type StealTokens struct {
-	Client    int
-	Team      int
-	Basenum   int
-	Enemyteam int
-	Score     int
-	Dropx     int
-	Dropy     int
-	Dropz     int
+	Client    int32
+	Team      int32
+	Basenum   int32
+	Enemyteam int32
+	Score     int32
+	Dropx     int32
+	Dropy     int32
+	Dropz     int32
 	Tokens    []struct {
-		Token int
-		Team  int
-		Yaw   int
+		Token int32
+		Team  int32
+		Yaw   int32
 	} `type:"term"`
 }
 
@@ -785,20 +785,20 @@ func (m StealTokens) Type() MessageCode { return N_STEALTOKENS }
 
 // N_DEPOSITTOKENS
 type DepositTokens struct {
-	Client    int
-	Base      int
-	Deposited int
-	Team      int
-	Score     int
-	Flags     int
+	Client    int32
+	Base      int32
+	Deposited int32
+	Team      int32
+	Score     int32
+	Flags     int32
 }
 
 func (m DepositTokens) Type() MessageCode { return N_DEPOSITTOKENS }
 
 // N_ITEMLIST
 type Item struct {
-	Index int
-	Type  int
+	Index int32
+	Type  int32
 }
 type ItemList struct {
 	Items []Item `type:"term"`
@@ -808,24 +808,24 @@ func (m ItemList) Type() MessageCode { return N_ITEMLIST }
 
 // N_ITEMSPAWN
 type ItemSpawn struct {
-	Item_index int
+	Item_index int32
 }
 
 func (m ItemSpawn) Type() MessageCode { return N_ITEMSPAWN }
 
 // N_ITEMACC
 type ItemAck struct {
-	Item_index int
-	Client     int
+	Item_index int32
+	Client     int32
 }
 
 func (m ItemAck) Type() MessageCode { return N_ITEMACC }
 
 // N_HITPUSH
 type HitPush struct {
-	Client int
-	Gun    int
-	Damage int
+	Client int32
+	Gun    int32
+	Damage int32
 	From   Vec
 }
 
@@ -833,9 +833,9 @@ func (m HitPush) Type() MessageCode { return N_HITPUSH }
 
 // N_SHOTFX
 type ShotFX struct {
-	Client int
-	Gun    int
-	Id     int
+	Client int32
+	Gun    int32
+	Id     int32
 	From   Vec
 	To     Vec
 }
@@ -844,37 +844,37 @@ func (m ShotFX) Type() MessageCode { return N_SHOTFX }
 
 // N_EXPLODEFX
 type ExplodeFX struct {
-	Client int
-	Gun    int
-	Id     int
+	Client int32
+	Gun    int32
+	Id     int32
 }
 
 func (m ExplodeFX) Type() MessageCode { return N_EXPLODEFX }
 
 // N_DAMAGE
 type Damage struct {
-	Client    int
-	Aggressor int
-	Damage    int
-	Armour    int
-	Health    int
+	Client    int32
+	Aggressor int32
+	Damage    int32
+	Armour    int32
+	Health    int32
 }
 
 func (m Damage) Type() MessageCode { return N_DAMAGE }
 
 // N_DIED
 type Died struct {
-	Client      int
-	Killer      int
-	KillerFrags int
-	VictimFrags int
+	Client      int32
+	Killer      int32
+	KillerFrags int32
+	VictimFrags int32
 }
 
 func (m Died) Type() MessageCode { return N_DIED }
 
 // N_FORCEDEATH
 type ForceDeath struct {
-	Client int
+	Client int32
 }
 
 func (m ForceDeath) Type() MessageCode { return N_FORCEDEATH }
@@ -888,11 +888,11 @@ func (m ReqAuth) Type() MessageCode { return N_REQAUTH }
 
 // N_INITAI
 type InitAI struct {
-	Aiclientnum    int
-	Ownerclientnum int
-	Aitype         int
-	Aiskill        int
-	Playermodel    int
+	Aiclientnum    int32
+	Ownerclientnum int32
+	Aitype         int32
+	Aiskill        int32
+	Playermodel    int32
 	Name           string
 	Team           string
 }
@@ -910,7 +910,7 @@ func (m SendDemoList) Type() MessageCode { return N_SENDDEMOLIST }
 
 // N_SENDDEMO
 type SendDemo struct {
-	Tag  int
+	Tag  int32
 	Data []byte
 }
 
@@ -930,8 +930,8 @@ func (s *SendDemo) Unmarshal(p *io.Packet) error {
 
 // N_CLIENT
 type ClientPacket struct {
-	Client int
-	Length int
+	Client int32
+	Length int32
 }
 
 func (m ClientPacket) Type() MessageCode { return N_CLIENT }
@@ -945,22 +945,22 @@ func (m SpawnResponse) Type() MessageCode { return N_SPAWN }
 
 // N_SPAWN <- from client
 type SpawnRequest struct {
-	LifeSequence int
-	GunSelect    int
+	LifeSequence int32
+	GunSelect    int32
 }
 
 func (m SpawnRequest) Type() MessageCode { return N_SPAWN }
 
 // N_SOUND
 type Sound struct {
-	Sound int
+	Sound int32
 }
 
 func (m Sound) Type() MessageCode { return N_SOUND }
 
 // N_CLIENTPING
 type ClientPing struct {
-	Ping int
+	Ping int32
 }
 
 func (m ClientPing) Type() MessageCode { return N_CLIENTPING }
@@ -973,7 +973,7 @@ func (m Taunt) Type() MessageCode { return N_TAUNT }
 
 // N_GUNSELECT
 type GunSelect struct {
-	GunSelect int
+	GunSelect int32
 }
 
 func (m GunSelect) Type() MessageCode { return N_GUNSELECT }
@@ -1001,7 +1001,7 @@ func (m SwitchName) Type() MessageCode { return N_SWITCHNAME }
 
 // N_SWITCHMODEL
 type SwitchModel struct {
-	Model int
+	Model int32
 }
 
 func (m SwitchModel) Type() MessageCode { return N_SWITCHMODEL }

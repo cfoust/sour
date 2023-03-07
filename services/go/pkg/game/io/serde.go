@@ -7,12 +7,9 @@ import (
 	"github.com/cfoust/sour/pkg/game/constants"
 )
 
-type Unmarshalable interface {
-	Unmarshal(p *Packet) error
-}
-
 type Marshalable interface {
 	Marshal(p *Packet) error
+	Unmarshal(p *Packet) error
 }
 
 // Get the first field of a struct type.
@@ -43,7 +40,7 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 		return fmt.Errorf("cannot unmarshal non-struct")
 	}
 
-	if u, ok := value.Addr().Interface().(Unmarshalable); ok {
+	if u, ok := value.Addr().Interface().(Marshalable); ok {
 		return u.Unmarshal(p)
 	}
 
@@ -166,14 +163,14 @@ func UnmarshalValue(p *Packet, type_ reflect.Type, valuePtr reflect.Value) error
 		return fmt.Errorf("cannot unmarshal into non-pointer value")
 	}
 
-	if u, ok := valuePtr.Interface().(Unmarshalable); ok {
+	if u, ok := valuePtr.Interface().(Marshalable); ok {
 		return u.Unmarshal(p)
 	}
 
 	value := valuePtr.Elem()
 
 	switch type_.Kind() {
-	case reflect.Int32, reflect.Int:
+	case reflect.Int32:
 		readValue, ok := p.GetInt()
 		if !ok {
 			return fmt.Errorf("error reading int")
@@ -201,7 +198,7 @@ func UnmarshalValue(p *Packet, type_ reflect.Type, valuePtr reflect.Value) error
 			return fmt.Errorf("error reading float")
 		}
 		value.SetFloat(float64(readValue) / constants.DMF)
-	case reflect.Uint:
+	case reflect.Uint32:
 		readValue, ok := p.GetUint()
 		if !ok {
 			return fmt.Errorf("error reading uint")
@@ -340,8 +337,6 @@ func MarshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 
 	switch type_.Kind() {
 	case reflect.Int32:
-		fallthrough
-	case reflect.Int:
 		p.PutInt(int32(value.Int()))
 	case reflect.Uint8:
 		p.PutByte(byte(value.Uint()))
@@ -355,8 +350,6 @@ func MarshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 			p.PutInt(0)
 		}
 	case reflect.Uint32:
-		fallthrough
-	case reflect.Uint:
 		p.PutUint(uint32(value.Uint()))
 	case reflect.String:
 		p.PutString(value.String())

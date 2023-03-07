@@ -43,13 +43,13 @@ func IsOwnerOnly(code MessageCode) bool {
 type Selection struct {
 	O      IVec
 	S      IVec
-	Grid   int
-	Orient int
-	Cx     int
-	Cxs    int
-	Cy     int
-	Cys    int
-	Corner int
+	Grid   int32
+	Orient int32
+	Cx     int32
+	Cxs    int32
+	Cy     int32
+	Cys    int32
+	Corner int32
 }
 
 // N_EDITVAR
@@ -97,8 +97,8 @@ func (e *EditVar) Unmarshal(p *io.Packet) error {
 // N_EDITVSLOT
 type EditVSlot struct {
 	Sel      Selection
-	Delta    int
-	AllFaces int
+	Delta    int32
+	AllFaces int32
 	Extra    []byte
 }
 
@@ -134,9 +134,9 @@ func (e *EditVSlot) Unmarshal(p *io.Packet) error {
 // N_UNDO
 // N_CLIPBOARD
 type PackData struct {
-	Client       int
-	UnpackLength int
-	PackLength   int
+	Client       int32
+	UnpackLength int32
+	PackLength   int32
 	Data         []byte
 }
 
@@ -177,8 +177,8 @@ func (e *PackData) Unmarshal(p *io.Packet) error {
 // N_EDITF
 type EditFace struct {
 	Sel  Selection
-	Dir  int
-	Mode int
+	Dir  int32
+	Mode int32
 }
 
 func (m EditFace) Type() MessageCode { return N_EDITF }
@@ -186,8 +186,8 @@ func (m EditFace) Type() MessageCode { return N_EDITF }
 // N_EDITT
 type EditTexture struct {
 	Sel      Selection
-	Tex      int
-	AllFaces int
+	Tex      int32
+	AllFaces int32
 	Extra    []byte
 }
 
@@ -223,22 +223,22 @@ func (e *EditTexture) Unmarshal(p *io.Packet) error {
 // N_EDITM
 type EditMaterial struct {
 	Sel    Selection
-	Mat    int
-	Filter int
+	Mat    int32
+	Filter int32
 }
 
 func (m EditMaterial) Type() MessageCode { return N_EDITM }
 
 // N_EDITENT
 type EditEntity struct {
-	Index      int
+	Index      int32
 	Position   Vec
-	EntityType int
-	Attr1      int
-	Attr2      int
-	Attr3      int
-	Attr4      int
-	Attr5      int
+	EntityType int32
+	Attr1      int32
+	Attr2      int32
+	Attr3      int32
+	Attr4      int32
+	Attr5      int32
 }
 
 func (m EditEntity) Type() MessageCode { return N_EDITENT }
@@ -267,7 +267,7 @@ func (m Flip) Type() MessageCode { return N_FLIP }
 // N_ROTATE
 type Rotate struct {
 	Sel Selection
-	Dir int
+	Dir int32
 }
 
 func (m Rotate) Type() MessageCode { return N_ROTATE }
@@ -275,9 +275,9 @@ func (m Rotate) Type() MessageCode { return N_ROTATE }
 // N_REPLACE
 type Replace struct {
 	Sel    Selection
-	Tex    int
-	NewTex int
-	Insel  int
+	Tex    int32
+	NewTex int32
+	Insel  int32
 	Extra  []byte
 }
 
@@ -318,7 +318,7 @@ func (m DeleteCube) Type() MessageCode { return N_DELCUBE }
 
 // N_NEWMAP
 type NewMap struct {
-	Size int
+	Size int32
 }
 
 func (m NewMap) Type() MessageCode { return N_NEWMAP }
