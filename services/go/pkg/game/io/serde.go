@@ -28,7 +28,7 @@ func findTerminationField(type_ reflect.Type) (reflect.Type, error) {
 	switch terminator.Kind() {
 	case reflect.String:
 		fallthrough
-	case reflect.Int:
+	case reflect.Int32, reflect.Int:
 		return terminator, nil
 	default:
 		return nil, fmt.Errorf("type:term had invalid terminator type")
@@ -170,7 +170,7 @@ func UnmarshalValue(p *Packet, type_ reflect.Type, valuePtr reflect.Value) error
 	value := valuePtr.Elem()
 
 	switch type_.Kind() {
-	case reflect.Int32:
+	case reflect.Int32, reflect.Int:
 		readValue, ok := p.GetInt()
 		if !ok {
 			return fmt.Errorf("error reading int")
@@ -284,7 +284,7 @@ func marshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 				}
 
 				switch terminator.Kind() {
-				case reflect.Int:
+				case reflect.Int32, reflect.Int:
 					err := p.Put(-1)
 					if err != nil {
 						return err
@@ -336,7 +336,7 @@ func MarshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	}
 
 	switch type_.Kind() {
-	case reflect.Int32:
+	case reflect.Int32, reflect.Int:
 		p.PutInt(int32(value.Int()))
 	case reflect.Uint8:
 		p.PutByte(byte(value.Uint()))

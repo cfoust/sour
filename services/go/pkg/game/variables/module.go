@@ -36,6 +36,10 @@ func (v StringVariable) Type() VariableType {
 	return VariableTypeString
 }
 
+var _ Variable = (*IntVariable)(nil)
+var _ Variable = (*FloatVariable)(nil)
+var _ Variable = (*StringVariable)(nil)
+
 // Constrain variables to their range of valid values
 type VariableConstraint interface {
 	Type() VariableType
@@ -68,6 +72,10 @@ type StringConstraint struct {
 func (v StringConstraint) Type() VariableType {
 	return VariableTypeString
 }
+
+var _ VariableConstraint = (*IntConstraint)(nil)
+var _ VariableConstraint = (*FloatConstraint)(nil)
+var _ VariableConstraint = (*StringConstraint)(nil)
 
 var DEFAULT_VARIABLES = map[string]VariableConstraint{
 	"ambient":           IntConstraint{1, 0x191919, 0xFFFFFF},

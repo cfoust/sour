@@ -60,6 +60,30 @@ type EditVar struct {
 
 func (m EditVar) Type() MessageCode { return N_EDITVAR }
 
+func (e EditVar) Marshal(p *io.Packet) error {
+	err := p.Put(
+		int32(e.Value.Type()),
+		e.Key,
+	)
+	if err != nil {
+		return err
+	}
+
+	if value, ok := e.Value.(variables.IntVariable); ok {
+		p.PutInt(int32(value))
+	}
+
+	if value, ok := e.Value.(variables.FloatVariable); ok {
+		p.PutFloat(float32(value))
+	}
+
+	if value, ok := e.Value.(variables.StringVariable); ok {
+		p.PutString(string(value))
+	}
+
+	return nil
+}
+
 func (e *EditVar) Unmarshal(p *io.Packet) error {
 	var type_ int32
 	err := p.Get(
@@ -94,6 +118,8 @@ func (e *EditVar) Unmarshal(p *io.Packet) error {
 	return nil
 }
 
+var _ io.Marshalable = (*EditVar)(nil)
+
 // N_EDITVSLOT
 type EditVSlot struct {
 	Sel      Selection
@@ -103,6 +129,25 @@ type EditVSlot struct {
 }
 
 func (m EditVSlot) Type() MessageCode { return N_EDITVSLOT }
+
+func (e EditVSlot) Marshal(p *io.Packet) error {
+	err := p.Put(
+		e.Sel,
+		e.Delta,
+		e.AllFaces,
+	)
+	if err != nil {
+		return err
+	}
+
+	q := io.Buffer(*p)
+	q.Put(uint16(len(e.Extra)))
+
+	*p = append(*p, q...)
+	*p = append(*p, e.Extra...)
+
+	return nil
+}
 
 func (e *EditVSlot) Unmarshal(p *io.Packet) error {
 	err := p.Get(
@@ -129,6 +174,8 @@ func (e *EditVSlot) Unmarshal(p *io.Packet) error {
 	return nil
 }
 
+var _ io.Marshalable = (*EditVSlot)(nil)
+
 // These are the same
 // N_REDO
 // N_UNDO
@@ -152,6 +199,22 @@ type Clipboard PackData
 
 func (m Clipboard) Type() MessageCode { return N_CLIPBOARD }
 
+func (e PackData) Marshal(p *io.Packet) error {
+	err := p.Put(
+		e.Client,
+		e.UnpackLength,
+		// PackLength is derived
+		len(e.Data),
+	)
+	if err != nil {
+		return err
+	}
+
+	*p = append(*p, e.Data...)
+
+	return nil
+}
+
 func (e *PackData) Unmarshal(p *io.Packet) error {
 	err := p.Get(
 		&e.Client,
@@ -174,6 +237,8 @@ func (e *PackData) Unmarshal(p *io.Packet) error {
 	return nil
 }
 
+var _ io.Marshalable = (*PackData)(nil)
+
 // N_EDITF
 type EditFace struct {
 	Sel  Selection
@@ -194,6 +259,24 @@ type EditTexture struct {
 func (m EditTexture) Type() MessageCode { return N_EDITT }
 
 var FAILED_EDIT = fmt.Errorf("failed to unmarshal edit message")
+
+func (e EditTexture) Marshal(p *io.Packet) error {
+	err := p.Put(
+		e.Sel,
+		e.Tex,
+		e.AllFaces,
+	)
+	if err != nil {
+		return err
+	}
+
+	q := io.Buffer(*p)
+	q.Put(uint16(len(e.Extra)))
+	*p = append(*p, q...)
+	*p = append(*p, e.Extra...)
+
+	return nil
+}
 
 func (e *EditTexture) Unmarshal(p *io.Packet) error {
 	err := p.Get(
@@ -219,6 +302,8 @@ func (e *EditTexture) Unmarshal(p *io.Packet) error {
 
 	return nil
 }
+
+var _ io.Marshalable = (*EditTexture)(nil)
 
 // N_EDITM
 type EditMaterial struct {
@@ -283,6 +368,25 @@ type Replace struct {
 
 func (m Replace) Type() MessageCode { return N_REPLACE }
 
+func (e Replace) Marshal(p *io.Packet) error {
+	err := p.Put(
+		e.Sel,
+		e.Tex,
+		e.NewTex,
+		e.Insel,
+	)
+	if err != nil {
+		return err
+	}
+
+	q := io.Buffer(*p)
+	q.Put(uint16(len(e.Extra)))
+	*p = append(*p, q...)
+	*p = append(*p, e.Extra...)
+
+	return nil
+}
+
 func (e *Replace) Unmarshal(p *io.Packet) error {
 	err := p.Get(
 		&e.Sel,
@@ -308,6 +412,8 @@ func (e *Replace) Unmarshal(p *io.Packet) error {
 
 	return nil
 }
+
+var _ io.Marshalable = (*Replace)(nil)
 
 // N_DELCUBE
 type DeleteCube struct {
