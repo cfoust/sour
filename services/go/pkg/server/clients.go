@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -215,7 +214,6 @@ func (cm *ClientManager) Disconnect(c *Client, reason disconnectreason.ID) {
 	} else {
 		msg = fmt.Sprintf("%s disconnected", cm.UniqueName(c))
 	}
-	log.Println(cubecode.SanitizeString(msg))
 
 	cm.mutex.Lock()
 	newClients := make([]*Client, 0)

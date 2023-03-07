@@ -251,10 +251,6 @@ func (s *Server) Join(c *Client) {
 		c.Send(flagMode.FlagsInitPacket())
 	}
 	s.Clients.InformOthersOfJoin(c)
-
-	uniqueName := s.Clients.UniqueName(c)
-	log.Info().Msg(cubecode.SanitizeString(fmt.Sprintf("%s connected", uniqueName)))
-
 	c.Message(s.MessageOfTheDay)
 }
 
