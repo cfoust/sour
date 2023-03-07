@@ -8,7 +8,6 @@ import (
 	"unsafe"
 
 	C "github.com/cfoust/sour/pkg/game/constants"
-	"github.com/cfoust/sour/pkg/game/io"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/maps/worldio"
@@ -257,7 +256,7 @@ func (e *EditingState) Apply(edits []*Edit) error {
 			continue
 		}
 
-		data, err := io.Encode(edit.Message)
+		data, err := P.Encode(edit.Message)
 		if err != nil {
 			log.Warn().Err(err).Msgf("could not serialize %s", edit.Message.Type())
 			continue
@@ -304,7 +303,7 @@ func (e *EditingState) Destroy() {
 }
 
 func (e *EditingState) SavePeriodically(ctx context.Context) {
-	tick := time.NewTicker(5 * time.Minute)
+	tick := time.NewTicker(5 * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
