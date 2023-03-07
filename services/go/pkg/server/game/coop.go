@@ -57,10 +57,10 @@ func (m *CoopEdit) HandlePacket(p *Player, message P.Message) bool {
 		} else {
 			p.State = p.EditState
 		}
+
+		return true
 	default:
 		log.Println("received unrelated packet", message)
 		return false
 	}
-
-	return false
 }

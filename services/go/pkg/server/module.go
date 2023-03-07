@@ -75,6 +75,7 @@ func New(ctx context.Context, conf *Config) *Server {
 	s := &Server{
 		Session:    utils.NewSession(ctx),
 		Broadcasts: broadcasts,
+		Edits:      utils.NewTopic[MapEdit](),
 		Config:     conf,
 		State: &State{
 			MasterMode: mastermode.Auth,
@@ -409,10 +410,6 @@ func (s *Server) StartGame(mode game.Mode, mapname string) {
 	if s.pendingMapChange != nil {
 		s.pendingMapChange.Stop()
 		s.pendingMapChange = nil
-	}
-
-	if mapname == "" {
-		mapname = "complex"
 	}
 
 	s.Map = mapname

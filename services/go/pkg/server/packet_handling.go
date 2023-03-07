@@ -262,6 +262,11 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 		msg := message.(P.SayTeam).Text
 		s.Clients.SendToTeam(client, P.SayTeam{msg})
 
+	case P.N_SWITCHMODEL:
+		msg := message.(P.SwitchModel)
+		client.Model = msg.Model
+		s.Broadcast(msg)
+
 	case P.N_SWITCHNAME:
 		msg := message.(P.SwitchName)
 

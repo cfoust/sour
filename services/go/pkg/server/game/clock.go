@@ -41,7 +41,6 @@ func NewCasualClock(s Server, m HasTimers) *casualClock {
 
 func (c *casualClock) Start() {
 	go c.t.Start()
-	log.Println("started game timer, time left:", c.t.TimeLeft())
 	c.s.Broadcast(P.TimeUp{
 		Remaining: int32(c.t.TimeLeft() / time.Second),
 	})
