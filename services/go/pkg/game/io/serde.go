@@ -9,7 +9,46 @@ import (
 
 type Marshalable interface {
 	Marshal(p *Packet) error
+}
+
+type Unmarshalable interface {
 	Unmarshal(p *Packet) error
+}
+
+var MARSHALABLE = reflect.TypeOf((*Marshalable)(nil)).Elem()
+var UNMARSHALABLE = reflect.TypeOf((*Unmarshalable)(nil)).Elem()
+
+// There are some mistakes that can't be checked automatically at compile time.
+// This is an issue with golang: to cast to an interface, the receivers of all
+// of that interface's methods must be of the same kind (pointer or value) in
+// order for the casting statement to return "ok".
+//
+// We specifically want Unmarshable to have a pointer receiver and Marshalable
+// to have a value receiver, because that's how the serde library works.
+func checkInterfaces(type_ reflect.Type, value reflect.Value) error {
+	if _, ok := value.Interface().(Marshalable); ok {
+		if type_.Kind() == reflect.Pointer {
+			return fmt.Errorf("Implementation of Marshalable for %s should have value receiver", type_.String())
+		}
+
+		pointerType := reflect.PointerTo(type_)
+		if !pointerType.Implements(UNMARSHALABLE) {
+			return fmt.Errorf("implementation of Unmarshalable missing for %s", type_.String())
+		}
+	}
+
+	if _, ok := value.Interface().(Unmarshalable); ok {
+		if value.Kind() != reflect.Pointer {
+			return fmt.Errorf("implementation of Unmarshalable for %s should have pointer receiver", type_.String())
+		}
+
+		valueType := value.Elem().Type()
+		if !valueType.Implements(MARSHALABLE) {
+			return fmt.Errorf("implementation of Marshalable missing for %s", type_.String())
+		}
+	}
+
+	return nil
 }
 
 // Get the first field of a struct type.
@@ -38,10 +77,6 @@ func findTerminationField(type_ reflect.Type) (reflect.Type, error) {
 func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	if value.Kind() != reflect.Struct {
 		return fmt.Errorf("cannot unmarshal non-struct")
-	}
-
-	if u, ok := value.Addr().Interface().(Marshalable); ok {
-		return u.Unmarshal(p)
 	}
 
 	for i := 0; i < type_.NumField(); i++ {
@@ -142,11 +177,6 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 
 			fieldValue.Set(slice)
 
-		case reflect.Struct:
-			err := unmarshalStruct(p, field.Type, fieldValue)
-			if err != nil {
-				return err
-			}
 		default:
 			err := UnmarshalValue(p, field.Type, fieldValue.Addr())
 			if err != nil {
@@ -163,7 +193,12 @@ func UnmarshalValue(p *Packet, type_ reflect.Type, valuePtr reflect.Value) error
 		return fmt.Errorf("cannot unmarshal into non-pointer value")
 	}
 
-	if u, ok := valuePtr.Interface().(Marshalable); ok {
+	if u, ok := valuePtr.Interface().(Unmarshalable); ok {
+		err := checkInterfaces(type_, valuePtr)
+		if err != nil {
+			return err
+		}
+
 		return u.Unmarshal(p)
 	}
 
@@ -332,6 +367,11 @@ func MarshalValue(p *Packet, type_ reflect.Type, value reflect.Value) error {
 	}
 
 	if u, ok := value.Interface().(Marshalable); ok {
+		err := checkInterfaces(type_, value)
+		if err != nil {
+			return err
+		}
+
 		return u.Marshal(p)
 	}
 

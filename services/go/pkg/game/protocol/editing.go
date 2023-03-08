@@ -119,6 +119,7 @@ func (e *EditVar) Unmarshal(p *io.Packet) error {
 }
 
 var _ io.Marshalable = (*EditVar)(nil)
+var _ io.Unmarshalable = (*EditVar)(nil)
 
 // N_EDITVSLOT
 type EditVSlot struct {
@@ -175,6 +176,7 @@ func (e *EditVSlot) Unmarshal(p *io.Packet) error {
 }
 
 var _ io.Marshalable = (*EditVSlot)(nil)
+var _ io.Unmarshalable = (*EditVSlot)(nil)
 
 // These are the same
 // N_REDO
@@ -238,6 +240,7 @@ func (e *PackData) Unmarshal(p *io.Packet) error {
 }
 
 var _ io.Marshalable = (*PackData)(nil)
+var _ io.Unmarshalable = (*PackData)(nil)
 
 // N_EDITF
 type EditFace struct {
@@ -304,6 +307,7 @@ func (e *EditTexture) Unmarshal(p *io.Packet) error {
 }
 
 var _ io.Marshalable = (*EditTexture)(nil)
+var _ io.Unmarshalable = (*EditTexture)(nil)
 
 // N_EDITM
 type EditMaterial struct {
@@ -414,6 +418,7 @@ func (e *Replace) Unmarshal(p *io.Packet) error {
 }
 
 var _ io.Marshalable = (*Replace)(nil)
+var _ io.Unmarshalable = (*Replace)(nil)
 
 // N_DELCUBE
 type DeleteCube struct {
