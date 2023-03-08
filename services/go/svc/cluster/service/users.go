@@ -561,15 +561,18 @@ func (u *User) DisconnectFromServer() error {
 	logger := u.Logger()
 	logger.Info().Str("host", u.Connection.Host()).Msg("user disconnected")
 
-	u.Mutex.Lock()
-	if u.Server != nil {
-		u.Server.Leave(uint32(u.Id))
+	server := u.GetServer()
+	if server != nil {
+		server.Leave(uint32(u.Id))
 	}
+
+	u.Mutex.Lock()
 	u.Server = nil
 	u.Space = nil
 	u.Status = UserStatusDisconnected
-	u.ServerSession.Cancel()
 	u.Mutex.Unlock()
+
+	u.ServerSession.Cancel()
 
 	return nil
 }

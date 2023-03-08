@@ -349,7 +349,8 @@ func (s *Server) Unsupervised() {
 }
 
 func (s *Server) Empty() {
-	s.StartGame(s.StartMode(s.FallbackGameModeID), s.Map)
+	// We don't want to do this anymore
+	// s.StartGame(s.StartMode(s.FallbackGameModeID), s.Map)
 }
 
 func (s *Server) Intermission() {
