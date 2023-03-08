@@ -118,7 +118,7 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 
 					done := false
 					switch terminator.Kind() {
-					case reflect.Int:
+					case reflect.Int, reflect.Int32:
 						endValue, ok := peekable.GetInt()
 						if !ok {
 							return fmt.Errorf("failed to read int condition")
