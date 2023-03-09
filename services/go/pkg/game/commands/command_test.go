@@ -93,6 +93,9 @@ func runCommand(t *testing.T, command string, callback interface{}) {
 	g := NewCommandGroup("test", game.ColorGreen, SEND)
 	err := g.Register(Command{
 		Name:     "cmd",
+		Aliases: []string{
+			"alias",
+		},
 		Callback: callback,
 	})
 	assert.Nil(t, err)
@@ -162,4 +165,26 @@ func TestHandling(t *testing.T) {
 	ensureFailure(t, "cmd blah", func(value bool) {})
 	ensureFailure(t, "cmd", func(value int, next *int) {})
 	ensureFailure(t, "cmd 2 2", func(value int, value2 bool) {})
+}
+
+func TestNamespaces(t *testing.T) {
+	runCommand(t, "test cmd 2", func(value int) {
+		assert.Equal(t, value, 2)
+	})
+
+	runCommand(t, "t c 2", func(value int) {
+		assert.Equal(t, value, 2)
+	})
+
+	runCommand(t, "c 2", func(value int) {
+		assert.Equal(t, value, 2)
+	})
+
+	runCommand(t, "t a 2", func(value int) {
+		assert.Equal(t, value, 2)
+	})
+
+	runCommand(t, "a 2", func(value int) {
+		assert.Equal(t, value, 2)
+	})
 }

@@ -148,18 +148,26 @@ func (c *CommandGroup[User]) resolve(args []string) (*Command, []string) {
 	// First check if the namespace is included.
 	target := args[0]
 	commandArguments := args[1:]
-	if target == c.namespace {
+	if target == c.namespace || strings.HasPrefix(c.namespace, target) {
 		// You can't just address the namespace.
 		if len(args) == 1 {
 			return nil, nil
 		}
 
 		target = args[1]
-		commandArguments = args[1:]
+		commandArguments = args[2:]
 	}
 
 	command, ok := c.commands[target]
 	if !ok {
+		// A command invocation can also be any prefix of a valid
+		// command, do one last check
+		for name, command := range c.commands {
+			if strings.HasPrefix(name, target) {
+				return command, commandArguments
+			}
+		}
+
 		return nil, nil
 	}
 
