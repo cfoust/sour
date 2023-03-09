@@ -1,6 +1,7 @@
-package command
+package commands
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -16,7 +17,7 @@ var SEND = func(user *User, message string) {
 }
 
 func TestCallbacks(t *testing.T) {
-	g := NewCommandGroup("test", game.ColorGreen, SEND)
+	g := NewCommandGroup[*User]("test", game.ColorGreen)
 
 	// BAD
 	err := g.Register(Command{
@@ -41,6 +42,12 @@ func TestCallbacks(t *testing.T) {
 	err = g.Register(Command{
 		Callback: func() (int, int) {
 			return 2, 2
+		},
+	})
+	assert.NotNil(t, err)
+
+	err = g.Register(Command{
+		Callback: func(err error) {
 		},
 	})
 	assert.NotNil(t, err)
@@ -72,6 +79,12 @@ func TestCallbacks(t *testing.T) {
 	assert.Nil(t, err)
 
 	err = g.Register(Command{
+		Callback: func(ctx context.Context) {
+		},
+	})
+	assert.Nil(t, err)
+
+	err = g.Register(Command{
 		Callback: func(required bool, optional *bool) {
 		},
 	})
@@ -86,13 +99,13 @@ func TestCallbacks(t *testing.T) {
 
 func run(g *CommandGroup[*User], command string) error {
 	args := strings.Split(command, " ")
-	return g.Handle(USER, args)
+	return g.Handle(context.Background(), USER, args)
 }
 
 func runCommand(t *testing.T, command string, callback interface{}) {
-	g := NewCommandGroup("test", game.ColorGreen, SEND)
+	g := NewCommandGroup[*User]("test", game.ColorGreen)
 	err := g.Register(Command{
-		Name:     "cmd",
+		Name: "cmd",
 		Aliases: []string{
 			"alias",
 		},
@@ -105,7 +118,7 @@ func runCommand(t *testing.T, command string, callback interface{}) {
 }
 
 func ensureFailure(t *testing.T, command string, callback interface{}) {
-	g := NewCommandGroup("test", game.ColorGreen, SEND)
+	g := NewCommandGroup[*User]("test", game.ColorGreen)
 	err := g.Register(Command{
 		Name:     "cmd",
 		Callback: callback,
@@ -139,6 +152,10 @@ func TestHandling(t *testing.T) {
 
 	runCommand(t, "cmd on", func(value bool) {
 		assert.Equal(t, value, true)
+	})
+
+	runCommand(t, "cmd", func(ctx context.Context) {
+		assert.Equal(t, ctx, context.Background())
 	})
 
 	runCommand(t, "cmd false", func(value bool) {

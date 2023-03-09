@@ -1,6 +1,7 @@
-package command
+package commands
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sort"
@@ -74,6 +75,15 @@ func (c *CommandGroup[User]) validateCallback(callback interface{}) error {
 				return fmt.Errorf("required parameter cannot follow optional")
 			}
 			continue
+		case reflect.Interface:
+			if argType == userType {
+				continue
+			}
+
+			argValue := reflect.New(argType)
+			if _, ok := argValue.Interface().(*context.Context); !ok {
+				return fmt.Errorf("context and user type are only allowable interfaces")
+			}
 		case reflect.Pointer:
 			if argType == userType {
 				continue
@@ -116,11 +126,10 @@ func (c *CommandGroup[User]) Register(command Command) error {
 	return nil
 }
 
-func NewCommandGroup[User any](namespace string, color game.TextColor, message func(User, string)) *CommandGroup[User] {
+func NewCommandGroup[User any](namespace string, color game.TextColor) *CommandGroup[User] {
 	return &CommandGroup[User]{
 		namespace: namespace,
 		color:     color,
-		message:   message,
 		commands:  make(map[string]*Command),
 	}
 }
@@ -265,10 +274,10 @@ func (c *CommandGroup[User]) GetHelp(command string) string {
 	return c.Prefix(resolved.Help())
 }
 
-func (c *CommandGroup[User]) Handle(user User, args []string) error {
+func (c *CommandGroup[User]) Handle(ctx context.Context, user User, args []string) error {
 	command, commandArgs := c.resolve(args)
 	if command == nil {
-		return fmt.Errorf("%s ~> unknown command", c.Name())
+		return fmt.Errorf(c.Prefix("unknown command"))
 	}
 
 	callback := command.Callback
@@ -283,6 +292,17 @@ func (c *CommandGroup[User]) Handle(user User, args []string) error {
 		switch argType.Kind() {
 		case reflect.Slice:
 			value = reflect.ValueOf(originalArgs)
+		case reflect.Interface:
+			if argType == reflect.TypeOf(user) {
+				value = reflect.ValueOf(user)
+				break
+			}
+
+			argValue := reflect.New(argType)
+			if _, ok := argValue.Interface().(*context.Context); ok {
+				value = reflect.ValueOf(ctx)
+			}
+
 		case reflect.Pointer:
 			if argType == reflect.TypeOf(user) {
 				value = reflect.ValueOf(user)
