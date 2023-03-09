@@ -6,11 +6,11 @@
 /*modification, are permitted provided that the following conditions are met:*/
 
 /*1. Redistributions of source code must retain the above copyright notice, this*/
-   /*list of conditions and the following disclaimer.*/
+/*list of conditions and the following disclaimer.*/
 
 /*2. Redistributions in binary form must reproduce the above copyright notice,*/
-   /*this list of conditions and the following disclaimer in the documentation*/
-   /*and/or other materials provided with the distribution.*/
+/*this list of conditions and the following disclaimer in the documentation*/
+/*and/or other materials provided with the distribution.*/
 
 /*THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"*/
 /*AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE*/
@@ -43,6 +43,19 @@ func wrap(s, color string) string {
 	return save + color + s + restore
 }
 
+type TextColor uint8
+
+const (
+	ColorGreen TextColor = iota
+	ColorBlue
+	ColorYellow
+	ColorRed
+	ColorGray
+	ColorMagenta
+	ColorOrange
+	ColorWhite
+)
+
 func Green(s string) string   { return wrap(s, green) }
 func Blue(s string) string    { return wrap(s, blue) }
 func Yellow(s string) string  { return wrap(s, yellow) }
@@ -51,6 +64,29 @@ func Gray(s string) string    { return wrap(s, gray) }
 func Magenta(s string) string { return wrap(s, magenta) }
 func Orange(s string) string  { return wrap(s, orange) }
 func White(s string) string   { return wrap(s, white) }
+
+func (c TextColor) Wrap(text string) string {
+	switch c {
+	case ColorGreen:
+		return Green(text)
+	case ColorBlue:
+		return Blue(text)
+	case ColorYellow:
+		return Yellow(text)
+	case ColorRed:
+		return Red(text)
+	case ColorGray:
+		return Gray(text)
+	case ColorMagenta:
+		return Magenta(text)
+	case ColorOrange:
+		return Orange(text)
+	case ColorWhite:
+		return White(text)
+	}
+
+	return text
+}
 
 func Success(s string) string { return Green(s) }
 func Fail(s string) string    { return Orange(s) }
