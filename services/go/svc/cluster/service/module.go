@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
+	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/commands"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/config"
@@ -36,6 +38,8 @@ type Cluster struct {
 	serverCtx     context.Context
 	serverMessage chan []byte
 
+	commands *commands.CommandGroup[*User]
+
 	// Services
 	Users   *UserOrchestrator
 	auth    *auth.DiscordService
@@ -63,6 +67,7 @@ func NewCluster(
 		settings:      settings,
 		authDomain:    authDomain,
 		hostServers:   make(map[string]*servers.GameServer),
+		commands:      commands.NewCommandGroup[*User]("cluster", game.ColorOrange),
 		lastCreate:    make(map[string]time.Time),
 		matches:       NewMatchmaker(serverManager, settings.Matchmaking.Duel),
 		serverMessage: make(chan []byte, 1),
@@ -74,6 +79,8 @@ func NewCluster(
 		spaces:        verse.NewSpaceManager(v, serverManager, maps),
 		assets:        maps,
 	}
+
+	server.registerCommands()
 
 	return server
 }

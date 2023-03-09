@@ -269,8 +269,8 @@ func parseArg(type_ reflect.Type, argument string, isPointer bool) (reflect.Valu
 	return NIL, fmt.Errorf("could not parse argument")
 }
 
-func (c *CommandGroup[User]) GetHelp(command string) string {
-	resolved, _ := c.resolve([]string{command})
+func (c *CommandGroup[User]) GetHelp(args []string) string {
+	resolved, _ := c.resolve(args)
 	return c.Prefix(resolved.Help())
 }
 
@@ -365,7 +365,7 @@ func (c *CommandGroup[User]) Handle(ctx context.Context, user User, args []strin
 
 type Commandable interface {
 	// Get help for a specific command (or empty string if it does not exist.)
-	GetHelp(string) string
+	GetHelp([]string) string
 	// Lists all commands.
 	Help() string
 }

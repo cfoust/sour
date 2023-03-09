@@ -8,14 +8,13 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/commands"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
-	"github.com/cfoust/sour/svc/cluster/verse"
 
 	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog/log"
 )
-
 
 func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, user *User, gameServer *servers.GameServer) {
 	tick := time.NewTicker(30 * time.Second)
@@ -161,278 +160,307 @@ func (server *Cluster) CreateGame(ctx context.Context, params *CreateParams, use
 	return nil
 }
 
-func (server *Cluster) RunCommand(ctx context.Context, command string, user *User) (handled bool, response string, err error) {
-	logger := user.Logger().With().Str("command", command).Logger()
+func (s *Cluster) runCommand(ctx context.Context, user *User, command string) error {
 	args := strings.Split(command, " ")
-
 	if len(args) == 0 {
-		return false, "", errors.New("invalid command")
+		return fmt.Errorf("command cannot be empty")
 	}
 
-	switch args[0] {
-	case "creategame":
-		params := &CreateParams{}
-		if len(args) > 1 {
-			params, err = server.inferCreateParams(args[1:])
-			if err != nil {
-				return true, "", err
-			}
-		}
-
-		err := server.CreateGame(ctx, params, user)
-		return true, "", err
-
-	case "alias":
-		if !user.IsLoggedIn() {
-			return true, "", fmt.Errorf("you must be logged in to make an alias for a space")
-		}
-
-		isOwner, err := user.IsOwner(ctx)
-		if err != nil {
-			return true, "", err
-		}
-
-		if !isOwner {
-			return true, "", fmt.Errorf("this is not your space")
-		}
-
-		instance := user.GetSpace()
-		space := instance.Space
-
-		if len(command) < 7 {
-			return true, "", fmt.Errorf("alias too short")
-		}
-
-		alias := command[6:]
-		if !verse.IsValidAlias(alias) {
-			return true, "", fmt.Errorf("aliases must consist of lowercase letters, numbers, or hyphens")
-		}
-
-		if len(alias) > 16 {
-			return true, "", fmt.Errorf("alias too long")
-		}
-
-		// Ensure the alias does not match any maps in our asset indices, either
-		found := server.assets.FindMap(alias)
-		if found != nil {
-			return true, "", fmt.Errorf("alias taken by a pre-built map")
-		}
-
-		err = space.SetAlias(ctx, alias)
-		if err != nil {
-			return true, "", err
-		}
-
-		server.AnnounceInServer(ctx, instance.Server, fmt.Sprintf("space alias set to %s", alias))
-		return true, "", nil
-
-	case "desc":
-		isOwner, err := user.IsOwner(ctx)
-		if err != nil {
-			return true, "", err
-		}
-
-		if !isOwner {
-			return true, "", fmt.Errorf("this is not your space")
-		}
-
-		instance := user.GetSpace()
-		space := instance.Space
-		gameServer := instance.Server
-
-		if len(command) < 6 {
-			return true, "", fmt.Errorf("description too short")
-		}
-
-		description := command[5:]
-		if len(description) > 32 {
-			description = description[:32]
-		}
-
-		err = space.SetDescription(ctx, description)
-		if err != nil {
-			return true, "", err
-		}
-
-		gameServer.SetDescription(description)
-		return true, "", nil
-
-	case "edit":
-		isOwner, err := user.IsOwner(ctx)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to change edit state")
-			return true, "", err
-		}
-
-		if !isOwner {
-			return true, "", fmt.Errorf("this is not your space")
-		}
-
-		space := user.GetSpace()
-		editing := space.Editing
-		current := editing.IsOpenEdit()
-		editing.SetOpenEdit(!current)
-		gameServer := space.Server
-
-		canEdit := editing.IsOpenEdit()
-
-		if canEdit {
-			server.AnnounceInServer(ctx, gameServer, "editing is now enabled")
-		} else {
-			server.AnnounceInServer(ctx, gameServer, "editing is now disabled")
-		}
-
-		return true, "", nil
-
-	case "go":
-		fallthrough
-	case "join":
-		if len(args) != 2 {
-			return true, "", errors.New("join takes a single argument")
-		}
-
-		target := args[1]
-
-		if target == "home" {
-			return server.RunCommandWithTimeout(ctx, "home", user)
-		}
-
-		user.Mutex.RLock()
-		if user.Server != nil && user.Server.IsReference(target) {
-			logger.Info().Msg("user already connected to target")
-			user.Mutex.RUnlock()
-			break
-		}
-		user.Mutex.RUnlock()
-
-		for _, gameServer := range server.servers.Servers {
-			if !gameServer.IsReference(target) {
-				continue
-			}
-
-			_, err := user.Connect(gameServer)
-			if err != nil {
-				return true, "", err
-			}
-
-			return true, "", nil
-		}
-
-		// Look for a space
-		space, err := server.spaces.SearchSpace(ctx, target)
-		if err != nil {
-			return true, "", fmt.Errorf("space not found")
-		}
-
-		if space != nil {
-			instance, err := server.spaces.StartSpace(ctx, target)
-			if err != nil {
-				return true, "", err
-			}
-
-			// Appears in the user's URL bar
-			serverName := instance.Space.GetID()
-
-			alias, err := space.GetAlias(ctx)
-			if err != nil {
-				return true, "", err
-			}
-
-			if alias != "" {
-				serverName = alias
-			}
-
-			_, err = user.ConnectToSpace(instance.Server, serverName)
-			return true, "", err
-		}
-
-		logger.Warn().Msgf("could not find server: %s", target)
-		return true, "", fmt.Errorf("failed to find server or space matching %s", target)
-
-	case "duel":
-		duelType := ""
-		if len(args) > 1 {
-			duelType = args[1]
-		}
-
-		err := server.matches.Queue(user, duelType)
-		if err != nil {
-			// Theoretically, there might also just not be a default, but whatever.
-			return true, "", fmt.Errorf("duel type '%s' does not exist", duelType)
-		}
-
-		return true, "", nil
-
-	case "stopduel":
-		server.matches.Dequeue(user)
-		return true, "", nil
-
-	case "home":
-		err := server.GoHome(server.serverCtx, user)
-		if err != nil {
-			return true, "", fmt.Errorf("could not go home")
-		}
-		return true, "", err
-
-	case "help":
-		messages := []string{
-			fmt.Sprintf("%s: create a private game", game.Blue("#creategame")),
-			fmt.Sprintf("%s: join a Sour game server by room code", game.Blue("#join [code]")),
-			fmt.Sprintf("%s: queue for a duel", game.Blue("#duel")),
-			fmt.Sprintf("%s: leave the duel queue", game.Blue("#stopduel")),
-		}
-
-		for _, message := range messages {
-			user.Message(message)
-		}
-
-		return true, "", nil
+	// First check cluster commands
+	if s.commands.CanHandle(args) {
+		return s.commands.Handle(ctx, user, args)
 	}
 
-	return false, "", nil
+	// TODO then do space and server
+
+	// Then help
+	first := args[0]
+	if first != "help" && first != "?" {
+		return fmt.Errorf("unrecognized command")
+	}
+
+	helpArgs := args[1:]
+	if len(helpArgs) == 0 {
+		user.Message("available commands:")
+		for _, commandable := range []commands.Commandable{s.commands} {
+			user.RawMessage(commandable.Help())
+		}
+		return nil
+	}
+
+	// Help for a specific command
+	for _, commandable := range []commands.Commandable{s.commands} {
+		helpString := commandable.GetHelp(helpArgs)
+		if helpString != "" {
+			user.RawMessage(helpString)
+			return nil
+		}
+	}
+
+	// Did not match anything
+	return fmt.Errorf("could not find help for command")
 }
 
-func (server *Cluster) RunCommandWithTimeout(ctx context.Context, command string, user *User) (handled bool, response string, err error) {
+func (s *Cluster) runCommandWithTimeout(ctx context.Context, user *User, command string) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 
-	resultChannel := make(chan ingress.CommandResult)
-
+	resultChannel := make(chan error)
 	defer cancel()
 
 	go func() {
-		handled, response, err := server.RunCommand(ctx, command, user)
-		resultChannel <- ingress.CommandResult{
-			Handled:  handled,
-			Err:      err,
-			Response: response,
-		}
+		resultChannel <- s.runCommand(ctx, user, command)
 	}()
 
 	select {
 	case result := <-resultChannel:
-		return result.Handled, result.Response, result.Err
+		return result
 	case <-ctx.Done():
-		cancel()
-		return false, "", errors.New("command timed out")
+		return fmt.Errorf("command timed out")
 	}
-
 }
 
-// Run a command and inform the user of any errors.
-func (c *Cluster) RunOnBehalf(ctx context.Context, command string, user *User) error {
+func (s *Cluster) registerCommands() {
+	goCommand := commands.Command{
+		Name:        "go",
+		Aliases:     []string{"join"},
+		ArgFormat:   "[name|id|alias]",
+		Description: "move to a space, server, or map by name, id, or alias",
+		Callback: func(ctx context.Context, user *User, target string) error {
+			if target == "home" {
+				return s.runCommandWithTimeout(ctx, user, "home")
+			}
+
+			logger := user.Logger()
+
+			user.Mutex.RLock()
+			if user.Server != nil && user.Server.IsReference(target) {
+				logger.Info().Msg("user already connected to target")
+				user.Mutex.RUnlock()
+				return fmt.Errorf("you are already there")
+			}
+			user.Mutex.RUnlock()
+
+			for _, gameServer := range s.servers.Servers {
+				if !gameServer.IsReference(target) {
+					continue
+				}
+
+				_, err := user.Connect(gameServer)
+				if err != nil {
+					return err
+				}
+
+				return nil
+			}
+
+			// Look for a space
+			space, err := s.spaces.SearchSpace(ctx, target)
+			if err != nil {
+				return fmt.Errorf("space not found")
+			}
+
+			if space != nil {
+				instance, err := s.spaces.StartSpace(ctx, target)
+				if err != nil {
+					return err
+				}
+
+				// Appears in the user's URL bar
+				serverName := instance.Space.GetID()
+
+				alias, err := space.GetAlias(ctx)
+				if err != nil {
+					return err
+				}
+
+				if alias != "" {
+					serverName = alias
+				}
+
+				_, err = user.ConnectToSpace(instance.Server, serverName)
+				return err
+			}
+
+			logger.Warn().Msgf("could not find server: %s", target)
+			return fmt.Errorf("failed to find server or space matching %s", target)
+		},
+	}
+
+	createGameCommand := commands.Command{
+		Name:        "creategame",
+		ArgFormat:   "[coop|ffa|insta|ctf|..etc] [map]",
+		Description: "create a private game for you and your friends",
+		Callback: func(ctx context.Context, user *User, mode string, map_ string) error {
+			params, err := s.inferCreateParams([]string{mode, map_})
+			if err != nil {
+				return err
+			}
+
+			return s.CreateGame(ctx, params, user)
+		},
+	}
+
+	duelCommand := commands.Command{
+		Name:        "duel",
+		ArgFormat:   "[ffa|insta]",
+		Aliases:     []string{"queue"},
+		Description: "queue for 1v1 matchmaking",
+		Callback: func(ctx context.Context, user *User, duelType string) error {
+			err := s.matches.Queue(user, duelType)
+			if err != nil {
+				// Theoretically, there might also just not be a default, but whatever.
+				return fmt.Errorf("duel type '%s' does not exist", duelType)
+			}
+
+			return nil
+		},
+	}
+
+	stopDuelCommand := commands.Command{
+		Name:        "stopduel",
+		Description: "unqueue from 1v1 matchmaking",
+		Callback: func(ctx context.Context, user *User, duelType string) {
+			s.matches.Dequeue(user)
+		},
+	}
+
+	homeCommand := commands.Command{
+		Name:        "home",
+		Description: "go to your home space (also available via #go home)",
+		Callback: func(ctx context.Context, user *User, duelType string) error {
+			err := s.GoHome(s.serverCtx, user)
+			if err != nil {
+				return fmt.Errorf("could not go home")
+			}
+			return nil
+		},
+	}
+
+	// TODO
+	//case "alias":
+	//if !user.IsLoggedIn() {
+	//return true, "", fmt.Errorf("you must be logged in to make an alias for a space")
+	//}
+
+	//isOwner, err := user.IsOwner(ctx)
+	//if err != nil {
+	//return true, "", err
+	//}
+
+	//if !isOwner {
+	//return true, "", fmt.Errorf("this is not your space")
+	//}
+
+	//instance := user.GetSpace()
+	//space := instance.Space
+
+	//if len(command) < 7 {
+	//return true, "", fmt.Errorf("alias too short")
+	//}
+
+	//alias := command[6:]
+	//if !verse.IsValidAlias(alias) {
+	//return true, "", fmt.Errorf("aliases must consist of lowercase letters, numbers, or hyphens")
+	//}
+
+	//if len(alias) > 16 {
+	//return true, "", fmt.Errorf("alias too long")
+	//}
+
+	//// Ensure the alias does not match any maps in our asset indices, either
+	//found := s.assets.FindMap(alias)
+	//if found != nil {
+	//return true, "", fmt.Errorf("alias taken by a pre-built map")
+	//}
+
+	//err = space.SetAlias(ctx, alias)
+	//if err != nil {
+	//return true, "", err
+	//}
+
+	//s.AnnounceInServer(ctx, instance.Server, fmt.Sprintf("space alias set to %s", alias))
+	//return true, "", nil
+
+	//case "desc":
+	//isOwner, err := user.IsOwner(ctx)
+	//if err != nil {
+	//return true, "", err
+	//}
+
+	//if !isOwner {
+	//return true, "", fmt.Errorf("this is not your space")
+	//}
+
+	//instance := user.GetSpace()
+	//space := instance.Space
+	//gameServer := instance.Server
+
+	//if len(command) < 6 {
+	//return true, "", fmt.Errorf("description too short")
+	//}
+
+	//description := command[5:]
+	//if len(description) > 32 {
+	//description = description[:32]
+	//}
+
+	//err = space.SetDescription(ctx, description)
+	//if err != nil {
+	//return true, "", err
+	//}
+
+	//gameServer.SetDescription(description)
+	//return true, "", nil
+
+	//case "edit":
+	//isOwner, err := user.IsOwner(ctx)
+	//if err != nil {
+	//log.Error().Err(err).Msg("failed to change edit state")
+	//return true, "", err
+	//}
+
+	//if !isOwner {
+	//return true, "", fmt.Errorf("this is not your space")
+	//}
+
+	//space := user.GetSpace()
+	//editing := space.Editing
+	//current := editing.IsOpenEdit()
+	//editing.SetOpenEdit(!current)
+	//gameServer := space.Server
+
+	//canEdit := editing.IsOpenEdit()
+
+	//if canEdit {
+	//s.AnnounceInServer(ctx, gameServer, "editing is now enabled")
+	//} else {
+	//s.AnnounceInServer(ctx, gameServer, "editing is now disabled")
+	//}
+
+	//return true, "", nil
+
+	commands := []commands.Command{
+		goCommand,
+		createGameCommand,
+		duelCommand,
+		stopDuelCommand,
+		homeCommand,
+	}
+
+	for _, command := range commands {
+		err := s.commands.Register(command)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to register cluster command")
+		}
+	}
+}
+
+func (s *Cluster) HandleCommand(ctx context.Context, user *User, command string) {
+	err := s.runCommandWithTimeout(ctx, user, command)
 	logger := user.Logger()
-	userCtx := user.Ctx()
-	handled, _, err := c.RunCommandWithTimeout(userCtx, command, user)
-
 	if err != nil {
-		logger.Error().Err(err).Str("command", command).Msg("failed to run user command")
-		user.Message(game.Red(err.Error()))
-		return err
+		logger.Error().Err(err).Msgf("user command failed: %s", command)
+		user.Message(game.Red(fmt.Sprintf("command failed: %s", err.Error())))
+		return
 	}
-
-	if !handled {
-		return fmt.Errorf("invalid command")
-	}
-
-	return nil
 }
