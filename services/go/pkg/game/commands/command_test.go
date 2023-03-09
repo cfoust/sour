@@ -101,6 +101,18 @@ func runCommand(t *testing.T, command string, callback interface{}) {
 	assert.Nil(t, err)
 }
 
+func ensureFailure(t *testing.T, command string, callback interface{}) {
+	g := NewCommandGroup("test", game.ColorGreen, SEND)
+	err := g.Register(Command{
+		Name:     "cmd",
+		Callback: callback,
+	})
+	assert.Nil(t, err)
+
+	err = run(g, command)
+	assert.NotNil(t, err)
+}
+
 func TestHandling(t *testing.T) {
 	runCommand(t, "cmd", func(u *User) {
 		assert.Equal(t, u, USER)
@@ -144,4 +156,10 @@ func TestHandling(t *testing.T) {
 	runCommand(t, "cmd 2", func(value *int) {
 		assert.Equal(t, *value, 2)
 	})
+
+	ensureFailure(t, "cmd blah", func(value int) {})
+	ensureFailure(t, "cmd blah", func(value float64) {})
+	ensureFailure(t, "cmd blah", func(value bool) {})
+	ensureFailure(t, "cmd", func(value int, next *int) {})
+	ensureFailure(t, "cmd 2 2", func(value int, value2 bool) {})
 }

@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/rs/zerolog/log"
 )
 
 type Command struct {
@@ -293,6 +292,10 @@ func (c *CommandGroup[User]) Handle(user User, args []string) error {
 
 			value = parsedValue
 		case reflect.Int, reflect.String, reflect.Bool, reflect.Float64:
+			if len(commandArgs) == 0 {
+				return fmt.Errorf("not enough arguments")
+			}
+
 			argument := commandArgs[0]
 			commandArgs = commandArgs[1:]
 			parsedValue, err := parseArg(argType, argument, false)
@@ -311,8 +314,6 @@ func (c *CommandGroup[User]) Handle(user User, args []string) error {
 
 		callbackArgs = append(callbackArgs, value)
 	}
-
-	log.Info().Msgf("%+v", callbackArgs)
 
 	results := reflect.ValueOf(callback).Call(callbackArgs)
 	if len(results) > 0 {
