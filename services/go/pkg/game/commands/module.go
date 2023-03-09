@@ -22,7 +22,7 @@ func (cmd *Command) String() string {
 	return fmt.Sprintf("%s %s", game.Green("#"+cmd.Name), cmd.ArgFormat)
 }
 
-func (cmd *Command) Detailed() string {
+func (cmd *Command) Help() string {
 	aliases := ""
 	if len(cmd.Aliases) > 0 {
 		aliases = game.Gray(fmt.Sprintf("(alias %s)", strings.Join(cmd.Aliases, ", ")))
@@ -129,6 +129,10 @@ func (c *CommandGroup[User]) Name() string {
 	return c.color.Wrap(c.namespace)
 }
 
+func (c *CommandGroup[User]) Prefix(message string) string {
+	return fmt.Sprintf("%s ~> %s", c.Name(), message)
+}
+
 func (c *CommandGroup[User]) Help() string {
 	commands := make([]string, 0)
 
@@ -137,7 +141,7 @@ func (c *CommandGroup[User]) Help() string {
 	}
 
 	sort.Strings(commands)
-	return fmt.Sprintf("%s: %s", c.Name(), strings.Join(commands, ", "))
+	return c.Prefix(strings.Join(commands, ", "))
 }
 
 func (c *CommandGroup[User]) resolve(args []string) (*Command, []string) {
@@ -256,10 +260,15 @@ func parseArg(type_ reflect.Type, argument string, isPointer bool) (reflect.Valu
 	return NIL, fmt.Errorf("could not parse argument")
 }
 
+func (c *CommandGroup[User]) GetHelp(command string) string {
+	resolved, _ := c.resolve([]string{command})
+	return c.Prefix(resolved.Help())
+}
+
 func (c *CommandGroup[User]) Handle(user User, args []string) error {
 	command, commandArgs := c.resolve(args)
 	if command == nil {
-		return fmt.Errorf("%s: unknown command", c.Name())
+		return fmt.Errorf("%s ~> unknown command", c.Name())
 	}
 
 	callback := command.Callback
@@ -335,13 +344,10 @@ func (c *CommandGroup[User]) Handle(user User, args []string) error {
 }
 
 type Commandable interface {
-	CanHandle([]string) bool
+	// Get help for a specific command (or empty string if it does not exist.)
+	GetHelp(string) string
+	// Lists all commands.
 	Help() string
 }
 
-// cluster, space, server
-
-// #creategame ffa complex
-// #space edit
-// #space help
-// #server queuemap complex
+var _ Commandable = (*CommandGroup[int])(nil)
