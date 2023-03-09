@@ -1,4 +1,4 @@
-package game
+package command
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/rs/zerolog/log"
 )
 
 type Command struct {
@@ -75,6 +76,10 @@ func (c *CommandGroup[User]) validateCallback(callback interface{}) error {
 			}
 			continue
 		case reflect.Pointer:
+			if argType == userType {
+				continue
+			}
+
 			haveOptional = true
 
 			elemType := argType.Elem()
@@ -97,10 +102,10 @@ func (c *CommandGroup[User]) validateCallback(callback interface{}) error {
 	return nil
 }
 
-func (c *CommandGroup[User]) Register(command Command) {
+func (c *CommandGroup[User]) Register(command Command) error {
 	err := c.validateCallback(command.Callback)
 	if err != nil {
-		panic(err.Error())
+		return err
 	}
 
 	c.commands[command.Name] = &command
@@ -108,6 +113,8 @@ func (c *CommandGroup[User]) Register(command Command) {
 	for _, alias := range command.Aliases {
 		c.commands[alias] = &command
 	}
+
+	return nil
 }
 
 func NewCommandGroup[User any](namespace string, color game.TextColor, message func(User, string)) *CommandGroup[User] {
@@ -115,6 +122,7 @@ func NewCommandGroup[User any](namespace string, color game.TextColor, message f
 		namespace: namespace,
 		color:     color,
 		message:   message,
+		commands:  make(map[string]*Command),
 	}
 }
 
@@ -148,7 +156,7 @@ func (c *CommandGroup[User]) resolve(args []string) (*Command, []string) {
 		}
 
 		target = args[1]
-		commandArguments = args[2:]
+		commandArguments = args[1:]
 	}
 
 	command, ok := c.commands[target]
@@ -167,12 +175,30 @@ func (c *CommandGroup[User]) CanHandle(args []string) bool {
 
 var NIL = reflect.ValueOf(nil)
 
-func parseArg(type_ reflect.Type, argument string) (reflect.Value, error) {
+var TRUTHY = []string{
+	"true",
+	"yes",
+	"1",
+	"on",
+}
+
+var FALSY = []string{
+	"false",
+	"no",
+	"0",
+	"off",
+}
+
+func parseArg(type_ reflect.Type, argument string, isPointer bool) (reflect.Value, error) {
 	switch type_.Kind() {
 	case reflect.Int:
 		value, err := strconv.Atoi(argument)
 		if err != nil {
 			return NIL, fmt.Errorf("expected number argument")
+		}
+
+		if isPointer {
+			return reflect.ValueOf(&value), nil
 		}
 
 		return reflect.ValueOf(value), nil
@@ -182,16 +208,37 @@ func parseArg(type_ reflect.Type, argument string) (reflect.Value, error) {
 			return NIL, fmt.Errorf("expected decimal argument")
 		}
 
+		if isPointer {
+			return reflect.ValueOf(&value), nil
+		}
+
 		return reflect.ValueOf(value), nil
 	case reflect.Bool:
 		value := false
+		matched := false
 
-		if argument == "yes" || argument == "1" || argument == "on" {
-			value = true
-		} else if argument == "no" || argument == "0" || argument == "off" {
-			value = false
-		} else {
+		for _, truthy := range TRUTHY {
+			if argument == truthy {
+				value = true
+				matched = true
+				break
+			}
+		}
+
+		for _, falsy := range FALSY {
+			if argument == falsy {
+				value = false
+				matched = true
+				break
+			}
+		}
+
+		if !matched {
 			return NIL, fmt.Errorf("expected boolean argument")
+		}
+
+		if isPointer {
+			return reflect.ValueOf(&value), nil
 		}
 
 		return reflect.ValueOf(value), nil
@@ -211,7 +258,7 @@ func (c *CommandGroup[User]) Handle(user User, args []string) error {
 	callback := command.Callback
 	callbackType := reflect.TypeOf(callback)
 	callbackArgs := make([]reflect.Value, 0)
-	originalArgs := callbackArgs
+	originalArgs := commandArgs
 
 	for i := 0; i < callbackType.NumIn(); i++ {
 		argType := callbackType.In(i)
@@ -221,22 +268,34 @@ func (c *CommandGroup[User]) Handle(user User, args []string) error {
 		case reflect.Slice:
 			value = reflect.ValueOf(originalArgs)
 		case reflect.Pointer:
+			if argType == reflect.TypeOf(user) {
+				value = reflect.ValueOf(user)
+				break
+			}
+
 			if len(commandArgs) == 0 {
-				value = reflect.ValueOf(nil)
+				switch argType.Elem().Kind() {
+				case reflect.Int:
+					value = reflect.ValueOf((*int)(nil))
+				case reflect.Bool:
+					value = reflect.ValueOf((*bool)(nil))
+				case reflect.Float64:
+					value = reflect.ValueOf((*float64)(nil))
+				}
 				break
 			}
 			argument := commandArgs[0]
 			commandArgs = commandArgs[1:]
-			parsedValue, err := parseArg(argType.Elem(), argument)
+			parsedValue, err := parseArg(argType.Elem(), argument, true)
 			if err != nil {
 				return err
 			}
 
-			value = parsedValue.Addr()
+			value = parsedValue
 		case reflect.Int, reflect.String, reflect.Bool, reflect.Float64:
 			argument := commandArgs[0]
 			commandArgs = commandArgs[1:]
-			parsedValue, err := parseArg(argType, argument)
+			parsedValue, err := parseArg(argType, argument, false)
 			if err != nil {
 				return err
 			}
@@ -252,6 +311,8 @@ func (c *CommandGroup[User]) Handle(user User, args []string) error {
 
 		callbackArgs = append(callbackArgs, value)
 	}
+
+	log.Info().Msgf("%+v", callbackArgs)
 
 	results := reflect.ValueOf(callback).Call(callbackArgs)
 	if len(results) > 0 {
