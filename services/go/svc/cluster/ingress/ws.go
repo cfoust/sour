@@ -411,7 +411,6 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 				go func() {
 					select {
 					case result := <-resultChannel:
-						response := result.Response
 						err := result.Err
 
 						packet := ResponseMessage{
@@ -421,7 +420,6 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 
 						if err == nil {
 							packet.Success = true
-							packet.Response = response
 						} else {
 							packet.Success = false
 							packet.Response = err.Error()

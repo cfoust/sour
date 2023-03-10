@@ -23,7 +23,7 @@ func (c *Cluster) waitForMapConsent(ctx context.Context, user *User) error {
 	for {
 		select {
 		case <-timeout.Done():
-			go c.RunCommand(ctx, "go lobby", user)
+			go c.runCommand(ctx, user, "go lobby")
 			return fmt.Errorf("user never consented")
 		case <-serverCtx.Done():
 			return fmt.Errorf("user left the server")

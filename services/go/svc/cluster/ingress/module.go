@@ -29,9 +29,7 @@ const (
 )
 
 type CommandResult struct {
-	Handled  bool
-	Err      error
-	Response string
+	Err error
 }
 
 type ClusterCommand struct {

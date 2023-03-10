@@ -166,6 +166,8 @@ func (s *Cluster) runCommand(ctx context.Context, user *User, command string) er
 		return fmt.Errorf("command cannot be empty")
 	}
 
+	log.Info().Msgf("%+v", args)
+
 	// First check cluster commands
 	if s.commands.CanHandle(args) {
 		return s.commands.Handle(ctx, user, args)
@@ -259,30 +261,29 @@ func (s *Cluster) registerCommands() {
 				return fmt.Errorf("space not found")
 			}
 
-			if space != nil {
-				instance, err := s.spaces.StartSpace(ctx, target)
-				if err != nil {
-					return err
-				}
+			if space == nil {
+				return fmt.Errorf("failed to find server or space matching %s", target)
+			}
 
-				// Appears in the user's URL bar
-				serverName := instance.Space.GetID()
-
-				alias, err := space.GetAlias(ctx)
-				if err != nil {
-					return err
-				}
-
-				if alias != "" {
-					serverName = alias
-				}
-
-				_, err = user.ConnectToSpace(instance.Server, serverName)
+			instance, err := s.spaces.StartSpace(ctx, target)
+			if err != nil {
 				return err
 			}
 
-			logger.Warn().Msgf("could not find server: %s", target)
-			return fmt.Errorf("failed to find server or space matching %s", target)
+			// Appears in the user's URL bar
+			serverName := instance.Space.GetID()
+
+			alias, err := space.GetAlias(ctx)
+			if err != nil {
+				return err
+			}
+
+			if alias != "" {
+				serverName = alias
+			}
+
+			_, err = user.ConnectToSpace(instance.Server, serverName)
+			return err
 		},
 	}
 
@@ -319,7 +320,7 @@ func (s *Cluster) registerCommands() {
 	stopDuelCommand := commands.Command{
 		Name:        "stopduel",
 		Description: "unqueue from 1v1 matchmaking",
-		Callback: func(ctx context.Context, user *User, duelType string) {
+		Callback: func(ctx context.Context, user *User) {
 			s.matches.Dequeue(user)
 		},
 	}
@@ -327,7 +328,7 @@ func (s *Cluster) registerCommands() {
 	homeCommand := commands.Command{
 		Name:        "home",
 		Description: "go to your home space (also available via #go home)",
-		Callback: func(ctx context.Context, user *User, duelType string) error {
+		Callback: func(ctx context.Context, user *User) error {
 			err := s.GoHome(s.serverCtx, user)
 			if err != nil {
 				return fmt.Errorf("could not go home")

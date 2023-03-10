@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/cfoust/sour/pkg/game"
-	C "github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/game/io"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	S "github.com/cfoust/sour/pkg/server"
@@ -154,10 +153,10 @@ func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int32) 
 		for _, link := range links {
 			if link.ID == uint8(teleport.Attr1) {
 				logger.Info().Msgf("teleported to %s", link.Destination)
-				go c.RunCommandWithTimeout(
+				go c.runCommandWithTimeout(
 					user.Ctx(),
-					fmt.Sprintf("go %s", link.Destination),
 					user,
+					fmt.Sprintf("go %s", link.Destination),
 				)
 			}
 		}
@@ -167,18 +166,8 @@ func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int32) 
 func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 	userCtx := user.Ctx()
 
-	//passthrough := func(channel uint8, message P.Message) {
-		//server := user.GetServer()
-		//if server != nil {
-			//server.SendData(
-				//user.Id,
-				//uint32(channel),
-				//message.Data(),
-			//)
-		//}
-	//}
-
 	chats := user.From.Intercept(P.N_TEXT)
+	serverCommands := user.From.Intercept(P.N_SERVCMD)
 	blockConnecting := user.From.InterceptWith(func(code P.MessageCode) bool {
 		return !P.IsConnectingMessage(code)
 	})
@@ -215,14 +204,14 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 
 			msg.Drop()
 
-			err := c.RunOnBehalf(
+			err := c.runCommandWithTimeout(
 				ctx,
+				user,
 				fmt.Sprintf(
 					"creategame %s %s",
 					MODE_NAMES[vote.Mode],
 					vote.Map,
 				),
-				user,
 			)
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to create game from vote")
@@ -320,50 +309,18 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 
 			msg.Drop()
 
-			if len(text) >= C.MAXSTRLEN {
-				removed := len(text) - C.MAXSTRLEN
-				text = text[:C.MAXSTRLEN]
-				user.Message(game.Red(
-					fmt.Sprintf("your message was too long; we cut off the last %d characters", removed),
-				))
-			}
-
 			if !strings.HasPrefix(text, "#") {
 				// We do our own chat, don't pass on to the server
 				c.ForwardGlobalChat(userCtx, user, text)
 				continue
 			}
 
-			msg.Pass()
-
-			// TODO
-			//command := text[1:]
-
-			// Only send this packet after we've checked
-			// whether the cluster should handle it
-			//go func() {
-			//handled, response, err := c.RunCommandWithTimeout(userCtx, command, user)
-
-			//if !handled {
-			//passthrough(msg.Channel, message)
-			//msg.Pass()
-			//return
-			//}
-
-			//if err != nil {
-			//logger.Error().Err(err).Str("command", command).Msg("user command failed")
-			//user.Message(game.Red(err.Error()))
-			//return
-			//} else if len(response) > 0 {
-			//user.Message(response)
-			//return
-			//}
-
-			//if command == "help" {
-			//passthrough(msg.Channel, message)
-			//}
-			//}()
-			continue
+			go c.HandleCommand(ctx, user, text[1:])
+		case msg := <-serverCommands.Receive():
+			message := msg.Message
+			text := message.(P.ServCMD).Command
+			msg.Drop()
+			go c.HandleCommand(ctx, user, text)
 		}
 	}
 }
@@ -653,11 +610,9 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			outChannel := request.Response
 
 			go func() {
-				handled, response, err := c.RunCommandWithTimeout(userCtx, command, user)
+				err := c.runCommandWithTimeout(userCtx, user, command)
 				outChannel <- ingress.CommandResult{
-					Handled:  handled,
-					Err:      err,
-					Response: response,
+					Err: err,
 				}
 			}()
 		case <-disconnect:
