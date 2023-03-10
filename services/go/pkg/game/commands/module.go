@@ -35,8 +35,11 @@ type CommandGroup[User any] struct {
 	// e.g. cluster, space, server
 	namespace string
 	color     game.TextColor
-	commands  map[string]*Command
-	message   func(User, string)
+	// Just commands (for help)
+	commands map[string]*Command
+	// Includes aliases
+	references map[string]*Command
+	message    func(User, string)
 }
 
 func (c *CommandGroup[User]) validateCallback(callback interface{}) error {
@@ -118,9 +121,10 @@ func (c *CommandGroup[User]) Register(command Command) error {
 	}
 
 	c.commands[command.Name] = &command
+	c.references[command.Name] = &command
 
 	for _, alias := range command.Aliases {
-		c.commands[alias] = &command
+		c.references[alias] = &command
 	}
 
 	return nil
@@ -131,6 +135,7 @@ func NewCommandGroup[User any](namespace string, color game.TextColor) *CommandG
 		namespace: namespace,
 		color:     color,
 		commands:  make(map[string]*Command),
+		references:  make(map[string]*Command),
 	}
 }
 
@@ -139,7 +144,7 @@ func (c *CommandGroup[User]) Name() string {
 }
 
 func (c *CommandGroup[User]) Prefix(message string) string {
-	return fmt.Sprintf("%s ~> %s", c.Name(), message)
+	return fmt.Sprintf("%s %s", c.Name(), message)
 }
 
 func (c *CommandGroup[User]) Help() string {
@@ -171,11 +176,11 @@ func (c *CommandGroup[User]) resolve(args []string) (*Command, []string) {
 		commandArguments = args[2:]
 	}
 
-	command, ok := c.commands[target]
+	command, ok := c.references[target]
 	if !ok {
 		// A command invocation can also be any prefix of a valid
 		// command, do one last check
-		for name, command := range c.commands {
+		for name, command := range c.references {
 			if strings.HasPrefix(name, target) {
 				return command, commandArguments
 			}
@@ -214,7 +219,7 @@ func parseArg(type_ reflect.Type, argument string, isPointer bool) (reflect.Valu
 	case reflect.Int:
 		value, err := strconv.Atoi(argument)
 		if err != nil {
-			return NIL, fmt.Errorf("expected number argument")
+			return NIL, fmt.Errorf("expected number")
 		}
 
 		if isPointer {
@@ -225,7 +230,7 @@ func parseArg(type_ reflect.Type, argument string, isPointer bool) (reflect.Valu
 	case reflect.Float64:
 		value, err := strconv.ParseFloat(argument, 64)
 		if err != nil {
-			return NIL, fmt.Errorf("expected decimal argument")
+			return NIL, fmt.Errorf("expected decimal")
 		}
 
 		if isPointer {
@@ -254,7 +259,7 @@ func parseArg(type_ reflect.Type, argument string, isPointer bool) (reflect.Valu
 		}
 
 		if !matched {
-			return NIL, fmt.Errorf("expected boolean argument")
+			return NIL, fmt.Errorf("expected [true|yes|1|false|no|0]")
 		}
 
 		if isPointer {
@@ -285,6 +290,8 @@ func (c *CommandGroup[User]) Handle(ctx context.Context, user User, args []strin
 	callbackArgs := make([]reflect.Value, 0)
 	originalArgs := commandArgs
 
+	numPrimitive := 0
+
 	for i := 0; i < callbackType.NumIn(); i++ {
 		argType := callbackType.In(i)
 
@@ -309,6 +316,8 @@ func (c *CommandGroup[User]) Handle(ctx context.Context, user User, args []strin
 				break
 			}
 
+			numPrimitive += 1
+
 			if len(commandArgs) == 0 {
 				switch argType.Elem().Kind() {
 				case reflect.Int:
@@ -324,20 +333,22 @@ func (c *CommandGroup[User]) Handle(ctx context.Context, user User, args []strin
 			commandArgs = commandArgs[1:]
 			parsedValue, err := parseArg(argType.Elem(), argument, true)
 			if err != nil {
-				return err
+				return fmt.Errorf("invalid argument %d: %s", numPrimitive, err.Error())
 			}
 
 			value = parsedValue
 		case reflect.Int, reflect.String, reflect.Bool, reflect.Float64:
+			numPrimitive += 1
+
 			if len(commandArgs) == 0 {
-				return fmt.Errorf("not enough arguments")
+				return fmt.Errorf("missing argument %d", numPrimitive)
 			}
 
 			argument := commandArgs[0]
 			commandArgs = commandArgs[1:]
 			parsedValue, err := parseArg(argType, argument, false)
 			if err != nil {
-				return err
+				return fmt.Errorf("invalid argument %d: %s", numPrimitive, err.Error())
 			}
 
 			value = parsedValue

@@ -166,8 +166,6 @@ func (s *Cluster) runCommand(ctx context.Context, user *User, command string) er
 		return fmt.Errorf("command cannot be empty")
 	}
 
-	log.Info().Msgf("%+v", args)
-
 	// First check cluster commands
 	if s.commands.CanHandle(args) {
 		return s.commands.Handle(ctx, user, args)
@@ -183,7 +181,7 @@ func (s *Cluster) runCommand(ctx context.Context, user *User, command string) er
 
 	helpArgs := args[1:]
 	if len(helpArgs) == 0 {
-		user.Message("available commands:")
+		user.RawMessage("available commands: (say '#help [command]' for more information)")
 		for _, commandable := range []commands.Commandable{s.commands} {
 			user.RawMessage(commandable.Help())
 		}
