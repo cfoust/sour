@@ -181,8 +181,8 @@ func (c *User) SendChannel(channel uint8, messages ...P.Message) <-chan bool {
 	out := make(chan bool, 1)
 	c.to <- TrackedPacket{
 		Packet: P.Packet{
-			channel,
-			messages,
+			Channel:  channel,
+			Messages: messages,
 		},
 		Done: out,
 	}
@@ -333,7 +333,7 @@ func (c *User) sendQueuedMessages() {
 }
 
 func (c *User) sendMessage(message string) {
-	c.Send(P.ServerMessage{message})
+	c.Send(P.ServerMessage{Text: message})
 }
 
 func (u *User) queueMessage(message string) {
@@ -473,13 +473,11 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 					continue
 				}
 
-				otherUser.Mutex.RLock()
 				otherUser.Send(
 					P.ClientDisconnected{
-						int32(otherUser.GetClientNum()),
+						Client: int32(otherUser.GetClientNum()),
 					},
 				)
-				otherUser.Mutex.RUnlock()
 				newUsers = append(newUsers, otherUser)
 			}
 			u.o.Servers[u.Server] = newUsers
