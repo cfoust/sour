@@ -608,8 +608,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				continue
 			}
 
-			logger.Info().Msgf("%+v", processed)
-
 			user.RawTo.Publish(io.RawPacket{
 				Data:    filteredData,
 				Channel: channel,
