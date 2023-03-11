@@ -269,7 +269,7 @@ func (s *Server) Join(c *Client) {
 }
 
 func (s *Server) Message(message string) {
-	s.Broadcast(P.ServerMessage{message})
+	s.Broadcast(P.ServerMessage{Text: message})
 }
 
 func (s *Server) Broadcast(messages ...P.Message) {
@@ -480,17 +480,14 @@ type hit struct {
 }
 
 func (s *Server) HandleShoot(client *Client, wpn weapon.Weapon, id int32, from, to *geom.Vector, hits []hit) {
-	from = from.Mul(geom.DMF)
-	to = to.Mul(geom.DMF)
-
 	s.Clients.Relay(
 		client,
 		P.ShotFX{
-			int32(client.CN),
-			int32(wpn.ID),
-			id,
-			P.Vec{from.X(), from.Y(), from.Z()},
-			P.Vec{to.X(), to.Y(), to.Z()},
+			Client: int32(client.CN),
+			Gun: int32(wpn.ID),
+			Id: id,
+			From: P.Vec{X: from.X(), Y: from.Y(), Z: from.Z()},
+			To: P.Vec{X: to.X(), Y: to.Y(), Z: to.Z()},
 		},
 	)
 	client.LastShot = time.Now()
