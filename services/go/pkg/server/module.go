@@ -121,6 +121,12 @@ func (s *Server) Outgoing() <-chan ServerPacket {
 func (s *Server) GameDuration() time.Duration { return s.Config.GameDuration }
 
 func (s *Server) Connect(sessionId uint32) (*Client, <-chan bool) {
+	existing := s.Clients.GetClientByID(sessionId)
+	if existing != nil {
+		log.Error().Msgf("client %d already connected")
+		return nil, nil
+	}
+
 	connected := make(chan bool, 1)
 
 	client := s.Clients.Add(sessionId, s.outgoing)
@@ -133,6 +139,11 @@ func (s *Server) Connect(sessionId uint32) (*Client, <-chan bool) {
 			Messages: payload,
 		}
 	})
+
+	if client.Positions == nil {
+		log.Error().Msgf("client %d had no channels")
+		return nil, nil
+	}
 
 	client.Send(
 		P.ServerInfo{
@@ -171,11 +182,11 @@ func (s *Server) SetDescription(description string) {
 }
 
 func (s *Server) RefreshTime() {
-	s.Broadcast(P.TimeUp{int32(s.Clock.TimeLeft() / time.Second)})
+	s.Broadcast(P.TimeUp{Remaining: int32(s.Clock.TimeLeft() / time.Second)})
 }
 
 func (s *Server) BroadcastTime(seconds int) {
-	s.Broadcast(P.TimeUp{int32(seconds)})
+	s.Broadcast(P.TimeUp{Remaining: int32(seconds)})
 }
 
 func (s *Server) Pause() {
@@ -198,7 +209,7 @@ func (s *Server) ForceRespawn(target *Client) {
 		}
 
 		s.Spawn(c)
-		c.Send(P.SpawnState{int32(c.CN), c.ToWire()})
+		c.Send(P.SpawnState{Client: int32(c.CN), EntityState: c.ToWire()})
 	})
 }
 
@@ -215,7 +226,10 @@ func (s *Server) ResetPlayers(resetFrags bool) {
 		}
 
 		s.Broadcast(P.Died{
-			int32(c.CN), int32(c.CN), c.Frags, c.Team.Frags,
+			Client:      int32(c.CN),
+			Killer:      int32(c.CN),
+			KillerFrags: c.Frags,
+			VictimFrags: c.Team.Frags,
 		})
 	})
 }
@@ -282,7 +296,7 @@ func (s *Server) ConfirmSpawn(client *Client, lifeSequence, _weapon int32) {
 	client.LastSpawnAttempt = time.Time{}
 
 	client.Packets.Publish(P.SpawnResponse{
-		client.ToWire(),
+		EntityState: client.ToWire(),
 	})
 
 	if clock, competitive := s.GameMode.(game.Competitive); competitive {
@@ -302,7 +316,10 @@ func (s *Server) Leave(sessionId uint32) {
 func (s *Server) Disconnect(client *Client, reason disconnectreason.ID) {
 	s.GameMode.Leave(&client.Player)
 	s.Clock.Leave(&client.Player)
-	s.relay.RemoveClient(client.CN)
+	err := s.relay.RemoveClient(client.CN)
+	if err != nil {
+		log.Error().Err(err).Msgf("could not disconnect %d", client.SessionID)
+	}
 	s.Clients.Disconnect(client, reason)
 	s.Clients.ForEach(func(c *Client) { log.Printf("%#v\n", c) })
 	client.Reset()

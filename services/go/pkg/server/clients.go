@@ -25,7 +25,20 @@ type ClientManager struct {
 
 func (cm *ClientManager) Add(sessionId uint32, outgoing Outgoing) *Client {
 	cm.mutex.Lock()
-	cn := uint32(len(cm.clients))
+
+	taken := make(map[uint32]struct{})
+	for _, client := range cm.clients {
+		taken[client.CN] = struct{}{}
+	}
+
+	var cn uint32 = 0
+	for {
+		if _, ok := taken[cn]; !ok {
+			break
+		}
+		cn++
+	}
+
 	c := NewClient(cn, sessionId, outgoing)
 	cm.clients = append(cm.clients, c)
 	cm.mutex.Unlock()
