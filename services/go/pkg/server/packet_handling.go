@@ -107,9 +107,9 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 
 		// client sending his position and movement in the world
 		if client.State == playerstate.Alive {
+			msg.State.LifeSequence = client.LifeSequence
 			client.Positions.Publish(msg)
-			o := msg.State.O
-			client.Position = geom.NewVector(o.X, o.Y, o.Z)
+			client.Position = mapVec(msg.State.O)
 		}
 		return
 
@@ -325,6 +325,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 	case P.N_SPAWN:
 		msg := message.(P.SpawnRequest)
 		s.ConfirmSpawn(client, int32(msg.LifeSequence), int32(msg.GunSelect))
+		log.Printf("client %d=%d", client.CN, client.LifeSequence)
 
 	case P.N_GUNSELECT:
 		msg := message.(P.GunSelect)
