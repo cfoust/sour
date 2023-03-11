@@ -68,6 +68,25 @@ func Decode(b []byte, fromClient bool) ([]Message, error) {
 func Encode(messages ...Message) ([]byte, error) {
 	p := io.Packet{}
 
+	// N_CLIENT has a field indicating the number of bytes to follow.
+	if len(messages) > 0 && messages[0].Type() == N_CLIENT {
+		client := messages[0].(ClientPacket)
+		rest, err := Encode(messages[1:]...)
+		if err != nil {
+			return nil, err
+		}
+
+		err = p.Put(N_CLIENT, ClientPacket{
+			Client: client.Client,
+			Length: int32(len(rest)),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		return append(p, rest...), nil
+	}
+
 	for _, message := range messages {
 		err := p.Put(message.Type(), message)
 

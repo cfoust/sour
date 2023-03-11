@@ -121,8 +121,8 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *User, mess
 		if senderServer == otherServer {
 			// We lose the formatting, but that's OK
 			user.Send(
-				P.ClientPacket{int32(senderNum), 0},
-				P.Text{message},
+				P.ClientPacket{Client: int32(senderNum)},
+				P.Text{Text: message},
 			)
 			continue
 		}
@@ -545,8 +545,9 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			done := msg.Done
 
 			channel := uint8(packet.Channel)
-			out := make([]byte, 0)
-			filtered := make([]byte, 0)
+
+			filtered := make([]P.Message, 0)
+			processed := make([]P.Message, 0)
 
 			for _, message := range packet.Messages {
 				type_ := message.Type()
@@ -570,29 +571,53 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					continue
 				}
 
-				encoded, err := P.Encode(newMessage)
-				if err != nil {
-					log.Error().Err(err).Msgf("failed to encode message")
+				// we don't want to save  
+				if newMessage.Type() == P.N_SENDDEMO {
+					sendDemo := newMessage.(P.SendDemo)
+
+					filtered = append(filtered, P.SendDemo{
+						Tag:  sendDemo.Tag,
+						Data: make([]byte, 0),
+					})
+
+					processed = append(processed, newMessage)
 					continue
 				}
 
-				out = append(out, encoded...)
+				if newMessage.Type() == P.N_SENDMAP {
+					filtered = append(filtered, P.SendMap{
+						Map: make([]byte, 0),
+					})
 
-				if type_ == P.N_SENDDEMO || type_ == P.N_SENDMAP {
+					processed = append(processed, newMessage)
 					continue
 				}
 
-				filtered = append(filtered, encoded...)
+				processed = append(processed, newMessage)
 			}
 
+			data, err := P.Encode(processed...)
+			if err != nil {
+				log.Error().Err(err).Msgf("failed to encode message")
+				continue
+			}
+
+			filteredData, err := P.Encode(filtered...)
+			if err != nil {
+				log.Error().Err(err).Msgf("failed to encode message")
+				continue
+			}
+
+			logger.Info().Msgf("%+v", processed)
+
 			user.RawTo.Publish(io.RawPacket{
-				Data:    filtered,
+				Data:    filteredData,
 				Channel: channel,
 			})
 
 			ack := user.Connection.Send(io.RawPacket{
 				Channel: uint8(packet.Channel),
-				Data:    out,
+				Data:    data,
 			})
 
 			go func() {

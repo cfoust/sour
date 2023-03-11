@@ -648,6 +648,7 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, connection ingress.Conne
 		to:                make(chan TrackedPacket, 1000),
 		Authentication:    make(chan *auth.AuthUser),
 		serverConnections: make(chan ConnectionEvent),
+		ServerSession:     utils.NewSession(ctx),
 		o:                 u,
 		RawFrom:           utils.NewTopic[io.RawPacket](),
 		RawTo:             utils.NewTopic[io.RawPacket](),
