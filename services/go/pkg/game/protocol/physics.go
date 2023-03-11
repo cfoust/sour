@@ -81,7 +81,7 @@ func getComponent(p *io.Packet, flags uint32, k uint32) float64 {
 		}
 	}
 
-	return float64(n)
+	return float64(n / constants.DMF)
 }
 
 func clamp(a int, b int, c int) int {
@@ -142,6 +142,7 @@ func (d *PhysicsState) Unmarshal(p *io.Packet) error {
 	d.O.X = getComponent(p, flags, 0)
 	d.O.Y = getComponent(p, flags, 1)
 	d.O.Z = getComponent(p, flags, 2)
+	d.O.Z += constants.DEFAULT_EYE_HEIGHT
 
 	r, _ = p.GetByte()
 	dir := int(r)
