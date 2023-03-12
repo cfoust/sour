@@ -552,9 +552,18 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			for _, message := range packet.Messages {
 				type_ := message.Type()
 				if !P.IsSpammyMessage(type_) {
-					logger.Debug().
-						Str("type", message.Type().String()).
-						Msgf("cluster -> client %+v", message)
+					printable := message
+
+					switch printable.Type() {
+					case P.N_SENDDEMO, P.N_SENDMAP:
+						logger.Debug().
+							Str("type", message.Type().String()).
+							Msgf("cluster -> client %s", message.Type().String())
+					default:
+						logger.Debug().
+							Str("type", message.Type().String()).
+							Msgf("cluster -> client %s %+v", message.Type().String(), message)
+					}
 				}
 
 				newMessage, err := user.To.Process(
@@ -596,11 +605,19 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				processed = append(processed, newMessage)
 			}
 
+			codes := make([]P.MessageCode, 0)
+			for _, message := range processed {
+				codes = append(codes, message.Type())
+			}
+
 			data, err := P.Encode(processed...)
 			if err != nil {
 				log.Error().Err(err).Msgf("failed to encode message")
 				continue
 			}
+
+			logger.Debug().
+				Msgf("cluster -> client packet length=%d contents=%+v", len(data), codes)
 
 			filteredData, err := P.Encode(filtered...)
 			if err != nil {

@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"github.com/cfoust/sour/pkg/game/io"
-	"github.com/rs/zerolog/log"
 )
 
 func getMessageType(code MessageCode, fromClient bool) Message {
@@ -40,10 +39,6 @@ func Decode(b []byte, fromClient bool) ([]Message, error) {
 
 		if code >= NUMMSG {
 			return nil, fmt.Errorf("code %d is not in range of messages", code)
-		}
-
-		if !IsSpammyMessage(code) {
-			log.Debug().Msgf("decoding %s", code.String())
 		}
 
 		messageType := getMessageType(code, fromClient)

@@ -159,7 +159,11 @@ func (h *Host) Service() <-chan Event {
 						C.size_t(len(payload)),
 						C.enet_uint32(flags),
 					)
-					C.enet_peer_send(peer.CPeer, C.enet_uint8(queued.Channel), packet)
+					result := C.enet_peer_send(peer.CPeer, C.enet_uint8(queued.Channel), packet)
+					if result == -1 {
+						queued.Done <- false
+						continue
+					}
 					command := C.getLastCommand(peer.CPeer)
 					peer.Pending = append(peer.Pending, PendingPacket{
 						Sequence: uint16(command),

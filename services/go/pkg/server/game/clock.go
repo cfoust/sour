@@ -86,7 +86,6 @@ func (c *casualClock) Leave(*Player) {}
 
 func (c *casualClock) Stop() {
 	c.s.Broadcast(P.TimeUp{0})
-	log.Println("stopping game timer, time left:", c.t.TimeLeft())
 	c.t.Stop()
 }
 
@@ -99,7 +98,6 @@ func (c *casualClock) TimeLeft() time.Duration {
 }
 
 func (c *casualClock) SetTimeLeft(d time.Duration) {
-	log.Println("setting game timer to", d)
 	if !c.t.SetTimeLeft(d) {
 		log.Println("game timer had already expired")
 	}

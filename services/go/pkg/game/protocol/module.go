@@ -207,6 +207,11 @@ type SendMap struct {
 
 func (m SendMap) Type() MessageCode { return N_SENDMAP }
 
+func (s SendMap) Marshal(p *io.Packet) error {
+	*p = append(*p, s.Map...)
+	return nil
+}
+
 func (s *SendMap) Unmarshal(p *io.Packet) error {
 	s.Map = *p
 	*p = (*p)[0:0]
@@ -915,6 +920,15 @@ type SendDemo struct {
 }
 
 func (m SendDemo) Type() MessageCode { return N_SENDDEMO }
+
+func (s SendDemo) Marshal(p *io.Packet) error {
+	err := p.Put(s.Tag)
+	if err != nil {
+		return err
+	}
+	*p = append(*p, s.Data...)
+	return nil
+}
 
 func (s *SendDemo) Unmarshal(p *io.Packet) error {
 	err := p.Get(
