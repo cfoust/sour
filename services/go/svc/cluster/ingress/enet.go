@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 
 type PacketACK struct {
 	Packet io.RawPacket
-	Done   chan bool
+	Error  chan error
 }
 
 type ENetClient struct {
@@ -77,11 +78,11 @@ func (c *ENetClient) Type() ClientType {
 	return ClientTypeENet
 }
 
-func (c *ENetClient) Send(packet io.RawPacket) <-chan bool {
-	done := make(chan bool, 1)
+func (c *ENetClient) Send(packet io.RawPacket) <-chan error {
+	done := make(chan error, 1)
 	c.toClient <- PacketACK{
 		Packet: packet,
-		Done:   done,
+		Error:  done,
 	}
 	return done
 }
@@ -126,10 +127,10 @@ func (c *ENetClient) Poll(ctx context.Context) {
 				defer cancel()
 				select {
 				case result := <-done:
-					packetACK.Done <- result
+					packetACK.Error <- result
 					return
 				case <-timeout.Done():
-					packetACK.Done <- false
+					packetACK.Error <- fmt.Errorf("message never ACK'd")
 					return
 				}
 			}()

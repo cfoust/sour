@@ -28,7 +28,7 @@ import (
 
 type TrackedPacket struct {
 	Packet P.Packet
-	Done   chan bool
+	Error  chan error
 }
 
 type ConnectionEvent struct {
@@ -177,26 +177,23 @@ func (c *User) RestoreMessages() {
 	c.sendQueuedMessages()
 }
 
-func (c *User) SendChannel(channel uint8, messages ...P.Message) <-chan bool {
-	out := make(chan bool, 1)
+func (c *User) SendChannel(channel uint8, messages ...P.Message) <-chan error {
+	out := make(chan error, 1)
 	c.to <- TrackedPacket{
 		Packet: P.Packet{
 			Channel:  channel,
 			Messages: messages,
 		},
-		Done: out,
+		Error: out,
 	}
 	return out
 }
 
 func (c *User) SendChannelSync(channel uint8, messages ...P.Message) error {
-	if !<-c.SendChannel(channel, messages...) {
-		return fmt.Errorf("client never acknowledged message")
-	}
-	return nil
+	return <-c.SendChannel(channel, messages...)
 }
 
-func (c *User) Send(messages ...P.Message) <-chan bool {
+func (c *User) Send(messages ...P.Message) <-chan error {
 	return c.SendChannel(1, messages...)
 }
 

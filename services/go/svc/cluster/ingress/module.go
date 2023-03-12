@@ -48,7 +48,7 @@ type Connection interface {
 	// Tell the client that we've connected
 	Connect(name string, isHidden bool, shouldCopy bool)
 	// Messages going to the client
-	Send(packet io.RawPacket) <-chan bool
+	Send(packet io.RawPacket) <-chan error
 	// Messages going to the server
 	ReceivePackets() <-chan io.RawPacket
 	// Clients can issue commands out-of-band

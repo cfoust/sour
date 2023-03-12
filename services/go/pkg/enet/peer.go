@@ -37,13 +37,13 @@ type PeerState uint
 
 type PendingPacket struct {
 	Sequence uint16
-	Done     chan bool
+	Error    chan error
 }
 
 type QueuedPacket struct {
 	Channel uint8
 	Data    []byte
-	Done    chan bool
+	Error   chan error
 }
 
 type Peer struct {
@@ -100,19 +100,19 @@ func (p *Peer) CheckACKs() {
 			continue
 		}
 
-		pending.Done <- true
+		pending.Error <- nil
 	}
 	p.Pending = newPending
 	p.Mutex.Unlock()
 }
 
-func (p *Peer) Send(channel uint8, payload []byte) <-chan bool {
-	done := make(chan bool, 1)
+func (p *Peer) Send(channel uint8, payload []byte) <-chan error {
+	done := make(chan error, 1)
 	p.Mutex.Lock()
 	p.Queued = append(p.Queued, QueuedPacket{
 		Channel: channel,
 		Data:    payload,
-		Done:    done,
+		Error:   done,
 	})
 	p.Mutex.Unlock()
 

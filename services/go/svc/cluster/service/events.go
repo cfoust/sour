@@ -542,7 +542,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 
 		case msg := <-toClient:
 			packet := msg.Packet
-			done := msg.Done
+			done := msg.Error
 
 			channel := uint8(packet.Channel)
 

@@ -184,11 +184,11 @@ func (c *WSClient) Type() ClientType {
 	return ClientTypeWS
 }
 
-func (c *WSClient) Send(packet io.RawPacket) <-chan bool {
-	done := make(chan bool, 1)
+func (c *WSClient) Send(packet io.RawPacket) <-chan error {
+	done := make(chan error, 1)
 	c.toClient <- packet
 	// We don't get ACKs over WS (for now, this is unnecessary)
-	done <- true
+	done <- nil
 	return done
 }
 

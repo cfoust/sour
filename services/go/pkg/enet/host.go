@@ -92,6 +92,7 @@ import "C"
 
 import (
 	"errors"
+	"fmt"
 	"unsafe"
 
 	"github.com/sasha-s/go-deadlock"
@@ -161,13 +162,13 @@ func (h *Host) Service() <-chan Event {
 					)
 					result := C.enet_peer_send(peer.CPeer, C.enet_uint8(queued.Channel), packet)
 					if result == -1 {
-						queued.Done <- false
+						queued.Error <- fmt.Errorf("enet_peer_send returned -1")
 						continue
 					}
 					command := C.getLastCommand(peer.CPeer)
 					peer.Pending = append(peer.Pending, PendingPacket{
 						Sequence: uint16(command),
-						Done:     queued.Done,
+						Error:    queued.Error,
 					})
 				}
 
