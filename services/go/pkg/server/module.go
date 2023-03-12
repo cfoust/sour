@@ -376,8 +376,7 @@ func (s *Server) Empty() {
 func (s *Server) Intermission() {
 	s.Clock.Stop()
 
-	// TODO map rotation
-	nextMap := "complex"
+	nextMap := s.Maps[s.rng.Uint32() % uint32(len(s.Maps))]
 
 	s.pendingMapChange = time.AfterFunc(10*time.Second, func() {
 		s.StartGame(s.StartMode(s.GameMode.ID()), nextMap)
