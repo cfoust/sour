@@ -9,6 +9,8 @@ client:
 cluster:
   logSessions: true
 
+  dbPath: "../../state.db"
+
   assets:
     - "!http://localhost:1234/assets/desktop/.index.source"
     - "skip:https://static.sourga.me/blobs/6481/.index.source"

@@ -46,17 +46,37 @@ type User struct {
 	RefreshToken string
 	RefreshAfter time.Time
 
+	HomeID uint
+	Home   *Space `gorm:"foreignKey:HomeID"`
+
 	Ranking []*Ranking
 	Spaces  []*Space `gorm:"foreignKey:OwnerID"`
 }
 
-type Map struct {
+type Creatable struct {
 	Entity
-	Hash      string `gorm:"not null;size:32"`
 	Created   time.Time
-	CreatorID uint `gorm:"not null"`
+	CreatorID uint  `gorm:"not null"`
+	Creator   *User `gorm:"foreignKey:CreatorID"`
+}
 
-	Creator *User `gorm:"foreignKey:CreatorID"`
+type Asset struct {
+	Creatable
+	Hash      string `gorm:"not null;size:32"`
+	// The ID of the asset store in the cluster config where this asset can
+	// be found
+	Location  string `gorm:"not null"`
+	Extension string `gorm:"not null"`
+	Size      uint   `gorm:"not null"`
+}
+
+type Map struct {
+	Creatable
+	Hash string `gorm:"not null;size:32"`
+
+	// The asset's hash will be the same as the map hash
+	AssetID uint   `gorm:"not null"`
+	Asset   *Asset `gorm:"foreignKey:AssetID"`
 }
 
 type Link struct {
@@ -69,7 +89,7 @@ type Link struct {
 }
 
 type Space struct {
-	Entity
+	Creatable
 
 	// Every space is assigned a unique identifier
 	UUID string `gorm:"unique"`
@@ -94,6 +114,7 @@ func InitDB(path string) (*gorm.DB, error) {
 	db.AutoMigrate(&ELOType{})
 	db.AutoMigrate(&Ranking{})
 	db.AutoMigrate(&User{})
+	db.AutoMigrate(&Asset{})
 	db.AutoMigrate(&Map{})
 	db.AutoMigrate(&Link{})
 	db.AutoMigrate(&Space{})
