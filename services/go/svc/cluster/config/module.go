@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+
+	"github.com/cfoust/sour/pkg/server"
 )
 
 type RespawnType string
@@ -29,9 +31,8 @@ type DuelType struct {
 type ServerPreset struct {
 	Name    string
 	Virtual bool
-	Inherit string
 	Default bool
-	Config  string
+	Config  server.Config
 }
 
 type SpaceLink struct {

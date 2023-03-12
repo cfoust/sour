@@ -44,6 +44,8 @@ type Server struct {
 	*State
 	relay *relay.Relay
 
+	Description string
+
 	Clients *ClientManager
 
 	pendingMapChange *time.Timer
@@ -118,7 +120,9 @@ func (s *Server) Outgoing() <-chan ServerPacket {
 	return s.outgoing
 }
 
-func (s *Server) GameDuration() time.Duration { return s.Config.GameDuration }
+func (s *Server) GameDuration() time.Duration {
+	return time.Duration(s.Config.MatchLength) * time.Second
+}
 
 func (s *Server) Connect(sessionId uint32) (*Client, <-chan bool) {
 	existing := s.Clients.GetClientByID(sessionId)
@@ -151,7 +155,7 @@ func (s *Server) Connect(sessionId uint32) (*Client, <-chan bool) {
 			Protocol:    P.PROTOCOL_VERSION,
 			SessionId:   int32(client.SessionID),
 			HasPassword: false, // password protection is not used by this implementation
-			Description: s.ServerDescription,
+			Description: s.Description,
 			Domain:      "",
 		},
 	)
@@ -169,7 +173,7 @@ func (s *Server) RefreshServerInfo() {
 				Protocol:    P.PROTOCOL_VERSION,
 				SessionId:   int32(c.SessionID),
 				HasPassword: false, // password protection is not used by this implementation
-				Description: s.ServerDescription,
+				Description: s.Description,
 				Domain:      "",
 			},
 		)
@@ -177,7 +181,7 @@ func (s *Server) RefreshServerInfo() {
 }
 
 func (s *Server) SetDescription(description string) {
-	s.ServerDescription = description
+	s.Description = description
 	s.RefreshServerInfo()
 }
 
@@ -265,7 +269,6 @@ func (s *Server) Join(c *Client) {
 		c.Send(flagMode.FlagsInitPacket())
 	}
 	s.Clients.InformOthersOfJoin(c)
-	c.Message(s.MessageOfTheDay)
 }
 
 func (s *Server) Message(message string) {
@@ -442,8 +445,6 @@ func (s *Server) StartGame(mode game.Mode, mapname string) {
 	)
 	s.Clock.Start()
 	s.MapChange()
-
-	s.Message(s.MessageOfTheDay)
 }
 
 func (s *Server) SetMasterMode(c *Client, mm mastermode.ID) {
@@ -484,10 +485,10 @@ func (s *Server) HandleShoot(client *Client, wpn weapon.Weapon, id int32, from, 
 		client,
 		P.ShotFX{
 			Client: int32(client.CN),
-			Gun: int32(wpn.ID),
-			Id: id,
-			From: P.Vec{X: from.X(), Y: from.Y(), Z: from.Z()},
-			To: P.Vec{X: to.X(), Y: to.Y(), Z: to.Z()},
+			Gun:    int32(wpn.ID),
+			Id:     id,
+			From:   P.Vec{X: from.X(), Y: from.Y(), Z: from.Z()},
+			To:     P.Vec{X: to.X(), Y: to.Y(), Z: to.Z()},
 		},
 	)
 	client.LastShot = time.Now()

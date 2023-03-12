@@ -47,6 +47,16 @@ proxy: #Service
 	config:          #SpaceConfig
 }
 
+#ServerConfig: {
+	maxClients: uint8 | *128
+	// Length of game in seconds
+	matchLength:      uint | *600
+	defaultGameSpeed: uint8 | *100
+	defaultMode:      "ffa" | "coop" | "insta" | "instateam" | "effic" | "efficteam" | "tac" | "tacteam" | "ctf" | "instactf" | "efficctf" | *"ffa"
+	defaultMap:       string | *"complex"
+	maps:             [...string] | *[]
+}
+
 #ServerPreset: {
 	name: string
 
@@ -54,14 +64,7 @@ proxy: #Service
 	// it's only for inheritance or matchmaking purposes.
 	virtual: bool | *false
 
-	// If a config refers to a file that exists, we will just use that to start the server
-	// config: /sour/config/server-init.cfg
-	// You can also specify a CubeScript configuration for the server inline.
-	config: string
-
-	// This refers to another preset. That preset's configuration will be
-	// prepended to this preset's configuration. This can be recursive.
-	inherit?: string
+	config: #ServerConfig
 
 	// This means that if the user does not specify a config, we use this preset.
 	default: bool | *false
@@ -139,6 +142,16 @@ proxy: #Service
 		gameSpeed:   uint | *100
 	}
 
+	// The message of the day for the server, sent to clients on join.
+	serverMOTD: string | *"Press Esc twice to change your name or adjust game options."
+
+	banners: [...string] | *[
+			"^f7Sour ^f7is available online ^f1www.github.com/cfoust/sour^f7.",
+			"Queue for duels with #duel or #duel insta.",
+	]
+	// How often to send a banner (seconds)
+	bannerInterval: uint32 | *100
+
 	// Server presets are templates for starting new servers, typically by a user through #creategame.
 	// A mapping from preset name -> preset settings.
 	presets: [...#ServerPreset]
@@ -150,6 +163,7 @@ proxy: #Service
 
 	// These are all of the game servers that will be started when the cluster starts.
 	spaces: [...#Space]
+
 	matchmaking: #MatchmakingSettings
 	ingress:     #IngressSettings
 

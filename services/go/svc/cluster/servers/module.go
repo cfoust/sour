@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	C "github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/assets"
+	C "github.com/cfoust/sour/pkg/game/constants"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/server"
@@ -236,23 +236,6 @@ func (manager *ServerManager) FindPreset(presetName string, isVirtualOk bool) op
 	return opt.None[config.ServerPreset]()
 }
 
-func (manager *ServerManager) ComputeConfig(preset config.ServerPreset) (string, error) {
-	if len(preset.Inherit) != 0 {
-		found := manager.FindPreset(preset.Inherit, true)
-		if opt.IsNone(found) {
-			return "", fmt.Errorf("preset inherited from nonexistent preset: %s", preset.Inherit)
-		}
-
-		computed, err := manager.ComputeConfig(found.Value)
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("%s\n%s", computed, preset.Config), nil
-	}
-
-	return preset.Config, nil
-}
-
 func (manager *ServerManager) NewServer(ctx context.Context, presetName string, isVirtualOk bool) (*GameServer, error) {
 	found := manager.FindPreset(presetName, isVirtualOk)
 
@@ -260,14 +243,10 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		return nil, fmt.Errorf("failed to find server preset %s and there is no default", presetName)
 	}
 
-	//preset := found.Value
-
-	// TODO configs
+	config := found.Value.Config
 
 	server := GameServer{
-		Server: server.New(ctx, &server.Config{
-			GameDuration: 10 * time.Minute,
-		}),
+		Server:    server.New(ctx, &config),
 		Alias:     "",
 		LastEvent: time.Now(),
 		Entities:  make([]maps.Entity, 0),
@@ -282,7 +261,12 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 
 	server.Id = FindIdentity()
 
-	server.ChangeMap(C.MODE_FFA, "complex")
+	mode := C.GetModeNumber(config.DefaultMode)
+	if opt.IsNone(mode) {
+		return nil, fmt.Errorf("invalid mode name: %s", config.DefaultMode)
+	}
+
+	server.ChangeMap(int32(mode.Value), config.DefaultMap)
 
 	go server.Poll(ctx)
 

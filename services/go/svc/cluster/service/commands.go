@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/game/commands"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
@@ -49,20 +50,6 @@ func (server *Cluster) GivePrivateMatchHelp(ctx context.Context, user *User, gam
 	}
 }
 
-var MODE_NAMES = []string{
-	"ffa", "coop", "teamplay", "insta", "instateam", "effic", "efficteam", "tac", "tacteam", "capture", "regencapture", "ctf", "instactf", "protect", "instaprotect", "hold", "instahold", "efficctf", "efficprotect", "effichold", "collect", "instacollect", "efficcollect",
-}
-
-func getModeNumber(mode string) opt.Option[int] {
-	for i, name := range MODE_NAMES {
-		if name == mode {
-			return opt.Some(i)
-		}
-	}
-
-	return opt.None[int]()
-}
-
 type CreateParams struct {
 	Map    opt.Option[string]
 	Preset opt.Option[string]
@@ -73,7 +60,7 @@ func (server *Cluster) inferCreateParams(args []string) (*CreateParams, error) {
 	params := CreateParams{}
 
 	for _, arg := range args {
-		mode := getModeNumber(arg)
+		mode := constants.GetModeNumber(arg)
 		if opt.IsSome(mode) {
 			params.Mode = mode
 			continue

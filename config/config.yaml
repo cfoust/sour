@@ -14,75 +14,32 @@ cluster:
     - "https://static.sourga.me/blobs/6481/.index.source"
 
   presets:
-    - name: "common" 
-      virtual: true
-      config: |
-        qserv_version "17"
-        servermotd "Press Esc twice to change your name or adjust game options."
-        maxclients 128
-        bannerintervolmillis 100000
-        addbanner "^f7Sour ^f7is available online ^f1www.github.com/cfoust/sour^f7."
-        addbanner "Queue for duels with #duel or #duel insta."
-        defaultgamespeed 100
-        autosendmap 1
-        enable_passflag 1
-        instacoop 0
-        // Disable /setmaster
-        publicserver 1
-        serverflagruns 1
-        serverbotbalance 1
-        lockmaprotation 1
-        ffamaps = [
-          complex dust2 turbine
-        ]
-        maprotationreset
-        maprotation "*" $ffamaps
-
-        maxteamkills 7
-        teamkillkickreset
-        teamkillkick "?capture" 10 30
-        maxdemos 10
-        updatemaster 0
-        enablemultiplemasters 0
-        serverconnectmsg 1
-        welcomewithname 1
-        no_single_private 0
-        pingwarncustommsg "A little lagspike was detected, we just wanted to let you know."
-        restrictpausegame 1
-        restrictgamespeed 1
-        restrictdemos 0
     - name: "ffa-duel" 
       virtual: true
-      inherit: "common"
-      config: |
-        defaultmodename "ffa"
-        defaultmap "turbine"
+      config:
+        defaultMode: "ffa"
+        defaultMap: "turbine"
     - name: "insta-duel" 
       virtual: true
-      inherit: "common"
-      config: |
-        defaultmodename "insta"
-        defaultmap "turbine"
+      config:
+        defaultMode: "insta"
+        defaultMap: "turbine"
     - name: "default" 
       default: true
-      inherit: "common"
-      config: |
-        defaultmodename "coop"
-        defaultmap "xmwhub"
+      config:
+        defaultMode: "coop"
+        defaultMap: "xmwhub"
     - name: "ffa" 
-      inherit: "common"
-      config: |
-        defaultmodename "ffa"
-        defaultmap "complex"
+      config:
+        defaultMode: "ffa"
+        defaultMap: "complex"
     - name: "insta" 
-      inherit: "common"
-      config: |
-        defaultmodename "insta"
-        defaultmap "complex"
+      config:
+        defaultMode: "insta"
+        defaultMap: "complex"
     - name: "explore" 
-      inherit: "default"
-      config: |
-        matchlength 180
+      config:
+        matchLength: 180
 
   ingress:
     desktop:

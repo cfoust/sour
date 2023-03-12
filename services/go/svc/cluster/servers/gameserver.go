@@ -85,7 +85,7 @@ func (s *GameServer) GetServerInfo() *ServerInfo {
 		PasswordMode: 0,
 		GameSpeed:    100,
 		Map:          s.Map,
-		Description:  s.ServerDescription,
+		Description:  s.Description,
 	}
 }
 

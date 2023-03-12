@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/game/io"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	S "github.com/cfoust/sour/pkg/server"
@@ -197,7 +198,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			}
 
 			vote := msg.Message.(P.MapVote)
-			if vote.Mode < 0 || vote.Mode >= int32(len(MODE_NAMES)) {
+			if vote.Mode < 0 || vote.Mode >= int32(len(constants.MODE_NAMES)) {
 				msg.Pass()
 				continue
 			}
@@ -209,7 +210,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 				user,
 				fmt.Sprintf(
 					"creategame %s %s",
-					MODE_NAMES[vote.Mode],
+					constants.MODE_NAMES[vote.Mode],
 					vote.Map,
 				),
 			)
@@ -554,7 +555,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				if !P.IsSpammyMessage(type_) {
 					logger.Debug().
 						Str("type", message.Type().String()).
-						Msg("cluster -> client")
+						Msgf("cluster -> client %+v", message)
 				}
 
 				newMessage, err := user.To.Process(

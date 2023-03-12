@@ -1,5 +1,9 @@
 package constants
 
+import (
+	"github.com/repeale/fp-go/option"
+)
+
 const MAP_VERSION = 33
 
 const MAXENTS = 10000
@@ -77,6 +81,20 @@ const (
 	MODE_INSTACOLLECT
 	MODE_EFFICCOLLECT
 )
+
+var MODE_NAMES = []string{
+	"ffa", "coop", "teamplay", "insta", "instateam", "effic", "efficteam", "tac", "tacteam", "capture", "regencapture", "ctf", "instactf", "protect", "instaprotect", "hold", "instahold", "efficctf", "efficprotect", "effichold", "collect", "instacollect", "efficcollect",
+}
+
+func GetModeNumber(mode string) opt.Option[int] {
+	for i, name := range MODE_NAMES {
+		if name == mode {
+			return opt.Some(i)
+		}
+	}
+
+	return opt.None[int]()
+}
 
 type EntityType byte
 
