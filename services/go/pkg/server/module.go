@@ -376,7 +376,10 @@ func (s *Server) Empty() {
 func (s *Server) Intermission() {
 	s.Clock.Stop()
 
-	nextMap := s.Maps[s.rng.Uint32() % uint32(len(s.Maps))]
+	allMaps := make([]string, 0)
+	allMaps = append(allMaps, s.Maps...)
+	allMaps = append(allMaps, s.DefaultMap)
+	nextMap := allMaps[s.rng.Uint32() % uint32(len(allMaps))]
 
 	s.pendingMapChange = time.AfterFunc(10*time.Second, func() {
 		s.StartGame(s.StartMode(s.GameMode.ID()), nextMap)
