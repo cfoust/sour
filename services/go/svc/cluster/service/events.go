@@ -47,16 +47,23 @@ func (server *Cluster) NotifyClientChange(ctx context.Context, user *User, joine
 	server.Users.Mutex.RUnlock()
 }
 
-func (server *Cluster) NotifyNameChange(ctx context.Context, user *User, oldName string) {
-	newName := user.GetName()
+func (server *Cluster) NotifyNameChange(ctx context.Context, user *User, name string) {
+	logger := user.Logger()
+	oldName := user.GetName()
 
-	if newName == oldName {
+	if name == oldName {
 		return
 	}
 
+	logger.Info().Msg("client has new name")
+
+	user.Mutex.Lock()
+	user.Name = name
+	user.Mutex.Unlock()
+
 	clientServer := user.GetServer()
 	serverName := user.GetServerName()
-	message := fmt.Sprintf("%s now known as %s [%s]", oldName, newName, serverName)
+	message := fmt.Sprintf("%s now known as %s [%s]", oldName, name, serverName)
 
 	server.Users.Mutex.RLock()
 	for _, other := range server.Users.Users {
@@ -177,6 +184,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 	edits := user.From.InterceptWith(P.IsOwnerOnly)
 	crcs := user.From.Intercept(P.N_MAPCRC)
 	votes := user.From.Intercept(P.N_MAPVOTE)
+	names := user.From.Intercept(P.N_SWITCHNAME)
 
 	for {
 		logger := user.Logger()
@@ -184,6 +192,11 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 		select {
 		case <-userCtx.Done():
 			return
+
+		case msg := <-names.Receive():
+			change := msg.Message.(P.SwitchName)
+			c.NotifyNameChange(ctx, user, change.Name)
+
 		case msg := <-votes.Receive():
 			space := user.GetSpace()
 			if space == nil {
@@ -268,6 +281,8 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			description := connect.AuthDescription
 			name := connect.AuthName
 			msg.Pass()
+
+			c.NotifyNameChange(ctx, user, connect.Name)
 
 			if user.Connection.Type() != ingress.ClientTypeENet {
 				continue
@@ -392,22 +407,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 		select {
 		case <-ctx.Done():
 			return
-
-		// TODO
-		//case event := <-names:
-		//user := server.Users.FindUser(event.Client)
-
-		//if user == nil {
-		//continue
-		//}
-
-		//user.Mutex.Lock()
-		//user.Name = event.Name
-		//user.Mutex.Unlock()
-
-		//logger := user.Logger()
-		//logger.Info().Msg("client has new name")
-		//server.NotifyNameChange(ctx, user, event.Name)
 
 		case <-connect:
 			user.Mutex.Lock()
@@ -572,7 +571,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					continue
 				}
 
-				// we don't want to save  
+				// we don't want to save
 				if newMessage.Type() == P.N_SENDDEMO {
 					sendDemo := newMessage.(P.SendDemo)
 

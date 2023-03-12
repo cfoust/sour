@@ -325,7 +325,6 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 	case P.N_SPAWN:
 		msg := message.(P.SpawnRequest)
 		s.ConfirmSpawn(client, int32(msg.LifeSequence), int32(msg.GunSelect))
-		log.Printf("client %d=%d", client.CN, client.LifeSequence)
 
 	case P.N_GUNSELECT:
 		msg := message.(P.GunSelect)
