@@ -114,17 +114,21 @@ func (c *CommandGroup[User]) validateCallback(callback interface{}) error {
 	return nil
 }
 
-func (c *CommandGroup[User]) Register(command Command) error {
-	err := c.validateCallback(command.Callback)
-	if err != nil {
-		return err
-	}
+func (c *CommandGroup[User]) Register(commands ...Command) error {
+	for _, command := range commands {
+		err := c.validateCallback(command.Callback)
+		if err != nil {
+			return err
+		}
 
-	c.commands[command.Name] = &command
-	c.references[command.Name] = &command
+		copied := command
+		c.commands[command.Name] = &copied
+		c.references[command.Name] = &copied
 
-	for _, alias := range command.Aliases {
-		c.references[alias] = &command
+		for _, alias := range command.Aliases {
+			c.references[alias] = &copied
+		}
+
 	}
 
 	return nil

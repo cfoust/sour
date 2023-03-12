@@ -67,7 +67,7 @@ func NewCluster(
 		settings:      settings,
 		authDomain:    authDomain,
 		hostServers:   make(map[string]*servers.GameServer),
-		commands:      commands.NewCommandGroup[*User]("cluster", game.ColorOrange),
+		commands:      commands.NewCommandGroup[*User]("general", game.ColorOrange),
 		lastCreate:    make(map[string]time.Time),
 		matches:       NewMatchmaker(serverManager, settings.Matchmaking.Duel),
 		serverMessage: make(chan []byte, 1),

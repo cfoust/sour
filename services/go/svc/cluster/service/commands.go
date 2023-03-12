@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/game/commands"
+	"github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
+	"github.com/cfoust/sour/svc/cluster/verse"
 
 	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog/log"
@@ -322,122 +323,144 @@ func (s *Cluster) registerCommands() {
 		},
 	}
 
-	// TODO
-	//case "alias":
-	//if !user.IsLoggedIn() {
-	//return true, "", fmt.Errorf("you must be logged in to make an alias for a space")
-	//}
+	aliasCommand := commands.Command{
+		Name:        "alias",
+		ArgFormat:   "[alias]",
+		Description: "set the alias for the space",
+		Callback: func(ctx context.Context, user *User, alias string) error {
+			if !user.IsLoggedIn() {
+				return fmt.Errorf("you must be logged in to make an alias for a space")
+			}
 
-	//isOwner, err := user.IsOwner(ctx)
-	//if err != nil {
-	//return true, "", err
-	//}
+			isOwner, err := user.IsOwner(ctx)
+			if err != nil {
+				return err
+			}
 
-	//if !isOwner {
-	//return true, "", fmt.Errorf("this is not your space")
-	//}
+			if !isOwner {
+				return fmt.Errorf("this is not your space")
+			}
 
-	//instance := user.GetSpace()
-	//space := instance.Space
+			instance := user.GetSpace()
+			space := instance.Space
 
-	//if len(command) < 7 {
-	//return true, "", fmt.Errorf("alias too short")
-	//}
+			if len(alias) < 7 {
+				return fmt.Errorf("alias too short")
+			}
 
-	//alias := command[6:]
-	//if !verse.IsValidAlias(alias) {
-	//return true, "", fmt.Errorf("aliases must consist of lowercase letters, numbers, or hyphens")
-	//}
+			if !verse.IsValidAlias(alias) {
+				return fmt.Errorf("aliases must consist of lowercase letters, numbers, or hyphens")
+			}
 
-	//if len(alias) > 16 {
-	//return true, "", fmt.Errorf("alias too long")
-	//}
+			if len(alias) > 16 {
+				return fmt.Errorf("alias too long")
+			}
 
-	//// Ensure the alias does not match any maps in our asset indices, either
-	//found := s.assets.FindMap(alias)
-	//if found != nil {
-	//return true, "", fmt.Errorf("alias taken by a pre-built map")
-	//}
+			// Ensure the alias does not match any maps in our asset indices, either
+			found := s.assets.FindMap(alias)
+			if found != nil {
+				return fmt.Errorf("alias taken by a pre-built map")
+			}
 
-	//err = space.SetAlias(ctx, alias)
-	//if err != nil {
-	//return true, "", err
-	//}
+			err = space.SetAlias(ctx, alias)
+			if err != nil {
+				return err
+			}
 
-	//s.AnnounceInServer(ctx, instance.Server, fmt.Sprintf("space alias set to %s", alias))
-	//return true, "", nil
+			s.AnnounceInServer(ctx, instance.Server, fmt.Sprintf("space alias set to %s", alias))
+			return nil
 
-	//case "desc":
-	//isOwner, err := user.IsOwner(ctx)
-	//if err != nil {
-	//return true, "", err
-	//}
+		},
+	}
 
-	//if !isOwner {
-	//return true, "", fmt.Errorf("this is not your space")
-	//}
+	descCommand := commands.Command{
+		Name:        "desc",
+		ArgFormat:   "[description]",
+		Description: "set the description for the space",
+		Callback: func(ctx context.Context, user *User, description string) error {
+			isOwner, err := user.IsOwner(ctx)
+			if err != nil {
+				return err
+			}
 
-	//instance := user.GetSpace()
-	//space := instance.Space
-	//gameServer := instance.Server
+			if !isOwner {
+				return fmt.Errorf("this is not your space")
+			}
 
-	//if len(command) < 6 {
-	//return true, "", fmt.Errorf("description too short")
-	//}
+			instance := user.GetSpace()
+			space := instance.Space
+			gameServer := instance.Server
 
-	//description := command[5:]
-	//if len(description) > 32 {
-	//description = description[:32]
-	//}
+			if len(description) == 0 {
+				return fmt.Errorf("description too short")
+			}
 
-	//err = space.SetDescription(ctx, description)
-	//if err != nil {
-	//return true, "", err
-	//}
+			if len(description) > 32 {
+				description = description[:32]
+			}
 
-	//gameServer.SetDescription(description)
-	//return true, "", nil
+			err = space.SetDescription(ctx, description)
+			if err != nil {
+				return err
+			}
 
-	//case "edit":
-	//isOwner, err := user.IsOwner(ctx)
-	//if err != nil {
-	//log.Error().Err(err).Msg("failed to change edit state")
-	//return true, "", err
-	//}
+			gameServer.SetDescription(description)
+			return nil
+		},
+	}
 
-	//if !isOwner {
-	//return true, "", fmt.Errorf("this is not your space")
-	//}
+	editCommand := commands.Command{
+		Name:        "edit",
+		ArgFormat:   "[yes|no]",
+		Description: "enable or disable open editing on the space.",
+		Callback: func(ctx context.Context, user *User, enabled *bool) error {
+			isOwner, err := user.IsOwner(ctx)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to change edit state")
+				return fmt.Errorf("failed to change edit state")
+			}
 
-	//space := user.GetSpace()
-	//editing := space.Editing
-	//current := editing.IsOpenEdit()
-	//editing.SetOpenEdit(!current)
-	//gameServer := space.Server
+			if !isOwner {
+				return fmt.Errorf("this is not your space")
+			}
 
-	//canEdit := editing.IsOpenEdit()
+			space := user.GetSpace()
+			editing := space.Editing
 
-	//if canEdit {
-	//s.AnnounceInServer(ctx, gameServer, "editing is now enabled")
-	//} else {
-	//s.AnnounceInServer(ctx, gameServer, "editing is now disabled")
-	//}
+			current := editing.IsOpenEdit()
+			if enabled != nil {
+				editing.SetOpenEdit(*enabled)
+			} else {
+				editing.SetOpenEdit(!current)
+			}
 
-	//return true, "", nil
+			gameServer := space.Server
 
-	commands := []commands.Command{
+			canEdit := editing.IsOpenEdit()
+
+			if canEdit {
+				s.AnnounceInServer(ctx, gameServer, "editing is now enabled")
+			} else {
+				s.AnnounceInServer(ctx, gameServer, "editing is now disabled")
+			}
+
+			return nil
+		},
+	}
+
+	err := s.commands.Register(
 		goCommand,
 		createGameCommand,
 		duelCommand,
 		stopDuelCommand,
 		homeCommand,
-	}
+		aliasCommand,
+		descCommand,
+		editCommand,
+	)
 
-	for _, command := range commands {
-		err := s.commands.Register(command)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to register cluster command")
-		}
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to register cluster command")
 	}
 }
 
