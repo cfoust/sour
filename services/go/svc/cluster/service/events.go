@@ -336,6 +336,12 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			message := msg.Message
 			text := message.(P.ServCMD).Command
 			msg.Drop()
+
+			// Used by p1xbraten
+			if strings.HasPrefix(text, "__") {
+				continue
+			}
+
 			go c.HandleCommand(ctx, user, text)
 		}
 	}
