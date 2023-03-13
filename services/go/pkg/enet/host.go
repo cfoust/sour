@@ -155,6 +155,12 @@ func (h *Host) Service() <-chan Event {
 					}
 
 					payload := queued.Data
+
+					if len(payload) == 0 {
+						queued.Error <- fmt.Errorf("empty packet payload")
+						continue
+					}
+
 					packet := C.enet_packet_create(
 						unsafe.Pointer(&payload[0]),
 						C.size_t(len(payload)),
