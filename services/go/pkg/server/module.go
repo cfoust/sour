@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"time"
 
+	G "github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/game/commands"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/game"
 	"github.com/cfoust/sour/pkg/server/geom"
@@ -48,6 +50,8 @@ type Server struct {
 
 	Clients *ClientManager
 
+	Commands *commands.CommandGroup[*Client]
+
 	pendingMapChange *time.Timer
 	rng              *rand.Rand
 
@@ -58,7 +62,6 @@ type Server struct {
 	Edits      *utils.Topic[MapEdit]
 
 	// non-standard stuff
-	Commands        *ServerCommands
 	KeepTeams       bool
 	CompetitiveMode bool
 	ReportStats     bool
@@ -77,12 +80,13 @@ func New(ctx context.Context, conf *Config) *Server {
 	s := &Server{
 		Session:    utils.NewSession(ctx),
 		Broadcasts: broadcasts,
+		Commands:   commands.NewCommandGroup[*Client]("server", G.ColorBlue),
 		Edits:      utils.NewTopic[MapEdit](),
 		Config:     conf,
 		State: &State{
 			MasterMode: mastermode.Auth,
 			UpSince:    time.Now(),
-			NumClients: clients.NumberOfClientsConnected,
+			NumClients: clients.GetNumClients,
 		},
 		relay:    relay.New(),
 		Clients:  clients,
@@ -329,7 +333,7 @@ func (s *Server) Disconnect(client *Client, reason disconnectreason.ID) {
 	if len(s.Clients.PrivilegedUsers()) == 0 {
 		s.Unsupervised()
 	}
-	if s.Clients.NumberOfClientsConnected() == 0 {
+	if s.Clients.GetNumClients() == 0 {
 		s.Empty()
 	}
 }
@@ -379,7 +383,7 @@ func (s *Server) Intermission() {
 	allMaps := make([]string, 0)
 	allMaps = append(allMaps, s.Maps...)
 	allMaps = append(allMaps, s.DefaultMap)
-	nextMap := allMaps[s.rng.Uint32() % uint32(len(allMaps))]
+	nextMap := allMaps[s.rng.Uint32()%uint32(len(allMaps))]
 
 	s.pendingMapChange = time.AfterFunc(10*time.Second, func() {
 		s.StartGame(s.StartMode(s.GameMode.ID()), nextMap)

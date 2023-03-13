@@ -294,7 +294,7 @@ func (s *Server) PrivilegedUsersPacket() (P.Message, bool) {
 }
 
 // Returns the number of connected clients.
-func (cm *ClientManager) NumberOfClientsConnected() (n int) {
+func (cm *ClientManager) GetNumClients() (n int) {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
 

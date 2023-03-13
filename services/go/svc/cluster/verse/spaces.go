@@ -9,11 +9,13 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
+	"github.com/cfoust/sour/pkg/game/commands"
 	C "github.com/cfoust/sour/pkg/game/constants"
+	"github.com/cfoust/sour/pkg/server"
 	"github.com/cfoust/sour/pkg/utils"
 	"github.com/cfoust/sour/svc/cluster/config"
-	gameServers "github.com/cfoust/sour/svc/cluster/servers"
 	"github.com/cfoust/sour/svc/cluster/ingress"
+	gameServers "github.com/cfoust/sour/svc/cluster/servers"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -264,6 +266,8 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 func (s *SpaceManager) DoExploreMode(ctx context.Context, gameServer *gameServers.GameServer, skipRoot string) {
 	maps := s.maps.GetMaps(skipRoot)
 
+	skips := make(map[*server.Client]struct{})
+
 	cycleMap := func() {
 		var name string
 		for {
@@ -283,6 +287,34 @@ func (s *SpaceManager) DoExploreMode(ctx context.Context, gameServer *gameServer
 		}
 
 		gameServer.ChangeMap(C.MODE_FFA, name)
+		skips = make(map[*server.Client]struct{})
+	}
+
+	err := gameServer.Commands.Register(
+		commands.Command{
+			Name:        "skip",
+			Description: "vote to skip to the next map",
+			Callback: func(client *server.Client) {
+				if _, ok := skips[client]; ok {
+					client.Message("you have already voted to skip")
+					return
+				}
+
+				name := gameServer.Clients.UniqueName(client)
+				gameServer.Message(fmt.Sprintf("%s voted to skip to the next map (say #skip to vote)", name))
+
+				skips[client] = struct{}{}
+
+				numClients := gameServer.Clients.GetNumClients()
+				if len(skips) > numClients/2 || (numClients == 1 && len(skips) == 1) {
+					cycleMap()
+				}
+			},
+		},
+	)
+
+	if err != nil {
+		log.Error().Err(err).Msg("could not register explore command")
 	}
 
 	tick := time.NewTicker(3 * time.Minute)

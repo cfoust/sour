@@ -149,6 +149,8 @@ func (server *Cluster) CreateGame(ctx context.Context, params *CreateParams, use
 }
 
 func (s *Cluster) runCommand(ctx context.Context, user *User, command string) error {
+	contexts := make([]commands.Commandable, 0)
+
 	args := strings.Split(command, " ")
 	if len(args) == 0 {
 		return fmt.Errorf("command cannot be empty")
@@ -159,7 +161,21 @@ func (s *Cluster) runCommand(ctx context.Context, user *User, command string) er
 		return s.commands.Handle(ctx, user, args)
 	}
 
-	// TODO then do space and server
+	contexts = append(contexts, s.commands)
+
+	// TODO then do space
+
+	server := user.GetServer()
+	if server != nil && server.Commands.CanHandle(args) {
+		client := server.Clients.GetClientByID(uint32(user.Id))
+		if client != nil {
+			return server.Commands.Handle(ctx, client, args)
+		}
+	}
+
+	if server != nil {
+		contexts = append(contexts, server.Commands)
+	}
 
 	// Then help
 	first := args[0]
@@ -170,14 +186,14 @@ func (s *Cluster) runCommand(ctx context.Context, user *User, command string) er
 	helpArgs := args[1:]
 	if len(helpArgs) == 0 {
 		user.RawMessage("available commands: (say '#help [command]' for more information)")
-		for _, commandable := range []commands.Commandable{s.commands} {
+		for _, commandable := range contexts {
 			user.RawMessage(commandable.Help())
 		}
 		return nil
 	}
 
 	// Help for a specific command
-	for _, commandable := range []commands.Commandable{s.commands} {
+	for _, commandable := range contexts {
 		helpString := commandable.GetHelp(helpArgs)
 		if helpString != "" {
 			user.RawMessage(helpString)

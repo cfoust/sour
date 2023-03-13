@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	P "github.com/cfoust/sour/pkg/game/protocol"
@@ -248,14 +247,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 		client.Packets.Publish(P.ClientPing{int32(client.Ping)})
 
 	case P.N_TEXT:
-		msg := message.(P.Text).Text
-
-		// client sending chat message → broadcast to other clients
-		if strings.HasPrefix(msg, "#") {
-			s.Commands.Handle(client, msg[1:])
-		} else {
-			client.Packets.Publish(P.Text{msg})
-		}
+		client.Packets.Publish(message.(P.Text))
 
 	case P.N_SAYTEAM:
 		// client sending team chat message → pass on to team immediately
@@ -384,10 +376,6 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 		} else {
 			s.Clock.Resume(&client.Player)
 		}
-
-	case P.N_SERVCMD:
-		msg := message.(P.ServCMD)
-		s.Commands.Handle(client, msg.Command)
 
 	default:
 		handled := false
