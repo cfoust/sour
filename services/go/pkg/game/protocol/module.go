@@ -980,8 +980,7 @@ type ClientPing struct {
 func (m ClientPing) Type() MessageCode { return N_CLIENTPING }
 
 // N_TAUNT
-type Taunt struct {
-}
+type Taunt struct {}
 
 func (m Taunt) Type() MessageCode { return N_TAUNT }
 

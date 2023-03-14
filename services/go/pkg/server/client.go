@@ -78,7 +78,7 @@ func (c *Client) String() string {
 }
 
 func (c *Client) Message(text string) {
-	c.Send(protocol.ServerMessage{text})
+	c.Send(protocol.ServerMessage{Text: text})
 }
 
 func (c *Client) Send(messages ...protocol.Message) {

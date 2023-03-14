@@ -327,6 +327,9 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 		}
 		client.Packets.Publish(P.GunSelect{int32(selected.ID)})
 
+	case P.N_TAUNT:
+		client.Packets.Publish(message)
+
 	case P.N_SHOOT:
 		msg := message.(P.Shoot)
 
