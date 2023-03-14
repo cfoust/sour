@@ -32,6 +32,7 @@ type Span struct {
 	End   time.Time
 }
 
+// A session in a particular space, server, or map.
 type Visit struct {
 	Entity
 	Span
@@ -40,6 +41,7 @@ type Visit struct {
 	Location  string
 }
 
+// Logs a player's game session from start to finish.
 type Session struct {
 	Entity
 	Span
