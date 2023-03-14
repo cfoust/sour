@@ -70,9 +70,16 @@ type User struct {
 	// The prefix for Discord's avatar scheme
 	Avatar string `gorm:"size:128"`
 
+	// Auth stuff
+	Code         string
 	Token        string
 	RefreshToken string
 	RefreshAfter time.Time
+	// For desktop auth
+	PublicKey  string
+	PrivateKey string
+
+	LastLogin time.Time
 
 	HomeID uint
 	Home   *Space `gorm:"foreignKey:HomeID"`

@@ -37,7 +37,7 @@ func main() {
 
 	clusterConfig := sourConfig.Cluster
 
-	_, err = state.InitDB(clusterConfig.DBPath)
+	db, err := state.InitDB(clusterConfig.DBPath)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to initialize sqlite")
 	}
@@ -120,6 +120,7 @@ func main() {
 		discord = auth.NewDiscordService(
 			discordSettings,
 			state,
+			db,
 		)
 	}
 

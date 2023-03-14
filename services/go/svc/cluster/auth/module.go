@@ -11,11 +11,14 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
+	"time"
 	"unsafe"
 
 	"github.com/cfoust/sour/svc/cluster/auth/crypto"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/state"
+
+	"gorm.io/gorm"
 )
 
 const (
@@ -44,15 +47,6 @@ func (u *DiscordUser) Reference() string {
 type KeyPair struct {
 	Public  string
 	Private string
-}
-
-type AuthUser struct {
-	Discord DiscordUser
-	Keys    KeyPair
-}
-
-func (u *AuthUser) GetID() string {
-	return u.Discord.Id
 }
 
 func GenerateSeed() (string, error) {
@@ -129,14 +123,16 @@ type DiscordService struct {
 	secret      string
 	redirectURI string
 	State       *state.StateService
+	db          *gorm.DB
 }
 
-func NewDiscordService(config config.DiscordSettings, state *state.StateService) *DiscordService {
+func NewDiscordService(config config.DiscordSettings, state *state.StateService, db *gorm.DB) *DiscordService {
 	return &DiscordService{
 		clientId:    config.Id,
 		secret:      config.Secret,
 		redirectURI: config.RedirectURI,
 		State:       state,
+		db:          db,
 	}
 }
 
@@ -348,34 +344,47 @@ func (d *DiscordService) CheckRefreshToken(ctx context.Context, token string) (s
 	return bundle.AccessToken, nil
 }
 
-func (d *DiscordService) FetchUser(ctx context.Context, token string) (*AuthUser, error) {
-	discordUser, err := d.GetUser(token)
+func (d *DiscordService) updateInfo(ctx context.Context, user *state.User) error {
+	discordUser, err := d.GetUser(user.Token)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	pair, err := d.EnsureAuthKey(ctx, discordUser.Id)
-	if err != nil {
-		return nil, err
-	}
+	user.Username = discordUser.Username
+	user.Discriminator = discordUser.Discriminator
+	user.Avatar = discordUser.Avatar
+	user.LastLogin = time.Now()
 
-	return &AuthUser{Discord: *discordUser, Keys: *pair}, err
+	return d.db.WithContext(ctx).Save(user).Error
 }
 
-func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*AuthUser, error) {
-	token, err := d.State.GetTokenForCode(ctx, code)
+func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*state.User, error) {
+	db := d.db.WithContext(ctx)
 
+	// First check the database
+	user := state.User{}
+	err := db.Where(state.User{
+		Code: code,
+	}).First(&user).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	// 1. Check for refreshable tokens every hour for users who have logged
+	//    in within the last 30 days
+	// 2. When the user logs in, fetch the latest info from Discord using
+	//    their tokens
+
+	// The user is already associated with this code
 	if err == nil {
-		newToken, err := d.CheckRefreshToken(ctx, token)
+		err = d.updateInfo(ctx, &user)
+
 		if err != nil {
 			return nil, err
 		}
 
-		return d.FetchUser(ctx, newToken)
-	}
-
-	if err != nil && err != state.Nil {
-		return nil, err
+		return &user, nil
 	}
 
 	// Can only be state.Nil, fetch the token for this
@@ -388,6 +397,36 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*Au
 	discordUser, err := d.GetUser(bundle.AccessToken)
 	if err != nil {
 		return nil, err
+	}
+
+	err = db.WithContext(ctx).
+		Where(
+			state.User{
+				UUID: discordUser.Id,
+			},
+		).
+		First(&user).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	// The user already existed, it just had a new code
+	if err == nil {
+		user.Code = code
+		user.Token = bundle.AccessToken
+		user.RefreshToken = bundle.RefreshToken
+		user.RefreshAfter = time.Now().Add(time.Duration(bundle.ExpiresIn) * time.Second)
+		user.Username = discordUser.Username
+		user.Discriminator = discordUser.Discriminator
+		user.Avatar = discordUser.Avatar
+		user.LastLogin = time.Now()
+
+		err = db.Save(&user).Error
+		if err != nil {
+			return nil, err
+		}
+
+		return &user, nil
 	}
 
 	err = d.State.SetIdForCode(
