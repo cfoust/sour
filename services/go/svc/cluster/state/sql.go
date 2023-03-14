@@ -27,6 +27,15 @@ type Ranking struct {
 	Type ELOType
 }
 
+type Session struct {
+	Entity
+	UUID   string
+	IP     string
+	UserID uint
+	Start  time.Time
+	End    time.Time
+}
+
 type User struct {
 	Entity
 
@@ -49,8 +58,9 @@ type User struct {
 	HomeID uint
 	Home   *Space `gorm:"foreignKey:HomeID"`
 
-	Ranking []*Ranking
-	Spaces  []*Space `gorm:"foreignKey:OwnerID"`
+	Ranking  []*Ranking
+	Spaces   []*Space   `gorm:"foreignKey:OwnerID"`
+	Sessions []*Session `gorm:"foreignKey:UserID"`
 }
 
 type Creatable struct {
@@ -62,7 +72,7 @@ type Creatable struct {
 
 type Asset struct {
 	Creatable
-	Hash      string `gorm:"not null;size:32"`
+	Hash string `gorm:"not null;size:32"`
 	// The ID of the asset store in the cluster config where this asset can
 	// be found
 	Location  string `gorm:"not null"`
@@ -114,6 +124,7 @@ func InitDB(path string) (*gorm.DB, error) {
 	db.AutoMigrate(&ELOType{})
 	db.AutoMigrate(&Ranking{})
 	db.AutoMigrate(&User{})
+	db.AutoMigrate(&Session{})
 	db.AutoMigrate(&Asset{})
 	db.AutoMigrate(&Map{})
 	db.AutoMigrate(&Link{})
