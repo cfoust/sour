@@ -633,7 +633,7 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, connection ingress.Conne
 
 	sessionID := fmt.Sprintf("%x", sha256.Sum256([]byte(
 		fmt.Sprintf("%d-%s", id, connection.Host()),
-	)))
+	)))[:5]
 
 	u.Mutex.Lock()
 	user := User{
