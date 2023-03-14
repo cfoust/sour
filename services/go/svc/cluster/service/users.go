@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	"math"
 	"math/big"
@@ -630,9 +631,14 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, connection ingress.Conne
 		return nil, err
 	}
 
+	sessionID := fmt.Sprintf("%x", sha256.Sum256([]byte(
+		fmt.Sprintf("%d-%s", id, connection.Host()),
+	)))
+
 	u.Mutex.Lock()
 	user := User{
 		Id:                id,
+		SessionUUID:       sessionID,
 		Status:            UserStatusDisconnected,
 		Connection:        connection,
 		Session:           connection.Session(),
