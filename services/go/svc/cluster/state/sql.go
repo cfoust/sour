@@ -49,6 +49,7 @@ type Session struct {
 	UserID uint
 	UUID   string
 	IP     string
+	Device string // desktop, mobile, web
 
 	Visits []*Visit `gorm:"foreignKey:SessionID"`
 }
