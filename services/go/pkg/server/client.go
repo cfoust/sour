@@ -55,24 +55,6 @@ func (c *Client) RefreshWelcome() {
 	c.server.SendWelcome(c)
 }
 
-// Resets the client object.
-func (c *Client) Reset() {
-	c.Player.Reset()
-	c.Role = role.None
-	c.Joined = false
-	c.AuthRequiredBecause = disconnectreason.None
-	c.Ping = 0
-	if c.Positions != nil {
-		c.Positions.Close()
-	}
-	if c.Packets != nil {
-		c.Packets.Close()
-	}
-	for domain := range c.Authentications {
-		delete(c.Authentications, domain)
-	}
-}
-
 func (c *Client) String() string {
 	return fmt.Sprintf("%s (%d:%d)", c.Name, c.CN, c.SessionID)
 }

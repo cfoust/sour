@@ -329,7 +329,6 @@ func (s *Server) Disconnect(client *Client, reason disconnectreason.ID) {
 	}
 	s.Clients.Disconnect(client, reason)
 	s.Clients.ForEach(func(c *Client) { log.Printf("%#v\n", c) })
-	client.Reset()
 	if len(s.Clients.PrivilegedUsers()) == 0 {
 		s.Unsupervised()
 	}
