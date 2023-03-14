@@ -48,8 +48,9 @@ type Session struct {
 
 	UserID uint
 	UUID   string
-	IP     string
-	Device string // desktop, mobile, web
+	// The hash of the user's IP
+	Address string
+	Device  string // desktop, mobile, web
 
 	Visits []*Visit `gorm:"foreignKey:SessionID"`
 }
@@ -61,7 +62,7 @@ type User struct {
 	Nickname string `gorm:"size:15"`
 
 	// Discord unique ID
-	UUID string `gorm:"unique;size:32"`
+	UUID string `gorm:"unique;uniqueIndex;size:32"`
 	// The user's Discord username
 	Username string `gorm:"size:32"`
 	// #1234 or whatever
@@ -90,7 +91,7 @@ type Creatable struct {
 
 type Asset struct {
 	Creatable
-	Hash string `gorm:"not null;size:32"`
+	Hash string `gorm:"not null;size:32;unique;uniqueIndex"`
 	// The ID of the asset store in the cluster config where this asset can
 	// be found
 	Location  string `gorm:"not null"`
@@ -100,27 +101,47 @@ type Asset struct {
 
 type Map struct {
 	Creatable
-	Hash string `gorm:"not null;size:32"`
 
-	// The asset's hash will be the same as the map hash
-	AssetID uint   `gorm:"not null"`
-	Asset   *Asset `gorm:"foreignKey:AssetID"`
+	// Hash of ogz+cfg, just ogz if no cfg
+	Hash string `gorm:"not null;size:32;unique;uniqueIndex"`
+
+	OgzID uint   `gorm:"not null"`
+	Ogz   *Asset `gorm:"foreignKey:OgzID"`
+
+	CfgID uint   // null OK
+	Cfg   *Asset `gorm:"foreignKey:CfgID"`
+
+	DiffID uint     // null OK
+	Diff   *MapDiff `gorm:"foreignKey:DiffID"`
+}
+
+type MapDiff struct {
+	Entity
+	Span
+
+	OldID uint
+	Old   *Map `gorm:"foreignKey:OldID"`
+
+	NewID uint
+	New   *Map `gorm:"foreignKey:NewID"`
 }
 
 type Link struct {
 	Entity
-	Destination   *Space `gorm:"foreignKey:DestinationID"`
-	SpaceID       uint   `gorm:"not null"`
+	SpaceID uint `gorm:"not null"`
+
 	DestinationID uint   `gorm:"not null"`
-	Teleport      uint   `gorm:"not null;size:255"`
-	Teledest      uint   `gorm:"not null;size:255"`
+	Destination   *Space `gorm:"foreignKey:DestinationID"`
+
+	Teleport uint `gorm:"not null;size:255"`
+	Teledest uint `gorm:"not null;size:255"`
 }
 
 type Space struct {
 	Creatable
 
 	// Every space is assigned a unique identifier
-	UUID string `gorm:"unique"`
+	UUID string `gorm:"unique;uniqueIndex"`
 	// But it can have a human-readable alias
 	Alias       string `gorm:"size:16"`
 	Description string `gorm:"size:25"`
@@ -146,6 +167,7 @@ func InitDB(path string) (*gorm.DB, error) {
 	db.AutoMigrate(&Visit{})
 	db.AutoMigrate(&Asset{})
 	db.AutoMigrate(&Map{})
+	db.AutoMigrate(&MapDiff{})
 	db.AutoMigrate(&Link{})
 	db.AutoMigrate(&Space{})
 
