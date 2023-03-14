@@ -337,7 +337,8 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			text := message.(P.ServCMD).Command
 			msg.Drop()
 
-			// Used by p1xbraten
+			// Used by wc-ng to indicate client capabilities
+			// https://github.com/tpoechtrager/wc-ng/commit/446ab52f5391076f61d0350ee081d97f8919b8f2#diff-4baabc2027e55478c19e775f6d37f1929167aba164f7741992e9eb740d70c4b4R1237
 			if strings.HasPrefix(text, "__") {
 				continue
 			}
