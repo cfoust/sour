@@ -119,10 +119,10 @@ type MapDiff struct {
 	Entity
 	Span
 
-	OldID uint
+	OldID uint `gorm:"not null"`
 	Old   *Map `gorm:"foreignKey:OldID"`
 
-	NewID uint
+	NewID uint `gorm:"not null"`
 	New   *Map `gorm:"foreignKey:NewID"`
 }
 
