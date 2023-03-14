@@ -76,7 +76,9 @@ func (m *handlesPickups) spawnDelayed(p *timedPickup) {
 		panic(fmt.Sprintf("unhandled entity type %d pickup.delay", p.Typ))
 	}
 	p.pendingSpawn = timer.AfterFunc(delay*time.Second, func() {
-		m.s.Broadcast(P.ItemSpawn{p.id})
+		m.s.Broadcast(P.ItemSpawn{
+			Index: p.id,
+		})
 	})
 	go p.pendingSpawn.Start()
 }

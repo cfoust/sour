@@ -50,7 +50,10 @@ func (m *teamlessMode) HandleFrag(actor, victim *Player) {
 		actor.Frags++
 	}
 	m.s.Broadcast(P.Died{
-		int32(victim.CN), int32(actor.CN), actor.Frags, actor.Team.Frags,
+		Client:      int32(victim.CN),
+		Killer:      int32(actor.CN),
+		KillerFrags: actor.Frags,
+		VictimFrags: actor.Team.Frags,
 	})
 }
 

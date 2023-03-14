@@ -1,8 +1,6 @@
 package game
 
 import (
-	"log"
-
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/server/protocol/gamemode"
 	"github.com/cfoust/sour/pkg/server/protocol/playerstate"
@@ -10,9 +8,10 @@ import (
 
 type CoopEdit struct {
 	*teamlessMode
+	*handlesPickups
+
 	noSpawnWait
 	ffaSpawnState
-	*handlesPickups
 
 	s Server
 }
@@ -28,6 +27,7 @@ var (
 func NewCoopEdit(s Server) *CoopEdit {
 	return &CoopEdit{
 		handlesPickups: handlingPickups(s),
+		teamlessMode:   withoutTeams(s),
 		s:              s,
 	}
 }
@@ -60,7 +60,6 @@ func (m *CoopEdit) HandlePacket(p *Player, message P.Message) bool {
 
 		return true
 	default:
-		log.Println("received unrelated packet", message)
-		return false
+		return m.handlesPickups.HandlePacket(p, message)
 	}
 }

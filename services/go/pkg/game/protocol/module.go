@@ -813,15 +813,15 @@ func (m ItemList) Type() MessageCode { return N_ITEMLIST }
 
 // N_ITEMSPAWN
 type ItemSpawn struct {
-	Item_index int32
+	Index int32
 }
 
 func (m ItemSpawn) Type() MessageCode { return N_ITEMSPAWN }
 
 // N_ITEMACC
 type ItemAck struct {
-	Item_index int32
-	Client     int32
+	Index  int32
+	Client int32
 }
 
 func (m ItemAck) Type() MessageCode { return N_ITEMACC }
