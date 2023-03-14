@@ -27,13 +27,28 @@ type Ranking struct {
 	Type ELOType
 }
 
+type Span struct {
+	Start time.Time
+	End   time.Time
+}
+
+type Visit struct {
+	Entity
+	Span
+	SessionID uint   `gorm:"not null"`
+	Type      string // map, space, server?
+	Location  string
+}
+
 type Session struct {
 	Entity
+	Span
+
+	UserID uint
 	UUID   string
 	IP     string
-	UserID uint
-	Start  time.Time
-	End    time.Time
+
+	Visits []*Visit `gorm:"foreignKey:SessionID"`
 }
 
 type User struct {
@@ -125,6 +140,7 @@ func InitDB(path string) (*gorm.DB, error) {
 	db.AutoMigrate(&Ranking{})
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&Session{})
+	db.AutoMigrate(&Visit{})
 	db.AutoMigrate(&Asset{})
 	db.AutoMigrate(&Map{})
 	db.AutoMigrate(&Link{})
