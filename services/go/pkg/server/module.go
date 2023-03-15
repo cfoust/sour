@@ -57,6 +57,7 @@ type Server struct {
 
 	incoming chan ServerPacket
 	outgoing chan ServerPacket
+	maps     chan string
 
 	Broadcasts *utils.Topic[[]P.Message]
 	Edits      *utils.Topic[MapEdit]
@@ -92,6 +93,7 @@ func New(ctx context.Context, conf *Config) *Server {
 		Clients:  clients,
 		incoming: incoming,
 		outgoing: outgoing,
+		maps:     make(chan string, 1),
 		rng:      rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 
@@ -122,6 +124,10 @@ func (s *Server) Incoming() chan<- ServerPacket {
 
 func (s *Server) Outgoing() <-chan ServerPacket {
 	return s.outgoing
+}
+
+func (s *Server) ReceiveMaps() <-chan string {
+	return s.maps
 }
 
 func (s *Server) GameDuration() time.Duration {
@@ -436,6 +442,8 @@ func (s *Server) StartGame(mode game.Mode, mapname string) {
 
 	s.Map = mapname
 	s.GameMode = mode
+
+	s.maps <- mapname
 
 	if teamedMode, ok := s.GameMode.(game.TeamMode); ok {
 		s.ForEachPlayer(teamedMode.Join)

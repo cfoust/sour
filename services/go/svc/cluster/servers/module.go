@@ -187,44 +187,30 @@ func (manager *ServerManager) ReadEntities(ctx context.Context, server *GameServ
 	return nil
 }
 
-//func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameServer) {
-//requests := server.ReceiveMapRequests()
+func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameServer) {
+	requests := server.ReceiveMaps()
 
-//for {
-//select {
-//case request := <-requests:
-//logger := log.With().Str("map", request.Map).Int32("mode", request.Mode).Logger()
+	for {
+		select {
+		case request := <-requests:
+			logger := log.With().Str("map", request).Logger()
 
-//if request.Map == "" {
-//server.SendMapResponse(request.Map, request.Mode, "", false)
-//continue
-//}
+			if request == "" {
+				continue
+			}
 
-//server.SetStatus(ServerLoadingMap)
-//data, err := manager.Maps.FetchMapBytes(ctx, request.Map)
-//if err != nil {
-//logger.Error().Err(err).Msg("failed to download map")
-//server.SendMapResponse(request.Map, request.Mode, "", false)
-//continue
-//}
+			data, err := manager.Maps.FetchMapBytes(ctx, request)
+			if err != nil {
+				logger.Error().Err(err).Msg("failed to download map")
+				continue
+			}
 
-//path := filepath.Join(manager.workingDir, fmt.Sprintf("packages/base/%s.ogz", request.Map))
-//err = assets.WriteBytes(data, path)
-//if err != nil {
-//logger.Error().Err(err).Msg("failed to download map")
-//server.SendMapResponse(request.Map, request.Mode, "", false)
-//continue
-//}
-
-//server.SendMapResponse(request.Map, request.Mode, path, true)
-
-//go manager.ReadEntities(ctx, server, data)
-//continue
-//case <-ctx.Done():
-//return
-//}
-//}
-//}
+			go manager.ReadEntities(ctx, server, data)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
 
 func (manager *ServerManager) FindPreset(presetName string, isVirtualOk bool) opt.Option[config.ServerPreset] {
 	for _, preset := range manager.presets {
@@ -269,6 +255,7 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 	server.ChangeMap(int32(mode.Value), config.DefaultMap)
 
 	go server.Poll(ctx)
+	go manager.PollMapRequests(ctx, &server)
 
 	go func() {
 		for {
