@@ -84,7 +84,8 @@ type User struct {
 	HomeID uint
 	Home   *Space `gorm:"foreignKey:HomeID"`
 
-	Ranking  []*Ranking
+	Ranking  []*Ranking `gorm:"foreignKey:UserID"`
+	Maps     []*Map     `gorm:"foreignKey:CreatorID"`
 	Spaces   []*Space   `gorm:"foreignKey:OwnerID"`
 	Sessions []*Session `gorm:"foreignKey:UserID"`
 }
@@ -106,11 +107,15 @@ type Asset struct {
 	Size      uint   `gorm:"not null"`
 }
 
+type Aliasable struct {
+	UUID string `gorm:"not null;size:32;unique;uniqueIndex"`
+	// A human-readable alias
+	Alias string `gorm:"unique;uniqueIndex"`
+}
+
 type Map struct {
 	Creatable
-
-	// Hash of ogz+cfg, just ogz if no cfg
-	Hash string `gorm:"not null;size:32;unique;uniqueIndex"`
+	Aliasable
 
 	OgzID uint   `gorm:"not null"`
 	Ogz   *Asset `gorm:"foreignKey:OgzID"`
@@ -146,17 +151,16 @@ type Link struct {
 
 type Space struct {
 	Creatable
+	Aliasable
 
-	// Every space is assigned a unique identifier
-	UUID string `gorm:"unique;uniqueIndex"`
-	// But it can have a human-readable alias
-	Alias       string `gorm:"size:16"`
 	Description string `gorm:"size:25"`
-	OwnerID     uint
-	MapID       uint
 
-	Owner *User `gorm:"foreignKey:OwnerID"`
+	OwnerID uint
+	Owner   *User `gorm:"foreignKey:OwnerID"`
+
+	MapID uint
 	Map   *Map
+
 	Links []*Link
 }
 
