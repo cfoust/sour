@@ -115,7 +115,6 @@ type Aliasable struct {
 
 type Map struct {
 	Creatable
-	Aliasable
 
 	OgzID uint   `gorm:"not null"`
 	Ogz   *Asset `gorm:"foreignKey:OgzID"`
@@ -125,6 +124,14 @@ type Map struct {
 
 	DiffID uint     // null OK
 	Diff   *MapDiff `gorm:"foreignKey:DiffID"`
+}
+
+type MapPointer struct {
+	Creatable
+	Aliasable
+
+	MapID uint `gorm:"not null"`
+	Map   *Map `gorm:"foreignKey:MapID"`
 }
 
 type MapDiff struct {
@@ -158,8 +165,8 @@ type Space struct {
 	OwnerID uint
 	Owner   *User `gorm:"foreignKey:OwnerID"`
 
-	MapID uint
-	Map   *Map
+	MapPointerID uint `gorm:"not null"`
+	MapPointer   *MapPointer
 
 	Links []*Link
 }
@@ -178,6 +185,7 @@ func InitDB(path string) (*gorm.DB, error) {
 	db.AutoMigrate(&Visit{})
 	db.AutoMigrate(&Asset{})
 	db.AutoMigrate(&Map{})
+	db.AutoMigrate(&MapPointer{})
 	db.AutoMigrate(&MapDiff{})
 	db.AutoMigrate(&Link{})
 	db.AutoMigrate(&Space{})
