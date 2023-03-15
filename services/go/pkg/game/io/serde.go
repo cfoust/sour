@@ -180,7 +180,7 @@ func unmarshalStruct(p *Packet, type_ reflect.Type, value reflect.Value) error {
 		default:
 			err := UnmarshalValue(p, field.Type, fieldValue.Addr())
 			if err != nil {
-				return err
+				return fmt.Errorf("%s.%s: %s", type_.String(), field.Name, err.Error())
 			}
 		}
 	}

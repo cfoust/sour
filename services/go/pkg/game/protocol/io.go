@@ -50,7 +50,7 @@ func Decode(b []byte, fromClient bool) ([]Message, error) {
 		resultValue := reflect.New(resultType)
 		err := io.UnmarshalValue(&p, resultType, resultValue)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s: %s", code.String(), err.Error())
 		}
 
 		message := resultValue.Elem().Interface().(Message)

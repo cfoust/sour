@@ -62,11 +62,11 @@ func (m *handlesFlags) NeedsMapInfo() bool {
 func (m *handlesFlags) HandlePacket(p *Player, message protocol.Message) bool {
 	switch message.Type() {
 	case protocol.N_INITFLAGS:
-		initFlags := message.(*protocol.ClientInitFlags)
+		initFlags := message.(protocol.ClientInitFlags)
 		m.initFlags(initFlags)
 
 	case protocol.N_TAKEFLAG:
-		takeFlag := message.(*protocol.TakeFlag)
+		takeFlag := message.(protocol.ClientTakeFlag)
 		m.touchFlag(p, takeFlag)
 
 	case protocol.N_TRYDROPFLAG:
@@ -79,7 +79,7 @@ func (m *handlesFlags) HandlePacket(p *Player, message protocol.Message) bool {
 	return true
 }
 
-func (m *handlesFlags) initFlags(message *protocol.ClientInitFlags) {
+func (m *handlesFlags) initFlags(message protocol.ClientInitFlags) {
 	flags := []*flag{}
 
 	for i, clientFlag := range message.Flags {
@@ -108,7 +108,7 @@ func (m *handlesFlags) initFlags(message *protocol.ClientInitFlags) {
 	}
 }
 
-func (m *handlesFlags) touchFlag(p *Player, message *protocol.TakeFlag) {
+func (m *handlesFlags) touchFlag(p *Player, message protocol.ClientTakeFlag) {
 	if p.State != playerstate.Alive {
 		return
 	}
@@ -140,17 +140,14 @@ func (m *handlesFlags) dropAllFlags(p *Player) {
 }
 
 func (m *handlesFlags) FlagsInitPacket() protocol.Message {
-	message := protocol.ServerInitFlags{
-		Scores: [2]protocol.TeamScore{
-			{m.flags[0].team.Score},
-			{m.flags[1].team.Score},
-		},
-	}
+	message := protocol.ServerInitFlags{}
 
-	for _, f := range m.flags {
+	for i, f := range m.flags {
 		if f == nil || f.team == nil {
 			continue
 		}
+
+		message.Scores[i].Score = f.team.Score
 
 		var carrierCN int32 = -1
 		if f.carrier != nil {

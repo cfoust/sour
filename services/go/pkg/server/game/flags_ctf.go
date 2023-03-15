@@ -116,10 +116,10 @@ func (m *ctf) takeFlag(p *Player, f *flag) {
 	}
 
 	f.version++
-	m.s.Broadcast(P.TakeFlag{
-		int32(p.CN),
-		f.index,
-		f.version,
+	m.s.Broadcast(P.ServerTakeFlag{
+		Client:  int32(p.CN),
+		Flag:    f.index,
+		Version: f.version,
 	})
 	f.carrier = p
 }

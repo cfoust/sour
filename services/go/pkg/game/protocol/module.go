@@ -629,13 +629,20 @@ type ReturnFlag struct {
 func (m ReturnFlag) Type() MessageCode { return N_RETURNFLAG }
 
 // N_TAKEFLAG
-type TakeFlag struct {
+type ServerTakeFlag struct {
 	Client  int32
 	Flag    int32
 	Version int32
 }
 
-func (m TakeFlag) Type() MessageCode { return N_TAKEFLAG }
+func (m ServerTakeFlag) Type() MessageCode { return N_TAKEFLAG }
+
+type ClientTakeFlag struct {
+	Flag    int32
+	Version int32
+}
+
+func (m ClientTakeFlag) Type() MessageCode { return N_TAKEFLAG }
 
 // N_RESETFLAG
 type ResetFlag struct {
@@ -1133,7 +1140,6 @@ func init() {
 	registerBoth(&SwitchModel{})
 	registerBoth(&SwitchName{})
 	registerBoth(&SwitchTeam{})
-	registerBoth(&TakeFlag{})
 	registerBoth(&TakeToken{})
 	registerBoth(&Taunt{})
 	registerBoth(&TeamInfo{})
@@ -1143,9 +1149,11 @@ func init() {
 	registerBoth(&TryDropFlag{})
 	registerBoth(&TrySpawn{})
 	registerBoth(&Welcome{})
-	registerClient(&SpawnRequest{})
 	registerClient(&ClientInitFlags{})
+	registerClient(&ClientTakeFlag{})
+	registerClient(&SpawnRequest{})
 	registerServer(&ServerInitFlags{})
+	registerServer(&ServerTakeFlag{})
 	registerServer(&SpawnResponse{})
 
 	// editing
