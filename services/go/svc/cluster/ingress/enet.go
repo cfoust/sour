@@ -9,7 +9,7 @@ import (
 	"github.com/cfoust/sour/pkg/enet"
 	"github.com/cfoust/sour/pkg/game/io"
 	"github.com/cfoust/sour/pkg/utils"
-	"github.com/cfoust/sour/svc/cluster/auth"
+	"github.com/cfoust/sour/svc/cluster/state"
 )
 
 type PacketACK struct {
@@ -26,7 +26,7 @@ type ENetClient struct {
 	toClient       chan PacketACK
 	toServer       chan io.RawPacket
 	commands       chan ClusterCommand
-	authentication chan *auth.AuthUser
+	authentication chan *state.User
 	disconnect     chan bool
 }
 
@@ -36,7 +36,7 @@ func NewENetClient() *ENetClient {
 		toClient:       make(chan PacketACK, CLIENT_MESSAGE_LIMIT),
 		toServer:       make(chan io.RawPacket, CLIENT_MESSAGE_LIMIT),
 		commands:       make(chan ClusterCommand, CLIENT_MESSAGE_LIMIT),
-		authentication: make(chan *auth.AuthUser),
+		authentication: make(chan *state.User),
 		disconnect:     make(chan bool, 1),
 	}
 }
@@ -105,7 +105,7 @@ func (c *ENetClient) ReceiveCommands() <-chan ClusterCommand {
 	return c.commands
 }
 
-func (c *ENetClient) ReceiveAuthentication() <-chan *auth.AuthUser {
+func (c *ENetClient) ReceiveAuthentication() <-chan *state.User {
 	return c.authentication
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/cfoust/sour/pkg/game/io"
 	"github.com/cfoust/sour/pkg/utils"
 	"github.com/cfoust/sour/svc/cluster/auth"
+	"github.com/cfoust/sour/svc/cluster/state"
 	"github.com/cfoust/sour/svc/cluster/watcher"
 
 	"github.com/fxamacker/cbor/v2"
@@ -130,7 +131,7 @@ type WSClient struct {
 	toClient       chan io.RawPacket
 	toServer       chan io.RawPacket
 	commands       chan ClusterCommand
-	authentication chan *auth.AuthUser
+	authentication chan *state.User
 	disconnect     chan bool
 	send           chan []byte
 	closeSlow      func()
@@ -142,7 +143,7 @@ func NewWSClient() *WSClient {
 		toClient:       make(chan io.RawPacket, CLIENT_MESSAGE_LIMIT),
 		toServer:       make(chan io.RawPacket, CLIENT_MESSAGE_LIMIT),
 		commands:       make(chan ClusterCommand, CLIENT_MESSAGE_LIMIT),
-		authentication: make(chan *auth.AuthUser),
+		authentication: make(chan *state.User),
 		send:           make(chan []byte, CLIENT_MESSAGE_LIMIT),
 		disconnect:     make(chan bool, 1),
 	}
@@ -200,7 +201,7 @@ func (c *WSClient) ReceiveCommands() <-chan ClusterCommand {
 	return c.commands
 }
 
-func (c *WSClient) ReceiveAuthentication() <-chan *auth.AuthUser {
+func (c *WSClient) ReceiveAuthentication() <-chan *state.User {
 	return c.authentication
 }
 
@@ -284,10 +285,15 @@ func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code
 	}
 
 	response := AuthSucceededMessage{
-		Op:         AuthSucceededOp,
-		Code:       code,
-		User:       user.Discord,
-		PrivateKey: user.Keys.Private,
+		Op:   AuthSucceededOp,
+		Code: code,
+		User: auth.DiscordUser{
+			Id:            user.UUID,
+			Username:      user.Username,
+			Discriminator: user.Discriminator,
+			Avatar:        user.Avatar,
+		},
+		PrivateKey: user.PrivateKey,
 	}
 	bytes, _ := cbor.Marshal(response)
 	client.send <- bytes

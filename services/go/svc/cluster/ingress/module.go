@@ -3,7 +3,7 @@ package ingress
 import (
 	"github.com/cfoust/sour/pkg/game/io"
 	"github.com/cfoust/sour/pkg/utils"
-	"github.com/cfoust/sour/svc/cluster/auth"
+	"github.com/cfoust/sour/svc/cluster/state"
 )
 
 // A unique identifier for this client for the lifetime of their session.
@@ -57,7 +57,7 @@ type Connection interface {
 	// When the client disconnects on its own
 	ReceiveDisconnect() <-chan bool
 	// When the client authenticates
-	ReceiveAuthentication() <-chan *auth.AuthUser
+	ReceiveAuthentication() <-chan *state.User
 	// Forcibly disconnect this client
 	Disconnect(reason int, message string)
 	Destroy()

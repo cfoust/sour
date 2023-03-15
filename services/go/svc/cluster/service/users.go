@@ -15,10 +15,10 @@ import (
 	"github.com/cfoust/sour/pkg/server"
 	"github.com/cfoust/sour/pkg/utils"
 
-	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
+	"github.com/cfoust/sour/svc/cluster/state"
 	"github.com/cfoust/sour/svc/cluster/verse"
 
 	"github.com/go-redis/redis/v9"
@@ -64,7 +64,7 @@ type User struct {
 	Server        *servers.GameServer
 	ServerClient  *server.Client
 
-	Auth  *auth.AuthUser
+	Auth  *state.User
 	Verse *verse.User
 	ELO   *ELOState
 
@@ -74,7 +74,7 @@ type User struct {
 	delayMessages bool
 	messageQueue  []string
 
-	Authentication    chan *auth.AuthUser
+	Authentication    chan *state.User
 	serverConnections chan ConnectionEvent
 
 	to chan TrackedPacket
@@ -104,7 +104,7 @@ func (c *User) ReceiveConnections() <-chan ConnectionEvent {
 	return c.serverConnections
 }
 
-func (c *User) ReceiveAuthentication() <-chan *auth.AuthUser {
+func (c *User) ReceiveAuthentication() <-chan *state.User {
 	// WS clients do their own auth (for now)
 	if c.Connection.Type() == ingress.ClientTypeWS {
 		return c.Connection.ReceiveAuthentication()
@@ -123,12 +123,11 @@ func (u *User) Logger() zerolog.Logger {
 		Logger()
 
 	if u.Auth != nil {
-		discord := u.Auth.Discord
 		logger = logger.With().
 			Str("discord", fmt.Sprintf(
 				"%s#%s",
-				discord.Username,
-				discord.Discriminator,
+				u.Auth.Username,
+				u.Auth.Discriminator,
 			)).Logger()
 	}
 
@@ -156,7 +155,7 @@ func (u *User) GetID() string {
 		return ""
 	}
 
-	return auth.GetID()
+	return auth.UUID
 }
 
 func (c *User) GetStatus() UserStatus {
@@ -373,7 +372,7 @@ func (u *User) GetName() string {
 	return name
 }
 
-func (u *User) GetAuth() *auth.AuthUser {
+func (u *User) GetAuth() *state.User {
 	u.Mutex.RLock()
 	auth := u.Auth
 	u.Mutex.RUnlock()
@@ -400,7 +399,7 @@ func (u *User) AnnounceELO() {
 	u.Message(result)
 }
 
-func (u *User) HydrateELOState(ctx context.Context, authUser *auth.AuthUser) error {
+func (u *User) HydrateELOState(ctx context.Context, authUser *state.User) error {
 	u.Mutex.Lock()
 	defer u.Mutex.Unlock()
 
@@ -649,7 +648,7 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, connection ingress.Conne
 		From:              P.NewMessageProxy(true),
 		To:                P.NewMessageProxy(false),
 		to:                make(chan TrackedPacket, 1000),
-		Authentication:    make(chan *auth.AuthUser),
+		Authentication:    make(chan *state.User),
 		serverConnections: make(chan ConnectionEvent),
 		ServerSession:     utils.NewSession(ctx),
 		o:                 u,

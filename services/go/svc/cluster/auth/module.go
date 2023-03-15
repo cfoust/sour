@@ -344,15 +344,24 @@ func (d *DiscordService) CheckRefreshToken(ctx context.Context, token string) (s
 	return bundle.AccessToken, nil
 }
 
+func applyBundle(user *state.User, response *TokenResponse) {
+	user.Token = response.AccessToken
+	user.RefreshToken = response.RefreshToken
+	user.RefreshAfter = time.Now().Add(time.Duration(response.ExpiresIn) * time.Second)
+}
+
+func applyDiscord(user *state.User, discord *DiscordUser) {
+	user.Username = discord.Username
+	user.Discriminator = discord.Discriminator
+	user.Avatar = discord.Avatar
+}
+
 func (d *DiscordService) updateInfo(ctx context.Context, user *state.User) error {
 	discordUser, err := d.GetUser(user.Token)
 	if err != nil {
 		return err
 	}
-
-	user.Username = discordUser.Username
-	user.Discriminator = discordUser.Discriminator
-	user.Avatar = discordUser.Avatar
+	applyDiscord(user, discordUser)
 	user.LastLogin = time.Now()
 
 	return d.db.WithContext(ctx).Save(user).Error
@@ -399,26 +408,21 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*st
 		return nil, err
 	}
 
-	err = db.WithContext(ctx).
-		Where(
-			state.User{
-				UUID: discordUser.Id,
-			},
-		).
+	err = db.Where(
+		state.User{
+			UUID: discordUser.Id,
+		},
+	).
 		First(&user).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
 
-	// The user already existed, it just had a new code
+	// The user already existed, they just have a new code
 	if err == nil {
 		user.Code = code
-		user.Token = bundle.AccessToken
-		user.RefreshToken = bundle.RefreshToken
-		user.RefreshAfter = time.Now().Add(time.Duration(bundle.ExpiresIn) * time.Second)
-		user.Username = discordUser.Username
-		user.Discriminator = discordUser.Discriminator
-		user.Avatar = discordUser.Avatar
+		applyBundle(&user, bundle)
+		applyDiscord(&user, discordUser)
 		user.LastLogin = time.Now()
 
 		err = db.Save(&user).Error
@@ -429,50 +433,52 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*st
 		return &user, nil
 	}
 
-	err = d.State.SetIdForCode(
-		ctx,
-		code,
-		discordUser.Id,
-		bundle.ExpiresIn,
-	)
+	// Create the user
+
+	pair, err := GenerateAuthKey()
 	if err != nil {
 		return nil, err
 	}
 
-	err = d.State.SetTokenForId(
-		ctx,
-		discordUser.Id,
-		bundle.AccessToken,
-		bundle.ExpiresIn,
-	)
+	user = state.User{
+		Code:       code,
+		Nickname:   "unnamed",
+		UUID:       discordUser.Id,
+		LastLogin:  time.Now(),
+		PublicKey:  pair.Public,
+		PrivateKey: pair.Private,
+	}
+
+	err = db.Create(&user).Error
 	if err != nil {
 		return nil, err
 	}
 
-	err = d.SaveTokenBundle(
-		ctx,
-		bundle,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return d.FetchUser(ctx, bundle.AccessToken)
+	return &user, nil
 }
 
-func (d *DiscordService) AuthenticateId(ctx context.Context, id string) (*AuthUser, error) {
-	token, err := d.State.GetTokenForId(
-		ctx,
-		id,
-	)
+func (d *DiscordService) AuthenticateId(ctx context.Context, id string) (*state.User, error) {
+	db := d.db.WithContext(ctx)
+
+	user := state.User{}
+	err := db.Where(
+		state.User{
+			UUID: id,
+		},
+	).
+		First(&user).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	if err == gorm.ErrRecordNotFound {
+		return nil, fmt.Errorf("user not found for id %s", id)
+	}
+
+	err = d.updateInfo(ctx, &user)
 	if err != nil {
 		return nil, err
 	}
 
-	newToken, err := d.CheckRefreshToken(ctx, token)
-	if err != nil {
-		return nil, err
-	}
-
-	return d.FetchUser(ctx, newToken)
+	return &user, nil
 }
