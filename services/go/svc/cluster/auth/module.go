@@ -356,14 +356,7 @@ func applyDiscord(user *state.User, discord *DiscordUser) {
 	user.Avatar = discord.Avatar
 }
 
-func (d *DiscordService) updateInfo(ctx context.Context, user *state.User) error {
-	discordUser, err := d.GetUser(user.Token)
-	if err != nil {
-		return err
-	}
-	applyDiscord(user, discordUser)
-	user.LastLogin = time.Now()
-
+func (d *DiscordService) updateLogin(ctx context.Context, user *state.User) error {
 	return d.db.WithContext(ctx).Save(user).Error
 }
 
@@ -380,15 +373,10 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*st
 		return nil, err
 	}
 
-	// 1. Check for refreshable tokens every hour for users who have logged
-	//    in within the last 30 days
-	// 2. When the user logs in, fetch the latest info from Discord using
-	//    their tokens
-
 	// The user is already associated with this code
 	if err == nil {
-		err = d.updateInfo(ctx, &user)
-
+		user.LastLogin = time.Now()
+		err = db.Save(user).Error
 		if err != nil {
 			return nil, err
 		}
@@ -434,7 +422,6 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*st
 	}
 
 	// Create the user
-
 	pair, err := GenerateAuthKey()
 	if err != nil {
 		return nil, err
@@ -475,7 +462,8 @@ func (d *DiscordService) AuthenticateId(ctx context.Context, id string) (*state.
 		return nil, fmt.Errorf("user not found for id %s", id)
 	}
 
-	err = d.updateInfo(ctx, &user)
+	user.LastLogin = time.Now()
+	err = db.Save(user).Error
 	if err != nil {
 		return nil, err
 	}
