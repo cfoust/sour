@@ -95,8 +95,9 @@ type User struct {
 	RawFrom *utils.Topic[io.RawPacket]
 	RawTo   *utils.Topic[io.RawPacket]
 
-	Mutex deadlock.RWMutex
-	o     *UserOrchestrator
+	Mutex      deadlock.RWMutex
+	queueMutex deadlock.RWMutex
+	o          *UserOrchestrator
 }
 
 func (c *User) ReceiveConnections() <-chan ConnectionEvent {
@@ -322,12 +323,12 @@ func (u *User) GetFormattedName() string {
 }
 
 func (c *User) sendQueuedMessages() {
-	c.Mutex.Lock()
+	c.queueMutex.Lock()
 	for _, message := range c.messageQueue {
 		c.sendMessage(message)
 	}
 	c.messageQueue = make([]string, 0)
-	c.Mutex.Unlock()
+	c.queueMutex.Unlock()
 }
 
 func (c *User) sendMessage(message string) {
@@ -335,13 +336,18 @@ func (c *User) sendMessage(message string) {
 }
 
 func (u *User) queueMessage(message string) {
-	u.Mutex.Lock()
-	if u.delayMessages {
+	u.Mutex.RLock()
+	delayed := u.delayMessages
+	u.Mutex.RUnlock()
+
+	if delayed {
+		u.queueMutex.Lock()
 		u.messageQueue = append(u.messageQueue, message)
-	} else {
-		u.sendMessage(message)
+		u.queueMutex.Unlock()
+		return
 	}
-	u.Mutex.Unlock()
+
+	u.sendMessage(message)
 }
 
 func (u *User) Message(message string) {
