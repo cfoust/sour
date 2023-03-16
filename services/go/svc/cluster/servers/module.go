@@ -240,12 +240,15 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		Started:   time.Now(),
 		kicks:     manager.kicks,
 		packets:   manager.packets,
+		Id:        FindIdentity(),
 
 		From: P.NewMessageProxy(false),
 		To:   P.NewMessageProxy(true),
 	}
 
-	server.Id = FindIdentity()
+	server.SetDescription(
+		strings.ReplaceAll(manager.serverDescription, "#id", server.Id),
+	)
 
 	mode := C.GetModeNumber(config.DefaultMode)
 	if opt.IsNone(mode) {
