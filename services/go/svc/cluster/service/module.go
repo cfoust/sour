@@ -9,6 +9,7 @@ import (
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/game/commands"
 	P "github.com/cfoust/sour/pkg/game/protocol"
+	"github.com/cfoust/sour/pkg/chanlock"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
@@ -136,12 +137,21 @@ func (server *Cluster) GetUptime() int {
 }
 
 func (server *Cluster) PollServers(ctx context.Context) {
+	chanLock := chanlock.New(log.Logger)
+
 	forceDisconnects := server.servers.ReceiveKicks()
 	gamePackets := server.servers.ReceivePackets()
 
+	health := chanLock.Poll(ctx)
+
 	for {
 		select {
+		case <-health:
+			continue
+
 		case event := <-forceDisconnects:
+			chanLock.Mark("forceDisconnects")
+
 			user := server.Users.FindUser(event.Client)
 
 			if user == nil {
@@ -157,6 +167,8 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			// were not kicked for violent reasons
 			user.Connection.Disconnect(int(event.Reason), event.Text)
 		case p := <-gamePackets:
+			chanLock.Mark("gamePackets")
+
 			messages := p.Messages
 			gameServer := p.Server
 

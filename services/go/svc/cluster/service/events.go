@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cfoust/sour/pkg/chanlock"
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/game/io"
@@ -390,6 +391,9 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 	// A context valid JUST for the lifetime of the user
 	userCtx := user.Ctx()
 
+	chanLock := chanlock.New(user.Logger())
+	health := chanLock.Poll(ctx)
+
 	logger := user.Logger()
 
 	go func() {
@@ -415,7 +419,11 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 		case <-ctx.Done():
 			return
 
+		case <-health:
+			continue
+
 		case <-connect:
+			chanLock.Mark("connect")
 			user.Mutex.Lock()
 			if user.Server != nil {
 				instance := c.spaces.FindInstance(user.Server)
@@ -450,6 +458,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			}
 
 		case authUser := <-authentication:
+			chanLock.Mark("authentication")
 			if authUser == nil {
 				c.GreetClient(userCtx, user)
 				continue
@@ -486,6 +495,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			}
 			c.GreetClient(userCtx, user)
 		case msg := <-toServer:
+			chanLock.Mark("toServer")
 			data := msg.Data
 
 			// We want to get the raw data from the user -- not the
@@ -548,6 +558,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			}
 
 		case msg := <-toClient:
+			chanLock.Mark("toClient")
 			packet := msg.Packet
 			done := msg.Error
 
@@ -653,6 +664,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			}()
 
 		case request := <-commands:
+			chanLock.Mark("commands")
 			command := request.Command
 			outChannel := request.Response
 
@@ -663,6 +675,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				}
 			}()
 		case <-disconnect:
+			chanLock.Mark("disconnect")
 			c.NotifyClientChange(ctx, user, false)
 			user.DisconnectFromServer()
 		}
