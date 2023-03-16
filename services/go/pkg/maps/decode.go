@@ -291,9 +291,7 @@ func fromGZ(data []byte, skipCubes bool) (*GameMap, error) {
 	defer gz.Close()
 
 	rawBytes, err := io.ReadAll(gz)
-	if err == gzip.ErrChecksum {
-		log.Warn().Msg("Map file had invalid checksum")
-	} else if err != nil {
+	if err != nil && err != gzip.ErrChecksum {
 		return nil, err
 	}
 
