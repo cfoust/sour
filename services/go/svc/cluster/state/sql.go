@@ -70,11 +70,6 @@ type User struct {
 	// The prefix for Discord's avatar scheme
 	Avatar string `gorm:"size:128"`
 
-	// Auth stuff
-	Code         string
-	Token        string
-	RefreshToken string
-	RefreshAfter time.Time
 	// For desktop auth
 	PublicKey  string
 	PrivateKey string
@@ -88,6 +83,15 @@ type User struct {
 	Maps     []*Map     `gorm:"foreignKey:CreatorID"`
 	Spaces   []*Space   `gorm:"foreignKey:OwnerID"`
 	Sessions []*Session `gorm:"foreignKey:UserID"`
+}
+
+// A Discord login code for a user.
+type AuthCode struct {
+	Entity
+	UserID  uint   `gorm:"not null"`
+	User    *User  `gorm:"foreignKey:UserID"`
+	Value   string `gorm:"not null;unique;uniqueIndex"`
+	Expires time.Time
 }
 
 type Creatable struct {
@@ -143,6 +147,9 @@ type MapDiff struct {
 
 	NewID uint `gorm:"not null"`
 	New   *Map `gorm:"foreignKey:NewID"`
+
+	EditsID uint   `gorm:"not null"`
+	Edits   *Asset `gorm:"foreignKey:EditsID"`
 }
 
 type Link struct {
@@ -181,6 +188,7 @@ func InitDB(path string) (*gorm.DB, error) {
 	db.AutoMigrate(&ELOType{})
 	db.AutoMigrate(&Ranking{})
 	db.AutoMigrate(&User{})
+	db.AutoMigrate(&AuthCode{})
 	db.AutoMigrate(&Session{})
 	db.AutoMigrate(&Visit{})
 	db.AutoMigrate(&Asset{})
