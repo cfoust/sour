@@ -172,7 +172,6 @@ func decode(data []byte, skipCubes bool) (*GameMap, error) {
 	mapHeader.NumVars = newFooter.NumVars
 	mapHeader.NumVSlots = newFooter.NumVSlots
 
-	//log.Debug().Msgf("Version %d", header.Version)
 	gameMap.Vars = make(map[string]V.Variable)
 
 	for i := 0; i < int(newFooter.NumVars); i++ {

@@ -100,10 +100,10 @@ type EntityType byte
 
 const (
 	EntityTypeEmpty        EntityType = iota // ET_EMPTY
-	EntityTypeLight                          // ET_LIGHT
-	EntityTypeMapModel                       // ET_MAPMODEL
-	EntityTypePlayerStart                    // ET_PLAYERSTART
-	EntityTypeEnvMap                         // ET_ENVMAP
+	EntityTypeLight                          // ET_LIGHT attr1 = radius, attr2 = intensity
+	EntityTypeMapModel                       // ET_MAPMODEL attr1 = angle, attr2 = idx
+	EntityTypePlayerStart                    // ET_PLAYERSTART attr1 = angle, attr2 = team
+	EntityTypeEnvMap                         // ET_ENVMAP attr1 = radius
 	EntityTypeParticles                      // ET_PARTICLES
 	EntityTypeSound                          // ET_SOUND
 	EntityTypeSpotlight                      // ET_SPOTLIGHT
