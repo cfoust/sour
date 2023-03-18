@@ -175,7 +175,7 @@ type Space struct {
 	MapPointerID uint `gorm:"not null"`
 	MapPointer   *MapPointer
 
-	Links []*Link
+	Links []*Link `gorm:"foreignKey:SpaceID"`
 }
 
 func InitDB(path string) (*gorm.DB, error) {

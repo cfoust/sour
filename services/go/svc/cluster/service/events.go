@@ -461,7 +461,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				continue
 			}
 
-			logger = logger.With().Str("id", authUser.Discord.Id).Logger()
+			logger = logger.With().Str("id", authUser.UUID).Logger()
 
 			user.Mutex.Lock()
 			user.Auth = authUser
