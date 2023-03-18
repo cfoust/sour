@@ -85,7 +85,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 	}
 
 	if P.IsEditMessage(message.Type()) {
-		if s.GameMode.ID() != gamemode.CoopEdit || client.State != playerstate.Editing {
+		if s.GameMode.ID() != gamemode.CoopEdit {
 			return
 		}
 
