@@ -344,12 +344,6 @@ func (d *DiscordService) CheckRefreshToken(ctx context.Context, token string) (s
 	return bundle.AccessToken, nil
 }
 
-func applyBundle(user *state.User, response *TokenResponse) {
-	user.Token = response.AccessToken
-	user.RefreshToken = response.RefreshToken
-	user.RefreshAfter = time.Now().Add(time.Duration(response.ExpiresIn) * time.Second)
-}
-
 func applyDiscord(user *state.User, discord *DiscordUser) {
 	user.Username = discord.Username
 	user.Discriminator = discord.Discriminator
@@ -360,28 +354,48 @@ func (d *DiscordService) updateLogin(ctx context.Context, user *state.User) erro
 	return d.db.WithContext(ctx).Save(user).Error
 }
 
+var LoginExpired = fmt.Errorf("session expired")
+
+func createAuthCode(ctx context.Context, db *gorm.DB, user *state.User, code string) error {
+	authCode := state.AuthCode{
+		UserID: user.ID,
+		Value: code,
+		Expires: time.Now().Add(30 * time.Hour * 24),
+	}
+	return db.Create(&authCode).Error
+}
+
 func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*state.User, error) {
 	db := d.db.WithContext(ctx)
 
 	// First check the database
-	user := state.User{}
-	err := db.Where(state.User{
-		Code: code,
-	}).First(&user).Error
+	authCode := state.AuthCode{}
+	err := db.Where(state.AuthCode{
+		Value: code,
+	}).Joins("User").First(&authCode).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
 
+	if authCode.Expires.Before(time.Now()) {
+		err = db.Delete(&authCode).Error
+		if err != nil {
+			return nil, err
+		}
+		return nil, LoginExpired
+	}
+
 	// The user is already associated with this code
 	if err == nil {
+		user := authCode.User
 		user.LastLogin = time.Now()
 		err = db.Save(user).Error
 		if err != nil {
 			return nil, err
 		}
 
-		return &user, nil
+		return user, nil
 	}
 
 	// Can only be state.Nil, fetch the token for this
@@ -396,6 +410,7 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*st
 		return nil, err
 	}
 
+	var user state.User
 	err = db.Where(
 		state.User{
 			UUID: discordUser.Id,
@@ -408,11 +423,13 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*st
 
 	// The user already existed, they just have a new code
 	if err == nil {
-		user.Code = code
-		applyBundle(&user, bundle)
+		err = createAuthCode(ctx, db, &user, code)
+		if err != nil {
+		    return nil, err
+		}
+
 		applyDiscord(&user, discordUser)
 		user.LastLogin = time.Now()
-
 		err = db.Save(&user).Error
 		if err != nil {
 			return nil, err
@@ -428,7 +445,6 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*st
 	}
 
 	user = state.User{
-		Code:       code,
 		Nickname:   "unnamed",
 		UUID:       discordUser.Id,
 		LastLogin:  time.Now(),
@@ -437,6 +453,11 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*st
 	}
 
 	err = db.Create(&user).Error
+	if err != nil {
+		return nil, err
+	}
+
+	err = createAuthCode(ctx, db, &user, code)
 	if err != nil {
 		return nil, err
 	}
