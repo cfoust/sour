@@ -2,17 +2,18 @@ package relay
 
 import (
 	"errors"
-	"sync"
 	"time"
 
 	"github.com/cfoust/sour/pkg/game/protocol"
+
+	"github.com/sasha-s/go-deadlock"
 )
 
 type sendFunc func(channel uint8, payload []protocol.Message)
 
 // Relay relays positional data between clients
 type Relay struct {
-	mutex sync.Mutex
+	mutex deadlock.Mutex
 
 	incPositionsNotifs chan uint32                          // channel on which clients notify the broker about new packets
 	incPositions       map[uint32]<-chan []protocol.Message // clients' update channels by topic

@@ -1,14 +1,15 @@
 package pausableticker
 
 import (
-	"sync"
 	"time"
+
+	"github.com/sasha-s/go-deadlock"
 )
 
 type Ticker struct {
 	C <-chan time.Time // The channel on which the ticks are delivered.
 
-	sync.Mutex
+	deadlock.Mutex
 	pause  chan bool
 	paused bool
 	stop   chan struct{}

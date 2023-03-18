@@ -1,8 +1,9 @@
 package timer
 
 import (
-	"sync"
 	"time"
+
+	"github.com/sasha-s/go-deadlock"
 )
 
 const (
@@ -19,7 +20,7 @@ type Timer struct {
 	C  <-chan time.Time
 	fn func()
 
-	l         *sync.Mutex // to synchronize access to the fields below
+	l         *deadlock.Mutex // to synchronize access to the fields below
 	state     int
 	duration  time.Duration
 	startedAt time.Time
@@ -32,7 +33,7 @@ type Timer struct {
 func AfterFunc(d time.Duration, f func()) *Timer {
 	t := &Timer{
 		duration: d,
-		l:        new(sync.Mutex),
+		l:        new(deadlock.Mutex),
 	}
 	t.fn = func() {
 		t.state = stateExpired
@@ -49,7 +50,7 @@ func NewTimer(d time.Duration) *Timer {
 	t := &Timer{
 		C:        c,
 		duration: d,
-		l:        new(sync.Mutex),
+		l:        new(deadlock.Mutex),
 	}
 	t.fn = func() {
 		t.state = stateExpired
