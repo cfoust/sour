@@ -458,10 +458,6 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 
 	u.DelayMessages()
 
-	logger := u.Logger()
-
-	logger.Info().Msg("connect to server")
-
 	oldServer := u.GetServer()
 	if oldServer != nil {
 		oldServer.Leave(uint32(u.Id))
@@ -477,7 +473,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 					continue
 				}
 
-				otherUser.Send(
+				u.Send(
 					P.ClientDisconnected{
 						Client: int32(otherUser.GetClientNum()),
 					},
