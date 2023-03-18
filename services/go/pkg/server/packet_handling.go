@@ -125,6 +125,9 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 			s.relay.FlushPositionAndSend(client.CN, msg)
 		}
 
+	case P.N_ADDBOT, P.N_DELBOT:
+		client.Message("bots currently not supported")
+
 	// channel 1 traffic
 	case P.N_CONNECT:
 		msg := message.(P.Connect)
