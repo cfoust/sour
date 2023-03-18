@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/cfoust/sour/pkg/chanlock"
 	G "github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/game/commands"
 	P "github.com/cfoust/sour/pkg/game/protocol"
@@ -101,11 +102,17 @@ func New(ctx context.Context, conf *Config) *Server {
 }
 
 func (s *Server) Poll(ctx context.Context) {
+	chanLock := chanlock.New(log.Logger)
+	health := chanLock.Poll(ctx)
+
 	for {
 		select {
 		case <-s.Ctx().Done():
 			return
+		case <-health:
+			continue
 		case msg := <-s.incoming:
+			chanLock.Mark("incoming")
 			client := s.Clients.GetClientByID(msg.Session)
 			if client == nil {
 				continue
