@@ -10,20 +10,20 @@ import (
 	"github.com/go-redis/redis/v9"
 )
 
-type Cache interface {
-	Get(key string) ([]byte, error)
-	Set(key string, data []byte) error
+type Store interface {
+	Get(ctx context.Context, key string) ([]byte, error)
+	Set(ctx context.Context, key string, data []byte) error
 }
 
-type FSCache string
+type FSStore string
 
 var Missing = fmt.Errorf("asset missing")
 
-func (f FSCache) getPath(key string) string {
+func (f FSStore) getPath(key string) string {
 	return filepath.Join(string(f), key)
 }
 
-func (f FSCache) Get(key string) ([]byte, error) {
+func (f FSStore) Get(ctx context.Context, key string) ([]byte, error) {
 	target := f.getPath(key)
 
 	if !FileExists(target) {
@@ -33,7 +33,7 @@ func (f FSCache) Get(key string) ([]byte, error) {
 	return os.ReadFile(target)
 }
 
-func (f FSCache) Set(key string, data []byte) error {
+func (f FSStore) Set(ctx context.Context, key string, data []byte) error {
 	target := f.getPath(key)
 	return WriteBytes(data, target)
 }
@@ -43,19 +43,19 @@ const (
 	ASSET_EXPIRY = time.Duration(1 * time.Hour)
 )
 
-type RedisCache struct {
+type RedisStore struct {
 	client *redis.Client
 }
 
-func NewRedisCache(client *redis.Client) *RedisCache {
-	return &RedisCache{
+func NewRedisStore(client *redis.Client) *RedisStore {
+	return &RedisStore{
 		client: client,
 	}
 }
 
-func (r *RedisCache) Get(id string) ([]byte, error) {
+func (r *RedisStore) Get(ctx context.Context, id string) ([]byte, error) {
 	key := fmt.Sprintf(ASSET_KEY, id)
-	data, err := r.client.Get(context.Background(), key).Bytes()
+	data, err := r.client.Get(ctx, key).Bytes()
 
 	if err == redis.Nil {
 		return nil, Missing
@@ -68,10 +68,32 @@ func (r *RedisCache) Get(id string) ([]byte, error) {
 	return data, nil
 }
 
-func (r *RedisCache) Set(id string, data []byte) error {
+func (r *RedisStore) Set(ctx context.Context, id string, data []byte) error {
 	key := fmt.Sprintf(ASSET_KEY, id)
-	return r.client.Set(context.Background(), key, data, ASSET_EXPIRY).Err()
+	return r.client.Set(ctx, key, data, ASSET_EXPIRY).Err()
 }
 
-var _ Cache = (*FSCache)(nil)
-var _ Cache = (*RedisCache)(nil)
+type RedisCache struct {
+	*RedisStore
+	ttl time.Duration
+}
+
+func NewRedisCache(client *redis.Client, ttl time.Duration) *RedisCache {
+	return &RedisCache{
+		RedisStore: NewRedisStore(client),
+		ttl:        ttl,
+	}
+}
+
+func (r *RedisCache) Set(ctx context.Context, id string, data []byte) error {
+	err := r.RedisStore.Set(ctx, id, data)
+	if err != nil {
+		return err
+	}
+
+	return r.client.Expire(ctx, id, r.ttl).Err()
+}
+
+var _ Store = (*FSStore)(nil)
+var _ Store = (*RedisStore)(nil)
+var _ Store = (*RedisCache)(nil)

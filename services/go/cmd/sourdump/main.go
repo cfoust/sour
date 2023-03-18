@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"flag"
 	"fmt"
@@ -11,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	V "github.com/cfoust/sour/pkg/game/variables"
 	"github.com/cfoust/sour/pkg/assets"
+	V "github.com/cfoust/sour/pkg/game/variables"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/min"
 
@@ -321,7 +322,7 @@ func resolveTarget(roots []assets.Root, target string) (*min.Reference, error) {
 	}, nil
 }
 
-func Dump(cache assets.Cache, roots []assets.Root, type_ string, indexPath string, target string) {
+func Dump(cache assets.Store, roots []assets.Root, type_ string, indexPath string, target string) {
 	var err error
 	var references []min.Mapping
 
@@ -360,8 +361,8 @@ func Dump(cache assets.Cache, roots []assets.Root, type_ string, indexPath strin
 	}
 }
 
-func Download(cache assets.Cache, roots []assets.Root, outDir string, targets []string) {
-	outCache := assets.FSCache(outDir)
+func Download(ctx context.Context, cache assets.Store, roots []assets.Root, outDir string, targets []string) {
+	outCache := assets.FSStore(outDir)
 
 	for _, target := range targets {
 		for _, root := range roots {
@@ -370,7 +371,7 @@ func Download(cache assets.Cache, roots []assets.Root, outDir string, targets []
 				continue
 			}
 
-			data, err := remoteRoot.ReadAsset(target)
+			data, err := remoteRoot.ReadAsset(ctx, target)
 			if err == assets.Missing {
 				continue
 			}
@@ -378,7 +379,7 @@ func Download(cache assets.Cache, roots []assets.Root, outDir string, targets []
 				log.Fatal().Err(err).Msgf("could not resolve asset %s", target)
 			}
 
-			err = outCache.Set(target, data)
+			err = outCache.Set(ctx, target, data)
 			if err != nil {
 				log.Fatal().Err(err).Msgf("could not save asset %s", target)
 			}
@@ -386,7 +387,7 @@ func Download(cache assets.Cache, roots []assets.Root, outDir string, targets []
 	}
 }
 
-func List(cache assets.Cache, roots []assets.Root) {
+func List(cache assets.Store, roots []assets.Root) {
 	for _, root := range roots {
 		remoteRoot, ok := root.(*assets.RemoteRoot)
 		if !ok {
@@ -399,7 +400,7 @@ func List(cache assets.Cache, roots []assets.Root) {
 	}
 }
 
-func Query(cache assets.Cache, roots []assets.Root, targets []string) {
+func Query(cache assets.Store, roots []assets.Root, targets []string) {
 	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
 
 	for _, target := range targets {
@@ -418,7 +419,7 @@ func Query(cache assets.Cache, roots []assets.Root, targets []string) {
 	}
 }
 
-func Hash(cache assets.Cache, roots []assets.Root, targets []string) {
+func Hash(cache assets.Store, roots []assets.Root, targets []string) {
 	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
 	hash := sha256.New()
 
@@ -479,8 +480,9 @@ func main() {
 		log.Fatal().Msg("You must provide at least one argument.")
 	}
 
-	cache := assets.FSCache(*cacheDir)
-	assetRoots, err := assets.LoadRoots(cache, roots, false)
+	cache := assets.FSStore(*cacheDir)
+	ctx := context.Background()
+	assetRoots, err := assets.LoadRoots(ctx, cache, roots, false)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to load roots")
 	}
@@ -499,7 +501,7 @@ func main() {
 		if len(args) == 0 {
 			log.Fatal().Msg("You must provide at least one asset.")
 		}
-		Download(cache, assetRoots, *outDir, args)
+		Download(ctx, cache, assetRoots, *outDir, args)
 	case "list":
 		listCmd.Parse(args[1:])
 		args := listCmd.Args()

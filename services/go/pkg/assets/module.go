@@ -22,11 +22,11 @@ type AssetFetcher struct {
 	assets  chan Job
 	bundles chan Job
 	roots   []*RemoteRoot
-	cache   Cache
+	cache   Store
 }
 
-func NewAssetFetcher(cache Cache, roots []string, onlyMaps bool) (*AssetFetcher, error) {
-	loaded, err := LoadRoots(cache, roots, onlyMaps)
+func NewAssetFetcher(ctx context.Context, cache Store, roots []string, onlyMaps bool) (*AssetFetcher, error) {
+	loaded, err := LoadRoots(ctx, cache, roots, onlyMaps)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func NewAssetFetcher(cache Cache, roots []string, onlyMaps bool) (*AssetFetcher,
 
 func (m *AssetFetcher) getAsset(ctx context.Context, id string) ([]byte, error) {
 	for _, root := range m.roots {
-		data, err := root.ReadAsset(id)
+		data, err := root.ReadAsset(ctx, id)
 		if err == Missing {
 			continue
 		}
@@ -61,7 +61,7 @@ func (m *AssetFetcher) getAsset(ctx context.Context, id string) ([]byte, error) 
 func (m *AssetFetcher) getBundle(ctx context.Context, id string) ([]byte, error) {
 	key := fmt.Sprintf(ASSET_KEY, id)
 
-	cacheData, err := m.cache.Get(key)
+	cacheData, err := m.cache.Get(ctx, key)
 	if err != nil && err != Missing {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (m *AssetFetcher) getBundle(ctx context.Context, id string) ([]byte, error)
 
 	data := buffer.Bytes()
 
-	err = m.cache.Set(key, data)
+	err = m.cache.Set(ctx, key, data)
 	if err != nil {
 		return nil, err
 	}

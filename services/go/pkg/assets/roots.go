@@ -1,6 +1,7 @@
 package assets
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"os"
@@ -12,9 +13,9 @@ import (
 )
 
 type Root interface {
-	Exists(path string) bool
-	ReadFile(path string) ([]byte, error)
-	Reference(path string) (string, error)
+	Exists(ctx context.Context, path string) bool
+	ReadFile(ctx context.Context, path string) ([]byte, error)
+	Reference(ctx context.Context, path string) (string, error)
 }
 
 // Sourdump can return (id, path) or (path, path) pairs
@@ -26,19 +27,19 @@ func (f FSRoot) getPath(file string) string {
 	return filepath.Join(string(f), file)
 }
 
-func (f FSRoot) Exists(path string) bool {
+func (f FSRoot) Exists(ctx context.Context, path string) bool {
 	if _, err := os.Stat(f.getPath(path)); !os.IsNotExist(err) {
 		return true
 	}
 	return false
 }
 
-func (f FSRoot) ReadFile(path string) ([]byte, error) {
+func (f FSRoot) ReadFile(ctx context.Context, path string) ([]byte, error) {
 	return os.ReadFile(f.getPath(path))
 }
 
-func (f FSRoot) Reference(path string) (string, error) {
-	if !f.Exists(path) {
+func (f FSRoot) Reference(ctx context.Context, path string) (string, error) {
+	if !f.Exists(ctx, path) {
 		return "", fmt.Errorf("path %s not found in root", path)
 	}
 
@@ -46,7 +47,7 @@ func (f FSRoot) Reference(path string) (string, error) {
 }
 
 type RemoteRoot struct {
-	cache  Cache
+	cache  Store
 	source string
 	url    string
 	// A path inside of the virtual FS to treat as the "root".
@@ -72,7 +73,8 @@ type RemoteRoot struct {
 }
 
 func NewRemoteRoot(
-	cache Cache,
+	ctx context.Context,
+	cache Store,
 	url string,
 	base string,
 	shouldCache bool,
@@ -80,7 +82,7 @@ func NewRemoteRoot(
 ) (*RemoteRoot, error) {
 	urlHash := fmt.Sprintf("%x", sha256.Sum256([]byte(url)))
 
-	indexData, err := cache.Get(urlHash)
+	indexData, err := cache.Get(ctx, urlHash)
 	if err != nil {
 		if err != Missing {
 			return nil, err
@@ -92,7 +94,7 @@ func NewRemoteRoot(
 		}
 
 		if shouldCache {
-			err = cache.Set(urlHash, indexData)
+			err = cache.Set(ctx, urlHash, indexData)
 			if err != nil {
 				return nil, err
 			}
@@ -179,7 +181,7 @@ func NewRemoteRoot(
 	return &root, nil
 }
 
-func (f *RemoteRoot) Exists(path string) bool {
+func (f *RemoteRoot) Exists(ctx context.Context, path string) bool {
 	_, ok := f.FS[path]
 	return ok
 }
@@ -192,7 +194,7 @@ func (f *RemoteRoot) GetID(index int) (string, error) {
 	return "", Missing
 }
 
-func (f *RemoteRoot) Reference(path string) (string, error) {
+func (f *RemoteRoot) Reference(ctx context.Context, path string) (string, error) {
 	index, ok := f.FS[path]
 	if !ok {
 		return "", Missing
@@ -206,12 +208,12 @@ func (f *RemoteRoot) Reference(path string) (string, error) {
 	return fmt.Sprintf("id:%s", id), nil
 }
 
-func (f *RemoteRoot) ReadAsset(id string) ([]byte, error) {
+func (f *RemoteRoot) ReadAsset(ctx context.Context, id string) ([]byte, error) {
 	if _, ok := f.assets[id]; !ok {
 		return nil, Missing
 	}
 
-	cacheData, err := f.cache.Get(id)
+	cacheData, err := f.cache.Get(ctx, id)
 	if err != nil && err != Missing {
 		return nil, err
 	}
@@ -225,7 +227,7 @@ func (f *RemoteRoot) ReadAsset(id string) ([]byte, error) {
 		return nil, err
 	}
 
-	err = f.cache.Set(id, data)
+	err = f.cache.Set(ctx, id, data)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +235,7 @@ func (f *RemoteRoot) ReadAsset(id string) ([]byte, error) {
 	return data, nil
 }
 
-func (f *RemoteRoot) ReadFile(path string) ([]byte, error) {
+func (f *RemoteRoot) ReadFile(ctx context.Context, path string) ([]byte, error) {
 	index, ok := f.FS[path]
 	if !ok {
 		return nil, Missing
@@ -244,13 +246,13 @@ func (f *RemoteRoot) ReadFile(path string) ([]byte, error) {
 		return nil, Missing
 	}
 
-	return f.ReadAsset(id)
+	return f.ReadAsset(ctx, id)
 }
 
 var _ Root = (*FSRoot)(nil)
 var _ Root = (*RemoteRoot)(nil)
 
-func LoadRoots(cache Cache, targets []string, onlyMaps bool) ([]Root, error) {
+func LoadRoots(ctx context.Context, cache Store, targets []string, onlyMaps bool) ([]Root, error) {
 	roots := make([]Root, 0)
 	haveSkip := false
 	var skipRoot *RemoteRoot
@@ -290,6 +292,7 @@ func LoadRoots(cache Cache, targets []string, onlyMaps bool) ([]Root, error) {
 		}
 
 		root, err := NewRemoteRoot(
+			ctx,
 			cache,
 			target,
 			base,

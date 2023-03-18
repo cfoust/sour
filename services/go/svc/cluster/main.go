@@ -97,17 +97,17 @@ func main() {
 
 	state := state.NewStateService(sourConfig.Redis)
 
-	var cache assets.Cache = assets.NewRedisCache(state.Client)
+	var cache assets.Store = assets.NewRedisCache(state.Client, time.Hour)
 	cacheDir := clusterConfig.CacheDirectory
 	if cacheDir != "" {
 		err = os.MkdirAll(cacheDir, 0755)
 		if err != nil {
 			log.Fatal().Err(err).Msgf("failed to make cache dir: %s", cacheDir)
 		}
-		cache = assets.FSCache(cacheDir)
+		cache = assets.FSStore(cacheDir)
 	}
 
-	maps, err := assets.NewAssetFetcher(cache, clusterConfig.Assets, true)
+	maps, err := assets.NewAssetFetcher(ctx, cache, clusterConfig.Assets, true)
 	if err != nil {
 		log.Fatal().Err(err).Msg("asset fetcher failed to initialize")
 	}
