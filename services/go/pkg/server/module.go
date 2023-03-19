@@ -341,7 +341,6 @@ func (s *Server) Disconnect(client *Client, reason disconnectreason.ID) {
 		log.Error().Err(err).Msgf("could not disconnect %d", client.SessionID)
 	}
 	s.Clients.Disconnect(client, reason)
-	s.Clients.ForEach(func(c *Client) { log.Printf("%#v\n", c) })
 	if len(s.Clients.PrivilegedUsers()) == 0 {
 		s.Unsupervised()
 	}

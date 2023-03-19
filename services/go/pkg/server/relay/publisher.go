@@ -23,9 +23,10 @@ func newPublisher(cn uint32, notifyRelay chan<- uint32) (*Publisher, <-chan []pr
 	return p, updates
 }
 
-// Publish notifies p's broker that there is an update on p's topic and blocks until the broker received the notification.
-// Publish then blocks until the broker received the update. Calling Publish() after Close() returns immediately. Use p's
-// Stop channel to know when the broker stopped listening.
+// Publish notifies p's broker that there is an update on p's topic and blocks
+// until the broker received the notification. Publish then blocks until the
+// broker received the update. Calling Publish() after Close() returns
+// immediately. Use p's Stop channel to know when the broker stopped listening.
 func (p *Publisher) Publish(messages ...protocol.Message) {
 	p.notifyRelay <- p.cn
 	p.updates <- messages

@@ -221,7 +221,8 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 
 				if len(server.InitialCommand) > 0 {
 					client.commands <- ClusterCommand{
-						Command: server.InitialCommand,
+						Command:  server.InitialCommand,
+						Response: make(chan CommandResult, 1),
 					}
 				}
 
