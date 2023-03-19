@@ -21,7 +21,7 @@ cp /tmp/out.js /app/index.js
 
 wsproxy 28785 &
 nginx -g 'daemon off;' &
-(mkdir -p /redis && cd /redis && redis-server) &
+(mkdir -p /redis && cd /redis && redis-server /sour/redis.conf) &
 sleep 1
 cluster $CLUSTER_ARGS &
 
