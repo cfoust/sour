@@ -121,6 +121,26 @@ proxy: #Service
 	}
 }
 
+#StoreConfig: {
+	type: "fs"
+	path: string
+}
+
+#AssetStore: {
+	// Used in the `location` field of assets in the database.
+	name:   string
+	config: #StoreConfig
+}
+
+// Storage locations for user-provided assets, including maps.
+stores: [...#AssetStore] | *[{
+	name: "default"
+	config: {
+		type: "fs"
+		path: "./assets"
+	}
+}]
+
 // Sour clusters host game servers.
 #ClusterSettings: {
 	#Service

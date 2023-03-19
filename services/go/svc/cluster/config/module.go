@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/cfoust/sour/pkg/server"
@@ -113,9 +114,72 @@ type RedisSettings struct {
 	DB       int
 }
 
+type StoreType uint8
+
+const (
+	StoreTypeFS StoreType = iota
+)
+
+type StoreConfig interface {
+	Type() StoreType
+}
+
+type FSStoreConfig struct {
+	Path string
+}
+
+func (f FSStoreConfig) Type() StoreType { return StoreTypeFS }
+
+type Store struct {
+	Name   string
+	Config StoreConfig
+}
+
+func (s *Store) UnmarshalJSON(data []byte) error {
+	var obj map[string]*json.RawMessage
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return err
+	}
+
+	err := json.Unmarshal(*obj["name"], &s.Name)
+	if err != nil {
+		return err
+	}
+
+	config, ok := obj["config"]
+	if !ok {
+		return fmt.Errorf("config key missing")
+	}
+
+	// Read the config
+	if err := json.Unmarshal(*obj["config"], &obj); err != nil {
+		return err
+	}
+
+	var type_ string
+	err = json.Unmarshal(*obj["type"], &type_)
+	if err != nil {
+		return err
+	}
+
+	switch type_ {
+	case "fs":
+		var fs FSStoreConfig
+		if err := json.Unmarshal(*config, &fs); err != nil {
+			return err
+		}
+		s.Config = fs
+	default:
+		return fmt.Errorf("invalid store type: %s", type_)
+	}
+
+	return nil
+}
+
 type Config struct {
 	Redis   RedisSettings
 	Cluster ClusterSettings
+	Stores  []Store
 	Discord DiscordSettings
 }
 
