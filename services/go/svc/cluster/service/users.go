@@ -595,7 +595,7 @@ func NewUserOrchestrator(redis *redis.Client, duels []config.DuelType) *UserOrch
 
 func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
 	select {
-	case <-user.Session.Ctx().Done():
+	case <-user.Ctx().Done():
 		u.RemoveUser(user)
 		return
 	case <-ctx.Done():

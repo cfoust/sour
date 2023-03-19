@@ -375,7 +375,7 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 				client.commands <- ClusterCommand{
 					Command: fmt.Sprintf("join %s", target),
 					// We don't care here
-					Response: make(chan CommandResult),
+					Response: make(chan CommandResult, 1),
 				}
 			}
 
@@ -399,7 +399,7 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 			if err := cbor.Unmarshal(msg, &commandMessage); err == nil &&
 				commandMessage.Op == CommandOp {
 
-				resultChannel := make(chan CommandResult)
+				resultChannel := make(chan CommandResult, 1)
 				client.commands <- ClusterCommand{
 					Command:  commandMessage.Command,
 					Response: resultChannel,

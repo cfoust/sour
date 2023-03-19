@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
+	"github.com/cfoust/sour/pkg/chanlock"
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/game/commands"
 	P "github.com/cfoust/sour/pkg/game/protocol"
-	"github.com/cfoust/sour/pkg/chanlock"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
@@ -239,7 +239,7 @@ func (server *Cluster) PollUsers(ctx context.Context, newConnections chan ingres
 				continue
 			}
 
-			go server.PollUser(ctx, user)
+			go server.PollUser(user.Ctx(), user)
 		case <-ctx.Done():
 			return
 		}

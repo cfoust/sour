@@ -388,9 +388,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 	toServer := user.Connection.ReceivePackets()
 	toClient := user.ReceiveToMessages()
 
-	// A context valid JUST for the lifetime of the user
-	userCtx := user.Ctx()
-
 	chanLock := chanlock.New(user.Logger())
 	health := chanLock.Poll(ctx)
 
@@ -398,7 +395,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 
 	go func() {
 		err := RecordSession(
-			userCtx,
+			ctx,
 			c.redis,
 			c.settings.LogSessions,
 			user,
@@ -417,6 +414,8 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 		logger = user.Logger()
 		select {
 		case <-ctx.Done():
+			c.NotifyClientChange(ctx, user, false)
+			user.DisconnectFromServer()
 			return
 
 		case <-health:
@@ -460,7 +459,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 		case authUser := <-authentication:
 			chanLock.Mark("authentication")
 			if authUser == nil {
-				c.GreetClient(userCtx, user)
+				c.GreetClient(ctx, user)
 				continue
 			}
 
@@ -470,7 +469,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			user.Auth = authUser
 			user.Mutex.Unlock()
 
-			verseUser, err := c.verse.GetOrCreateUser(userCtx, authUser)
+			verseUser, err := c.verse.GetOrCreateUser(ctx, authUser)
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to get verse state for user")
 				continue
@@ -479,7 +478,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 
 			err = user.HydrateELOState(ctx, authUser)
 			if err == nil {
-				c.GreetClient(userCtx, user)
+				c.GreetClient(ctx, user)
 				continue
 			}
 
@@ -493,7 +492,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to save elo state for user")
 			}
-			c.GreetClient(userCtx, user)
+			c.GreetClient(ctx, user)
 		case msg := <-toServer:
 			chanLock.Mark("toServer")
 			data := msg.Data
@@ -657,7 +656,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				select {
 				case result := <-ack:
 					done <- result
-				case <-userCtx.Done():
+				case <-ctx.Done():
 					return
 				}
 
@@ -669,12 +668,15 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			outChannel := request.Response
 
 			go func() {
-				err := c.runCommandWithTimeout(userCtx, user, command)
+				err := c.runCommandWithTimeout(ctx, user, command)
 				outChannel <- ingress.CommandResult{
 					Err: err,
 				}
 			}()
+
 		case <-disconnect:
+			// This is triggered when the user changes servers,
+			// too, it's not the same thing as leaving the cluster.
 			chanLock.Mark("disconnect")
 			c.NotifyClientChange(ctx, user, false)
 			user.DisconnectFromServer()

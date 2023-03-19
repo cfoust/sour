@@ -225,7 +225,7 @@ func (server *ENetIngress) Poll(ctx context.Context) {
 					}
 				}
 
-				go client.Poll(ctx)
+				go client.Poll(client.session.Ctx())
 
 				break
 
