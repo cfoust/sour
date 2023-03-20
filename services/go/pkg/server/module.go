@@ -103,7 +103,7 @@ func New(ctx context.Context, conf *Config) *Server {
 
 func (s *Server) Poll(ctx context.Context) {
 	chanLock := chanlock.New()
-	health := chanLock.Poll(ctx)
+	health := chanLock.Poll(s.Ctx())
 
 	for {
 		select {
