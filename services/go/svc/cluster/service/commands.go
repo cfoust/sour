@@ -10,6 +10,7 @@ import (
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/game/commands"
 	"github.com/cfoust/sour/pkg/game/constants"
+	"github.com/cfoust/sour/pkg/server/protocol/gamemode"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
 	"github.com/cfoust/sour/svc/cluster/verse"
@@ -115,10 +116,15 @@ func (server *Cluster) CreateGame(ctx context.Context, params *CreateParams, use
 
 	logger = logger.With().Str("server", gameServer.Reference()).Logger()
 
+	mode := int32(params.Mode.Value)
+	if opt.IsSome(params.Mode) && !gamemode.Valid(gamemode.ID(mode)) {
+		return fmt.Errorf("game mode not yet supported")
+	}
+
 	if opt.IsSome(params.Mode) && opt.IsSome(params.Map) {
-		gameServer.ChangeMap(int32(params.Mode.Value), params.Map.Value)
+		gameServer.ChangeMap(mode, params.Map.Value)
 	} else if opt.IsSome(params.Mode) {
-		gameServer.SetMode(int32(params.Mode.Value))
+		gameServer.SetMode(mode)
 	} else if opt.IsSome(params.Map) {
 		gameServer.SetMap(params.Map.Value)
 	}
