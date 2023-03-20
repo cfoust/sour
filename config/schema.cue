@@ -128,13 +128,15 @@ proxy: #Service
 
 #AssetStore: {
 	// Used in the `location` field of assets in the database.
-	name:   string
-	config: #StoreConfig
+	name:    string
+	default: bool | *false
+	config:  #StoreConfig
 }
 
 // Storage locations for user-provided assets, including maps.
-stores: [...#AssetStore] | *[{
-	name: "default"
+assetStores: [...#AssetStore] | *[{
+	name:    "default"
+	default: true
 	config: {
 		type: "fs"
 		path: "./assets"

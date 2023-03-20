@@ -131,8 +131,9 @@ type FSStoreConfig struct {
 func (f FSStoreConfig) Type() StoreType { return StoreTypeFS }
 
 type Store struct {
-	Name   string
-	Config StoreConfig
+	Name    string
+	Default bool
+	Config  StoreConfig
 }
 
 func (s *Store) UnmarshalJSON(data []byte) error {
@@ -177,10 +178,10 @@ func (s *Store) UnmarshalJSON(data []byte) error {
 }
 
 type Config struct {
-	Redis   RedisSettings
-	Cluster ClusterSettings
-	Stores  []Store
-	Discord DiscordSettings
+	Redis       RedisSettings
+	Cluster     ClusterSettings
+	AssetStores []Store
+	Discord     DiscordSettings
 }
 
 func GetSourConfig() (*Config, error) {

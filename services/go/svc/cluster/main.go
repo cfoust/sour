@@ -16,6 +16,7 @@ import (
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
+	"github.com/cfoust/sour/svc/cluster/stores"
 	"github.com/cfoust/sour/svc/cluster/servers"
 	"github.com/cfoust/sour/svc/cluster/service"
 	"github.com/cfoust/sour/svc/cluster/state"
