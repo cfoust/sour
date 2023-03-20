@@ -336,11 +336,11 @@ func (s *Server) Leave(sessionId uint32) {
 func (s *Server) Disconnect(client *Client, reason disconnectreason.ID) {
 	s.GameMode.Leave(&client.Player)
 	s.Clock.Leave(&client.Player)
+	s.Clients.Disconnect(client, reason)
 	err := s.relay.RemoveClient(client.CN)
 	if err != nil {
 		log.Error().Err(err).Msgf("could not disconnect %d", client.SessionID)
 	}
-	s.Clients.Disconnect(client, reason)
 	if len(s.Clients.PrivilegedUsers()) == 0 {
 		s.Unsupervised()
 	}
