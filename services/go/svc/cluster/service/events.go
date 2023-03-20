@@ -388,7 +388,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 	toServer := user.Connection.ReceivePackets()
 	toClient := user.ReceiveToMessages()
 
-	chanLock := chanlock.New(user.Logger())
+	chanLock := chanlock.New()
 	health := chanLock.Poll(ctx)
 
 	logger := user.Logger()
@@ -422,7 +422,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			continue
 
 		case <-connect:
-			chanLock.Mark("connect")
 			user.Mutex.Lock()
 			if user.Server != nil {
 				instance := c.spaces.FindInstance(user.Server)
@@ -457,7 +456,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			}
 
 		case authUser := <-authentication:
-			chanLock.Mark("authentication")
 			if authUser == nil {
 				c.GreetClient(ctx, user)
 				continue
@@ -494,7 +492,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			}
 			c.GreetClient(ctx, user)
 		case msg := <-toServer:
-			chanLock.Mark("toServer")
 			data := msg.Data
 
 			// We want to get the raw data from the user -- not the
@@ -557,7 +554,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			}
 
 		case msg := <-toClient:
-			chanLock.Mark("toClient")
 			packet := msg.Packet
 			done := msg.Error
 
@@ -663,7 +659,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			}()
 
 		case request := <-commands:
-			chanLock.Mark("commands")
 			command := request.Command
 			outChannel := request.Response
 
@@ -677,7 +672,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 		case <-disconnect:
 			// This is triggered when the user changes servers,
 			// too, it's not the same thing as leaving the cluster.
-			chanLock.Mark("disconnect")
 			c.NotifyClientChange(ctx, user, false)
 			user.DisconnectFromServer()
 		}

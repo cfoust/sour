@@ -102,7 +102,7 @@ func New(ctx context.Context, conf *Config) *Server {
 }
 
 func (s *Server) Poll(ctx context.Context) {
-	chanLock := chanlock.New(log.Logger)
+	chanLock := chanlock.New()
 	health := chanLock.Poll(ctx)
 
 	for {
@@ -112,7 +112,6 @@ func (s *Server) Poll(ctx context.Context) {
 		case <-health:
 			continue
 		case msg := <-s.incoming:
-			chanLock.Mark("incoming")
 			client := s.Clients.GetClientByID(msg.Session)
 			if client == nil {
 				continue

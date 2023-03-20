@@ -137,7 +137,7 @@ func (server *Cluster) GetUptime() int {
 }
 
 func (server *Cluster) PollServers(ctx context.Context) {
-	chanLock := chanlock.New(log.Logger)
+	chanLock := chanlock.New()
 
 	forceDisconnects := server.servers.ReceiveKicks()
 	gamePackets := server.servers.ReceivePackets()
@@ -150,8 +150,6 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			continue
 
 		case event := <-forceDisconnects:
-			chanLock.Mark("forceDisconnects")
-
 			user := server.Users.FindUser(event.Client)
 
 			if user == nil {
@@ -167,8 +165,6 @@ func (server *Cluster) PollServers(ctx context.Context) {
 			// were not kicked for violent reasons
 			user.Connection.Disconnect(int(event.Reason), event.Text)
 		case p := <-gamePackets:
-			chanLock.Mark("gamePackets")
-
 			messages := p.Messages
 			gameServer := p.Server
 
