@@ -417,7 +417,7 @@ function App() {
           guibar
       ] [
           ${CONFIG.menuOptions}
-          guibutton "create private game..." "creategame"
+          guibutton "create private game..." "creategame ffa mood"
       ]
       guibutton "random map.."  "map random"
       guibutton "server browser.."  "showgui servers"
