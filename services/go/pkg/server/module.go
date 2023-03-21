@@ -435,6 +435,8 @@ func (s *Server) StartGame(mode game.Mode, mapname string) {
 	}
 	if s.CompetitiveMode {
 		s.Clock = game.NewCompetitiveClock(s, mode)
+	} else if mode.ID() == gamemode.CoopEdit {
+		s.Clock = game.NewEndlessClock(s, mode)
 	} else {
 		s.Clock = game.NewCasualClock(s, mode)
 	}
@@ -461,7 +463,9 @@ func (s *Server) StartGame(mode game.Mode, mapname string) {
 			HasItems: s.GameMode.NeedsMapInfo(),
 		},
 	)
+
 	s.Clock.Start()
+
 	s.MapChange()
 }
 

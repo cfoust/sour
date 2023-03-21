@@ -109,6 +109,53 @@ func (c *casualClock) CleanUp() {
 	c.modeTimers.CleanUp()
 }
 
+type endlessClock struct {
+	s          Server
+	modeTimers HasTimers
+}
+
+var _ Clock = &endlessClock{}
+
+func NewEndlessClock(s Server, m HasTimers) *endlessClock {
+	return &endlessClock{
+		s:          s,
+		modeTimers: m,
+	}
+}
+
+func (c *endlessClock) Start() {
+}
+
+func (c *endlessClock) Pause(p *Player) {
+}
+
+func (c *endlessClock) Paused() bool {
+	return false
+}
+
+func (c *endlessClock) Resume(p *Player) {
+}
+
+func (c *endlessClock) Leave(*Player) {}
+
+func (c *endlessClock) Stop() {
+}
+
+func (c *endlessClock) Ended() bool {
+	return false
+}
+
+func (c *endlessClock) TimeLeft() time.Duration {
+	return time.Hour
+}
+
+func (c *endlessClock) SetTimeLeft(d time.Duration) {
+}
+
+func (c *endlessClock) CleanUp() {
+	c.modeTimers.CleanUp()
+}
+
 type Competitive interface {
 	Clock
 	Spawned(*Player)
