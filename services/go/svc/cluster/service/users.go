@@ -271,10 +271,8 @@ func (u *User) GetHomeSpace(ctx context.Context) (*state.Space, error) {
 		    return nil, err
 		}
 
-		updated := *auth
-		updated.HomeID = space.ID
-
-		err = u.o.db.WithContext(ctx).Save(&updated).Error
+		auth.HomeID = space.ID
+		err = u.o.db.WithContext(ctx).Save(&auth).Error
 		if err != nil {
 		    return nil, err
 		}
