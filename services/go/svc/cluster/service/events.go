@@ -142,8 +142,6 @@ func (server *Cluster) ForwardGlobalChat(ctx context.Context, sender *User, mess
 }
 
 func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int32) {
-	logger := user.Logger()
-
 	space := user.GetSpace()
 	server := user.GetServer()
 	if server != nil && space != nil {
@@ -161,12 +159,12 @@ func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int32) 
 
 		for _, link := range links {
 			if link.Teleport == uint8(teleport.Attr1) {
-				logger.Info().Msgf("teleported to %s", link.Destination)
 				go c.runCommandWithTimeout(
 					user.Ctx(),
 					user,
 					fmt.Sprintf("go %s", link.Destination),
 				)
+				return
 			}
 		}
 	}
