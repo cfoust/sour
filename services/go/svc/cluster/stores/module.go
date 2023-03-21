@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/utils"
@@ -24,6 +25,12 @@ func (s *AssetStorage) Get(ctx context.Context, asset *state.Asset) ([]byte, err
 	store, ok := s.stores[asset.Location]
 	if !ok {
 		return nil, fmt.Errorf("store for asset not found: %s", asset.Location)
+	}
+
+	asset.Accessed = time.Now()
+	err := s.db.WithContext(ctx).Save(asset).Error
+	if err != nil {
+	    return nil, err
 	}
 
 	return store.Get(ctx, asset.Hash)
