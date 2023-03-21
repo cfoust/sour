@@ -37,7 +37,8 @@ type ServerPreset struct {
 }
 
 type SpaceLink struct {
-	ID          uint8
+	Teleport    uint8
+	Teledest    uint8
 	Destination string
 }
 

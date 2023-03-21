@@ -342,7 +342,8 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 	links := make([]Link, 0)
 	for _, link := range config.Links {
 		links = append(links, Link{
-			Teleport:    link.ID,
+			Teleport:    link.Teleport,
+			Teledest:    link.Teledest,
 			Destination: link.Destination,
 		})
 	}
