@@ -3,7 +3,6 @@ package verse
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"fmt"
 	"math"
 	"math/big"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/maps"
+	"github.com/cfoust/sour/pkg/utils"
 	"github.com/cfoust/sour/svc/cluster/state"
 	"github.com/cfoust/sour/svc/cluster/stores"
 
@@ -51,10 +51,10 @@ func (m *Map) getPointer(ctx context.Context) (*state.MapPointer, error) {
 	return &pointer, nil
 }
 
-func (m *Map) getMap(ctx context.Context) (*state.Map, error) {
+func (m *Map) getMap(ctx context.Context) (*state.MapPointer, *state.Map, error) {
 	pointer, err := m.getPointer(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var map_ state.Map
@@ -66,14 +66,14 @@ func (m *Map) getMap(ctx context.Context) (*state.Map, error) {
 		First(&map_).
 		Error
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &map_, nil
+	return pointer, &map_, nil
 }
 
 func (m *Map) LoadMapData(ctx context.Context) ([]byte, error) {
-	map_, err := m.getMap(ctx)
+	_, map_, err := m.getMap(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -95,22 +95,109 @@ func (m *Map) LoadGameMap(ctx context.Context) (*maps.GameMap, error) {
 	return map_, nil
 }
 
+func (m *Map) SaveGameMap(ctx context.Context, creator *state.User, gameMap *maps.GameMap) error {
+	pointer, err := m.getPointer(ctx)
+	if err != nil {
+		return err
+	}
+
+	mapData, err := gameMap.EncodeOGZ()
+	if err != nil {
+		return err
+	}
+
+	asset, err := m.store.Store(ctx, creator, "ogz", mapData)
+	if err != nil {
+		return err
+	}
+
+	newMap := state.Map{
+		OgzID:     asset.ID,
+		Creatable: state.NewCreatable(creator),
+	}
+
+	_, oldMap, err := m.getMap(ctx)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return err
+	}
+
+	if err == nil {
+		newMap.CfgID = oldMap.CfgID
+	}
+
+	db := m.db.WithContext(ctx)
+
+	err = db.Create(&newMap).Error
+	if err != nil {
+		return err
+	}
+
+	pointer.MapID = newMap.ID
+	err = db.Save(pointer).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (v *Verse) NewMap(ctx context.Context, creator *state.User) (*Map, error) {
-	map_, err := maps.NewMap()
+	gameMap, err := maps.NewMap()
 	if err != nil {
 		return nil, err
 	}
 
-	defer map_.Destroy()
+	defer gameMap.Destroy()
 
-	return v.SaveGameMap(ctx, creator, map_)
+	mapData, err := gameMap.EncodeOGZ()
+	if err != nil {
+		return nil, err
+	}
+
+	id := utils.HashString(fmt.Sprintf("%s%s", time.Now(), utils.Hash(mapData)))
+	pointer := state.MapPointer{
+		Creatable: state.NewCreatable(creator),
+	}
+	pointer.UUID = id
+	err = v.db.WithContext(ctx).Create(&pointer).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &Map{
+		id: id,
+		entity: entity{
+			db:    v.db,
+			store: v.store,
+			verse: v,
+		},
+	}, nil
 }
 
-func (v *Verse) HaveMap(ctx context.Context, id string) (bool, error) {
+func (v *Verse) GetMap(ctx context.Context, id string) (*Map, error) {
 	var pointer state.MapPointer
 	query := state.MapPointer{}
 	query.UUID = id
 	err := v.db.WithContext(ctx).Where(query).First(&pointer).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	map_ := Map{
+		id: pointer.UUID,
+		entity: entity{
+			db:    v.db,
+			store: v.store,
+			verse: v,
+		},
+	}
+
+	return &map_, nil
+}
+
+func (v *Verse) HaveMap(ctx context.Context, id string) (bool, error) {
+	_, err := v.GetMap(ctx, id)
 	if err == gorm.ErrRecordNotFound {
 		return false, nil
 	}
@@ -120,64 +207,6 @@ func (v *Verse) HaveMap(ctx context.Context, id string) (bool, error) {
 	}
 
 	return true, nil
-}
-
-func (v *Verse) GetMap(ctx context.Context, id string) (*Map, error) {
-	map_ := Map{
-		id: id,
-		entity: entity{
-			db:    v.db,
-			store: v.store,
-			verse: v,
-		},
-	}
-
-	return &map_, nil
-}
-
-func (v *Verse) SaveGameMap(ctx context.Context, creator *state.User, gameMap *maps.GameMap) (*Map, error) {
-	mapData, err := gameMap.EncodeOGZ()
-	if err != nil {
-		return nil, err
-	}
-
-	hash := fmt.Sprintf("%x", sha256.Sum256(mapData))
-
-	// No point in setting this if it already is there
-	if exists, _ := v.HaveMap(ctx, hash); exists {
-		return v.GetMap(ctx, hash)
-	}
-
-	map_ := Map{
-		id: hash,
-		entity: entity{
-			db:    v.db,
-			store: v.store,
-			verse: v,
-		},
-	}
-
-	err = v.redis.Set(ctx, map_.dataKey(), mapData, 0).Err()
-	if err != nil {
-		return nil, err
-	}
-
-	err = map_.save(ctx, mapMeta{
-		Creator: creator,
-		Created: time.Now(),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if creator == "" {
-		err = map_.Expire(ctx, time.Hour*24)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &map_, nil
 }
 
 var (
@@ -221,9 +250,7 @@ func (v *Verse) NewSpaceID(ctx context.Context) (string, error) {
 			return "", err
 		}
 
-		bytes := sha256.Sum256([]byte(fmt.Sprintf("%d", number)))
-		hash := fmt.Sprintf("%x", bytes)
-
+		hash := utils.HashString(fmt.Sprintf("%d", number))
 		value, err := v.redis.Exists(ctx, fmt.Sprintf(SPACE_KEY, hash)).Result()
 		if err != nil {
 			return "", err

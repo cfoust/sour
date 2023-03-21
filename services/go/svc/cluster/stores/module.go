@@ -39,10 +39,7 @@ func (s *AssetStorage) Store(ctx context.Context, user *state.User, extension st
 	}
 
 	asset := state.Asset{
-		Creatable: state.Creatable{
-			Created:   time.Now(),
-			CreatorID: user.ID,
-		},
+		Creatable: state.NewCreatable(user),
 		Hash:      hash,
 		Extension: extension,
 		Size:      uint(len(data)),

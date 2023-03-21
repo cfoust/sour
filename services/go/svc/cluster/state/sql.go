@@ -101,6 +101,13 @@ type Creatable struct {
 	Creator   *User `gorm:"foreignKey:CreatorID"`
 }
 
+func NewCreatable(creator *User) Creatable {
+	return Creatable{
+		Created:   time.Now(),
+		CreatorID: creator.ID,
+	}
+}
+
 type Asset struct {
 	Creatable
 	Hash string `gorm:"not null;size:32;unique;uniqueIndex"`
@@ -109,6 +116,7 @@ type Asset struct {
 	Location  string `gorm:"not null"`
 	Extension string `gorm:"not null"`
 	Size      uint   `gorm:"not null"`
+	Accessed  time.Time
 }
 
 type Aliasable struct {
