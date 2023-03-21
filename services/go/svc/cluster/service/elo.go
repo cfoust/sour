@@ -8,6 +8,7 @@ import (
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/state"
 
+	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
 
@@ -74,6 +75,27 @@ func getRanking(ctx context.Context, db *gorm.DB, user *state.User, matchType st
 
 func (e *ELO) SaveState(ctx context.Context, db *gorm.DB, user *state.User, matchType string) error {
 	ranking, err := getRanking(ctx, db, user, matchType)
+
+	log.Info().Msgf("SaveState")
+
+	if err == gorm.ErrRecordNotFound {
+		type_, err := getType(ctx, db, matchType)
+		if err != nil {
+			return err
+		}
+
+		ranking := state.Ranking{
+			UserID: user.ID,
+			TypeID: type_.ID,
+			Rating: e.Rating,
+			Wins:   e.Wins,
+			Losses: e.Losses,
+			Draws:  e.Draws,
+		}
+
+		return db.WithContext(ctx).Create(&ranking).Error
+	}
+
 	if err != nil {
 		return err
 	}
@@ -88,6 +110,32 @@ func (e *ELO) SaveState(ctx context.Context, db *gorm.DB, user *state.User, matc
 
 func LoadELOState(ctx context.Context, db *gorm.DB, user *state.User, matchType string) (*ELO, error) {
 	ranking, err := getRanking(ctx, db, user, matchType)
+
+	if err == gorm.ErrRecordNotFound {
+		type_, err := getType(ctx, db, matchType)
+		if err != nil {
+			return nil, err
+		}
+
+		e := NewELO()
+
+		ranking := state.Ranking{
+			UserID: user.ID,
+			TypeID: type_.ID,
+			Rating: e.Rating,
+			Wins:   e.Wins,
+			Losses: e.Losses,
+			Draws:  e.Draws,
+		}
+
+		err = db.WithContext(ctx).Create(&ranking).Error
+		if err != nil {
+			return nil, err
+		}
+
+		return e, nil
+	}
+
 	if err != nil {
 		return nil, err
 	}

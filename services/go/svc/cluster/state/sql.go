@@ -91,7 +91,7 @@ type User struct {
 }
 
 func (u *User) Reference() string {
-	return fmt.Sprintf("%s (%s%s)", u.Nickname, u.Username, u.Discriminator)
+	return fmt.Sprintf("%s (%s#%s)", u.Nickname, u.Username, u.Discriminator)
 }
 
 // A Discord login code for a user.

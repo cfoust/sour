@@ -425,6 +425,8 @@ func (u *User) HydrateELOState(ctx context.Context, authUser *state.User) error 
 			elo.Ratings[duel.Name] = state
 			continue
 		}
+
+		return err
 	}
 
 	u.ELO = elo
