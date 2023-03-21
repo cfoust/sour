@@ -39,7 +39,7 @@ type Map struct {
 	id string
 }
 
-func (m *Map) getPointer(ctx context.Context) (*state.MapPointer, error) {
+func (m *Map) GetPointer(ctx context.Context) (*state.MapPointer, error) {
 	var pointer state.MapPointer
 	err := m.db.WithContext(ctx).Where(state.MapPointer{
 		Aliasable: state.Aliasable{UUID: m.id},
@@ -51,8 +51,8 @@ func (m *Map) getPointer(ctx context.Context) (*state.MapPointer, error) {
 	return &pointer, nil
 }
 
-func (m *Map) getMap(ctx context.Context) (*state.MapPointer, *state.Map, error) {
-	pointer, err := m.getPointer(ctx)
+func (m *Map) GetMap(ctx context.Context) (*state.MapPointer, *state.Map, error) {
+	pointer, err := m.GetPointer(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -73,7 +73,7 @@ func (m *Map) getMap(ctx context.Context) (*state.MapPointer, *state.Map, error)
 }
 
 func (m *Map) LoadMapData(ctx context.Context) ([]byte, error) {
-	_, map_, err := m.getMap(ctx)
+	_, map_, err := m.GetMap(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func (m *Map) LoadGameMap(ctx context.Context) (*maps.GameMap, error) {
 }
 
 func (m *Map) SaveGameMap(ctx context.Context, creator *state.User, gameMap *maps.GameMap) error {
-	pointer, err := m.getPointer(ctx)
+	pointer, err := m.GetPointer(ctx)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func (m *Map) SaveGameMap(ctx context.Context, creator *state.User, gameMap *map
 		Creatable: state.NewCreatable(creator),
 	}
 
-	_, oldMap, err := m.getMap(ctx)
+	_, oldMap, err := m.GetMap(ctx)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return err
 	}
@@ -159,6 +159,7 @@ func (v *Verse) NewMap(ctx context.Context, creator *state.User) (*Map, error) {
 		Creatable: state.NewCreatable(creator),
 	}
 	pointer.UUID = id
+	pointer.Alias = id
 	err = v.db.WithContext(ctx).Create(&pointer).Error
 	if err != nil {
 		return nil, err
@@ -220,10 +221,12 @@ func IsValidAlias(alias string) bool {
 type UserSpace struct {
 	entity
 	*state.Space
+	id string
 }
 
 type Link struct {
-	ID          uint8
+	Teleport    uint8
+	Teledest    uint8
 	Destination string
 }
 
@@ -234,13 +237,82 @@ type SpaceConfig struct {
 	Links       []Link
 }
 
+func (s *UserSpace) getSpace(ctx context.Context) (*state.Space, error) {
+	var space state.Space
+	query := state.Space{}
+	query.UUID = s.id
+	err := s.db.WithContext(ctx).
+		Where(query).
+		Joins("MapPointer").
+		Joins("Links").
+		First(&space).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &space, nil
+}
+
 func (s *UserSpace) GetConfig(ctx context.Context) (*SpaceConfig, error) {
+	space, err := s.getSpace(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	links := make([]Link, 0)
+	for _, link := range space.Links {
+		var destination state.Space
+		query := state.Space{}
+		query.ID = link.DestinationID
+		err := s.db.WithContext(ctx).Where(query).First(&destination).Error
+		if err != nil {
+			return nil, err
+		}
+		links = append(links, Link{
+			Destination: destination.UUID,
+			Teleport:    uint8(link.Teleport),
+			Teledest:    uint8(link.Teledest),
+		})
+	}
+
 	return &SpaceConfig{
-		Alias:       s.Alias,
-		Map:         s.Map.Hash,
-		Description: s.Description,
+		Alias:       space.Alias,
+		Map:         space.MapPointer.UUID,
+		Description: space.Description,
 		Links:       links,
 	}, nil
+}
+
+func (v *Verse) GetSpace(ctx context.Context, id string) (*UserSpace, error) {
+	var space state.Space
+	query := state.Space{}
+	query.UUID = id
+	err := v.db.WithContext(ctx).Where(query).First(&space).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &UserSpace{
+		id: id,
+		entity: entity{
+			db:    v.db,
+			store: v.store,
+			verse: v,
+		},
+	}, nil
+}
+
+func (v *Verse) HaveSpace(ctx context.Context, id string) (bool, error) {
+	_, err := v.GetSpace(ctx, id)
+	if err == gorm.ErrRecordNotFound {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (v *Verse) NewSpaceID(ctx context.Context) (string, error) {
@@ -251,12 +323,12 @@ func (v *Verse) NewSpaceID(ctx context.Context) (string, error) {
 		}
 
 		hash := utils.HashString(fmt.Sprintf("%d", number))
-		value, err := v.redis.Exists(ctx, fmt.Sprintf(SPACE_KEY, hash)).Result()
+		exists, err := v.HaveSpace(ctx, hash)
 		if err != nil {
 			return "", err
 		}
 
-		if value == 0 {
+		if !exists {
 			return hash, nil
 		}
 	}
@@ -273,53 +345,52 @@ func (v *Verse) NewSpace(ctx context.Context, creator *state.User) (*UserSpace, 
 		return nil, err
 	}
 
-	space := UserSpace{
-		id: id,
-		entity: entity{
-			redis: v.redis,
-			verse: v,
-		},
-	}
-
-	err = space.init(ctx, SpaceConfig{
-		Map:         map_.GetID(),
-		Owner:       creator,
-		Description: "",
-		Alias:       "",
-	})
+	pointer, err := map_.GetPointer(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return &space, nil
-}
-
-func (v *Verse) HaveSpace(ctx context.Context, id string) (bool, error) {
-	return v.have(ctx, fmt.Sprintf(SPACE_ID_KEY, id))
-}
-
-func (v *Verse) LoadSpace(ctx context.Context, id string) (*UserSpace, error) {
-	space := UserSpace{
-		id: id,
-		entity: entity{
-			redis: v.redis,
-			verse: v,
+	space := state.Space{
+		Creatable: state.NewCreatable(creator),
+		Aliasable: state.Aliasable{
+			UUID:  id,
+			Alias: id,
 		},
+		Description:  "",
+		OwnerID:      creator.ID,
+		MapPointerID: pointer.ID,
 	}
 
-	exists, err := v.HaveSpace(ctx, id)
+	err = v.db.WithContext(ctx).Create(&space).Error
 	if err != nil {
 		return nil, err
 	}
 
-	if !exists {
-		return nil, fmt.Errorf("space does not exist")
+	return v.GetSpace(ctx, id)
+}
+
+// Find a map by a prefix
+func (v *Verse) FindMap(ctx context.Context, needle string) (*Map, error) {
+	var map_ state.MapPointer
+	err := v.db.WithContext(ctx).
+		Where("uuid LIKE ?", needle+"%").
+		First(&map_).Error
+	if err != nil {
+		return nil, err
 	}
 
-	return &space, nil
+	return v.GetMap(ctx, map_.UUID)
 }
 
 // Find a space by a prefix
 func (v *Verse) FindSpace(ctx context.Context, needle string) (*UserSpace, error) {
-	return nil, nil
+	var space state.Space
+	err := v.db.WithContext(ctx).
+		Where("uuid LIKE ?", needle+"%").
+		First(&space).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return v.GetSpace(ctx, space.UUID)
 }
