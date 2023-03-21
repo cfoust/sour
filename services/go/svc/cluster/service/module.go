@@ -67,7 +67,7 @@ func NewCluster(
 ) *Cluster {
 	v := verse.NewVerse(db, store)
 	server := &Cluster{
-		Users:         NewUserOrchestrator(db, settings.Matchmaking.Duel),
+		Users:         NewUserOrchestrator(db, v, settings.Matchmaking.Duel),
 		serverCtx:     ctx,
 		settings:      settings,
 		authDomain:    authDomain,

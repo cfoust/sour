@@ -98,7 +98,7 @@ func main() {
 
 	state := state.NewStateService(sourConfig.Redis)
 
-	stores, err := stores.New(sourConfig.AssetStores)
+	stores, err := stores.New(db, sourConfig.AssetStores)
 	if err != nil {
 		log.Fatal().Err(err).Msg("asset stores failed to initialize")
 	}

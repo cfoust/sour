@@ -255,8 +255,31 @@ func (u *User) GetHomeSpace(ctx context.Context) (*state.Space, error) {
 	query := state.Space{}
 	query.ID = auth.HomeID
 	err := u.o.db.WithContext(ctx).Where(query).First(&space).Error
-	if err != nil {
-	    return nil, err
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	// We only create home spaces on demand
+	if err == gorm.ErrRecordNotFound {
+		userSpace, err := u.o.verse.NewSpace(ctx, auth)
+		if err != nil {
+		    return nil, err
+		}
+
+		space, err := userSpace.GetSpace(ctx)
+		if err != nil {
+		    return nil, err
+		}
+
+		updated := *auth
+		updated.HomeID = space.ID
+
+		err = u.o.db.WithContext(ctx).Save(&updated).Error
+		if err != nil {
+		    return nil, err
+		}
+
+		return space, nil
 	}
 
 	return &space, nil
@@ -591,15 +614,17 @@ type UserOrchestrator struct {
 	Servers map[*servers.GameServer][]*User
 	Mutex   deadlock.RWMutex
 
-	db *gorm.DB
+	db    *gorm.DB
+	verse *verse.Verse
 }
 
-func NewUserOrchestrator(db *gorm.DB, duels []config.DuelType) *UserOrchestrator {
+func NewUserOrchestrator(db *gorm.DB, verse *verse.Verse, duels []config.DuelType) *UserOrchestrator {
 	return &UserOrchestrator{
 		Duels:   duels,
 		Users:   make([]*User, 0),
 		Servers: make(map[*servers.GameServer][]*User),
 		db:      db,
+		verse:   verse,
 	}
 }
 

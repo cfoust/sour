@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/cfoust/sour/svc/cluster/config"
@@ -22,10 +21,6 @@ func NewELO() *ELO {
 	return &ELO{
 		Rating: 1200,
 	}
-}
-
-func getField(matchType string, id string, field string) string {
-	return fmt.Sprintf("elo-%s-%s-%s", matchType, id, field)
 }
 
 func getType(ctx context.Context, db *gorm.DB, matchType string) (*state.ELOType, error) {

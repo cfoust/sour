@@ -256,8 +256,8 @@ func (s *UserSpace) GetSpace(ctx context.Context) (*state.Space, error) {
 	query.UUID = s.id
 	err := s.db.WithContext(ctx).
 		Where(query).
-		Joins("MapPointer").
-		Joins("Links").
+		Preload("MapPointer").
+		Preload("Links").
 		First(&space).Error
 	if err != nil {
 		return nil, err

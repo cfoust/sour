@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"os"
 
 	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/svc/cluster/config"
@@ -53,7 +54,7 @@ func (s *AssetStorage) Store(ctx context.Context, user *state.User, extension st
 	return &asset, nil
 }
 
-func New(storeConfigs []config.Store) (*AssetStorage, error) {
+func New(db *gorm.DB, storeConfigs []config.Store) (*AssetStorage, error) {
 	stores := make(map[string]assets.Store)
 
 	var defaultStore assets.Store = nil
@@ -67,6 +68,11 @@ func New(storeConfigs []config.Store) (*AssetStorage, error) {
 			fsConfig, ok := storeConfig.Config.(config.FSStoreConfig)
 			if !ok {
 				continue
+			}
+
+			err := os.MkdirAll(fsConfig.Path, 0755)
+			if err != nil {
+				return nil, err
 			}
 
 			store = assets.FSStore(fsConfig.Path)
@@ -87,5 +93,6 @@ func New(storeConfigs []config.Store) (*AssetStorage, error) {
 		stores:          stores,
 		defaultStore:    defaultStore,
 		defaultLocation: defaultLocation,
+		db:              db,
 	}, nil
 }

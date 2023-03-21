@@ -341,6 +341,8 @@ func (s *Cluster) registerCommands() {
 		Callback: func(ctx context.Context, user *User) error {
 			err := s.GoHome(s.serverCtx, user)
 			if err != nil {
+				logger := user.Logger()
+				logger.Error().Err(err).Msg("could not go home")
 				return fmt.Errorf("could not go home")
 			}
 			return nil
