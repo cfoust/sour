@@ -1,6 +1,7 @@
 package state
 
 import (
+	"fmt"
 	"time"
 
 	"gorm.io/driver/sqlite"
@@ -22,9 +23,12 @@ type Ranking struct {
 
 	UserID uint `gorm:"not null"`
 	TypeID uint `gorm:"not null"`
-	Value  uint
+	Rating uint
+	Wins   uint
+	Draws  uint
+	Losses uint
 
-	Type ELOType
+	Type *ELOType `gorm:"foreignKey:TypeID"`
 }
 
 type Span struct {
@@ -83,6 +87,10 @@ type User struct {
 	Maps     []*MapPointer `gorm:"foreignKey:CreatorID"`
 	Spaces   []*Space      `gorm:"foreignKey:OwnerID"`
 	Sessions []*Session    `gorm:"foreignKey:UserID"`
+}
+
+func (u *User) Reference() string {
+	return fmt.Sprintf("%s (%s%s)", u.Nickname, u.Username, u.Discriminator)
 }
 
 // A Discord login code for a user.

@@ -21,10 +21,10 @@ import (
 	"github.com/cfoust/sour/svc/cluster/state"
 	"github.com/cfoust/sour/svc/cluster/verse"
 
-	"github.com/go-redis/redis/v9"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/sasha-s/go-deadlock"
+	"gorm.io/gorm"
 )
 
 type TrackedPacket struct {
@@ -64,9 +64,8 @@ type User struct {
 	Server        *servers.GameServer
 	ServerClient  *server.Client
 
-	Auth  *state.User
-	Verse *verse.User
-	ELO   *ELOState
+	Auth *state.User
+	ELO  *ELOState
 
 	SessionUUID string
 
@@ -79,8 +78,6 @@ type User struct {
 
 	to chan TrackedPacket
 
-	// The user's home ID if they're not authenticated.
-	TempHomeID string
 	// The last server description sent to the user
 	lastDescription string
 	wasGreeted      bool
@@ -215,24 +212,16 @@ func (u *User) IsLoggedIn() bool {
 }
 
 func (u *User) IsAtHome(ctx context.Context) (bool, error) {
-	space := u.GetSpace()
-	if space == nil {
+	if u.Auth == nil {
 		return false, nil
 	}
 
-	user := u.GetAuth()
-	if user == nil {
-		return space.GetID() == u.TempHomeID, nil
-	}
-
-	home := user.HomeID
-
-	isOwner, err := u.IsOwner(ctx)
+	entity, err := u.GetSpaceEntity(ctx)
 	if err != nil {
-		return false, err
+		return false, nil
 	}
 
-	return isOwner && space.GetID() == home, nil
+	return u.Auth.HomeID == entity.ID, nil
 }
 
 func (u *User) GetServer() *servers.GameServer {
@@ -256,18 +245,35 @@ func (u *User) GetSpace() *verse.SpaceInstance {
 	return space
 }
 
+func (u *User) GetSpaceEntity(ctx context.Context) (*state.Space, error) {
+	instance := u.GetSpace()
+	if instance == nil {
+		return nil, fmt.Errorf("user not in space")
+	}
+
+	if instance.Space == nil {
+		return nil, fmt.Errorf("space is not a user space")
+	}
+
+	space, err := instance.Space.GetSpace(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return space, nil
+}
+
 func (u *User) IsOwner(ctx context.Context) (bool, error) {
-	space := u.GetSpace()
-	if space == nil {
+	if u.Auth == nil {
 		return false, nil
 	}
 
-	owner, err := space.GetOwner(ctx)
+	entity, err := u.GetSpaceEntity(ctx)
 	if err != nil {
-		return false, err
+		return false, nil
 	}
 
-	return owner == u.GetID(), nil
+	return u.Auth.ID == entity.OwnerID, nil
 }
 
 // SPAAAAAAAAACE
@@ -570,15 +576,15 @@ type UserOrchestrator struct {
 	Servers map[*servers.GameServer][]*User
 	Mutex   deadlock.RWMutex
 
-	redis *redis.Client
+	db *gorm.DB
 }
 
-func NewUserOrchestrator(redis *redis.Client, duels []config.DuelType) *UserOrchestrator {
+func NewUserOrchestrator(db *gorm.DB, duels []config.DuelType) *UserOrchestrator {
 	return &UserOrchestrator{
 		Duels:   duels,
 		Users:   make([]*User, 0),
 		Servers: make(map[*servers.GameServer][]*User),
-		redis:   redis,
+		db:      db,
 	}
 }
 

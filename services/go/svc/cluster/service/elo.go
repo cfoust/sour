@@ -3,19 +3,19 @@ package service
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"sync"
 
 	"github.com/cfoust/sour/svc/cluster/config"
+	"github.com/cfoust/sour/svc/cluster/state"
 
-	"github.com/go-redis/redis/v9"
+	"gorm.io/gorm"
 )
 
 type ELO struct {
-	Rating int
-	Wins   int
-	Draws  int
-	Losses int
+	Rating uint
+	Wins   uint
+	Draws  uint
+	Losses uint
 }
 
 func NewELO() *ELO {
@@ -28,45 +28,75 @@ func getField(matchType string, id string, field string) string {
 	return fmt.Sprintf("elo-%s-%s-%s", matchType, id, field)
 }
 
-func (e *ELO) SaveState(ctx context.Context, redis *redis.Client, id string, matchType string) error {
-	pipe := redis.Pipeline()
-
-	pipe.Set(ctx, getField(matchType, id, "rating"), e.Rating, 0)
-	pipe.Set(ctx, getField(matchType, id, "wins"), e.Wins, 0)
-	pipe.Set(ctx, getField(matchType, id, "draws"), e.Draws, 0)
-	pipe.Set(ctx, getField(matchType, id, "losses"), e.Losses, 0)
-
-	_, err := pipe.Exec(ctx)
-	if err != nil {
-		return err
+func getType(ctx context.Context, db *gorm.DB, matchType string) (*state.ELOType, error) {
+	var type_ state.ELOType
+	err := db.WithContext(ctx).Where(state.ELOType{
+		Name: matchType,
+	}).First(&type_).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
 	}
 
-	return nil
-}
+	if err == nil {
+		return &type_, nil
+	}
 
-func LoadELOState(ctx context.Context, redis *redis.Client, id string, matchType string) (*ELO, error) {
-	pipe := redis.Pipeline()
+	// it doesn't exist
+	type_ = state.ELOType{
+		Name: matchType,
+	}
 
-	rating := pipe.Get(ctx, getField(matchType, id, "rating"))
-	wins := pipe.Get(ctx, getField(matchType, id, "wins"))
-	draws := pipe.Get(ctx, getField(matchType, id, "draws"))
-	losses := pipe.Get(ctx, getField(matchType, id, "losses"))
-
-	_, err := pipe.Exec(ctx)
+	err = db.WithContext(ctx).Create(&type_).Error
 	if err != nil {
 		return nil, err
 	}
 
-	ratingVal, _ := strconv.Atoi(rating.Val())
-	winsVal, _ := strconv.Atoi(wins.Val())
-	drawsVal, _ := strconv.Atoi(draws.Val())
-	lossesVal, _ := strconv.Atoi(losses.Val())
+	return &type_, nil
+}
+
+func getRanking(ctx context.Context, db *gorm.DB, user *state.User, matchType string) (*state.Ranking, error) {
+	type_, err := getType(ctx, db, matchType)
+	if err != nil {
+		return nil, err
+	}
+
+	var ranking state.Ranking
+	err = db.WithContext(ctx).Where(state.Ranking{
+		UserID: user.ID,
+		TypeID: type_.ID,
+	}).First(&ranking).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &ranking, nil
+}
+
+func (e *ELO) SaveState(ctx context.Context, db *gorm.DB, user *state.User, matchType string) error {
+	ranking, err := getRanking(ctx, db, user, matchType)
+	if err != nil {
+		return err
+	}
+
+	ranking.Rating = e.Rating
+	ranking.Wins = e.Wins
+	ranking.Losses = e.Losses
+	ranking.Draws = e.Draws
+
+	return db.WithContext(ctx).Save(&ranking).Error
+}
+
+func LoadELOState(ctx context.Context, db *gorm.DB, user *state.User, matchType string) (*ELO, error) {
+	ranking, err := getRanking(ctx, db, user, matchType)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ELO{
-		Rating: ratingVal,
-		Wins:   winsVal,
-		Draws:  drawsVal,
-		Losses: lossesVal,
+		Rating: ranking.Rating,
+		Wins:   ranking.Wins,
+		Losses: ranking.Losses,
+		Draws:  ranking.Draws,
 	}, nil
 }
 

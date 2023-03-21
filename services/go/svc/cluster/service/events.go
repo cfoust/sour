@@ -457,6 +457,8 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 
 		case authUser := <-authentication:
 			if authUser == nil {
+				// Set to dummy auth user
+
 				c.GreetClient(ctx, user)
 				continue
 			}

@@ -63,7 +63,7 @@ func (c *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) er
 	// XXX we really need to move all the ENet auth to ingress/enet.go...
 	user.Authentication <- authUser
 
-	user.Message(game.Blue(fmt.Sprintf("logged in with Discord as %s", authUser.Discord.Reference())))
+	user.Message(game.Blue(fmt.Sprintf("logged in with Discord as %s", authUser.Reference())))
 	logger = user.Logger()
 	logger.Info().Msg("logged in with Discord")
 
