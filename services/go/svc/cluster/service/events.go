@@ -48,7 +48,7 @@ func (server *Cluster) NotifyClientChange(ctx context.Context, user *User, joine
 	server.Users.Mutex.RUnlock()
 }
 
-func (server *Cluster) NotifyNameChange(ctx context.Context, user *User, name string) {
+func (c *Cluster) NotifyNameChange(ctx context.Context, user *User, name string) {
 	logger := user.Logger()
 	oldName := user.GetName()
 
@@ -66,8 +66,8 @@ func (server *Cluster) NotifyNameChange(ctx context.Context, user *User, name st
 	serverName := user.GetServerName()
 	message := fmt.Sprintf("%s now known as %s [%s]", oldName, name, serverName)
 
-	server.Users.Mutex.RLock()
-	for _, other := range server.Users.Users {
+	c.Users.Mutex.RLock()
+	for _, other := range c.Users.Users {
 		if other == user {
 			continue
 		}
@@ -80,7 +80,18 @@ func (server *Cluster) NotifyNameChange(ctx context.Context, user *User, name st
 		}
 		other.RawMessage(message)
 	}
-	server.Users.Mutex.RUnlock()
+	c.Users.Mutex.RUnlock()
+
+	auth := user.GetAuth()
+	if auth != nil {
+		go func() {
+			auth.Nickname = name
+			err := c.db.Save(&auth).Error
+			if err != nil {
+				logger.Error().Err(err).Msg("error updating user nickname")
+			}
+		}()
+	}
 }
 
 func (c *Cluster) AnnounceInServer(ctx context.Context, server *servers.GameServer, message string) {

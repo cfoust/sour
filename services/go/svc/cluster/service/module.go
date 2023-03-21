@@ -49,6 +49,7 @@ type Cluster struct {
 	servers *servers.ServerManager
 	matches *Matchmaker
 	redis   *redis.Client
+	db      *gorm.DB
 	spaces  *verse.SpaceManager
 	verse   *verse.Verse
 	assets  *assets.AssetFetcher
@@ -80,6 +81,7 @@ func NewCluster(
 		started:       time.Now(),
 		auth:          auth,
 		redis:         redis,
+		db:            db,
 		verse:         v,
 		spaces:        verse.NewSpaceManager(v, serverManager, maps),
 		assets:        maps,
