@@ -358,8 +358,8 @@ var LoginExpired = fmt.Errorf("session expired")
 
 func createAuthCode(ctx context.Context, db *gorm.DB, user *state.User, code string) error {
 	authCode := state.AuthCode{
-		UserID: user.ID,
-		Value: code,
+		UserID:  user.ID,
+		Value:   code,
 		Expires: time.Now().Add(30 * time.Hour * 24),
 	}
 	return db.Create(&authCode).Error
@@ -378,16 +378,16 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*st
 		return nil, err
 	}
 
-	if authCode.Expires.Before(time.Now()) {
-		err = db.Delete(&authCode).Error
-		if err != nil {
-			return nil, err
-		}
-		return nil, LoginExpired
-	}
-
 	// The user is already associated with this code
 	if err == nil {
+		if authCode.Expires.Before(time.Now()) {
+			err = db.Delete(&authCode).Error
+			if err != nil {
+				return nil, err
+			}
+			return nil, LoginExpired
+		}
+
 		user := authCode.User
 		user.LastLogin = time.Now()
 		err = db.Save(user).Error
@@ -425,7 +425,7 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*st
 	if err == nil {
 		err = createAuthCode(ctx, db, &user, code)
 		if err != nil {
-		    return nil, err
+			return nil, err
 		}
 
 		applyDiscord(&user, discordUser)
@@ -451,6 +451,8 @@ func (d *DiscordService) AuthenticateCode(ctx context.Context, code string) (*st
 		PublicKey:  pair.Public,
 		PrivateKey: pair.Private,
 	}
+
+	applyDiscord(&user, discordUser)
 
 	err = db.Create(&user).Error
 	if err != nil {
