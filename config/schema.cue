@@ -24,7 +24,8 @@ redis: {
 proxy: #Service
 
 #SpaceLink: {
-	id:          uint8
+	teleport:    uint8
+	teledest:    uint8 | *0
 	destination: string
 }
 

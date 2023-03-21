@@ -74,36 +74,20 @@ func (e *EditingState) Checkpoint(ctx context.Context) error {
 	}
 	e.Edits = make([]*Edit, 0)
 
-	creator, err := e.Map.GetCreator(ctx)
+	pointer, err := e.Map.GetPointer(ctx)
+	if err != nil {
+		return err
+	}
+
+	map_, err := e.Map.SaveGameMap(ctx, pointer.Creator, e.GameMap)
 	if err != nil {
 		return err
 	}
 
 	if e.Space != nil {
-		creator, err = e.Space.GetOwner(ctx)
-		if err != nil {
-			return err
-		}
-	}
-
-	newMap, err := e.verse.SaveGameMap(ctx, creator, e.GameMap)
-	if err != nil {
-		return err
-	}
-
-	// Expire the old map after a day
-	e.Map.Expire(ctx, MAP_EXPIRE)
-
-	e.Map = newMap
-
-	if e.Space != nil {
-		err = e.Space.SetMapID(ctx, newMap.GetID())
-		if err != nil {
-			return err
-		}
-		log.Info().Msgf("saved map %s for space %s", newMap.GetID(), e.Space.GetID())
+		log.Info().Msgf("saved map %s for space %s", map_.UUID, e.Space.id)
 	} else {
-		log.Info().Msgf("saved map %s", newMap.GetID())
+		log.Info().Msgf("saved map %s", map_.UUID)
 	}
 
 	return err

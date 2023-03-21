@@ -68,19 +68,19 @@ cluster:
       config:
         alias: lobby
         links:
-          - id: 77
+          - teleport: 77
             destination: home
-          - id: 66
+          - teleport: 66
             destination: insta
-          - id: 55
+          - teleport: 55
             destination: ffa
-          - id: 11
+          - teleport: 11
             destination: home
-          - id: 22
+          - teleport: 22
             destination: home
-          - id: 33
+          - teleport: 33
             destination: home
-          - id: 44
+          - teleport: 44
             destination: home
     - preset: explore
       exploreMode: true

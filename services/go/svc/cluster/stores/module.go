@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/svc/cluster/config"

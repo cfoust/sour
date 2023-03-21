@@ -160,7 +160,7 @@ func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int32) 
 		teleport := entities[source]
 
 		for _, link := range links {
-			if link.ID == uint8(teleport.Attr1) {
+			if link.Teleport == uint8(teleport.Attr1) {
 				logger.Info().Msgf("teleported to %s", link.Destination)
 				go c.runCommandWithTimeout(
 					user.Ctx(),
@@ -467,14 +467,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			user.Auth = authUser
 			user.Mutex.Unlock()
 
-			verseUser, err := c.verse.GetOrCreateUser(ctx, authUser)
-			if err != nil {
-				logger.Error().Err(err).Msg("failed to get verse state for user")
-				continue
-			}
-			user.Verse = verseUser
-
-			err = user.HydrateELOState(ctx, authUser)
+			err := user.HydrateELOState(ctx, authUser)
 			if err == nil {
 				c.GreetClient(ctx, user)
 				continue

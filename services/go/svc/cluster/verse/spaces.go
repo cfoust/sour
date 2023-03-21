@@ -45,53 +45,53 @@ func (s *SpaceInstance) GetID() string {
 	return s.id
 }
 
-func (s *SpaceInstance) GetOwner(ctx context.Context) (string, error) {
-	if s.Space != nil {
-		return s.Space.GetOwner(ctx)
+func (s *SpaceInstance) refreshConfig(ctx context.Context) error {
+	if s.Space == nil {
+		return nil
 	}
-	return s.Owner, nil
+
+	config, err := s.Space.GetConfig(ctx)
+	if err != nil {
+		return err
+	}
+
+	s.SpaceConfig = *config
+	return nil
 }
 
 func (s *SpaceInstance) GetDescription(ctx context.Context) (string, error) {
-	if s.Space != nil {
-		return s.Space.GetDescription(ctx)
+	err := s.refreshConfig(ctx)
+	if err != nil {
+		return "", err
 	}
+
 	return s.Description, nil
 }
 
 func (s *SpaceInstance) GetAlias(ctx context.Context) (string, error) {
-	if s.Space != nil {
-		alias, err := s.Space.GetAlias(ctx)
-		if err != nil {
-			return "", err
-		}
-		s.Alias = alias
-		return alias, err
+	err := s.refreshConfig(ctx)
+	if err != nil {
+		return "", err
 	}
+
 	return s.Alias, nil
 }
 
 func (s *SpaceInstance) GetMap(ctx context.Context) (string, error) {
-	if s.Space != nil {
-		map_, err := s.Space.GetMap(ctx)
-		if err != nil {
-			return "", err
-		}
-		s.Map = map_.GetID()
-		return map_.GetID(), nil
+	err := s.refreshConfig(ctx)
+	if err != nil {
+		return "", err
 	}
+
 	return s.Map, nil
 }
 
 func (s *SpaceInstance) GetLinks(ctx context.Context) ([]Link, error) {
-	if s.Space != nil {
-		links, err := s.Space.GetLinks(ctx)
-		if err != nil {
-			return nil, err
-		}
-		s.Links = links
-		return links, nil
+	err := s.refreshConfig(ctx)
+	if err != nil {
+		return nil, err
 	}
+
 	return s.Links, nil
 }
 
@@ -323,7 +323,7 @@ func (s *SpaceManager) DoExploreMode(ctx context.Context, gameServer *gameServer
 
 	for {
 		select {
-		case <-gameServer.Ctx().Done():
+		case <-gameServer.Session.Ctx().Done():
 			return
 		case <-tick.C:
 			cycleMap()
@@ -342,7 +342,7 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 	links := make([]Link, 0)
 	for _, link := range config.Links {
 		links = append(links, Link{
-			ID:          link.ID,
+			Teleport:    link.ID,
 			Destination: link.Destination,
 		})
 	}
@@ -377,7 +377,6 @@ func (s *SpaceManager) StartPresetSpace(ctx context.Context, presetSpace config.
 			Alias:       config.Alias,
 			Description: config.Description,
 			Links:       links,
-			Owner:       "cluster",
 			Map:         "",
 		},
 	}

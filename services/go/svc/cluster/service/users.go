@@ -214,28 +214,18 @@ func (u *User) IsLoggedIn() bool {
 	return auth != nil
 }
 
-func (u *User) GetVerse() *verse.User {
-	u.Mutex.RLock()
-	user := u.Verse
-	u.Mutex.RUnlock()
-	return user
-}
-
 func (u *User) IsAtHome(ctx context.Context) (bool, error) {
 	space := u.GetSpace()
 	if space == nil {
 		return false, nil
 	}
 
-	user := u.GetVerse()
+	user := u.GetAuth()
 	if user == nil {
 		return space.GetID() == u.TempHomeID, nil
 	}
 
-	home, err := user.GetHomeID(ctx)
-	if err != nil {
-		return false, err
-	}
+	home := user.HomeID
 
 	isOwner, err := u.IsOwner(ctx)
 	if err != nil {

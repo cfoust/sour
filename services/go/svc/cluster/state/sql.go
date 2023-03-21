@@ -79,10 +79,10 @@ type User struct {
 	HomeID uint
 	Home   *Space `gorm:"foreignKey:HomeID"`
 
-	Ranking  []*Ranking `gorm:"foreignKey:UserID"`
-	Maps     []*Map     `gorm:"foreignKey:CreatorID"`
-	Spaces   []*Space   `gorm:"foreignKey:OwnerID"`
-	Sessions []*Session `gorm:"foreignKey:UserID"`
+	Ranking  []*Ranking    `gorm:"foreignKey:UserID"`
+	Maps     []*MapPointer `gorm:"foreignKey:CreatorID"`
+	Spaces   []*Space      `gorm:"foreignKey:OwnerID"`
+	Sessions []*Session    `gorm:"foreignKey:UserID"`
 }
 
 // A Discord login code for a user.
@@ -127,6 +127,8 @@ type Aliasable struct {
 
 type Map struct {
 	Creatable
+
+	UUID string `gorm:"not null;size:32;unique;uniqueIndex"`
 
 	OgzID uint   `gorm:"not null"`
 	Ogz   *Asset `gorm:"foreignKey:OgzID"`

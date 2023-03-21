@@ -39,11 +39,15 @@ type Map struct {
 	id string
 }
 
+func (m *Map) GetID() string {
+	return m.id
+}
+
 func (m *Map) GetPointer(ctx context.Context) (*state.MapPointer, error) {
 	var pointer state.MapPointer
 	err := m.db.WithContext(ctx).Where(state.MapPointer{
 		Aliasable: state.Aliasable{UUID: m.id},
-	}).First(&pointer).Error
+	}).Joins("Creator").First(&pointer).Error
 	if err != nil {
 		return nil, err
 	}
@@ -95,30 +99,31 @@ func (m *Map) LoadGameMap(ctx context.Context) (*maps.GameMap, error) {
 	return map_, nil
 }
 
-func (m *Map) SaveGameMap(ctx context.Context, creator *state.User, gameMap *maps.GameMap) error {
+func (m *Map) SaveGameMap(ctx context.Context, creator *state.User, gameMap *maps.GameMap) (*state.Map, error) {
 	pointer, err := m.GetPointer(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	mapData, err := gameMap.EncodeOGZ()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	asset, err := m.store.Store(ctx, creator, "ogz", mapData)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	newMap := state.Map{
 		OgzID:     asset.ID,
 		Creatable: state.NewCreatable(creator),
+		UUID:      utils.Hash(mapData),
 	}
 
 	_, oldMap, err := m.GetMap(ctx)
 	if err != nil && err != gorm.ErrRecordNotFound {
-		return err
+		return nil, err
 	}
 
 	if err == nil {
@@ -129,16 +134,16 @@ func (m *Map) SaveGameMap(ctx context.Context, creator *state.User, gameMap *map
 
 	err = db.Create(&newMap).Error
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	pointer.MapID = newMap.ID
 	err = db.Save(pointer).Error
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &newMap, nil
 }
 
 func (v *Verse) NewMap(ctx context.Context, creator *state.User) (*Map, error) {
@@ -165,14 +170,17 @@ func (v *Verse) NewMap(ctx context.Context, creator *state.User) (*Map, error) {
 		return nil, err
 	}
 
-	return &Map{
-		id: id,
-		entity: entity{
-			db:    v.db,
-			store: v.store,
-			verse: v,
-		},
-	}, nil
+	map_, err := v.GetMap(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = map_.SaveGameMap(ctx, creator, gameMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return map_, nil
 }
 
 func (v *Verse) GetMap(ctx context.Context, id string) (*Map, error) {
@@ -224,6 +232,10 @@ type UserSpace struct {
 	id string
 }
 
+func (u *UserSpace) GetID() string {
+	return u.id
+}
+
 type Link struct {
 	Teleport    uint8
 	Teledest    uint8
@@ -237,7 +249,7 @@ type SpaceConfig struct {
 	Links       []Link
 }
 
-func (s *UserSpace) getSpace(ctx context.Context) (*state.Space, error) {
+func (s *UserSpace) GetSpace(ctx context.Context) (*state.Space, error) {
 	var space state.Space
 	query := state.Space{}
 	query.UUID = s.id
@@ -253,8 +265,17 @@ func (s *UserSpace) getSpace(ctx context.Context) (*state.Space, error) {
 	return &space, nil
 }
 
+func (s *UserSpace) GetMap(ctx context.Context) (*Map, error) {
+	space, err := s.GetSpace(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.verse.GetMap(ctx, space.MapPointer.UUID)
+}
+
 func (s *UserSpace) GetConfig(ctx context.Context) (*SpaceConfig, error) {
-	space, err := s.getSpace(ctx)
+	space, err := s.GetSpace(ctx)
 	if err != nil {
 		return nil, err
 	}
