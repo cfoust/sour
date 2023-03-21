@@ -2,6 +2,7 @@ package min
 
 import (
 	"fmt"
+	"context"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -130,9 +131,10 @@ func (processor *Processor) ListVSlots() {
 	}
 }
 
-func (processor *Processor) FindTexture(texture string) *Reference {
+func (processor *Processor) FindTexture(ctx context.Context, texture string) *Reference {
 	for _, extension := range []string{"png", "jpg"} {
 		resolved := processor.SearchFile(
+			ctx,
 			filepath.Join("packages", fmt.Sprintf("%s.%s", texture, extension)),
 		)
 
@@ -142,13 +144,14 @@ func (processor *Processor) FindTexture(texture string) *Reference {
 	}
 
 	withoutExtension := processor.SearchFile(
+		ctx,
 		filepath.Join("packages", texture),
 	)
 
 	return withoutExtension
 }
 
-func (processor *Processor) FindCubemap(cubemap string) []*Reference {
+func (processor *Processor) FindCubemap(ctx context.Context, cubemap string) []*Reference {
 	prefix := filepath.Join("packages", cubemap)
 	wildcard := strings.Index(prefix, "*")
 
@@ -163,7 +166,7 @@ func (processor *Processor) FindCubemap(cubemap string) []*Reference {
 				prefix[wildcard+1:],
 			)
 
-			sideFile := processor.SearchFile(path)
+			sideFile := processor.SearchFile(ctx, path)
 			if sideFile != nil {
 				textures = append(textures, sideFile)
 			}
@@ -178,7 +181,7 @@ func (processor *Processor) FindCubemap(cubemap string) []*Reference {
 			side,
 		)
 
-		resolvedJpg := processor.SearchFile(jpgPath)
+		resolvedJpg := processor.SearchFile(ctx, jpgPath)
 		if resolvedJpg != nil {
 			textures = append(textures, resolvedJpg)
 			continue
@@ -190,7 +193,7 @@ func (processor *Processor) FindCubemap(cubemap string) []*Reference {
 			side,
 		)
 
-		resolvedPng := processor.SearchFile(pngPath)
+		resolvedPng := processor.SearchFile(ctx, pngPath)
 		if resolvedPng != nil {
 			textures = append(textures, resolvedPng)
 			continue

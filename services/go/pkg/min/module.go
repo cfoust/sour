@@ -1,6 +1,7 @@
 package min
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -35,27 +36,27 @@ func (r *Reference) String() string {
 	return fmt.Sprintf("%s root=!nil", r.Path)
 }
 
-func (r *Reference) Resolve() (string, error) {
+func (r *Reference) Resolve(ctx context.Context) (string, error) {
 	if r.Root == nil {
 		return r.Path, nil
 	}
-	return r.Root.Reference(r.Path)
+	return r.Root.Reference(ctx, r.Path)
 }
 
-func (r *Reference) ReadFile() ([]byte, error) {
+func (r *Reference) ReadFile(ctx context.Context) ([]byte, error) {
 	if r.Root == nil {
 		return os.ReadFile(r.Path)
 	}
 
-	return r.Root.ReadFile(r.Path)
+	return r.Root.ReadFile(ctx, r.Path)
 }
 
-func (r *Reference) Exists() bool {
+func (r *Reference) Exists(ctx context.Context) bool {
 	if r.Root == nil {
 		return assets.FileExists(r.Path)
 	}
 
-	return r.Root.Exists(r.Path)
+	return r.Root.Exists(ctx, r.Path)
 }
 
 type Mapping struct {
@@ -331,16 +332,16 @@ func NewProcessor(roots []assets.Root, slots []*maps.VSlot) *Processor {
 }
 
 // Search for a file in the roots, one at a time
-func (processor *Processor) SearchFile(path string) *Reference {
+func (processor *Processor) SearchFile(ctx context.Context, path string) *Reference {
 	for _, root := range processor.Roots {
 		unprefixed := NewReference(root, path)
 		prefixed := NewReference(root, filepath.Join("packages", path))
 
-		if unprefixed.Exists() {
+		if unprefixed.Exists(ctx) {
 			return unprefixed
 		}
 
-		if prefixed.Exists() {
+		if prefixed.Exists(ctx) {
 			return prefixed
 		}
 
@@ -354,7 +355,7 @@ func (processor *Processor) SearchFile(path string) *Reference {
 				)),
 			)
 
-			if pwdRef.Exists() {
+			if pwdRef.Exists(ctx) {
 				return pwdRef
 			}
 
@@ -368,7 +369,7 @@ func (processor *Processor) SearchFile(path string) *Reference {
 				)),
 			)
 
-			if pwdRef.Exists() {
+			if pwdRef.Exists(ctx) {
 				return pwdRef
 			}
 		}
@@ -390,7 +391,7 @@ func (processor *Processor) SearchFile(path string) *Reference {
 			),
 		)
 
-		if modelRef.Exists() {
+		if modelRef.Exists(ctx) {
 			return modelRef
 		}
 
@@ -403,7 +404,7 @@ func (processor *Processor) SearchFile(path string) *Reference {
 			)),
 		)
 
-		if modelRef.Exists() {
+		if modelRef.Exists(ctx) {
 			return modelRef
 		}
 	}
@@ -436,15 +437,15 @@ var (
 	COMMAND_REGEX = regexp.MustCompile(`(("[^"]*")|([^\s]+))`)
 )
 
-func (processor *Processor) ProcessFile(ref *Reference) error {
-	if !ref.Exists() {
+func (processor *Processor) ProcessFile(ctx context.Context, ref *Reference) error {
+	if !ref.Exists(ctx) {
 		return errors.New(fmt.Sprintf("File %s did not exist", ref))
 	}
 
 	previous := processor.current
 	processor.current = ref
 
-	src, err := ref.ReadFile()
+	src, err := ref.ReadFile(ctx)
 	if err != nil {
 		return err
 	}

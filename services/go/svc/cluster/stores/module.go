@@ -53,7 +53,7 @@ func (s *AssetStorage) Store(ctx context.Context, user *state.User, extension st
 	return &asset, nil
 }
 
-func NewAssetStorage(storeConfigs []config.Store) (*AssetStorage, error) {
+func New(storeConfigs []config.Store) (*AssetStorage, error) {
 	stores := make(map[string]assets.Store)
 
 	var defaultStore assets.Store = nil

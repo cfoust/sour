@@ -2,6 +2,7 @@ package min
 
 import (
 	"fmt"
+	"context"
 	"path/filepath"
 
 	"github.com/cfoust/sour/pkg/maps"
@@ -10,6 +11,8 @@ import (
 	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog/log"
 )
+
+var ctx = context.Background()
 
 func (p *Processor) TextureReset(limit int) {
 	reset := TextureReset{
@@ -95,7 +98,7 @@ func (p *Processor) MapModelCompat(rad int, h int, tex int, name string, shadow 
 }
 
 func (p *Processor) AutoGrass(name string) {
-	texture := p.SearchFile(NormalizeTexture(name))
+	texture := p.SearchFile(ctx, NormalizeTexture(name))
 
 	if texture != nil {
 		p.AddFile(texture)
@@ -110,7 +113,7 @@ func (p *Processor) RegisterSound(name string, vol int) {
 			_type,
 		)
 
-		resolved := p.SearchFile(path)
+		resolved := p.SearchFile(ctx, path)
 		if resolved != nil {
 			p.AddSound(resolved)
 			break
@@ -123,19 +126,19 @@ func (p *Processor) MapSound(name string, vol int, maxUses int) {
 }
 
 func (p *Processor) LoadSky(name string) {
-	for _, texture := range p.FindCubemap(NormalizeTexture(name)) {
+	for _, texture := range p.FindCubemap(ctx, NormalizeTexture(name)) {
 		p.AddFile(texture)
 	}
 }
 
 func (p *Processor) Exec(name string) {
-	ref := p.SearchFile(name)
+	ref := p.SearchFile(ctx, name)
 	if ref == nil {
 		log.Printf("Could not find %s", name)
 		return
 	}
 
-	p.ProcessFile(ref)
+	p.ProcessFile(ctx, ref)
 	p.AddFile(ref)
 	if p.processingModel {
 		p.AddModelFile(name)
@@ -143,7 +146,7 @@ func (p *Processor) Exec(name string) {
 }
 
 func (p *Processor) LoadSkyOverlay(name string) {
-	resolved := p.FindTexture(name)
+	resolved := p.FindTexture(ctx, name)
 
 	if resolved != nil {
 		p.AddFile(resolved)
@@ -298,7 +301,7 @@ func expandTexture(texture string) []string {
 
 func (p *Processor) AddModelFile(name string) {
 	for _, file := range expandTexture(name) {
-		ref := p.SearchFile(file)
+		ref := p.SearchFile(ctx, file)
 		if ref != nil {
 			p.ModelFiles = append(p.ModelFiles, ref)
 		}
@@ -344,7 +347,7 @@ func (p *Processor) MdlEnvMap(envMapMax float32, envMapMin float32, envMap strin
 	if envMap == "" {
 		return
 	}
-	for _, texture := range p.FindCubemap(NormalizeTexture(envMap)) {
+	for _, texture := range p.FindCubemap(ctx, NormalizeTexture(envMap)) {
 		p.ModelFiles = append(p.ModelFiles, texture)
 	}
 }

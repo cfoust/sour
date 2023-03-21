@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"context"
 
 	"github.com/repeale/fp-go/option"
 
@@ -17,9 +18,9 @@ func (p *Processor) NormalizeModelPath(modelDir string, path string) string {
 	return filepath.Clean(filepath.Join(modelDir, path))
 }
 
-func (p *Processor) ResolveRelative(modelDir string, file string) *Reference {
+func (p *Processor) ResolveRelative(ctx context.Context, modelDir string, file string) *Reference {
 	path := p.NormalizeModelPath(modelDir, file)
-	resolved := p.SearchFile(path)
+	resolved := p.SearchFile(ctx, path)
 
 	if resolved != nil {
 		return resolved
@@ -31,10 +32,10 @@ func (p *Processor) ResolveRelative(modelDir string, file string) *Reference {
 		"..",
 		filepath.Base(path),
 	)
-	return p.SearchFile(parent)
+	return p.SearchFile(ctx, parent)
 }
 
-func (p *Processor) ProcessModelFile(modelDir string, modelType string, ref *Reference) ([]*Reference, error) {
+func (p *Processor) ProcessModelFile(ctx context.Context, modelDir string, modelType string, ref *Reference) ([]*Reference, error) {
 	results := make([]*Reference, 0)
 
 	addFile := func(ref *Reference) {
@@ -43,7 +44,7 @@ func (p *Processor) ProcessModelFile(modelDir string, modelType string, ref *Ref
 
 	addFile(ref)
 
-	src, err := ref.ReadFile()
+	src, err := ref.ReadFile(ctx)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to read %s", ref.Path))
 	}
@@ -56,7 +57,7 @@ func (p *Processor) ProcessModelFile(modelDir string, modelType string, ref *Ref
 	return results, nil
 }
 
-func (p *Processor) ProcessModel(path string) error {
+func (p *Processor) ProcessModel(ctx context.Context, path string) error {
 	p.processingModel = true
 	p.ModelFiles = make([]*Reference, 0)
 
@@ -71,7 +72,7 @@ func (p *Processor) ProcessModel(path string) error {
 
 	// Some references are relative to the model config
 	addRelative := func(file string) {
-		resolved := p.ResolveRelative(modelDir, file)
+		resolved := p.ResolveRelative(ctx, modelDir, file)
 
 		if resolved == nil {
 			log.Printf("Failed to find cfg-relative model path %s (%s)", file, path)
@@ -94,7 +95,7 @@ func (p *Processor) ProcessModel(path string) error {
 			x,
 		)
 
-		resolved := p.SearchFile(cfg)
+		resolved := p.SearchFile(ctx, cfg)
 
 		if resolved != nil {
 			return true
@@ -106,7 +107,7 @@ func (p *Processor) ProcessModel(path string) error {
 			x,
 		)
 
-		resolved = p.SearchFile(tris)
+		resolved = p.SearchFile(ctx, tris)
 
 		if resolved != nil {
 			return true
@@ -131,7 +132,7 @@ func (p *Processor) ProcessModel(path string) error {
 
 	hadDefault := false
 	for _, _default := range defaultFiles {
-		resolved := p.ResolveRelative(modelDir, _default)
+		resolved := p.ResolveRelative(ctx, modelDir, _default)
 
 		if resolved == nil {
 			continue
@@ -146,7 +147,7 @@ func (p *Processor) ProcessModel(path string) error {
 		modelType,
 	)
 
-	resolved := p.SearchFile(cfgPath)
+	resolved := p.SearchFile(ctx, cfgPath)
 
 	if resolved == nil {
 		if !hadDefault {
@@ -156,7 +157,7 @@ func (p *Processor) ProcessModel(path string) error {
 		return nil
 	}
 
-	cfgFiles, err := p.ProcessModelFile(modelDir, modelType, resolved)
+	cfgFiles, err := p.ProcessModelFile(ctx, modelDir, modelType, resolved)
 	if err != nil {
 		return nil
 	}

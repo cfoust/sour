@@ -14,10 +14,12 @@ import (
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
+	"github.com/cfoust/sour/svc/cluster/stores"
 	"github.com/cfoust/sour/svc/cluster/verse"
 
 	"github.com/go-redis/redis/v9"
 	"github.com/rs/zerolog/log"
+	"gorm.io/gorm"
 )
 
 const (
@@ -60,10 +62,12 @@ func NewCluster(
 	authDomain string,
 	auth *auth.DiscordService,
 	redis *redis.Client,
+	db *gorm.DB,
+	store *stores.AssetStorage,
 ) *Cluster {
-	v := verse.NewVerse(redis)
+	v := verse.NewVerse(db, store)
 	server := &Cluster{
-		Users:         NewUserOrchestrator(redis, settings.Matchmaking.Duel),
+		Users:         NewUserOrchestrator(db, settings.Matchmaking.Duel),
 		serverCtx:     ctx,
 		settings:      settings,
 		authDomain:    authDomain,

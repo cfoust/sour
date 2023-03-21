@@ -281,10 +281,12 @@ func (s *Cluster) registerCommands() {
 			// Appears in the user's URL bar
 			serverName := instance.Space.GetID()
 
-			alias, err := space.GetAlias(ctx)
+			config, err := space.GetConfig(ctx)
 			if err != nil {
-				return err
+			    return err
 			}
+
+			alias := config.Alias
 
 			if alias != "" {
 				serverName = alias

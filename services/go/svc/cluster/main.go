@@ -16,10 +16,10 @@ import (
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
-	"github.com/cfoust/sour/svc/cluster/stores"
 	"github.com/cfoust/sour/svc/cluster/servers"
 	"github.com/cfoust/sour/svc/cluster/service"
 	"github.com/cfoust/sour/svc/cluster/state"
+	"github.com/cfoust/sour/svc/cluster/stores"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -98,6 +98,11 @@ func main() {
 
 	state := state.NewStateService(sourConfig.Redis)
 
+	stores, err := stores.New(sourConfig.AssetStores)
+	if err != nil {
+		log.Fatal().Err(err).Msg("asset stores failed to initialize")
+	}
+
 	var cache assets.Store = assets.NewRedisCache(state.Client, time.Hour)
 	cacheDir := clusterConfig.CacheDirectory
 	if cacheDir != "" {
@@ -134,6 +139,8 @@ func main() {
 		sourConfig.Discord.Domain,
 		discord,
 		state.Client,
+		db,
+		stores,
 	)
 
 	err = serverManager.Start()

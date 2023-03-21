@@ -22,9 +22,10 @@ type Verse struct {
 	db    *gorm.DB
 }
 
-func NewVerse(db *gorm.DB) *Verse {
+func NewVerse(db *gorm.DB, store *stores.AssetStorage) *Verse {
 	return &Verse{
-		db: db,
+		db:    db,
+		store: store,
 	}
 }
 
@@ -263,6 +264,26 @@ func (s *UserSpace) GetSpace(ctx context.Context) (*state.Space, error) {
 	}
 
 	return &space, nil
+}
+
+func (s *UserSpace) SetAlias(ctx context.Context, alias string) error {
+	space, err := s.GetSpace(ctx)
+	if err != nil {
+		return err
+	}
+
+	space.Alias = alias
+	return s.db.WithContext(ctx).Save(&space).Error
+}
+
+func (s *UserSpace) SetDescription(ctx context.Context, description string) error {
+	space, err := s.GetSpace(ctx)
+	if err != nil {
+		return err
+	}
+
+	space.Description = description
+	return s.db.WithContext(ctx).Save(&space).Error
 }
 
 func (s *UserSpace) GetMap(ctx context.Context) (*Map, error) {

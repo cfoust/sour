@@ -21,6 +21,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var ctx = context.Background()
+
 func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.Mapping, error) {
 	extension := filepath.Ext(ref.Path)
 
@@ -28,7 +30,7 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 		return nil, fmt.Errorf("map must end in .ogz")
 	}
 
-	data, err := ref.ReadFile()
+	data, err := ref.ReadFile(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +55,7 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 
 	// Map files can be mapped into packages/base/
 	addMapFile := func(ref *min.Reference) {
-		if !ref.Exists() {
+		if !ref.Exists(ctx) {
 			return
 		}
 
@@ -68,14 +70,14 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 	// Some variables contain textures
 	if skybox, ok := _map.Vars["skybox"]; ok {
 		value := string(skybox.(V.StringVariable))
-		for _, path := range processor.FindCubemap(min.NormalizeTexture(value)) {
+		for _, path := range processor.FindCubemap(ctx, min.NormalizeTexture(value)) {
 			addFile(path)
 		}
 	}
 
 	if cloudlayer, ok := _map.Vars["cloudlayer"]; ok {
 		value := string(cloudlayer.(V.StringVariable))
-		resolved := processor.FindTexture(min.NormalizeTexture(value))
+		resolved := processor.FindTexture(ctx, min.NormalizeTexture(value))
 
 		if resolved != nil {
 			addFile(resolved)
@@ -84,7 +86,7 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 
 	if cloudbox, ok := _map.Vars["cloudbox"]; ok {
 		value := string(cloudbox.(V.StringVariable))
-		for _, path := range processor.FindCubemap(min.NormalizeTexture(value)) {
+		for _, path := range processor.FindCubemap(ctx, min.NormalizeTexture(value)) {
 			addFile(path)
 		}
 	}
@@ -99,20 +101,20 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 	}
 
 	// Always load the default map settings
-	defaultPath := processor.SearchFile("data/default_map_settings.cfg")
+	defaultPath := processor.SearchFile(ctx, "data/default_map_settings.cfg")
 
 	if defaultPath == nil {
 		log.Fatal().Msg("Root with data/default_map_settings.cfg not provided")
 	}
 
-	err = processor.ProcessFile(defaultPath)
+	err = processor.ProcessFile(ctx, defaultPath)
 	if err != nil {
 		log.Fatal().Err(err)
 	}
 
 	cfg := min.ReplaceExtension(ref, "cfg")
-	if cfg.Exists() {
-		err = processor.ProcessFile(cfg)
+	if cfg.Exists(ctx) {
+		err = processor.ProcessFile(ctx, cfg)
 		if err != nil {
 			log.Fatal().Err(err)
 		}
@@ -127,7 +129,7 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 
 	for _, slot := range processor.Materials {
 		for _, path := range slot.Sts {
-			texture := processor.SearchFile(path.Name)
+			texture := processor.SearchFile(ctx, path.Name)
 			if texture != nil {
 				addFile(texture)
 			}
@@ -148,7 +150,7 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 			if name == "" {
 				continue
 			}
-			err := processor.ProcessModel(name)
+			err := processor.ProcessModel(ctx, name)
 			if err != nil {
 				log.Fatal().Err(err).Msgf("Failed to process model %s", name)
 				continue
@@ -165,7 +167,7 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 	for i, slot := range processor.Slots {
 		if _, ok := textureRefs[int32(i)]; ok {
 			for _, path := range slot.Sts {
-				texture := processor.SearchFile(min.NormalizeTexture(path.Name))
+				texture := processor.SearchFile(ctx, min.NormalizeTexture(path.Name))
 				if texture == nil {
 					log.Warn().Msgf("unable to find texture %s", path.Name)
 					continue
@@ -188,7 +190,7 @@ const MODEL_DIR = "packages/models"
 func DumpModel(roots []assets.Root, name string) ([]min.Mapping, error) {
 	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
 
-	err := processor.ProcessModel(name)
+	err := processor.ProcessModel(ctx, name)
 	modelFiles := processor.ModelFiles
 	if err != nil || modelFiles == nil {
 		return nil, fmt.Errorf("Error processing model")
@@ -220,7 +222,7 @@ func DumpCFG(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 
 	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
 
-	err := processor.ProcessFile(ref)
+	err := processor.ProcessFile(ctx, ref)
 	if err != nil {
 		return nil, fmt.Errorf("error processing file")
 	}
@@ -239,7 +241,7 @@ func DumpCFG(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 
 	for _, slot := range processor.Materials {
 		for _, path := range slot.Sts {
-			texture := processor.SearchFile(path.Name)
+			texture := processor.SearchFile(ctx, path.Name)
 			if texture != nil {
 				addFile(texture)
 			}
@@ -256,7 +258,7 @@ func DumpCFG(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 
 	for _, model := range processor.Models {
 		name := model.Name
-		err := processor.ProcessModel(name)
+		err := processor.ProcessModel(ctx, name)
 		if err != nil {
 			log.Fatal().Err(err).Msgf("Failed to process model %s", name)
 			continue
@@ -269,7 +271,7 @@ func DumpCFG(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 
 	for _, slot := range processor.Slots {
 		for _, path := range slot.Sts {
-			texture := processor.SearchFile(path.Name)
+			texture := processor.SearchFile(ctx, path.Name)
 			if texture != nil {
 				addFile(texture)
 			}
@@ -296,7 +298,7 @@ func resolveTarget(roots []assets.Root, target string) (*min.Reference, error) {
 	}
 
 	// Just try the file
-	ref := processor.SearchFile(target)
+	ref := processor.SearchFile(ctx, target)
 	if ref != nil {
 		return ref, nil
 	}
@@ -352,7 +354,7 @@ func Dump(cache assets.Store, roots []assets.Root, type_ string, indexPath strin
 
 	for _, path := range references {
 		// TODO segfault?
-		resolved, err := path.From.Resolve()
+		resolved, err := path.From.Resolve(ctx)
 		if err != nil {
 			log.Fatal().Err(err).Msgf("could not resolve asset %s", path.From.String())
 			return
@@ -404,11 +406,11 @@ func Query(cache assets.Store, roots []assets.Root, targets []string) {
 	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
 
 	for _, target := range targets {
-		ref := processor.SearchFile(target)
+		ref := processor.SearchFile(ctx, target)
 
 		to := "nil"
 		if ref != nil {
-			resolved, err := ref.Resolve()
+			resolved, err := ref.Resolve(ctx)
 			if err != nil {
 				log.Fatal().Err(err).Msgf("could not resolve asset %s", target)
 			}
@@ -424,13 +426,13 @@ func Hash(cache assets.Store, roots []assets.Root, targets []string) {
 	hash := sha256.New()
 
 	for _, target := range targets {
-		ref := processor.SearchFile(target)
+		ref := processor.SearchFile(ctx, target)
 		// We ignore missing assets when hashing
 		if ref == nil {
 			continue
 		}
 
-		data, err := ref.ReadFile()
+		data, err := ref.ReadFile(ctx)
 		if err != nil {
 			log.Fatal().Err(err).Msgf("could not read asset %s", target)
 		}

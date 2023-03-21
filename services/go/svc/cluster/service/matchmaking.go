@@ -721,13 +721,13 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 			}
 
 			winnerOutcome, loserOutcome := calc.Outcome(
-				winnerELO.Rating,
-				loserELO.Rating,
+				int(winnerELO.Rating),
+				int(loserELO.Rating),
 				score,
 			)
 
-			winnerELO.Rating = winnerOutcome.Rating
-			loserELO.Rating = loserOutcome.Rating
+			winnerELO.Rating = uint(winnerOutcome.Rating)
+			loserELO.Rating = uint(loserOutcome.Rating)
 
 			if result.IsDraw {
 				winnerELO.Draws++

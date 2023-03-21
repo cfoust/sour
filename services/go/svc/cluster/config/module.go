@@ -147,6 +147,11 @@ func (s *Store) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	err = json.Unmarshal(*obj["default"], &s.Default)
+	if err != nil {
+		return err
+	}
+
 	config, ok := obj["config"]
 	if !ok {
 		return fmt.Errorf("config key missing")

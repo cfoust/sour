@@ -2,42 +2,28 @@ package service
 
 import (
 	"context"
-	"time"
 	"fmt"
-
-	"github.com/cfoust/sour/svc/cluster/verse"
 )
 
 func (c *Cluster) GoHome(ctx context.Context, user *User) error {
 	var err error
-	var space *verse.UserSpace
 
 	isLoggedIn := user.IsLoggedIn()
 	if !isLoggedIn {
-		space, err = c.verse.NewSpace(ctx, "")
-		if err != nil {
-			return err
-		}
-
-		err = space.Expire(ctx, time.Hour*4)
-		if err != nil {
-			return err
-		}
-
-		user.TempHomeID = space.GetID()
-	} else {
-		space, err = user.Verse.GetHomeSpace(ctx)
-		if err != nil {
-			return fmt.Errorf("could not find home space")
-		}
+		return fmt.Errorf("you must be logged in to go home")
 	}
 
-	instance, err := c.spaces.StartSpace(ctx, space.GetID())
+	home, err := user.GetHomeSpace(ctx)
 	if err != nil {
-	    return err
+		return fmt.Errorf("could not find home space")
 	}
 
-	_, err = user.ConnectToSpace(instance.Server, space.GetID())
+	instance, err := c.spaces.StartSpace(ctx, home.UUID)
+	if err != nil {
+		return err
+	}
+
+	_, err = user.ConnectToSpace(instance.Server, home.UUID)
 
 	return err
 }

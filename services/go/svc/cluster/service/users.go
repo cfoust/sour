@@ -245,6 +245,23 @@ func (u *User) GetSpace() *verse.SpaceInstance {
 	return space
 }
 
+func (u *User) GetHomeSpace(ctx context.Context) (*state.Space, error) {
+	auth := u.GetAuth()
+	if auth == nil {
+		return nil, fmt.Errorf("user is not logged in")
+	}
+
+	var space state.Space
+	query := state.Space{}
+	query.ID = auth.HomeID
+	err := u.o.db.WithContext(ctx).Where(query).First(&space).Error
+	if err != nil {
+	    return nil, err
+	}
+
+	return &space, nil
+}
+
 func (u *User) GetSpaceEntity(ctx context.Context) (*state.Space, error) {
 	instance := u.GetSpace()
 	if instance == nil {
@@ -402,15 +419,11 @@ func (u *User) HydrateELOState(ctx context.Context, authUser *state.User) error 
 	elo := NewELOState(u.o.Duels)
 
 	for _, duel := range u.o.Duels {
-		state, err := LoadELOState(ctx, u.o.redis, authUser.Discord.Id, duel.Name)
+		state, err := LoadELOState(ctx, u.o.db, authUser, duel.Name)
 
 		if err == nil {
 			elo.Ratings[duel.Name] = state
 			continue
-		}
-
-		if err != redis.Nil {
-			return err
 		}
 	}
 
@@ -428,7 +441,7 @@ func (u *User) SaveELOState(ctx context.Context) error {
 	defer u.Mutex.Unlock()
 
 	for matchType, state := range u.ELO.Ratings {
-		err := state.SaveState(ctx, u.o.redis, u.Auth.Discord.Id, matchType)
+		err := state.SaveState(ctx, u.o.db, u.Auth, matchType)
 		if err != nil {
 			return err
 		}
