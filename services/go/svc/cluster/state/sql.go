@@ -41,9 +41,14 @@ type Span struct {
 type Visit struct {
 	Entity
 	Span
-	SessionID uint   `gorm:"not null"`
-	Type      string // map, space, server?
-	Location  string
+	UserID       uint
+	SessionID    uint `gorm:"not null"`
+
+	// The server's alias, if set.
+	Location     string
+	MapID        uint
+	MapPointerID uint
+	SpaceID      uint
 }
 
 // Logs a player's game session from start to finish.

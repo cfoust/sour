@@ -443,6 +443,8 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			logger := user.Logger()
 			logger.Info().Msg("connected to server")
 
+			go user.LogVisit(c.serverCtx)
+
 			isHome, err := user.IsAtHome(ctx)
 			if err != nil {
 				logger.Warn().Err(err).Msg("failed seeing if user was at home")

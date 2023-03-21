@@ -484,6 +484,44 @@ func (u *User) SaveELOState(ctx context.Context) error {
 	return nil
 }
 
+func (u *User) LogVisit(ctx context.Context) error {
+	visit := state.Visit{
+		SessionID: u.sessionLog.ID,
+	}
+	visit.Start = time.Now()
+
+	if auth := u.GetAuth(); auth != nil {
+		visit.UserID = auth.ID
+	}
+
+	if server := u.GetServer(); server != nil {
+		if server.Alias != "" {
+			visit.Location = server.Alias
+		}
+	}
+
+	// TODO maps?
+
+	if space := u.GetSpace(); space != nil && space.Space != nil {
+		entity, err := space.Space.GetSpace(ctx)
+		if err == nil {
+			visit.SpaceID = entity.ID
+			visit.MapPointerID = entity.MapPointerID
+		}
+	}
+
+	err := u.o.db.WithContext(ctx).Save(&visit).Error
+	if err != nil {
+		return err
+	}
+
+	select {
+	case <-u.ServerSession.Ctx().Done():
+		visit.End = time.Now()
+		return u.o.db.WithContext(ctx).Save(&visit).Error
+	}
+}
+
 func (u *User) ConnectToSpace(server *servers.GameServer, id string) (<-chan bool, error) {
 	return u.ConnectToServer(server, id, false, true)
 }
