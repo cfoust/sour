@@ -416,6 +416,7 @@ func (v *Verse) FindMap(ctx context.Context, needle string) (*Map, error) {
 	var map_ state.MapPointer
 	err := v.db.WithContext(ctx).
 		Where("uuid LIKE ?", needle+"%").
+		Or("alias LIKE ?", needle+"%").
 		First(&map_).Error
 	if err != nil {
 		return nil, err
@@ -429,6 +430,7 @@ func (v *Verse) FindSpace(ctx context.Context, needle string) (*UserSpace, error
 	var space state.Space
 	err := v.db.WithContext(ctx).
 		Where("uuid LIKE ?", needle+"%").
+		Or("alias LIKE ?", needle+"%").
 		First(&space).Error
 	if err != nil {
 		return nil, err

@@ -257,8 +257,8 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 
 	server.ChangeMap(int32(mode.Value), config.DefaultMap)
 
-	go server.Poll(ctx)
-	go manager.PollMapRequests(ctx, &server)
+	go server.Poll(server.Ctx())
+	go manager.PollMapRequests(server.Ctx(), &server)
 
 	go func() {
 		for {
