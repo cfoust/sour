@@ -273,7 +273,7 @@ func (s *Cluster) registerCommands() {
 				return fmt.Errorf("failed to find server or space matching %s", target)
 			}
 
-			instance, err := s.spaces.StartSpace(context.Background(), target)
+			instance, err := s.spaces.StartSpace(s.serverCtx, target)
 			if err != nil {
 				return err
 			}

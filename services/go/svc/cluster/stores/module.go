@@ -2,11 +2,11 @@ package stores
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"os"
 
 	"github.com/cfoust/sour/pkg/assets"
+	"github.com/cfoust/sour/pkg/utils"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/state"
 
@@ -31,7 +31,7 @@ func (s *AssetStorage) Get(ctx context.Context, asset *state.Asset) ([]byte, err
 
 func (s *AssetStorage) Store(ctx context.Context, user *state.User, extension string, data []byte) (*state.Asset, error) {
 	store := s.defaultStore
-	hash := fmt.Sprintf("%x", sha256.Sum256(data))
+	hash := utils.Hash(data)
 
 	err := store.Set(ctx, hash, data)
 	if err != nil {

@@ -5,3 +5,4 @@ earthly/**
 **.o.tmp
 /dump.rdb
 /state.db
+/assets
