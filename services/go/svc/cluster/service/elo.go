@@ -8,7 +8,6 @@ import (
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/state"
 
-	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
 
@@ -75,8 +74,6 @@ func getRanking(ctx context.Context, db *gorm.DB, user *state.User, matchType st
 
 func (e *ELO) SaveState(ctx context.Context, db *gorm.DB, user *state.User, matchType string) error {
 	ranking, err := getRanking(ctx, db, user, matchType)
-
-	log.Info().Msgf("SaveState")
 
 	if err == gorm.ErrRecordNotFound {
 		type_, err := getType(ctx, db, matchType)
