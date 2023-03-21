@@ -51,11 +51,12 @@ type Session struct {
 	Entity
 	Span
 
-	UserID uint
-	UUID   string
+	UserID uint   // null OK
+	UUID   string `gorm:"not null"`
 	// The hash of the user's IP
-	Address string
-	Device  string // desktop, mobile, web
+	Address string `gorm:"not null"`
+	// desktop, mobile, web
+	Device string `gorm:"not null"`
 
 	Visits []*Visit `gorm:"foreignKey:SessionID"`
 }

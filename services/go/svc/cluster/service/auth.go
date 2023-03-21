@@ -72,9 +72,21 @@ func (c *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) er
 
 func (server *Cluster) GreetClient(ctx context.Context, user *User) {
 	user.AnnounceELO()
-	if user.Auth == nil {
+
+	logger := user.Logger()
+
+	auth := user.GetAuth()
+	if auth == nil {
 		user.Message("You are not logged in. Your rating will not be saved.")
+	} else {
+		// Associate with the session
+		user.sessionLog.UserID = auth.ID
+		err := server.db.WithContext(ctx).Save(user.sessionLog).Error
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to associate user with session")
+		}
 	}
+
 	server.NotifyClientChange(ctx, user, true)
 
 	server.Users.Mutex.RLock()

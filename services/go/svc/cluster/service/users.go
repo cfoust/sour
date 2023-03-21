@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"fmt"
 	"math"
 	"math/big"
@@ -64,10 +63,10 @@ type User struct {
 	Server        *servers.GameServer
 	ServerClient  *server.Client
 
-	Auth *state.User
-	ELO  *ELOState
+	Auth       *state.User
+	sessionLog *state.Session
 
-	SessionUUID string
+	ELO *ELOState
 
 	// True when the user is loading the map
 	delayMessages bool
@@ -110,11 +109,15 @@ func (c *User) ReceiveAuthentication() <-chan *state.User {
 	return c.Authentication
 }
 
+func (u *User) GetSessionID() string {
+	return u.sessionLog.UUID[:5]
+}
+
 func (u *User) Logger() zerolog.Logger {
 	u.Mutex.RLock()
 	logger := log.With().
 		Uint32("id", uint32(u.Id)).
-		Str("session", u.SessionUUID).
+		Str("session", u.GetSessionID()).
 		Str("type", u.Connection.DeviceType()).
 		Str("name", u.Name).
 		Logger()
@@ -263,7 +266,7 @@ func (u *User) GetHomeSpace(ctx context.Context) (*state.Space, error) {
 	if err == gorm.ErrRecordNotFound {
 		userSpace, err := u.o.verse.NewSpace(ctx, auth)
 		if err != nil {
-		    return nil, err
+			return nil, err
 		}
 
 		err = userSpace.SetDescription(
@@ -271,18 +274,18 @@ func (u *User) GetHomeSpace(ctx context.Context) (*state.Space, error) {
 			fmt.Sprintf("%s [home]", u.GetName()),
 		)
 		if err != nil {
-		    return nil, err
+			return nil, err
 		}
 
 		space, err := userSpace.GetSpace(ctx)
 		if err != nil {
-		    return nil, err
+			return nil, err
 		}
 
 		auth.HomeID = space.ID
 		err = u.o.db.WithContext(ctx).Save(&auth).Error
 		if err != nil {
-		    return nil, err
+			return nil, err
 		}
 
 		return space, nil
@@ -637,7 +640,14 @@ func NewUserOrchestrator(db *gorm.DB, verse *verse.Verse, duels []config.DuelTyp
 func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
 	select {
 	case <-user.Ctx().Done():
+		logger := user.Logger()
 		u.RemoveUser(user)
+
+		user.sessionLog.End = time.Now()
+		err := u.db.WithContext(ctx).Save(user.sessionLog).Error
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to set session end")
+		}
 		return
 	case <-ctx.Done():
 		return
@@ -674,17 +684,27 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, connection ingress.Conne
 		return nil, err
 	}
 
-	sessionID := fmt.Sprintf("%x", sha256.Sum256([]byte(
-		fmt.Sprintf("%d-%s", id, connection.Host()),
-	)))[:5]
+	sessionID := utils.HashString(fmt.Sprintf("%d-%s", id, connection.Host()))
+	host := utils.HashString(connection.Host())
+	sessionLog := state.Session{
+		Address: host,
+		UUID:    sessionID,
+		Device:  connection.DeviceType(),
+	}
+	sessionLog.Start = time.Now()
+
+	err = u.db.WithContext(ctx).Save(&sessionLog).Error
+	if err != nil {
+		return nil, err
+	}
 
 	u.Mutex.Lock()
 	user := User{
 		Id:                id,
-		SessionUUID:       sessionID,
 		Status:            UserStatusDisconnected,
 		Connection:        connection,
 		Session:           connection.Session(),
+		sessionLog:        &sessionLog,
 		ELO:               NewELOState(u.Duels),
 		Name:              "unnamed",
 		From:              P.NewMessageProxy(true),

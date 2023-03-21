@@ -2,19 +2,26 @@ package utils
 
 import (
 	"context"
+	"time"
 )
 
 type Session struct {
-	context context.Context
-	cancel  context.CancelFunc
+	context   context.Context
+	cancel    context.CancelFunc
+	startTime time.Time
 }
 
 func NewSession(ctx context.Context) Session {
 	ctx, cancel := context.WithCancel(ctx)
 	return Session{
-		context: ctx,
-		cancel:  cancel,
+		context:   ctx,
+		cancel:    cancel,
+		startTime: time.Now(),
 	}
+}
+
+func (s *Session) Started() time.Time {
+	return s.startTime
 }
 
 func (s *Session) Ctx() context.Context {

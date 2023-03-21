@@ -130,7 +130,7 @@ Outer:
 		return err
 	}
 
-	key := user.SessionUUID
+	key := user.GetSessionID()
 
 	pipe := redis.Pipeline()
 	pipe.Set(context.Background(), fmt.Sprintf(DEMO_KEY, key), toDemo, DEMO_TTL)
