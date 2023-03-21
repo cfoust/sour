@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/cfoust/sour/pkg/game"
 )
 
 func (c *Cluster) GoHome(ctx context.Context, user *User) error {
@@ -12,7 +13,12 @@ func (c *Cluster) GoHome(ctx context.Context, user *User) error {
 
 	isLoggedIn := user.IsLoggedIn()
 	if !isLoggedIn {
-		return fmt.Errorf("you must be logged in to go home")
+		err := c.runCommandWithTimeout(ctx, user, "go lobby")
+		if err != nil {
+			return err
+		}
+		user.Message(game.Red("you must log in to go home"))
+		return nil
 	}
 
 	home, err := user.GetHomeSpace(ctx)

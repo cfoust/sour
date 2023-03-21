@@ -169,14 +169,15 @@ func (c *Cluster) HandleTeleport(ctx context.Context, user *User, source int32) 
 		teleport := entities[source]
 
 		for _, link := range links {
-			if link.Teleport == uint8(teleport.Attr1) {
-				go c.runCommandWithTimeout(
-					user.Ctx(),
-					user,
-					fmt.Sprintf("go %s", link.Destination),
-				)
-				return
+			if link.Teleport != uint8(teleport.Attr1) {
+				continue
 			}
+			go c.HandleCommand(
+				user.Ctx(),
+				user,
+				fmt.Sprintf("go %s", link.Destination),
+			)
+			return
 		}
 	}
 }

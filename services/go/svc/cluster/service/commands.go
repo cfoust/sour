@@ -240,16 +240,6 @@ func (s *Cluster) registerCommands() {
 				return s.runCommandWithTimeout(ctx, user, "home")
 			}
 
-			logger := user.Logger()
-
-			user.Mutex.RLock()
-			if user.Server != nil && user.Server.IsReference(target) {
-				logger.Info().Msg("user already connected to target")
-				user.Mutex.RUnlock()
-				return fmt.Errorf("you are already there")
-			}
-			user.Mutex.RUnlock()
-
 			for _, gameServer := range s.servers.Servers {
 				if !gameServer.IsReference(target) {
 					continue
@@ -339,13 +329,7 @@ func (s *Cluster) registerCommands() {
 		Name:        "home",
 		Description: "go to your home space (also available via #go home)",
 		Callback: func(ctx context.Context, user *User) error {
-			err := s.GoHome(s.serverCtx, user)
-			if err != nil {
-				logger := user.Logger()
-				logger.Error().Err(err).Msg("could not go home")
-				return fmt.Errorf("could not go home")
-			}
-			return nil
+			return s.GoHome(s.serverCtx, user)
 		},
 	}
 
