@@ -19,6 +19,10 @@ import (
 )
 
 func (server *Cluster) NotifyClientChange(ctx context.Context, user *User, joined bool) {
+	if status := user.GetStatus(); status == UserStatusDisconnected {
+		return
+	}
+
 	userServer := user.GetServer()
 	name := user.GetFormattedName()
 	serverName := user.GetServerName()
@@ -425,6 +429,10 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 		select {
 		case <-ctx.Done():
 			c.NotifyClientChange(ctx, user, false)
+
+			logger := user.Logger()
+			logger.Info().Msg("user disconnected")
+
 			user.DisconnectFromServer()
 			return
 

@@ -635,9 +635,6 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 // Mark the client's status as disconnected and cancel its session context.
 // Called both when the client disconnects from ingress AND when the server kicks them out.
 func (u *User) DisconnectFromServer() error {
-	logger := u.Logger()
-	logger.Info().Str("host", u.Connection.Host()).Msg("user disconnected")
-
 	server := u.GetServer()
 	if server != nil {
 		server.Leave(uint32(u.Id))
@@ -786,7 +783,7 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, connection ingress.Conne
 	go u.PollUser(ctx, &user)
 
 	logger := user.Logger()
-	logger.Info().Str("host", user.Connection.Host()).Msg("user joined")
+	logger.Info().Msg("user joined")
 
 	return &user, nil
 }
