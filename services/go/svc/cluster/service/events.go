@@ -444,7 +444,12 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			logger := user.Logger()
 			logger.Info().Msg("connected to server")
 
-			go user.LogVisit(c.serverCtx)
+			go func() {
+				err := user.LogVisit(c.serverCtx)
+				if err != nil {
+					logger.Error().Err(err).Msg("could not log user visit")
+				}
+			}()
 
 			isHome, err := user.IsAtHome(ctx)
 			if err != nil {

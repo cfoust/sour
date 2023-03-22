@@ -515,11 +515,10 @@ func (u *User) LogVisit(ctx context.Context) error {
 		return err
 	}
 
-	select {
-	case <-u.ServerSession.Ctx().Done():
-		visit.End = time.Now()
-		return u.o.db.WithContext(ctx).Save(&visit).Error
-	}
+	<-u.ServerSession.Ctx().Done()
+
+	visit.End = time.Now()
+	return u.o.db.WithContext(ctx).Save(&visit).Error
 }
 
 func (u *User) ConnectToSpace(server *servers.GameServer, id string) (<-chan bool, error) {
