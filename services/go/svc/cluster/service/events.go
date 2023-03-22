@@ -469,7 +469,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				space := user.GetSpace()
 				message := fmt.Sprintf(
 					"welcome to your home (space %s).",
-					space.GetID(),
+					space.GetID()[:5],
 				)
 
 				if user.IsLoggedIn() {

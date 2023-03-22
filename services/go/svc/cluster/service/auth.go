@@ -9,17 +9,27 @@ import (
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/ingress"
+	"github.com/cfoust/sour/svc/cluster/state"
 )
 
 func (c *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) error {
+	logger := user.Logger()
+
 	if c.auth == nil {
 		return nil
 	}
 
-	pair, err := c.auth.GetAuthKey(ctx, id)
+	var dbUser state.User
+	err := c.db.WithContext(ctx).Where(state.User{
+		UUID: id,
+	}).First(&dbUser).Error
+	if err != nil {
+	    return err
+	}
 
-	if err != nil || pair == nil {
-		return fmt.Errorf("no key for client to do auth challenge")
+	pair := auth.KeyPair{
+		Public: dbUser.PublicKey,
+		Private: dbUser.PrivateKey,
 	}
 
 	challenge, err := auth.GenerateChallenge(id, pair.Public)
@@ -42,7 +52,6 @@ func (c *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) er
 		return err
 	}
 
-	logger := user.Logger()
 	answer := msg.(P.AuthAns)
 
 	if answer.Description != c.authDomain {
