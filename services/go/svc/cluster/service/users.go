@@ -675,19 +675,14 @@ func NewUserOrchestrator(db *gorm.DB, verse *verse.Verse, duels []config.DuelTyp
 }
 
 func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
-	select {
-	case <-user.Ctx().Done():
-		logger := user.Logger()
-		u.RemoveUser(user)
+	<-user.Ctx().Done()
+	logger := user.Logger()
+	u.RemoveUser(user)
 
-		user.sessionLog.End = time.Now()
-		err := u.db.WithContext(ctx).Save(user.sessionLog).Error
-		if err != nil {
-			logger.Error().Err(err).Msg("failed to set session end")
-		}
-		return
-	case <-ctx.Done():
-		return
+	user.sessionLog.End = time.Now()
+	err := u.db.WithContext(ctx).Save(user.sessionLog).Error
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to set session end")
 	}
 }
 
