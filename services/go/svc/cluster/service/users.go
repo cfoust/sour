@@ -116,7 +116,6 @@ func (u *User) GetSessionID() string {
 func (u *User) Logger() zerolog.Logger {
 	u.Mutex.RLock()
 	logger := log.With().
-		Uint32("id", uint32(u.Id)).
 		Str("session", u.GetSessionID()).
 		Str("type", u.Connection.DeviceType()).
 		Str("name", u.Name).
