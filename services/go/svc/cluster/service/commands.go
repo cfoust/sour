@@ -383,6 +383,7 @@ func (s *Cluster) registerCommands() {
 			}
 
 			instance.Server.SetDescription(info)
+			user.Connection.Connect(alias, false, false)
 
 			s.AnnounceInServer(ctx, instance.Server, fmt.Sprintf("space alias set to %s", alias))
 			return nil
@@ -428,6 +429,8 @@ func (s *Cluster) registerCommands() {
 			}
 
 			gameServer.SetDescription(info)
+
+			s.AnnounceInServer(ctx, instance.Server, fmt.Sprintf("space description set to '%s'", description))
 			return nil
 		},
 	}

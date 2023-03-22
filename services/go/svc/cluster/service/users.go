@@ -270,7 +270,7 @@ func (u *User) GetHomeSpace(ctx context.Context) (*state.Space, error) {
 
 		err = userSpace.SetDescription(
 			ctx,
-			fmt.Sprintf("%s [home]", u.GetName()),
+			"Home",
 		)
 		if err != nil {
 			return nil, err

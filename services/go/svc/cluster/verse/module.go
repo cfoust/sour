@@ -237,6 +237,13 @@ func (u *UserSpace) GetID() string {
 	return u.id
 }
 
+func (u *UserSpace) Reference() string {
+	if u.Alias != "" {
+		return u.Alias
+	}
+	return u.id[:5]
+}
+
 type Link struct {
 	Teleport    uint8
 	Teledest    uint8
@@ -335,7 +342,8 @@ func (v *Verse) GetSpace(ctx context.Context, id string) (*UserSpace, error) {
 	}
 
 	return &UserSpace{
-		id: id,
+		Space: &space,
+		id:    id,
 		entity: entity{
 			db:    v.db,
 			store: v.store,
@@ -396,7 +404,7 @@ func (v *Verse) NewSpace(ctx context.Context, creator *state.User) (*UserSpace, 
 		Creatable: state.NewCreatable(creator),
 		Aliasable: state.Aliasable{
 			UUID:  id,
-			Alias: id,
+			Alias: "",
 		},
 		Description:  "",
 		OwnerID:      creator.ID,

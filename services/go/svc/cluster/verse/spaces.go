@@ -92,6 +92,9 @@ func (s *SpaceInstance) GetServerInfo(ctx context.Context) (string, error) {
 	reference := s.id[:5]
 	if alias != "" {
 		reference = alias
+		if len(reference) > 16 {
+			reference = reference[:16]
+		}
 	}
 
 	tail := fmt.Sprintf(" [%s]", reference)
@@ -278,6 +281,8 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 		logger.Error().Err(err).Msg("failed to create server for preset")
 		return nil, err
 	}
+
+	gameServer.Alias = space.Reference()
 
 	gameServer.SetDescription(description)
 	// TODO gameServer.SendCommand("publicserver 1")
