@@ -394,7 +394,8 @@ func (s *Cluster) registerCommands() {
 		Name:        "desc",
 		ArgFormat:   "[description]",
 		Description: "set the description for the space",
-		Callback: func(ctx context.Context, user *User, description string) error {
+		Callback: func(ctx context.Context, user *User, args []string) error {
+			description := strings.Trim(strings.Join(args, " "), " ")
 			isOwner, err := user.IsOwner(ctx)
 			if err != nil {
 				return err
