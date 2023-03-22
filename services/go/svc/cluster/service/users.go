@@ -715,18 +715,49 @@ func (u *UserOrchestrator) newSessionID() (ingress.ClientID, error) {
 	return 0, fmt.Errorf("Failed to assign client ID")
 }
 
+func getAddress(ctx context.Context, db *gorm.DB, address string) (*state.Host, error) {
+	db = db.WithContext(ctx)
+
+	var host state.Host
+	err := db.Where(state.Host{
+		UUID: address,
+	}).First(&host).Error
+	if err == nil {
+		return &host, nil
+	}
+
+	if err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	host = state.Host{
+		UUID: address,
+	}
+
+	err = db.Create(&host).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &host, nil
+}
+
 func (u *UserOrchestrator) AddUser(ctx context.Context, connection ingress.Connection) (*User, error) {
 	id, err := u.newSessionID()
 	if err != nil {
 		return nil, err
 	}
 
+	host, err := getAddress(ctx, u.db, utils.HashString(connection.Host()))
+	if err != nil {
+		return nil, err
+	}
+
 	sessionID := utils.HashString(fmt.Sprintf("%d-%s", id, connection.Host()))
-	host := utils.HashString(connection.Host())
 	sessionLog := state.Session{
-		Address: host,
-		UUID:    sessionID,
-		Device:  connection.DeviceType(),
+		HostID: host.ID,
+		UUID:   sessionID,
+		Device: connection.DeviceType(),
 	}
 	sessionLog.Start = time.Now()
 

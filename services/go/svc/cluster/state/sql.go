@@ -37,12 +37,18 @@ type Span struct {
 	End   time.Time
 }
 
+type Host struct {
+	Entity
+	// The hash of the user's IP
+	UUID string
+}
+
 // A session in a particular space, server, or map.
 type Visit struct {
 	Entity
 	Span
-	UserID       uint
-	SessionID    uint `gorm:"not null"`
+	UserID    uint
+	SessionID uint `gorm:"not null"`
 
 	// The server's alias, if set.
 	Location     string
@@ -58,8 +64,8 @@ type Session struct {
 
 	UserID uint   // null OK
 	UUID   string `gorm:"not null"`
-	// The hash of the user's IP
-	Address string `gorm:"not null"`
+	HostID uint   `gorm:"not null"`
+
 	// desktop, mobile, web
 	Device string `gorm:"not null"`
 
@@ -214,6 +220,7 @@ func InitDB(path string) (*gorm.DB, error) {
 	db.AutoMigrate(&Entity{})
 	db.AutoMigrate(&ELOType{})
 	db.AutoMigrate(&Ranking{})
+	db.AutoMigrate(&Host{})
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&AuthCode{})
 	db.AutoMigrate(&Session{})
