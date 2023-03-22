@@ -377,6 +377,13 @@ func (s *Cluster) registerCommands() {
 				return err
 			}
 
+			info, err := instance.GetServerInfo(ctx)
+			if err != nil {
+				return err
+			}
+
+			instance.Server.SetDescription(info)
+
 			s.AnnounceInServer(ctx, instance.Server, fmt.Sprintf("space alias set to %s", alias))
 			return nil
 
@@ -414,7 +421,12 @@ func (s *Cluster) registerCommands() {
 				return err
 			}
 
-			gameServer.SetDescription(description)
+			info, err := instance.GetServerInfo(ctx)
+			if err != nil {
+				return err
+			}
+
+			gameServer.SetDescription(info)
 			return nil
 		},
 	}

@@ -54,8 +54,6 @@ func isValidMessage(c *Client, code P.MessageCode) bool {
 			return code == P.N_AUTHANS
 		}
 		return code == P.N_CONNECT
-	} else if code == P.N_CONNECT {
-		return false
 	}
 
 	if P.IsServerOnly(code) {

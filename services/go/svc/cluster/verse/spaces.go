@@ -77,6 +77,32 @@ func (s *SpaceInstance) GetAlias(ctx context.Context) (string, error) {
 	return s.Alias, nil
 }
 
+// Combine the description and alias (or ID) to make the servinfo string.
+func (s *SpaceInstance) GetServerInfo(ctx context.Context) (string, error) {
+	alias, err := s.GetAlias(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	description, err := s.GetDescription(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	reference := s.id[:5]
+	if alias != "" {
+		reference = alias
+	}
+
+	tail := fmt.Sprintf(" [%s]", reference)
+	overshoot := (len(tail) + len(description)) - 25
+	if overshoot > 0 {
+		description = description[:len(description)-overshoot]
+	}
+
+	return description + tail, nil
+}
+
 func (s *SpaceInstance) GetMap(ctx context.Context) (string, error) {
 	err := s.refreshConfig(ctx)
 	if err != nil {
@@ -240,6 +266,11 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 
 	instance.id = space.GetID()
 
+	description, err := instance.GetServerInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	go editing.SavePeriodically(instance.Ctx())
 
 	gameServer, err := s.servers.NewServer(instance.Ctx(), "", true)
@@ -248,7 +279,7 @@ func (s *SpaceManager) StartSpace(ctx context.Context, id string) (*SpaceInstanc
 		return nil, err
 	}
 
-	gameServer.SetDescription(config.Description)
+	gameServer.SetDescription(description)
 	// TODO gameServer.SendCommand("publicserver 1")
 	gameServer.EmptyMap()
 
