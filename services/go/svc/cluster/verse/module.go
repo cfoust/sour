@@ -165,7 +165,7 @@ func (v *Verse) NewMap(ctx context.Context, creator *state.User) (*Map, error) {
 		Creatable: state.NewCreatable(creator),
 	}
 	pointer.UUID = id
-	pointer.Alias = id
+	pointer.Alias = ""
 	err = v.db.WithContext(ctx).Create(&pointer).Error
 	if err != nil {
 		return nil, err
