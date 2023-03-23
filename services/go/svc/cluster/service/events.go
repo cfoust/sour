@@ -635,6 +635,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 					continue
 				}
 
+				filtered = append(filtered, newMessage)
 				processed = append(processed, newMessage)
 			}
 

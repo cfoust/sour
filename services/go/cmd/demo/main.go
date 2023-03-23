@@ -5,12 +5,14 @@ import (
 	"flag"
 	"io"
 	"os"
+	"log"
 	"time"
 
-	"github.com/cfoust/sour/pkg/game"
+	I "github.com/cfoust/sour/pkg/game/io"
+	P "github.com/cfoust/sour/pkg/game/protocol"
 
-	"github.com/rs/zerolog/log"
 	"github.com/rs/zerolog"
+	Z "github.com/rs/zerolog/log"
 )
 
 type DemoHeader struct {
@@ -20,31 +22,32 @@ type DemoHeader struct {
 }
 
 type SectionHeader struct {
+	From    bool
 	Millis  int32
 	Channel int32
 	Length  int32
 }
 
 func main() {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
+	Z.Logger = Z.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
 
 	flag.Parse()
 	args := flag.Args()
 
 	if len(args) != 1 {
-		log.Fatal().Msg("You must provide only a single argument.")
+		Z.Fatal().Msg("You must provide only a single argument.")
 	}
 
 	file, err := os.Open(args[0])
 
 	if err != nil {
-		log.Fatal().Err(err).Msg("could not open demo")
+		Z.Fatal().Err(err).Msg("could not open demo")
 	}
 
 	gz, err := gzip.NewReader(file)
 
 	if err != nil {
-		log.Fatal().Err(err).Msg("could not unzip demo")
+		Z.Fatal().Err(err).Msg("could not unzip demo")
 	}
 
 	defer file.Close()
@@ -52,10 +55,7 @@ func main() {
 
 	buffer, err := io.ReadAll(gz)
 
-	p := game.Buffer(buffer)
-
-	header := DemoHeader{}
-	p.Get(&header)
+	p := I.Buffer(buffer)
 
 	section := SectionHeader{}
 	for {
@@ -65,14 +65,25 @@ func main() {
 		p.Get(&section)
 
 		bytes, _ := p.GetBytes(int(section.Length))
-		messages, err := game.Read(bytes, true)
+		messages, err := P.Decode(bytes, true)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to parse messages")
+			Z.Error().Err(err).Msg("failed to parse messages")
 			continue
 		}
 
+		sender := "->"
+		if !section.From {
+			sender = "<-"
+		}
+
 		for _, message := range messages {
-			log.Info().Msgf("%d %+v", section.Millis, message.Contents())
+			log.Printf(
+				"%s |%8d| %s %+v",
+				sender,
+				section.Millis,
+				message.Type().String(),
+				message,
+			)
 		}
 	}
 }

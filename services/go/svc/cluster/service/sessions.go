@@ -85,6 +85,28 @@ func EncodeDemo(startTime time.Time, messages []RecordedPacket) ([]byte, error) 
 	return compressed, nil
 }
 
+func EncodeSession(startTime time.Time, messages []RecordedPacket) ([]byte, error) {
+	p := io.Buffer{}
+
+	for _, message := range messages {
+		packet := message.Packet
+		millis := int32(message.Time.Sub(startTime).Round(time.Millisecond).Milliseconds())
+		p.Put(
+			message.From,
+			int32(millis),
+			int32(packet.Channel),
+			int32(len(packet.Data)),
+			packet.Data,
+		)
+	}
+
+	compressed, err := Compress(p)
+	if err != nil {
+		return nil, err
+	}
+	return compressed, nil
+}
+
 const (
 	DEMO_KEY = "demo-%s"
 	DEMO_TTL = time.Duration(48 * time.Hour)
@@ -120,7 +142,7 @@ Outer:
 		return nil
 	}
 
-	allDemo, err := EncodeDemo(start, allMsg)
+	session, err := EncodeSession(start, allMsg)
 	if err != nil {
 		return err
 	}
@@ -133,8 +155,8 @@ Outer:
 	key := user.GetSessionID()
 
 	pipe := redis.Pipeline()
-	pipe.Set(context.Background(), fmt.Sprintf(DEMO_KEY, key), toDemo, DEMO_TTL)
-	pipe.Set(context.Background(), fmt.Sprintf(DEMO_KEY, key+"-all"), allDemo, DEMO_TTL)
+	pipe.Set(context.Background(), fmt.Sprintf(DEMO_KEY, key+"-demo"), toDemo, DEMO_TTL)
+	pipe.Set(context.Background(), fmt.Sprintf(DEMO_KEY, key), session, DEMO_TTL)
 	_, err = pipe.Exec(context.Background())
 	if err != nil {
 		return err
