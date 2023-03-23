@@ -65,16 +65,15 @@ func runScriptAndWait(ctx context.Context, user *User, type_ P.MessageCode, code
 	csError := make(chan error)
 	msgChan := make(chan P.Message)
 	go func() {
-		csError <- user.RunCubeScript(ctx, code)
-	}()
-
-	go func() {
 		msg, err := user.From.NextTimeout(ctx, RUN_WAIT_TIMEOUT, type_)
 		if err != nil {
 			msgChan <- nil
 			return
 		}
 		msgChan <- msg
+	}()
+	go func() {
+		csError <- user.RunCubeScript(ctx, code)
 	}()
 
 	for {
