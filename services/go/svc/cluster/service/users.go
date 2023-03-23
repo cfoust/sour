@@ -78,10 +78,9 @@ type User struct {
 	to chan TrackedPacket
 
 	// The last server description sent to the user
-	lastDescription string
-	wasGreeted      bool
-	sendingMap      bool
-	autoexecKey     string
+	lastInfo    *P.ServerInfo
+	sendingMap  bool
+	autoexecKey string
 
 	Space *verse.SpaceInstance
 
@@ -145,6 +144,13 @@ func (u *User) GetClientNum() int {
 	return num
 }
 
+func (u *User) GetServerInfo() P.ServerInfo {
+	u.Mutex.RLock()
+	info := u.lastInfo
+	u.Mutex.RUnlock()
+	return *info
+}
+
 func (u *User) GetID() string {
 	u.Mutex.RLock()
 	auth := u.Auth
@@ -199,6 +205,40 @@ func (c *User) Send(messages ...P.Message) <-chan error {
 
 func (c *User) SendSync(messages ...P.Message) error {
 	return c.SendChannelSync(1, messages...)
+}
+
+// ResponseTimeout sends a message for a user and waits for a response of type `code`.
+func (u *User) ResponseTimeout(ctx context.Context, timeout time.Duration, code P.MessageCode, messages ...P.Message) (P.Message, error) {
+	errorChan := make(chan error)
+	msgChan := make(chan P.Message)
+	go func() {
+		msg, err := u.From.NextTimeout(ctx, timeout, code)
+		if err != nil {
+			errorChan <- err
+			return
+		}
+		msgChan <- msg
+	}()
+	go func() {
+		err := <-u.Send(messages...)
+		if err != nil {
+			errorChan <- err
+			return
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case err := <-errorChan:
+		return nil, err
+	case msg := <-msgChan:
+		return msg, nil
+	}
+}
+
+func (u *User) Response(ctx context.Context, code P.MessageCode, messages ...P.Message) (P.Message, error) {
+	return u.ResponseTimeout(ctx, time.Second, code, messages...)
 }
 
 func (c *User) ReceiveToMessages() <-chan TrackedPacket {
@@ -416,6 +456,20 @@ func (u *User) GetName() string {
 	return name
 }
 
+func (u *User) SetName(ctx context.Context, name string) error {
+	u.Mutex.Lock()
+	u.Name = name
+	u.Mutex.Unlock()
+
+	auth := u.GetAuth()
+	if auth == nil {
+		return nil
+	}
+
+	auth.Nickname = name
+	return u.o.db.WithContext(ctx).Save(&auth).Error
+}
+
 func (u *User) GetAuth() *state.User {
 	u.Mutex.RLock()
 	auth := u.Auth
@@ -518,6 +572,28 @@ func (u *User) LogVisit(ctx context.Context) error {
 
 	visit.End = time.Now()
 	return u.o.db.WithContext(ctx).Save(&visit).Error
+}
+
+func (u *User) HandleAuthentication(ctx context.Context, auth *state.User) error {
+	if auth == nil {
+		return nil
+	}
+
+	u.Mutex.Lock()
+	u.Auth = auth
+	u.Mutex.Unlock()
+
+	err := u.HydrateELOState(ctx, auth)
+	if err != nil {
+		return err
+	}
+
+	err = u.SaveELOState(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (u *User) ConnectToSpace(server *servers.GameServer, id string) (<-chan bool, error) {

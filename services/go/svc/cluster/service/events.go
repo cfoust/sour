@@ -14,7 +14,6 @@ import (
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
 
-	"github.com/go-redis/redis/v9"
 	"github.com/rs/zerolog/log"
 )
 
@@ -62,9 +61,11 @@ func (c *Cluster) NotifyNameChange(ctx context.Context, user *User, name string)
 
 	logger.Info().Msg("client has new name")
 
-	user.Mutex.Lock()
-	user.Name = name
-	user.Mutex.Unlock()
+	err := user.SetName(ctx, name)
+	if err != nil {
+		logger.Error().Err(err).Msg("could not set user nickname")
+		return
+	}
 
 	clientServer := user.GetServer()
 	serverName := user.GetServerName()
@@ -85,17 +86,6 @@ func (c *Cluster) NotifyNameChange(ctx context.Context, user *User, name string)
 		other.RawMessage(message)
 	}
 	c.Users.Mutex.RUnlock()
-
-	auth := user.GetAuth()
-	if auth != nil {
-		go func() {
-			auth.Nickname = name
-			err := c.db.Save(&auth).Error
-			if err != nil {
-				logger.Error().Err(err).Msg("error updating user nickname")
-			}
-		}()
-	}
 }
 
 func (c *Cluster) AnnounceInServer(ctx context.Context, server *servers.GameServer, message string) {
@@ -304,13 +294,6 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			}
 
 			go func() {
-				user.Mutex.RLock()
-				wasGreeted := user.wasGreeted
-				user.Mutex.RUnlock()
-				if wasGreeted {
-					return
-				}
-
 				if description != c.authDomain || c.auth == nil {
 					user.Authentication <- nil
 					return
@@ -372,23 +355,15 @@ func (c *Cluster) PollToMessages(ctx context.Context, user *User) {
 		case <-userCtx.Done():
 			return
 		case msg := <-serverInfo.Receive():
-			// Inject the auth domain to N_SERVINFO so the
-			// client sends us N_CONNECT with their name
-			// field filled
+			msg.Pass()
+
+			// Some functionality relies on manipulating fields in
+			// the server info, so we store it whenever it's sent
+			// to the user.
 			info := msg.Message.(P.ServerInfo)
-
-			user.Mutex.RLock()
-			wasGreeted := user.wasGreeted
-			user.Mutex.RUnlock()
-			if !wasGreeted {
-				info.Domain = c.authDomain
-			}
-
 			user.Mutex.Lock()
-			user.lastDescription = info.Description
+			user.lastInfo = &info
 			user.Mutex.Unlock()
-
-			msg.Replace(info)
 		}
 	}
 }
@@ -406,6 +381,16 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 	health := chanLock.Poll(ctx)
 
 	logger := user.Logger()
+
+	if user.Connection.Type() == ingress.ClientTypeENet {
+		go func() {
+			err := c.HandleDesktopLogin(ctx, user)
+
+			if err != nil {
+				logger.Warn().Err(err).Msg("failed to record client session")
+			}
+		}()
+	}
 
 	go func() {
 		err := RecordSession(
@@ -481,35 +466,15 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			}
 
 		case authUser := <-authentication:
-			if authUser == nil {
-				// Set to dummy auth user
-
-				c.GreetClient(ctx, user)
-				continue
-			}
-
-			logger = logger.With().Str("id", authUser.UUID).Logger()
-
-			user.Mutex.Lock()
-			user.Auth = authUser
-			user.Mutex.Unlock()
-
-			err := user.HydrateELOState(ctx, authUser)
-			if err == nil {
-				c.GreetClient(ctx, user)
-				continue
-			}
-
-			if err != redis.Nil {
-				logger.Error().Err(err).Msg("failed to hydrate state for user")
-				continue
-			}
-
-			// We save the initialized state that was there already
-			err = user.SaveELOState(ctx)
+			// Only web clients use this flow, because desktop
+			// clients do authentication imperatively.
+			err := user.HandleAuthentication(ctx, authUser)
 			if err != nil {
-				logger.Error().Err(err).Msg("failed to save elo state for user")
+				logger.Error().Err(err).
+					Msg("failed to authenticate user")
+				continue
 			}
+
 			c.GreetClient(ctx, user)
 		case msg := <-toServer:
 			data := msg.Data
