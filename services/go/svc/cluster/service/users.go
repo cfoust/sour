@@ -238,7 +238,7 @@ func (u *User) ResponseTimeout(ctx context.Context, timeout time.Duration, code 
 }
 
 func (u *User) Response(ctx context.Context, code P.MessageCode, messages ...P.Message) (P.Message, error) {
-	return u.ResponseTimeout(ctx, time.Second, code, messages...)
+	return u.ResponseTimeout(ctx, 5 * time.Second, code, messages...)
 }
 
 func (c *User) ReceiveToMessages() <-chan TrackedPacket {

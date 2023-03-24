@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
 	_ "embed"
 	"fmt"
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
+	"github.com/cfoust/sour/pkg/utils"
 	C "github.com/cfoust/sour/pkg/game/constants"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 )
@@ -15,19 +15,22 @@ import (
 //go:embed purgatory.ogz
 var PURGATORY []byte
 
-func sendServerInfo(u *User, domain string) {
-	u.Mutex.RLock()
-	info := P.ServerInfo{
-		Client:      int32(u.ServerClient.CN),
-		Protocol:    P.PROTOCOL_VERSION,
-		SessionId:   0,
-		HasPassword: false,
-		Description: u.lastDescription,
-		Domain:      domain,
-	}
-	u.Mutex.RUnlock()
+func sendServerInfo(ctx context.Context, u *User, domain string) (P.Connect, error) {
+	info := u.GetServerInfo()
+	info.Domain = domain
 
-	u.Send(info)
+	msg, err := u.Response(
+		ctx,
+		P.N_CONNECT,
+		info,
+	)
+	if err != nil {
+	    return P.Connect{}, err
+	}
+
+	connect := msg.(P.Connect)
+
+	return connect, err
 }
 
 const (
@@ -66,7 +69,7 @@ func (c *Cluster) saveAutoexecKeys(ctx context.Context, u *User, public string, 
 func (c *Cluster) waitForConsent(ctx context.Context, u *User, public string) error {
 	logger := u.Logger()
 	domain := getDomain(c.authDomain)
-	private := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("private-%d", time.Now()))))[:10]
+	private := utils.HashString(fmt.Sprintf("private-%d", time.Now()))
 
 	script := fmt.Sprintf(
 		INITIAL_SCRIPT,
@@ -80,11 +83,14 @@ func (c *Cluster) waitForConsent(ctx context.Context, u *User, public string) er
 		logger.Fatal().Msgf("script too long %d", len(script))
 	}
 
-	sendServerInfo(
+	_, err := sendServerInfo(
+		ctx,
 		u,
 		script,
 	)
-	u.From.Take(ctx, P.N_CONNECT)
+	if err != nil {
+		return err
+	}
 
 	u.Message("run '/do (getservauth)' to allow the server to securely send maps and assets you are missing")
 
@@ -104,6 +110,7 @@ func (c *Cluster) waitForConsent(ctx context.Context, u *User, public string) er
 			msg.Replace(info)
 		case msg := <-servCmd.Receive():
 			cmd := msg.Message.(P.ServCMD)
+			logger.Info().Msgf("%+v", cmd)
 			if cmd.Command != public {
 				msg.Pass()
 				continue
@@ -123,25 +130,21 @@ func (c *Cluster) waitForConsent(ctx context.Context, u *User, public string) er
 }
 
 func (c *Cluster) setupCubeScript(ctx context.Context, u *User) error {
-	logger := u.Logger()
 	domain := getDomain(c.authDomain)
 
 	// First determine whether they already have an autoexec key
-	sendServerInfo(
+	connect, err := sendServerInfo(
+		ctx,
 		u,
 		domain,
 	)
-
-	msg, err := u.From.Take(ctx, P.N_CONNECT)
 	if err != nil {
-		logger.Warn().Msg("never got N_CONNECT")
 		return err
 	}
 
-	connect := msg.(P.Connect)
 	public := connect.AuthName
 	if public == "" {
-		public = fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("public-%d", time.Now()))))[:10]
+		public = utils.HashString(fmt.Sprintf("public-%d", time.Now()))[:10]
 		return c.waitForConsent(ctx, u, public)
 	}
 
@@ -190,11 +193,14 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 		return fmt.Errorf("user was not connected to server")
 	}
 
-	sendServerInfo(
+	_, err := sendServerInfo(
+		ctx,
 		u,
 		script,
 	)
-	u.From.Take(ctx, P.N_CONNECT)
+	if err != nil {
+		return err
+	}
 
 	u.Send(P.MapChange{
 		Name:     key,
@@ -203,11 +209,10 @@ func (u *User) RunCubeScript(ctx context.Context, code string) error {
 	})
 	u.From.Take(ctx, P.N_MAPCRC)
 
-	sendServerInfo(
+	_, err = sendServerInfo(
+		ctx,
 		u,
 		"",
 	)
-	u.From.Take(ctx, P.N_CONNECT)
-
-	return nil
+	return err
 }

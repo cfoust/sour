@@ -184,7 +184,6 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 	blockConnecting := user.From.InterceptWith(func(code P.MessageCode) bool {
 		return !P.IsConnectingMessage(code)
 	})
-	connects := user.From.Intercept(P.N_CONNECT)
 	teleports := user.From.Intercept(P.N_TELEPORT)
 	edits := user.From.InterceptWith(P.IsOwnerOnly)
 	crcs := user.From.Intercept(P.N_MAPCRC)
@@ -280,32 +279,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 			teleport := message.(P.Teleport)
 			c.HandleTeleport(ctx, user, teleport.Source)
 			msg.Pass()
-		case msg := <-connects.Receive():
-			message := msg.Message
-			connect := message.(P.Connect)
-			description := connect.AuthDescription
-			name := connect.AuthName
-			msg.Pass()
 
-			c.NotifyNameChange(ctx, user, connect.Name)
-
-			if user.Connection.Type() != ingress.ClientTypeENet {
-				continue
-			}
-
-			go func() {
-				if description != c.authDomain || c.auth == nil {
-					user.Authentication <- nil
-					return
-				}
-
-				if !user.IsLoggedIn() {
-					err := c.DoAuthChallenge(ctx, user, name)
-					if err != nil {
-						logger.Warn().Err(err).Msgf("failed to log in")
-					}
-				}
-			}()
 		case msg := <-blockConnecting.Receive():
 			// Skip messages that aren't allowed while the
 			// client is connecting, otherwise the server
@@ -387,7 +361,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			err := c.HandleDesktopLogin(ctx, user)
 
 			if err != nil {
-				logger.Warn().Err(err).Msg("failed to record client session")
+				logger.Warn().Err(err).Msg("failed to log in enet client")
 			}
 		}()
 	}
@@ -614,9 +588,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 				log.Error().Err(err).Msgf("failed to encode message")
 				continue
 			}
-
-			logger.Debug().
-				Msgf("cluster -> client packet length=%d contents=%+v", len(data), codes)
 
 			filteredData, err := P.Encode(filtered...)
 			if err != nil {

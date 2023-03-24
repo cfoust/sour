@@ -54,13 +54,13 @@ func (c *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) (*
 	}
 
 	if !challenge.Check(answer.Answer) {
-		user.Message(game.Red("failed to login, please regenerate your key"))
+		user.Message(game.Red("failed to log in, please regenerate your key"))
 		return nil, fmt.Errorf("client failed auth challenge")
 	}
 
 	authUser, err := c.auth.AuthenticateId(ctx, challenge.Id)
 	if err != nil {
-		user.Message(game.Red("failed to login, please regenerate your key"))
+		user.Message(game.Red("failed to log in, please regenerate your key"))
 		return nil, fmt.Errorf("could not authenticate by id")
 	}
 
@@ -78,7 +78,7 @@ func (server *Cluster) GreetClient(ctx context.Context, user *User) {
 
 	auth := user.GetAuth()
 	if auth == nil {
-		user.Message("You are not logged in. Your rating will not be saved.")
+		user.Message("you are not logged in. your rating will not be saved.")
 	} else {
 		// Associate with the session
 		user.sessionLog.UserID = auth.ID
@@ -111,7 +111,7 @@ func (server *Cluster) GreetClient(ctx context.Context, user *User) {
 // runner.
 func (c *Cluster) HandleDesktopLogin(ctx context.Context, user *User) error {
 	logger := user.Logger()
-	msg, err := user.From.NextTimeout(
+	msg, err := user.From.WaitTimeout(
 		ctx,
 		5*time.Second,
 		P.N_CONNECT,
@@ -156,5 +156,6 @@ func (c *Cluster) HandleDesktopLogin(ctx context.Context, user *User) error {
 
 	c.GreetClient(ctx, user)
 
-	return c.setupCubeScript(user.Ctx(), user)
+	go c.setupCubeScript(user.Ctx(), user)
+	return nil
 }
