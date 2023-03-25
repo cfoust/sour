@@ -2,7 +2,6 @@ package entities
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 
 	C "github.com/cfoust/sour/pkg/game/constants"
@@ -42,7 +41,6 @@ func decodeValue(a *Attributes, type_ reflect.Type, valuePtr reflect.Value) erro
 	}
 
 	value := valuePtr.Elem()
-	log.Printf("decodeValue %+v %+v %+v", type_, valuePtr, value)
 
 	switch type_.Kind() {
 	case reflect.Int16:
@@ -70,7 +68,6 @@ func decodeValue(a *Attributes, type_ reflect.Type, valuePtr reflect.Value) erro
 }
 
 func decodeStruct(a *Attributes, type_ reflect.Type, value reflect.Value) error {
-	log.Printf("%+v %+v", type_, value)
 	if value.Kind() != reflect.Struct {
 		return fmt.Errorf("cannot decode non-struct: %+v", value)
 	}
@@ -87,22 +84,7 @@ func decodeStruct(a *Attributes, type_ reflect.Type, value reflect.Value) error 
 	return nil
 }
 
-func Decode(a *Attributes, pieces ...interface{}) error {
-	for _, piece := range pieces {
-		err := decodeValue(
-			a,
-			reflect.TypeOf(piece).Elem(),
-			reflect.ValueOf(piece),
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func DecodeEntity(entityType C.EntityType, a *Attributes) (EntityInfo, error) {
+func Decode(entityType C.EntityType, a *Attributes) (EntityInfo, error) {
 	type_, ok := ENTITY_TYPE_MAP[entityType]
 	if !ok {
 		return nil, fmt.Errorf("unknown entity type %s", entityType.String())
@@ -120,4 +102,63 @@ func DecodeEntity(entityType C.EntityType, a *Attributes) (EntityInfo, error) {
 	}
 
 	return nil, fmt.Errorf("failed to decode entity")
+}
+
+func encodeStruct(a *Attributes, type_ reflect.Type, value reflect.Value) error {
+	if value.Kind() != reflect.Struct {
+		return fmt.Errorf("cannot encode non-struct")
+	}
+
+	for i := 0; i < type_.NumField(); i++ {
+		field := type_.Field(i)
+		fieldValue := value.Field(i)
+
+		err := encodeValue(a, field.Type, fieldValue)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func encodeValue(a *Attributes, type_ reflect.Type, value reflect.Value) error {
+	if u, ok := value.Interface().(Encodable); ok {
+		return u.Encode(a)
+	}
+
+	if value.Kind() == reflect.Pointer {
+		value = value.Elem()
+		type_ = type_.Elem()
+	}
+
+	switch type_.Kind() {
+	case reflect.Int16:
+		a.Put(int16(value.Int()))
+	case reflect.Uint8:
+		a.Put(int16(value.Uint()))
+	case reflect.Struct:
+		err := encodeStruct(a, type_, value)
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unimplemented type: %s", type_.String())
+	}
+
+	return nil
+}
+
+func Encode(info EntityInfo) (*Attributes, error) {
+	a := Attributes{}
+	err := encodeValue(&a, reflect.TypeOf(info), reflect.ValueOf(info))
+	if err != nil {
+		return nil, err
+	}
+
+	for len(a) < 5 {
+		a.Put(0)
+	}
+
+	return &a, nil
 }

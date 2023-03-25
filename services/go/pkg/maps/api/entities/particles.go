@@ -131,6 +131,13 @@ func (p *Particles) Decode(a *Attributes) error {
 var _ Decodable = (*Particles)(nil)
 
 func (p *Particles) Encode(a *Attributes) error {
+	a.Put(int16(p.Particle))
+
+	err := encodeValue(a, reflect.TypeOf(p.Data), reflect.ValueOf(p.Data))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
