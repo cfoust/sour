@@ -1,5 +1,12 @@
 package entities
 
+import (
+	"fmt"
+	"reflect"
+
+	C "github.com/cfoust/sour/pkg/game/constants"
+)
+
 type ParticleType byte
 
 const (
@@ -24,7 +31,7 @@ const (
 	ParticleTypeLensFlareSparkleSun = 35
 )
 
-var PARTICLE_TYPE_MAP = map[ParticleType]string{
+var PARTICLE_TYPE_STRINGS = map[ParticleType]string{
 	ParticleTypeFire:                "fire",
 	ParticleTypeSteamVent:           "steamVent",
 	ParticleTypeFountain:            "fountain",
@@ -45,7 +52,7 @@ var PARTICLE_TYPE_MAP = map[ParticleType]string{
 }
 
 func (e ParticleType) String() string {
-	value, ok := PARTICLE_TYPE_MAP[e]
+	value, ok := PARTICLE_TYPE_STRINGS[e]
 	if !ok {
 		return ""
 	}
@@ -53,7 +60,7 @@ func (e ParticleType) String() string {
 }
 
 func (e ParticleType) FromString(value string) {
-	for type_, key := range PARTICLE_TYPE_MAP {
+	for type_, key := range PARTICLE_TYPE_STRINGS {
 		if key == value {
 			e = type_
 			return
@@ -62,7 +69,63 @@ func (e ParticleType) FromString(value string) {
 	e = ParticleTypeFire
 }
 
+type ParticleInfo interface {
+	Type() ParticleType
+}
+
+type Particles struct {
+	Particle ParticleType
+	Data     ParticleInfo
+}
+
+func (p *Particles) Type() C.EntityType { return C.EntityTypeParticles }
+
 type Fire struct {
 	Radius int16
 	Height int16
 }
+
+func (p *Fire) Type() ParticleType { return ParticleTypeFire }
+
+var PARTICLE_TYPES = []ParticleInfo{
+	&Fire{},
+}
+
+var PARTICLE_TYPE_MAP = map[ParticleType]ParticleInfo{}
+
+func (p *Particles) Decode(a *Attributes) error {
+	type_, err := a.Get()
+	if err != nil {
+		return err
+	}
+
+	particleType, ok := PARTICLE_TYPE_MAP[ParticleType(type_)]
+	if !ok {
+		return fmt.Errorf("unknown particle type %d", particleType)
+	}
+
+	p.Particle = ParticleType(type_)
+
+	decodedType := reflect.TypeOf(particleType)
+	decoded := reflect.New(decodedType.Elem())
+	err = decodeValue(a, decodedType.Elem(), decoded)
+	if err != nil {
+		return err
+	}
+
+	if value, ok := decoded.Interface().(ParticleInfo); ok {
+		p.Data = value
+	} else {
+		return fmt.Errorf("could not decode particle info")
+	}
+
+	return nil
+}
+
+var _ Decodable = (*Particles)(nil)
+
+func (p *Particles) Encode(a *Attributes) error {
+	return nil
+}
+
+var _ Encodable = (*Particles)(nil)

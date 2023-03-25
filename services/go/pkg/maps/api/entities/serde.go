@@ -45,12 +45,18 @@ func decodeValue(a *Attributes, type_ reflect.Type, valuePtr reflect.Value) erro
 	log.Printf("decodeValue %+v %+v %+v", type_, valuePtr, value)
 
 	switch type_.Kind() {
-	case reflect.Int16, reflect.Uint8:
+	case reflect.Int16:
 		readValue, err := a.Get()
 		if err != nil {
 			return err
 		}
 		value.SetInt(int64(readValue))
+	case reflect.Uint8:
+		readValue, err := a.Get()
+		if err != nil {
+			return err
+		}
+		value.SetUint(uint64(readValue))
 	case reflect.Struct:
 		err := decodeStruct(a, type_, value)
 		if err != nil {
@@ -81,7 +87,22 @@ func decodeStruct(a *Attributes, type_ reflect.Type, value reflect.Value) error 
 	return nil
 }
 
-func Decode(entityType C.EntityType, a *Attributes) (EntityInfo, error) {
+func Decode(a *Attributes, pieces ...interface{}) error {
+	for _, piece := range pieces {
+		err := decodeValue(
+			a,
+			reflect.TypeOf(piece).Elem(),
+			reflect.ValueOf(piece),
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func DecodeEntity(entityType C.EntityType, a *Attributes) (EntityInfo, error) {
 	type_, ok := ENTITY_TYPE_MAP[entityType]
 	if !ok {
 		return nil, fmt.Errorf("unknown entity type %s", entityType.String())
