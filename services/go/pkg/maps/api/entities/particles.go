@@ -1,4 +1,4 @@
-package api
+package entities
 
 type ParticleType byte
 
@@ -44,8 +44,6 @@ var PARTICLE_TYPE_MAP = map[ParticleType]string{
 	ParticleTypeLensFlareSparkleSun: "lensFlareSparkleSun",
 }
 
-type ParticleData Attributable[ParticleType]
-
 func (e ParticleType) String() string {
 	value, ok := PARTICLE_TYPE_MAP[e]
 	if !ok {
@@ -63,8 +61,6 @@ func (e ParticleType) FromString(value string) {
 	}
 	e = ParticleTypeFire
 }
-
-type Color16 BVector
 
 type Fire struct {
 	Radius int16
