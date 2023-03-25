@@ -41,6 +41,11 @@ func TestParticle(t *testing.T) {
 		Data: &Fire{
 			Height: 8,
 			Radius: 8,
+			Color: Color16{
+				R: 15,
+				G: 15,
+				B: 15,
+			},
 		},
 	})
 }

@@ -2,6 +2,7 @@ package entities
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 
 	C "github.com/cfoust/sour/pkg/game/constants"
@@ -80,9 +81,46 @@ type Particles struct {
 
 func (p *Particles) Type() C.EntityType { return C.EntityTypeParticles }
 
+// Particles can have colors with a weird encoding scheme. Each element
+// corresponds to the upper four bits in the corresponding element of a 24-bit
+// RGBA color. Instead of messing with this, the Go API treats this as a normal
+// 24-bit color and cuts off the 0x0F bits on encode.
+type Color16 struct {
+	R byte
+	G byte
+	B byte
+}
+
+func (c *Color16) Decode(a *Attributes) error {
+	value, err := a.Get()
+	if err != nil {
+		return err
+	}
+
+	c.R = byte(((value >> 4) & 0xF0) + 0x0F)
+	c.G = byte((value & 0xF0) + 0x0F)
+	c.B = byte(((value << 4) & 0xF0) + 0x0F)
+	log.Printf("%x %x %x %x", value, c.R, c.G, c.B)
+	return nil
+}
+
+var _ Decodable = (*Color16)(nil)
+
+func (c Color16) Encode(a *Attributes) error {
+	var value int16 = 0
+	value += (int16(c.R) & 0xF0) << 4
+	value += (int16(c.G) & 0xF0)
+	value += (int16(c.B) & 0xF0) >> 4
+	a.Put(value)
+	return nil
+}
+
+var _ Encodable = (*Color16)(nil)
+
 type Fire struct {
 	Radius int16
 	Height int16
+	Color  Color16
 }
 
 func (p *Fire) Type() ParticleType { return ParticleTypeFire }
