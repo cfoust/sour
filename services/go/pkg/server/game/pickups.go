@@ -118,7 +118,6 @@ func (m *handlesPickups) HandlePacket(p *Player, message P.Message) bool {
 			break
 		}
 		if !p.CanPickup(pu) {
-			log.Printf("player can't pick up %v", pu)
 			break
 		}
 		m.spawnDelayed(pu)
