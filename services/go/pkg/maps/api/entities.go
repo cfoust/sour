@@ -12,45 +12,45 @@ type Attributes struct {
 	Attr5 int16
 }
 
-type Attributable[A Typable] interface {
-	Type() A
-	Encode() Attributes
-	Decode(Attributes)
+type EntityInfo interface {
+	Type() C.EntityType
 }
 
-type EntityData Attributable[C.EntityType]
+type Decodable interface {
+	Decode(*Attributes)
+}
+
+type Encodable interface {
+	Encode(*Attributes)
+}
+
+type BVector struct {
+	X byte
+	Y byte
+	Z byte
+}
+
+type Color struct {
+	R byte
+	G byte
+	B byte
+}
+
+type Vector struct {
+	X float32
+	Y float32
+	Z float32
+}
 
 type Entity struct {
 	Position Vector
-	Data     EntityData
+	Info     EntityInfo
 }
 
 type Light struct {
 	Radius int16
 	Color  Color
 }
-
-func (l *Light) Type() C.EntityType {
-	return C.EntityTypeLight
-}
-
-func (l *Light) Encode() Attributes {
-	return Attributes{
-		Attr1: l.Radius,
-		Attr2: int16(l.Color.R),
-		Attr3: int16(l.Color.G),
-		Attr4: int16(l.Color.B),
-	}
-}
-
-func (l *Light) Decode(a Attributes) {
-	l.Radius = a.Attr1
-	l.Color.R = byte(a.Attr2)
-	l.Color.G = byte(a.Attr3)
-	l.Color.B = byte(a.Attr4)
-}
-
-var _ EntityData = (*Light)(nil)
 
 type MapModel struct {
 	Angle int16
@@ -127,24 +127,3 @@ var _ EntityData = (*EnvMap)(nil)
 type Particles struct {
 	Data ParticleData
 }
-
-func (e *Particles) Type() C.EntityType {
-	return C.EntityTypeParticles
-}
-
-func (e *Particles) Encode() Attributes {
-	attributes := e.Data.Encode()
-	// Override the particle type
-	attributes.Attr1 = int16(e.Data.Type())
-	return attributes
-}
-
-func (e *Particles) Decode(a Attributes) {
-	type_ := a.Attr1
-	var data ParticleData
-	switch type_ {
-	}
-	e.Data.Decode(a)
-}
-
-var _ EntityData = (*Particles)(nil)
