@@ -93,6 +93,12 @@ var PARTICLE_TYPES = []ParticleInfo{
 
 var PARTICLE_TYPE_MAP = map[ParticleType]ParticleInfo{}
 
+func init() {
+	for _, type_ := range PARTICLE_TYPES {
+		PARTICLE_TYPE_MAP[type_.Type()] = type_
+	}
+}
+
 func (p *Particles) Decode(a *Attributes) error {
 	type_, err := a.Get()
 	if err != nil {

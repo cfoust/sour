@@ -40,3 +40,20 @@ func TestLight(t *testing.T) {
 		},
 	})
 }
+
+func TestParticle(t *testing.T) {
+	a := Attributes{}
+	a.Put(int16(ParticleTypeFire))
+	a.Put(8)
+	a.Put(8)
+
+	info, err := DecodeEntity(C.EntityTypeParticles, &a)
+	assert.NoError(t, err)
+	assert.Equal(t, info, &Particles{
+		Particle: ParticleTypeFire,
+		Data: &Fire{
+			Height: 8,
+			Radius: 8,
+		},
+	})
+}

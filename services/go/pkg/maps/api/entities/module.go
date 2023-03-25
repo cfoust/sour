@@ -65,6 +65,7 @@ var ENTITY_TYPES = []EntityInfo{
 	&MapModel{},
 	&PlayerStart{},
 	&EnvMap{},
+	&Particles{},
 }
 
 var ENTITY_TYPE_MAP = map[C.EntityType]EntityInfo{}
