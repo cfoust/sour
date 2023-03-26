@@ -9,6 +9,8 @@ import (
 
 type Attributes []int16
 
+var Empty = fmt.Errorf("value was missing, check default")
+
 func (a *Attributes) Get() (int16, error) {
 	if len(*a) < 1 {
 		return 0, fmt.Errorf("no attributes remaining")
@@ -31,6 +33,38 @@ type Encodable interface {
 	Encode(*Attributes) error
 }
 
+// just like banks
+type Default[T any] struct {
+	isEmpty bool
+	value   T
+}
+
+func (d *Default[T]) Set(value T) {
+	d.value = value
+	d.isEmpty = false
+}
+
+// Indicate that this should use the default value.
+func (d *Default[T]) Clear() {
+	d.isEmpty = true
+}
+
+func (d *Default[T]) IsEmpty() bool {
+	return d.isEmpty
+}
+
+func (d *Default[T]) Get() T {
+	return d.value
+}
+
+func NewDefault[T any](value T) Default[T] {
+	return Default[T]{value: value}
+}
+
+type Defaultable interface {
+	Defaults() Defaultable
+}
+
 func decodeValue(a *Attributes, type_ reflect.Type, valuePtr reflect.Value) error {
 	if valuePtr.Kind() != reflect.Pointer {
 		return fmt.Errorf("cannot decode into non-pointer value")
@@ -48,11 +82,26 @@ func decodeValue(a *Attributes, type_ reflect.Type, valuePtr reflect.Value) erro
 		if err != nil {
 			return err
 		}
+		if readValue == 0 {
+			return Empty
+		}
 		value.SetInt(int64(readValue))
+	case reflect.Float32:
+		readValue, err := a.Get()
+		if err != nil {
+			return err
+		}
+		if readValue == 0 {
+			return Empty
+		}
+		value.SetFloat(float64(readValue) / 100.0)
 	case reflect.Uint8:
 		readValue, err := a.Get()
 		if err != nil {
 			return err
+		}
+		if readValue == 0 {
+			return Empty
 		}
 		value.SetUint(uint64(readValue))
 	case reflect.Struct:
@@ -77,6 +126,14 @@ func decodeStruct(a *Attributes, type_ reflect.Type, value reflect.Value) error 
 		fieldValue := value.Field(i)
 
 		err := decodeValue(a, field.Type, fieldValue.Addr())
+		if err == Empty {
+			if d, ok := value.Interface().(Defaultable); ok {
+				defaultValue := reflect.ValueOf(d.Defaults())
+				fieldValue.Set(defaultValue.Field(i))
+			}
+			err = nil
+		}
+
 		if err != nil {
 			return err
 		}
@@ -135,6 +192,8 @@ func encodeValue(a *Attributes, type_ reflect.Type, value reflect.Value) error {
 	switch type_.Kind() {
 	case reflect.Int16:
 		a.Put(int16(value.Int()))
+	case reflect.Float32:
+		a.Put(int16(value.Float() * 100.0))
 	case reflect.Uint8:
 		a.Put(int16(value.Uint()))
 	case reflect.Struct:

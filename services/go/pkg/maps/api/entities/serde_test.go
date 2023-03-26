@@ -42,10 +42,38 @@ func TestParticle(t *testing.T) {
 			Height: 8,
 			Radius: 8,
 			Color: Color16{
-				R: 15,
-				G: 15,
-				B: 15,
+				R: 0x90,
+				G: 0x30,
+				B: 0x20,
 			},
 		},
 	})
+}
+
+func TestDefault(t *testing.T) {
+	before := Particles{
+		Particle: ParticleTypeFire,
+		Data: &Fire{
+			Color: Color16{
+				R: 0x90,
+				G: 0x30,
+				B: 0x20,
+			},
+		},
+	}
+	a, err := Encode(&before)
+	assert.NoError(t, err)
+
+	after, err := Decode(before.Type(), a)
+	particles := after.(*Particles)
+	assert.NoError(t, err)
+	assert.Equal(t, particles.Data, &Fire{
+		Radius: 1.5,
+		Height: 0.5,
+		Color: Color16{
+			R: 0x90,
+			G: 0x30,
+			B: 0x20,
+		},
+	}, "should yield same result")
 }

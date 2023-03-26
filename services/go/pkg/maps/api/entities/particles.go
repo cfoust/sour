@@ -2,7 +2,6 @@ package entities
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 
 	C "github.com/cfoust/sour/pkg/game/constants"
@@ -97,16 +96,25 @@ func (c *Color16) Decode(a *Attributes) error {
 		return err
 	}
 
+	if value == 0 {
+		return Empty
+	}
+
 	c.R = byte(((value >> 4) & 0xF0) + 0x0F)
 	c.G = byte((value & 0xF0) + 0x0F)
 	c.B = byte(((value << 4) & 0xF0) + 0x0F)
-	log.Printf("%x %x %x %x", value, c.R, c.G, c.B)
 	return nil
 }
 
 var _ Decodable = (*Color16)(nil)
 
 func (c Color16) Encode(a *Attributes) error {
+	// Handle the default
+	if c.R == 0x90 && c.G == 0x30 && c.B == 0x20 {
+		a.Put(0)
+		return nil
+	}
+
 	var value int16 = 0
 	value += (int16(c.R) & 0xF0) << 4
 	value += (int16(c.G) & 0xF0)
@@ -118,9 +126,29 @@ func (c Color16) Encode(a *Attributes) error {
 var _ Encodable = (*Color16)(nil)
 
 type Fire struct {
-	Radius int16
-	Height int16
+	Radius float32
+	Height float32
 	Color  Color16
+}
+
+func (p Fire) Defaults() Defaultable {
+	radius := p.Radius
+	fire := Fire{
+		Radius: 1.5,
+		Color: Color16{
+			R: 0x90,
+			G: 0x30,
+			B: 0x20,
+		},
+	}
+
+	if radius == 0 {
+		radius = 1.5
+	}
+
+	fire.Height = radius / 3
+
+	return fire
 }
 
 func (p *Fire) Type() ParticleType { return ParticleTypeFire }
