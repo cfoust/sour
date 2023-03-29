@@ -155,11 +155,13 @@ func (d *Direction) Encode(a *Attributes) error {
 
 var _ Encodable = (*Direction)(nil)
 
-type Fire struct {
+type Basic struct {
 	Radius float32
 	Height float32
 	Color  Color16
 }
+
+type Fire Basic
 
 func (p Fire) Defaults() Defaultable {
 	radius := p.Radius
@@ -234,6 +236,45 @@ type Snow Shape
 
 func (p *Snow) Type() ParticleType { return ParticleTypeSnow }
 
+type Meter struct {
+	Progress uint16
+	ColorA   Color16
+	ColorB   Color16
+}
+
+func (p *Meter) Type() ParticleType { return ParticleTypeMeter }
+
+type MeterVS Meter
+
+func (p *MeterVS) Type() ParticleType { return ParticleTypeMeterVS }
+
+// how is this different from Fire?
+type Flame Basic
+
+func (p *Flame) Type() ParticleType { return ParticleTypeFlame }
+
+type SmokePlume Basic
+
+func (p *SmokePlume) Type() ParticleType { return ParticleTypeSmoke }
+
+type LensFlare struct {
+	Color Color
+}
+
+func (p *LensFlare) Type() ParticleType { return ParticleTypeLensFlare }
+
+type LensFlareSparkle LensFlare
+
+func (p *LensFlareSparkle) Type() ParticleType { return ParticleTypeLensFlareSparkle }
+
+type LensFlareSun LensFlare
+
+func (p *LensFlareSun) Type() ParticleType { return ParticleTypeLensFlareSun }
+
+type LensFlareSparkleSun LensFlare
+
+func (p *LensFlareSparkleSun) Type() ParticleType { return ParticleTypeLensFlareSparkleSun }
+
 var PARTICLE_TYPES = []ParticleInfo{
 	&Fire{},
 	&SteamVent{},
@@ -243,6 +284,14 @@ var PARTICLE_TYPES = []ParticleInfo{
 	&Steam{},
 	&Water{},
 	&Snow{},
+	&Meter{},
+	&MeterVS{},
+	&Flame{},
+	&SmokePlume{},
+	&LensFlareSparkleSun{},
+	&LensFlareSparkle{},
+	&LensFlareSun{},
+	&LensFlare{},
 }
 
 var PARTICLE_TYPE_MAP = map[ParticleType]ParticleInfo{}
