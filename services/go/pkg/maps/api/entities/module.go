@@ -98,6 +98,101 @@ func (e *GreenArmour) Type() C.EntityType  { return C.EntityTypeGreenArmour }
 func (e *YellowArmour) Type() C.EntityType { return C.EntityTypeYellowArmour }
 func (e *Quad) Type() C.EntityType         { return C.EntityTypeQuad }
 
+type Teleport struct {
+	Index int16
+	Model int16
+	Tag   int16
+	Sound int16
+}
+
+func (e *Teleport) Type() C.EntityType { return C.EntityTypeTeleport }
+
+type Teledest struct {
+	Angle int16
+	Tag   int16
+}
+
+func (e *Teledest) Type() C.EntityType { return C.EntityTypeTeledest }
+
+type Monster struct {
+	Angle int16
+	Kind  int16
+}
+
+func (e *Monster) Type() C.EntityType { return C.EntityTypeMonster }
+
+type Carrot struct {
+	Tag  int16
+	Kind int16
+}
+
+func (e *Carrot) Type() C.EntityType { return C.EntityTypeCarrot }
+
+type JumpPad struct {
+	PushZ int16
+	PushX int16
+	PushY int16
+	Sound int16
+}
+
+func (e *JumpPad) Type() C.EntityType { return C.EntityTypeJumpPad }
+
+type Base struct {
+	Ammo int16
+	Tag  int16
+}
+
+func (e *Base) Type() C.EntityType { return C.EntityTypeBase }
+
+type RespawnPoint struct {
+	Angle int16
+	Spin  int16
+}
+
+func (e *RespawnPoint) Type() C.EntityType { return C.EntityTypeRespawnPoint }
+
+type Box struct {
+	Angle  int16
+	Model  int16
+	Weight int16
+}
+
+func (e *Box) Type() C.EntityType { return C.EntityTypeBox }
+
+type Barrel struct {
+	Angle  int16
+	Model  int16
+	Weight int16
+	Health int16
+}
+
+func (e *Barrel) Type() C.EntityType { return C.EntityTypeBarrel }
+
+type Platform struct {
+	Angle int16
+	Model int16
+	Tag   int16
+	Speed int16
+}
+
+func (e *Platform) Type() C.EntityType { return C.EntityTypePlatform }
+
+type Elevator struct {
+	Angle int16
+	Model int16
+	Tag   int16
+	Speed int16
+}
+
+func (e *Elevator) Type() C.EntityType { return C.EntityTypeElevator }
+
+type Flag struct {
+	Angle int16
+	Team  int16
+}
+
+func (e *Flag) Type() C.EntityType { return C.EntityTypeFlag }
+
 var ENTITY_TYPES = []EntityInfo{
 	&Light{},
 	&MapModel{},
@@ -117,6 +212,17 @@ var ENTITY_TYPES = []EntityInfo{
 	&GreenArmour{},
 	&YellowArmour{},
 	&Quad{},
+	&Teleport{},
+	&Teledest{},
+	&Carrot{},
+	&JumpPad{},
+	&Base{},
+	&RespawnPoint{},
+	&Box{},
+	&Barrel{},
+	&Platform{},
+	&Elevator{},
+	&Flag{},
 }
 
 var ENTITY_TYPE_MAP = map[C.EntityType]EntityInfo{}
