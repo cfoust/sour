@@ -125,6 +125,36 @@ func (c Color16) Encode(a *Attributes) error {
 
 var _ Encodable = (*Color16)(nil)
 
+type Direction byte
+
+const (
+	DirectionZ Direction = iota
+	DirectionX
+	DirectionY
+	DirectionNegZ
+	DirectionNegX
+	DirectionNegY
+)
+
+func (d *Direction) Decode(a *Attributes) error {
+	value, err := a.Get()
+	if err != nil {
+		return err
+	}
+
+	*d = Direction(value)
+	return nil
+}
+
+var _ Decodable = (*Direction)(nil)
+
+func (d *Direction) Encode(a *Attributes) error {
+	a.Put(int16(*d))
+	return nil
+}
+
+var _ Encodable = (*Direction)(nil)
+
 type Fire struct {
 	Radius float32
 	Height float32
@@ -153,8 +183,66 @@ func (p Fire) Defaults() Defaultable {
 
 func (p *Fire) Type() ParticleType { return ParticleTypeFire }
 
+type SteamVent struct {
+	Direction Direction
+}
+
+func (p *SteamVent) Type() ParticleType { return ParticleTypeSteamVent }
+
+type Fountain struct {
+	Direction Direction
+	// TODO handle material colors
+	Color Color16
+}
+
+func (p *Fountain) Type() ParticleType { return ParticleTypeFountain }
+
+type Fireball struct {
+	Size  uint16
+	Color Color16
+}
+
+func (p *Fireball) Type() ParticleType { return ParticleTypeFireball }
+
+type Shape struct {
+	// TODO handle all the fancy shapes
+	// This is NOT the same thing as Direction above, it's used to
+	// parametrize the size of particles
+	Direction uint16
+	Radius    uint16
+	Color     Color16
+	Fade      uint16 // ms, if 0, 200ms
+}
+
+type Tape Shape
+
+func (p *Tape) Type() ParticleType { return ParticleTypeTape }
+
+type Lightning Shape
+
+func (p *Lightning) Type() ParticleType { return ParticleTypeLightning }
+
+type Steam Shape
+
+func (p *Steam) Type() ParticleType { return ParticleTypeSteam }
+
+type Water Shape
+
+func (p *Water) Type() ParticleType { return ParticleTypeWater }
+
+type Snow Shape
+
+func (p *Snow) Type() ParticleType { return ParticleTypeSnow }
+
 var PARTICLE_TYPES = []ParticleInfo{
 	&Fire{},
+	&SteamVent{},
+	&Fountain{},
+	&Tape{},
+	&Lightning{},
+	&Steam{},
+	&Water{},
+	&Snow{},
 }
 
 var PARTICLE_TYPE_MAP = map[ParticleType]ParticleInfo{}
