@@ -2,6 +2,7 @@ package relay
 
 import (
 	"github.com/cfoust/sour/pkg/game/protocol"
+	"github.com/sasha-s/go-deadlock"
 )
 
 // Publisher provides methods to send updates to all subscribers of a certain topic.
@@ -9,6 +10,8 @@ type Publisher struct {
 	cn          uint32
 	notifyRelay chan<- uint32
 	updates     chan<- []protocol.Message
+	closed      bool
+	mutex       deadlock.RWMutex
 }
 
 func newPublisher(cn uint32, notifyRelay chan<- uint32) (*Publisher, <-chan []protocol.Message) {
@@ -28,6 +31,14 @@ func newPublisher(cn uint32, notifyRelay chan<- uint32) (*Publisher, <-chan []pr
 // broker received the update. Calling Publish() after Close() returns
 // immediately. Use p's Stop channel to know when the broker stopped listening.
 func (p *Publisher) Publish(messages ...protocol.Message) {
+	p.mutex.RLock()
+	closed := p.closed
+	p.mutex.RUnlock()
+
+	if closed {
+		return
+	}
+
 	p.notifyRelay <- p.cn
 	p.updates <- messages
 }
@@ -35,5 +46,9 @@ func (p *Publisher) Publish(messages ...protocol.Message) {
 // Close tells the broker there will be no more updates coming from p. Calling Publish() after Close() returns immediately.
 // Calling Close() makes the broker unsubscribe all subscribers and telling them updates on the topic have ended.
 func (p *Publisher) Close() {
+	p.mutex.Lock()
+	p.closed = true
+	p.mutex.Unlock()
+
 	close(p.updates)
 }
