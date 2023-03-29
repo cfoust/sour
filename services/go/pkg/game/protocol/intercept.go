@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/sasha-s/go-deadlock"
@@ -68,6 +69,10 @@ func (m *MessageProxy) Process(ctx context.Context, channel uint8, message Messa
 	m.mutex.Lock()
 	handlers := m.handlers
 	m.mutex.Unlock()
+
+	timeout, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+
 	for _, handler := range handlers {
 		if !handler.Handles(message.Type()) {
 			continue
@@ -81,8 +86,8 @@ func (m *MessageProxy) Process(ctx context.Context, channel uint8, message Messa
 		}
 
 		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
+		case <-timeout.Done():
+			return nil, fmt.Errorf("timed out while processing handler for %s", message.Type().String())
 		case shouldDrop := <-drop:
 			if shouldDrop {
 				return nil, nil
