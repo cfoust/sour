@@ -106,7 +106,7 @@ const (
 	EntityTypeEnvMap                         // ET_ENVMAP attr1 = radius, attr2 = size, attr3 = blur
 	EntityTypeParticles                      // ET_PARTICLES
 	EntityTypeSound                          // ET_SOUND
-	EntityTypeSpotlight                      // ET_SPOTLIGHT
+	EntityTypeSpotlight                      // ET_SPOTLIGHT attr1=angle
 	EntityTypeShells                         // I_SHELLS
 	EntityTypeBullets                        // I_BULLETS
 	EntityTypeRockets                        // I_ROCKETS
