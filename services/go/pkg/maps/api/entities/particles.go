@@ -1,8 +1,10 @@
 package entities
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 
 	C "github.com/cfoust/sour/pkg/game/constants"
 )
@@ -88,6 +90,73 @@ type Color16 struct {
 	R byte
 	G byte
 	B byte
+}
+
+func (c Color16) MarshalJSON() ([]byte, error) {
+	var color uint32
+	c.truncateColors()
+	color = color | (uint32(c.R) << 16)
+	color = color | (uint32(c.G) << 8)
+	color = color | uint32(c.B)
+	return json.Marshal(fmt.Sprintf("#%06x", color))
+}
+
+func (c *Color16) truncateColors() {
+	c.R = (c.R & 0xF0) + 0x0F
+	c.G = (c.G & 0xF0) + 0x0F
+	c.B = (c.B & 0xF0) + 0x0F
+}
+
+func (c *Color16) UnmarshalJSON(data []byte) error {
+	var hex string
+	err := json.Unmarshal(data, &hex)
+	if err == nil {
+		color, err := strconv.ParseUint(hex[1:], 16, 32)
+		if err != nil {
+			return err
+		}
+
+		c.R = byte((color >> 16) & 0xFF)
+		c.G = byte((color >> 8) & 0xFF)
+		c.B = byte(color & 0xFF)
+		c.truncateColors()
+		return nil
+	}
+	if _, ok := err.(*json.UnmarshalTypeError); !ok {
+		return err
+	}
+
+	elements := [3]byte{}
+	err = json.Unmarshal(data, &elements)
+	if err == nil {
+		c.R = elements[0]
+		c.G = elements[1]
+		c.B = elements[2]
+		c.truncateColors()
+		return nil
+	}
+	if _, ok := err.(*json.UnmarshalTypeError); !ok {
+		return err
+	}
+
+	full := struct {
+		R byte
+		G byte
+		B byte
+	}{}
+	err = json.Unmarshal(data, &full)
+	if err == nil {
+		c.R = full.R
+		c.G = full.G
+		c.B = full.B
+		c.truncateColors()
+		return nil
+	}
+	if _, ok := err.(*json.UnmarshalTypeError); !ok {
+		return err
+	}
+
+	return fmt.Errorf("could not deserialize color")
 }
 
 func (c *Color16) Decode(a *Attributes) error {
