@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"flag"
-	"io"
 	"os"
 	"time"
 
@@ -14,24 +12,12 @@ import (
 )
 
 func Dump(filename string) error {
-	out, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	gameMap, err := maps.NewMap()
+	gameMap, err := maps.FromFile(filename)
 	if err != nil {
 		return err
 	}
 
-	mapBytes, err := gameMap.EncodeOGZ()
-	if err != nil {
-		return err
-	}
-	buffer := bytes.NewReader(mapBytes)
-
-	_, err = io.Copy(out, buffer)
+	_, err = gameMap.ToAPI()
 	if err != nil {
 		return err
 	}

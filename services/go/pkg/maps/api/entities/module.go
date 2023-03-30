@@ -8,12 +8,6 @@ type EntityInfo interface {
 	Type() C.EntityType
 }
 
-type ByteVector struct {
-	X byte
-	Y byte
-	Z byte
-}
-
 type Color struct {
 	R byte
 	G byte
