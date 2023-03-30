@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"os"
 	"time"
@@ -17,10 +18,17 @@ func Dump(filename string) error {
 		return err
 	}
 
-	_, err = gameMap.ToAPI()
+	apiMap, err := gameMap.ToAPI()
 	if err != nil {
 		return err
 	}
+
+	data, err := json.Marshal(apiMap)
+	if err != nil {
+		return err
+	}
+
+	log.Info().Msgf("%s", data)
 
 	return nil
 }

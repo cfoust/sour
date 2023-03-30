@@ -1,6 +1,9 @@
 package entities
 
 import (
+	"encoding/json"
+	//"reflect"
+
 	C "github.com/cfoust/sour/pkg/game/constants"
 )
 
@@ -23,6 +26,114 @@ type Vector struct {
 type Entity struct {
 	Position Vector
 	Info     EntityInfo
+}
+
+func (e *Entity) MarshalJSON() ([]byte, error) {
+	result := make(map[string]interface{})
+	info := e.Info
+	result["type"] = e.Info.Type().String()
+	result["position"] = e.Position
+
+	infoData, err := json.Marshal(info)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(infoData, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(result)
+}
+
+func (e *Entity) UnmarshalJSON(data []byte) error {
+	var obj map[string]*json.RawMessage
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return err
+	}
+
+	err := json.Unmarshal(*obj["position"], &e.Position)
+	if err != nil {
+		return err
+	}
+
+	var type_ C.EntityType
+	err = json.Unmarshal(*obj["type"], &type_)
+	if err != nil {
+		return err
+	}
+
+	var info EntityInfo = nil
+	switch type_ {
+	case C.EntityTypeLight:
+		info = &Light{}
+	case C.EntityTypeMapModel:
+		info = &MapModel{}
+	case C.EntityTypePlayerStart:
+		info = &PlayerStart{}
+	case C.EntityTypeEnvMap:
+		info = &EnvMap{}
+	case C.EntityTypeParticles:
+		info = &Particles{}
+	case C.EntityTypeSound:
+		info = &Sound{}
+	case C.EntityTypeSpotlight:
+		info = &Spotlight{}
+	case C.EntityTypeShells:
+		info = &Shells{}
+	case C.EntityTypeBullets:
+		info = &Bullets{}
+	case C.EntityTypeRockets:
+		info = &Rockets{}
+	case C.EntityTypeRounds:
+		info = &Rounds{}
+	case C.EntityTypeGrenades:
+		info = &Grenades{}
+	case C.EntityTypeCartridges:
+		info = &Cartridges{}
+	case C.EntityTypeHealth:
+		info = &Health{}
+	case C.EntityTypeBoost:
+		info = &Boost{}
+	case C.EntityTypeGreenArmour:
+		info = &GreenArmour{}
+	case C.EntityTypeYellowArmour:
+		info = &YellowArmour{}
+	case C.EntityTypeQuad:
+		info = &Quad{}
+	case C.EntityTypeTeleport:
+		info = &Teleport{}
+	case C.EntityTypeTeledest:
+		info = &Teledest{}
+	case C.EntityTypeMonster:
+		info = &Monster{}
+	case C.EntityTypeCarrot:
+		info = &Carrot{}
+	case C.EntityTypeJumpPad:
+		info = &JumpPad{}
+	case C.EntityTypeBase:
+		info = &Base{}
+	case C.EntityTypeRespawnPoint:
+		info = &RespawnPoint{}
+	case C.EntityTypeBox:
+		info = &Box{}
+	case C.EntityTypeBarrel:
+		info = &Barrel{}
+	case C.EntityTypePlatform:
+		info = &Platform{}
+	case C.EntityTypeElevator:
+		info = &Elevator{}
+	case C.EntityTypeFlag:
+		info = &Flag{}
+	}
+
+	err = json.Unmarshal(data, info)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type Light struct {
