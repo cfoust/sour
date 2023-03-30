@@ -29,17 +29,19 @@ func Dump(filename string) error {
 		return err
 	}
 
+	os.Stdout.Write(data)
+
 	var decoded api.Map
 	err = json.Unmarshal(data, &decoded)
 	if err != nil {
 		return err
 	}
 
-	log.Info().Msgf("%+v", decoded)
+	//log.Info().Msgf("%+v", decoded)
 
-	for _, entity := range decoded.Entities {
-		log.Info().Msgf("%+v", entity.Info)
-	}
+	//for _, entity := range decoded.Entities {
+	//log.Info().Msgf("%+v", entity.Info)
+	//}
 
 	return nil
 }
