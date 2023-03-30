@@ -2,7 +2,7 @@ package entities
 
 import (
 	"encoding/json"
-	//"reflect"
+	"fmt"
 
 	C "github.com/cfoust/sour/pkg/game/constants"
 )
@@ -21,6 +21,47 @@ type Vector struct {
 	X float32
 	Y float32
 	Z float32
+}
+
+func (v Vector) MarshalJSON() ([]byte, error) {
+	elements := []float32{
+		v.X,
+		v.Y,
+		v.Z,
+	}
+	return json.Marshal(elements)
+}
+
+func (v *Vector) UnmarshalJSON(data []byte) error {
+	elements := [3]float32{}
+	err := json.Unmarshal(data, &elements)
+	if err == nil {
+		v.X = elements[0]
+		v.Y = elements[1]
+		v.Z = elements[2]
+		return nil
+	}
+	if _, ok := err.(*json.UnmarshalTypeError); !ok {
+		return err
+	}
+
+	full := struct {
+		X float32
+		Y float32
+		Z float32
+	}{}
+	err = json.Unmarshal(data, &full)
+	if err == nil {
+		v.X = full.X
+		v.Y = full.Y
+		v.Z = full.Z
+		return nil
+	}
+	if _, ok := err.(*json.UnmarshalTypeError); !ok {
+		return err
+	}
+
+	return fmt.Errorf("could not deserialize vector")
 }
 
 type Entity struct {
@@ -58,11 +99,14 @@ func (e *Entity) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var type_ C.EntityType
-	err = json.Unmarshal(*obj["type"], &type_)
+	var typeStr string
+	err = json.Unmarshal(*obj["type"], &typeStr)
 	if err != nil {
 		return err
 	}
+
+	type_ := C.EntityTypeEmpty
+	type_.FromString(typeStr)
 
 	var info EntityInfo = nil
 	switch type_ {
@@ -126,12 +170,16 @@ func (e *Entity) UnmarshalJSON(data []byte) error {
 		info = &Elevator{}
 	case C.EntityTypeFlag:
 		info = &Flag{}
+	default:
+		return fmt.Errorf("unrecognized entity type %s", typeStr)
 	}
 
 	err = json.Unmarshal(data, info)
 	if err != nil {
 		return err
 	}
+
+	e.Info = info
 
 	return nil
 }

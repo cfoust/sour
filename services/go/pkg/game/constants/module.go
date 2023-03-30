@@ -174,14 +174,14 @@ func (e EntityType) String() string {
 	return value
 }
 
-func (e EntityType) FromString(value string) {
+func (e *EntityType) FromString(value string) {
 	for type_, key := range ENTITY_TYPE_MAP {
 		if key == value {
-			e = type_
+			*e = type_
 			return
 		}
 	}
-	e = EntityTypeEmpty
+	*e = EntityTypeEmpty
 }
 
 const DEMO_VERSION = 1

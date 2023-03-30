@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/maps"
+	"github.com/cfoust/sour/pkg/maps/api"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -28,7 +29,17 @@ func Dump(filename string) error {
 		return err
 	}
 
-	log.Info().Msgf("%s", data)
+	var decoded api.Map
+	err = json.Unmarshal(data, &decoded)
+	if err != nil {
+		return err
+	}
+
+	log.Info().Msgf("%+v", decoded)
+
+	for _, entity := range decoded.Entities {
+		log.Info().Msgf("%+v", entity.Info)
+	}
 
 	return nil
 }
