@@ -10,7 +10,7 @@ type Map struct {
 	WorldSize int32
 	GameType  string
 	Entities  []entities.Entity
-	Vars      V.Variables
+	Variables V.Variables
 }
 
 type Typable interface {

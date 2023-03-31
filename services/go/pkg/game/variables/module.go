@@ -1,6 +1,7 @@
 package variables
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/cfoust/sour/pkg/game/constants"
@@ -274,4 +275,66 @@ func (v Variables) Set(name string, value Variable) error {
 	}
 
 	return fmt.Errorf("attempt to set invalid variable")
+}
+
+func (v Variables) MarshalJSON() ([]byte, error) {
+	variables := make(map[string]interface{})
+	for key, value := range v {
+		variables[key] = value
+	}
+
+	return json.Marshal(variables)
+}
+
+func (v *Variables) UnmarshalJSON(data []byte) error {
+	var variables map[string]*json.RawMessage
+	err := json.Unmarshal(data, &variables)
+	if err != nil {
+		return err
+	}
+
+	for key, rawValue := range variables {
+		constraint, ok := DEFAULT_VARIABLES[key]
+		if !ok {
+			continue
+		}
+
+		switch constraint.Type() {
+		case VariableTypeInt:
+			var value int
+			err := json.Unmarshal(*rawValue, &value)
+			if err != nil {
+				return err
+			}
+
+			err = v.SetInt(key, int32(value))
+			if err != nil {
+				return err
+			}
+		case VariableTypeFloat:
+			var value float32
+			err := json.Unmarshal(*rawValue, &value)
+			if err != nil {
+				return err
+			}
+
+			err = v.SetFloat(key, float32(value))
+			if err != nil {
+				return err
+			}
+		case VariableTypeString:
+			var value string
+			err := json.Unmarshal(*rawValue, &value)
+			if err != nil {
+				return err
+			}
+
+			err = v.SetString(key, value)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

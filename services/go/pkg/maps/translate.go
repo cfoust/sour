@@ -36,6 +36,7 @@ func (m *GameMap) ToAPI() (*api.Map, error) {
 	}
 
 	map_.Entities = entities
+	map_.Variables = m.Vars
 
 	return &map_, nil
 }
