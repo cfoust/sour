@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/cfoust/sour/pkg/utils"
 	C "github.com/cfoust/sour/pkg/game/constants"
 )
 
@@ -327,7 +328,7 @@ type SmokePlume Basic
 func (p *SmokePlume) Type() ParticleType { return ParticleTypeSmoke }
 
 type LensFlare struct {
-	Color Color
+	Color utils.Color
 }
 
 func (p *LensFlare) Type() ParticleType { return ParticleTypeLensFlare }
