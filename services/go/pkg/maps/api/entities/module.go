@@ -13,9 +13,9 @@ type EntityInfo interface {
 }
 
 type Vector struct {
-	X float32
-	Y float32
-	Z float32
+	X float32 `json:"x"`
+	Y float32 `json:"y"`
+	Z float32 `json:"z"`
 }
 
 func (v Vector) MarshalJSON() ([]byte, error) {
@@ -180,43 +180,43 @@ func (e *Entity) UnmarshalJSON(data []byte) error {
 }
 
 type Light struct {
-	Radius int16
-	Color  utils.Color
+	Radius int16       `json:"radius"`
+	Color  utils.Color `json:"color"`
 }
 
 func (e *Light) Type() C.EntityType { return C.EntityTypeLight }
 
 type MapModel struct {
-	Angle int16
-	Index int16
+	Angle int16 `json:"angle"`
+	Index int16 `json:"index"`
 }
 
 func (m *MapModel) Type() C.EntityType { return C.EntityTypeMapModel }
 
 type PlayerStart struct {
-	Angle int16
-	Tag   int16
+	Angle int16 `json:"angle"`
+	Tag   int16 `json:"tag"`
 }
 
 func (e *PlayerStart) Type() C.EntityType { return C.EntityTypePlayerStart }
 
 type EnvMap struct {
-	Radius int16
-	Size   int16
-	Blur   int16
+	Radius int16 `json:"radius"`
+	Size   int16 `json:"size"`
+	Blur   int16 `json:"blur"`
 }
 
 func (e *EnvMap) Type() C.EntityType { return C.EntityTypeEnvMap }
 
 type Sound struct {
-	Index int16
+	Index int16 `json:"index"`
 }
 
 func (e *Sound) Type() C.EntityType { return C.EntityTypeSound }
 
 type Spotlight struct {
-	Radius int16
-	Color  utils.Color
+	Radius int16       `json:"radius"`
+	Color  utils.Color `json:"color"`
 }
 
 func (e *Spotlight) Type() C.EntityType { return C.EntityTypeSpotlight }
@@ -247,96 +247,96 @@ func (e *YellowArmour) Type() C.EntityType { return C.EntityTypeYellowArmour }
 func (e *Quad) Type() C.EntityType         { return C.EntityTypeQuad }
 
 type Teleport struct {
-	Index int16
-	Model int16
-	Tag   int16
-	Sound int16
+	Index int16 `json:"index"`
+	Model int16 `json:"model"`
+	Tag   int16 `json:"tag"`
+	Sound int16 `json:"sound"`
 }
 
 func (e *Teleport) Type() C.EntityType { return C.EntityTypeTeleport }
 
 type Teledest struct {
-	Angle int16
-	Tag   int16
+	Angle int16 `json:"angle"`
+	Tag   int16 `json:"tag"`
 }
 
 func (e *Teledest) Type() C.EntityType { return C.EntityTypeTeledest }
 
 type Monster struct {
-	Angle int16
-	Kind  int16
+	Angle int16 `json:"angle"`
+	Kind  int16 `json:"kind"`
 }
 
 func (e *Monster) Type() C.EntityType { return C.EntityTypeMonster }
 
 type Carrot struct {
-	Tag  int16
-	Kind int16
+	Tag  int16 `json:"tag"`
+	Kind int16 `json:"kind"`
 }
 
 func (e *Carrot) Type() C.EntityType { return C.EntityTypeCarrot }
 
 type JumpPad struct {
-	PushZ int16
-	PushX int16
-	PushY int16
-	Sound int16
+	PushZ int16 `json:"pushZ"`
+	PushX int16 `json:"pushX"`
+	PushY int16 `json:"pushY"`
+	Sound int16 `json:"sound"`
 }
 
 func (e *JumpPad) Type() C.EntityType { return C.EntityTypeJumpPad }
 
 type Base struct {
-	Ammo int16
-	Tag  int16
+	Ammo int16 `json:"ammo"`
+	Tag  int16 `json:"tag"`
 }
 
 func (e *Base) Type() C.EntityType { return C.EntityTypeBase }
 
 type RespawnPoint struct {
-	Angle int16
-	Spin  int16
+	Angle int16 `json:"angle"`
+	Spin  int16 `json:"spin"`
 }
 
 func (e *RespawnPoint) Type() C.EntityType { return C.EntityTypeRespawnPoint }
 
 type Box struct {
-	Angle  int16
-	Model  int16
-	Weight int16
+	Angle  int16 `json:"angle"`
+	Model  int16 `json:"model"`
+	Weight int16 `json:"weight"`
 }
 
 func (e *Box) Type() C.EntityType { return C.EntityTypeBox }
 
 type Barrel struct {
-	Angle  int16
-	Model  int16
-	Weight int16
-	Health int16
+	Angle  int16 `json:"angle"`
+	Model  int16 `json:"model"`
+	Weight int16 `json:"weight"`
+	Health int16 `json:"health"`
 }
 
 func (e *Barrel) Type() C.EntityType { return C.EntityTypeBarrel }
 
 type Platform struct {
-	Angle int16
-	Model int16
-	Tag   int16
-	Speed int16
+	Angle int16 `json:"angle"`
+	Model int16 `json:"model"`
+	Tag   int16 `json:"tag"`
+	Speed int16 `json:"speed"`
 }
 
 func (e *Platform) Type() C.EntityType { return C.EntityTypePlatform }
 
 type Elevator struct {
-	Angle int16
-	Model int16
-	Tag   int16
-	Speed int16
+	Angle int16 `json:"angle"`
+	Model int16 `json:"model"`
+	Tag   int16 `json:"tag"`
+	Speed int16 `json:"speed"`
 }
 
 func (e *Elevator) Type() C.EntityType { return C.EntityTypeElevator }
 
 type Flag struct {
-	Angle int16
-	Team  int16
+	Angle int16 `json:"angle"`
+	Team  int16 `json:"team"`
 }
 
 func (e *Flag) Type() C.EntityType { return C.EntityTypeFlag }

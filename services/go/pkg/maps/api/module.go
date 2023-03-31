@@ -7,10 +7,10 @@ import (
 )
 
 type Map struct {
-	WorldSize int32
-	GameType  string
-	Entities  []entities.Entity
-	Variables V.Variables
+	WorldSize int32             `json:"worldSize"`
+	GameType  string            `json:"gameType"`
+	Entities  []entities.Entity `json:"entities"`
+	Variables V.Variables       `json:"variables"`
 }
 
 type Typable interface {

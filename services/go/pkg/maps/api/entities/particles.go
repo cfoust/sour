@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/cfoust/sour/pkg/utils"
 	C "github.com/cfoust/sour/pkg/game/constants"
+	"github.com/cfoust/sour/pkg/utils"
 )
 
 type ParticleType byte
@@ -226,9 +226,9 @@ func (d *Direction) Encode(a *Attributes) error {
 var _ Encodable = (*Direction)(nil)
 
 type Basic struct {
-	Radius float32
-	Height float32
-	Color  Color16
+	Radius float32 `json:"radius"`
+	Height float32 `json:"height"`
+	Color  Color16 `json:"color"`
 }
 
 type Fire Basic
@@ -270,8 +270,8 @@ type Fountain struct {
 func (p *Fountain) Type() ParticleType { return ParticleTypeFountain }
 
 type Fireball struct {
-	Size  uint16
-	Color Color16
+	Size  uint16  `json:"size"`
+	Color Color16 `json:"color"`
 }
 
 func (p *Fireball) Type() ParticleType { return ParticleTypeFireball }
@@ -280,10 +280,10 @@ type Shape struct {
 	// TODO handle all the fancy shapes
 	// This is NOT the same thing as Direction above, it's used to
 	// parametrize the size of particles
-	Direction uint16
-	Radius    uint16
-	Color     Color16
-	Fade      uint16 // ms, if 0, 200ms
+	Direction uint16  `json:"direction"`
+	Radius    uint16  `json:"radius"`
+	Color     Color16 `json:"color"`
+	Fade      uint16  `json:"fade"` // ms, if 0, 200ms
 }
 
 type Tape Shape
@@ -307,9 +307,9 @@ type Snow Shape
 func (p *Snow) Type() ParticleType { return ParticleTypeSnow }
 
 type Meter struct {
-	Progress uint16
-	ColorA   Color16
-	ColorB   Color16
+	Progress uint16  `json:"progress"`
+	ColorA   Color16 `json:"colorA"`
+	ColorB   Color16 `json:"colorB"`
 }
 
 func (p *Meter) Type() ParticleType { return ParticleTypeMeter }
@@ -328,7 +328,7 @@ type SmokePlume Basic
 func (p *SmokePlume) Type() ParticleType { return ParticleTypeSmoke }
 
 type LensFlare struct {
-	Color utils.Color
+	Color utils.Color `json:"color"`
 }
 
 func (p *LensFlare) Type() ParticleType { return ParticleTypeLensFlare }
