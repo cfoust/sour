@@ -31,7 +31,7 @@ func Dump(filename string) error {
 
 	os.Stdout.Write(data)
 
-	var decoded api.Map
+	decoded := api.New()
 	err = json.Unmarshal(data, &decoded)
 	if err != nil {
 		return err

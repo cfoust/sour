@@ -13,6 +13,12 @@ type Map struct {
 	Variables V.Variables       `json:"variables"`
 }
 
+func New() *Map {
+	return &Map{
+		Variables: make(map[string]V.Variable),
+	}
+}
+
 type Typable interface {
 	String() string
 	FromString(string)

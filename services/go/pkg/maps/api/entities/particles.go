@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strconv"
 
 	C "github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/utils"
@@ -78,7 +77,7 @@ type ParticleInfo interface {
 
 type Particles struct {
 	Particle ParticleType
-	Data     ParticleInfo
+	Info     ParticleInfo
 }
 
 func (p *Particles) Type() C.EntityType { return C.EntityTypeParticles }
@@ -94,12 +93,12 @@ type Color16 struct {
 }
 
 func (c Color16) MarshalJSON() ([]byte, error) {
-	var color uint32
 	c.truncateColors()
-	color = color | (uint32(c.R) << 16)
-	color = color | (uint32(c.G) << 8)
-	color = color | uint32(c.B)
-	return json.Marshal(fmt.Sprintf("#%06x", color))
+	var color utils.Color
+	color.R = c.R
+	color.G = c.G
+	color.B = c.B
+	return json.Marshal(color)
 }
 
 func (c *Color16) truncateColors() {
@@ -109,55 +108,16 @@ func (c *Color16) truncateColors() {
 }
 
 func (c *Color16) UnmarshalJSON(data []byte) error {
-	var hex string
-	err := json.Unmarshal(data, &hex)
-	if err == nil {
-		color, err := strconv.ParseUint(hex[1:], 16, 32)
-		if err != nil {
-			return err
-		}
-
-		c.R = byte((color >> 16) & 0xFF)
-		c.G = byte((color >> 8) & 0xFF)
-		c.B = byte(color & 0xFF)
-		c.truncateColors()
-		return nil
-	}
-	if _, ok := err.(*json.UnmarshalTypeError); !ok {
+	var color utils.Color
+	err := json.Unmarshal(data, &color)
+	if err != nil {
 		return err
 	}
-
-	elements := [3]byte{}
-	err = json.Unmarshal(data, &elements)
-	if err == nil {
-		c.R = elements[0]
-		c.G = elements[1]
-		c.B = elements[2]
-		c.truncateColors()
-		return nil
-	}
-	if _, ok := err.(*json.UnmarshalTypeError); !ok {
-		return err
-	}
-
-	full := struct {
-		R byte
-		G byte
-		B byte
-	}{}
-	err = json.Unmarshal(data, &full)
-	if err == nil {
-		c.R = full.R
-		c.G = full.G
-		c.B = full.B
-		c.truncateColors()
-		return nil
-	}
-	if _, ok := err.(*json.UnmarshalTypeError); !ok {
-		return err
-	}
-
-	return fmt.Errorf("could not deserialize color")
+	c.R = color.R
+	c.G = color.G
+	c.B = color.B
+	c.truncateColors()
+	return nil
 }
 
 func (c *Color16) Decode(a *Attributes) error {
@@ -270,7 +230,7 @@ type Fountain struct {
 func (p *Fountain) Type() ParticleType { return ParticleTypeFountain }
 
 type Fireball struct {
-	Size  uint16  `json:"size"`
+	Size  int16   `json:"size"`
 	Color Color16 `json:"color"`
 }
 
@@ -280,10 +240,10 @@ type Shape struct {
 	// TODO handle all the fancy shapes
 	// This is NOT the same thing as Direction above, it's used to
 	// parametrize the size of particles
-	Direction uint16  `json:"direction"`
-	Radius    uint16  `json:"radius"`
+	Direction int16   `json:"direction"`
+	Radius    int16   `json:"radius"`
 	Color     Color16 `json:"color"`
-	Fade      uint16  `json:"fade"` // ms, if 0, 200ms
+	Fade      int16   `json:"fade"` // ms, if 0, 200ms
 }
 
 type Tape Shape
@@ -307,7 +267,7 @@ type Snow Shape
 func (p *Snow) Type() ParticleType { return ParticleTypeSnow }
 
 type Meter struct {
-	Progress uint16  `json:"progress"`
+	Progress int16   `json:"progress"`
 	ColorA   Color16 `json:"colorA"`
 	ColorB   Color16 `json:"colorB"`
 }
@@ -349,6 +309,7 @@ var PARTICLE_TYPES = []ParticleInfo{
 	&Fire{},
 	&SteamVent{},
 	&Fountain{},
+	&Fireball{},
 	&Tape{},
 	&Lightning{},
 	&Steam{},
@@ -378,14 +339,14 @@ func (p *Particles) Decode(a *Attributes) error {
 		return err
 	}
 
-	particleType, ok := PARTICLE_TYPE_MAP[ParticleType(type_)]
+	info, ok := PARTICLE_TYPE_MAP[ParticleType(type_)]
 	if !ok {
-		return fmt.Errorf("unknown particle type %d", particleType)
+		return fmt.Errorf("unknown particle type %d (%s)", type_, ParticleType(type_).String())
 	}
 
 	p.Particle = ParticleType(type_)
 
-	decodedType := reflect.TypeOf(particleType)
+	decodedType := reflect.TypeOf(info)
 	decoded := reflect.New(decodedType.Elem())
 	err = decodeValue(a, decodedType.Elem(), decoded)
 	if err != nil {
@@ -393,7 +354,7 @@ func (p *Particles) Decode(a *Attributes) error {
 	}
 
 	if value, ok := decoded.Interface().(ParticleInfo); ok {
-		p.Data = value
+		p.Info = value
 	} else {
 		return fmt.Errorf("could not decode particle info")
 	}
@@ -406,7 +367,7 @@ var _ Decodable = (*Particles)(nil)
 func (p *Particles) Encode(a *Attributes) error {
 	a.Put(int16(p.Particle))
 
-	err := encodeValue(a, reflect.TypeOf(p.Data), reflect.ValueOf(p.Data))
+	err := encodeValue(a, reflect.TypeOf(p.Info), reflect.ValueOf(p.Info))
 	if err != nil {
 		return err
 	}
@@ -415,3 +376,86 @@ func (p *Particles) Encode(a *Attributes) error {
 }
 
 var _ Encodable = (*Particles)(nil)
+
+func (p *Particles) MarshalJSON() ([]byte, error) {
+	result := make(map[string]interface{})
+	info := p.Info
+	result["particle"] = p.Info.Type().String()
+
+	infoData, err := json.Marshal(info)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(infoData, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(result)
+}
+
+func (p *Particles) UnmarshalJSON(data []byte) error {
+	var obj map[string]*json.RawMessage
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return err
+	}
+
+	var typeStr string
+	err := json.Unmarshal(*obj["particle"], &typeStr)
+	if err != nil {
+		return err
+	}
+
+	type_ := ParticleTypeFire
+	type_.FromString(typeStr)
+
+	var info ParticleInfo = nil
+	switch type_ {
+	case ParticleTypeFire:
+		info = &Fire{}
+	case ParticleTypeSteamVent:
+		info = &SteamVent{}
+	case ParticleTypeFountain:
+		info = &Fountain{}
+	case ParticleTypeFireball:
+		info = &Fireball{}
+	case ParticleTypeTape:
+		info = &Tape{}
+	case ParticleTypeLightning:
+		info = &Lightning{}
+	case ParticleTypeSteam:
+		info = &Steam{}
+	case ParticleTypeWater:
+		info = &Water{}
+	case ParticleTypeSnow:
+		info = &Snow{}
+	case ParticleTypeMeter:
+		info = &Meter{}
+	case ParticleTypeMeterVS:
+		info = &MeterVS{}
+	case ParticleTypeFlame:
+		info = &Flame{}
+	case ParticleTypeSmoke:
+		info = &SmokePlume{}
+	case ParticleTypeLensFlare:
+		info = &LensFlare{}
+	case ParticleTypeLensFlareSparkle:
+		info = &LensFlareSparkle{}
+	case ParticleTypeLensFlareSun:
+		info = &LensFlareSun{}
+	case ParticleTypeLensFlareSparkleSun:
+		info = &LensFlareSparkleSun{}
+	default:
+		return fmt.Errorf("unrecognized particle type %s", typeStr)
+	}
+
+	err = json.Unmarshal(data, info)
+	if err != nil {
+		return err
+	}
+
+	p.Info = info
+
+	return nil
+}

@@ -6,7 +6,7 @@ import (
 )
 
 func (m *GameMap) ToAPI() (*api.Map, error) {
-	map_ := api.Map{}
+	map_ := api.New()
 	map_.WorldSize = m.Header.WorldSize
 	map_.GameType = m.Header.GameType
 
@@ -22,7 +22,8 @@ func (m *GameMap) ToAPI() (*api.Map, error) {
 
 		info, err := E.Decode(entity.Type, &attributes)
 		if err != nil {
-			return nil, err
+			// TODO handle entities that were not decoded
+			continue
 		}
 
 		entities = append(entities, E.Entity{
@@ -38,5 +39,5 @@ func (m *GameMap) ToAPI() (*api.Map, error) {
 	map_.Entities = entities
 	map_.Variables = m.Vars
 
-	return &map_, nil
+	return map_, nil
 }
