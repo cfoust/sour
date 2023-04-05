@@ -113,7 +113,7 @@ func (c *Cluster) HandleDesktopLogin(ctx context.Context, user *User) error {
 	logger := user.Logger()
 	msg, err := user.From.WaitTimeout(
 		ctx,
-		5*time.Second,
+		15*time.Second,
 		P.N_CONNECT,
 	)
 	if err != nil {
