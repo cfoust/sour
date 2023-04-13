@@ -110,7 +110,6 @@ func (c *Cluster) waitForConsent(ctx context.Context, u *User, public string) er
 			msg.Replace(info)
 		case msg := <-servCmd.Receive():
 			cmd := msg.Message.(P.ServCMD)
-			logger.Info().Msgf("%+v", cmd)
 			if cmd.Command != public {
 				msg.Pass()
 				continue
