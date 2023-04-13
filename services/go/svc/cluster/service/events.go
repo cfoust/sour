@@ -263,6 +263,8 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 					msg.Drop()
 					continue
 				}
+				msg.Pass()
+				continue
 			}
 
 			server := user.GetServer()
