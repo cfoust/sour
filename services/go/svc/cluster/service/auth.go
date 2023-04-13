@@ -140,16 +140,18 @@ func (c *Cluster) HandleDesktopLogin(ctx context.Context, user *User) error {
 			return err
 		}
 
-		connect = msg.(P.Connect)
-		authUser, err := c.DoAuthChallenge(ctx, user, connect.AuthName)
-		if err != nil {
-			logger.Error().Err(err).Msg("user failed to log in")
-		}
-
-		if authUser != nil {
-			err := user.HandleAuthentication(ctx, authUser)
+		if len(connect.AuthName) > 0 {
+			connect = msg.(P.Connect)
+			authUser, err := c.DoAuthChallenge(ctx, user, connect.AuthName)
 			if err != nil {
-				return err
+				logger.Error().Err(err).Msg("user failed to log in")
+			}
+
+			if authUser != nil {
+				err := user.HandleAuthentication(ctx, authUser)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
