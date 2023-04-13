@@ -141,7 +141,7 @@ func (e EditVSlot) Marshal(p *io.Packet) error {
 		return err
 	}
 
-	q := io.Buffer(*p)
+	q := io.Buffer{}
 	q.Put(uint16(len(e.Extra)))
 
 	*p = append(*p, q...)
@@ -273,7 +273,7 @@ func (e EditTexture) Marshal(p *io.Packet) error {
 		return err
 	}
 
-	q := io.Buffer(*p)
+	q := io.Buffer{}
 	q.Put(uint16(len(e.Extra)))
 	*p = append(*p, q...)
 	*p = append(*p, e.Extra...)
@@ -383,7 +383,7 @@ func (e Replace) Marshal(p *io.Packet) error {
 		return err
 	}
 
-	q := io.Buffer(*p)
+	q := io.Buffer{}
 	q.Put(uint16(len(e.Extra)))
 	*p = append(*p, q...)
 	*p = append(*p, e.Extra...)
