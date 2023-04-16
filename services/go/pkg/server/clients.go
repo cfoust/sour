@@ -303,9 +303,10 @@ func (cm *ClientManager) GetNumClients() (n int) {
 
 func (cm *ClientManager) ForEach(do func(c *Client)) {
 	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
+	clients := cm.clients
+	cm.mutex.RUnlock()
 
-	for _, c := range cm.clients {
+	for _, c := range clients {
 		do(c)
 	}
 }
