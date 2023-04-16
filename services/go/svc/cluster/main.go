@@ -113,11 +113,21 @@ func main() {
 		cache = assets.FSStore(cacheDir)
 	}
 
-	maps, err := assets.NewAssetFetcher(ctx, cache, clusterConfig.Assets, true)
+	assetFetcher, err := assets.NewAssetFetcher(ctx, cache, clusterConfig.Assets, true)
 	if err != nil {
 		log.Fatal().Err(err).Msg("asset fetcher failed to initialize")
 	}
-	go maps.PollDownloads(ctx)
+
+	maps := assetFetcher.GetMaps("")
+	numCfgMaps := 0
+	for _, map_ := range maps {
+		if map_.HasCFG {
+			numCfgMaps++
+		}
+	}
+	log.Info().Msgf("loaded %d maps (%d no .cfg)", len(maps), len(maps) - numCfgMaps)
+
+	go assetFetcher.PollDownloads(ctx)
 
 	var discord *auth.DiscordService = nil
 	discordSettings := sourConfig.Discord
@@ -130,11 +140,11 @@ func main() {
 		)
 	}
 
-	serverManager := servers.NewServerManager(maps, clusterConfig.ServerDescription, clusterConfig.Presets)
+	serverManager := servers.NewServerManager(assetFetcher, clusterConfig.ServerDescription, clusterConfig.Presets)
 	cluster := service.NewCluster(
 		ctx,
 		serverManager,
-		maps,
+		assetFetcher,
 		clusterConfig,
 		sourConfig.Discord.Domain,
 		discord,
