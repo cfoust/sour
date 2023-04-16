@@ -322,7 +322,7 @@ func (s *SpaceManager) DoExploreMode(ctx context.Context, gameServer *gameServer
 			break
 		}
 
-		gameServer.ChangeMap(C.MODE_FFA, name)
+		gameServer.ChangeMap(C.MODE_COOP, name)
 		skips = make(map[*server.Client]struct{})
 	}
 
