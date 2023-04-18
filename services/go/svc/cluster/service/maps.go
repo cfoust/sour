@@ -217,9 +217,6 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 
 	map_ := found.Map
 
-	logger := user.Logger()
-	logger.Info().Str("map", map_.Name).Msg("sending map to client")
-
 	// Specifically in this case we don't need CS
 	if mode == C.MODE_COOP && !map_.HasCFG {
 		data, err := found.GetOGZ(ctx)
@@ -227,8 +224,18 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 			return err
 		}
 
+		err = sendRawMap(ctx, user, PURGATORY)
+		if err != nil {
+			return err
+		}
+
+		user.Message(fmt.Sprintf("sending map %s", map_.Name))
+
 		return sendRawMap(ctx, user, data)
 	}
+
+	logger := user.Logger()
+	logger.Info().Str("map", map_.Name).Msg("sending map to client")
 
 	// You can't SENDMAP outside of coopedit, change to it
 	if mode != C.MODE_COOP {
