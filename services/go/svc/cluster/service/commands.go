@@ -200,8 +200,8 @@ func (s *Cluster) runCommand(ctx context.Context, user *User, command string) er
 
 	// Help for a specific command
 	for _, commandable := range contexts {
-		helpString := commandable.GetHelp(helpArgs)
-		if helpString != "" {
+		helpString, err := commandable.GetHelp(helpArgs)
+		if err == nil {
 			user.RawMessage(helpString)
 			return nil
 		}

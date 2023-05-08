@@ -136,10 +136,10 @@ func (c *CommandGroup[User]) Register(commands ...Command) error {
 
 func NewCommandGroup[User any](namespace string, color game.TextColor) *CommandGroup[User] {
 	return &CommandGroup[User]{
-		namespace: namespace,
-		color:     color,
-		commands:  make(map[string]*Command),
-		references:  make(map[string]*Command),
+		namespace:  namespace,
+		color:      color,
+		commands:   make(map[string]*Command),
+		references: make(map[string]*Command),
 	}
 }
 
@@ -278,9 +278,12 @@ func parseArg(type_ reflect.Type, argument string, isPointer bool) (reflect.Valu
 	return NIL, fmt.Errorf("could not parse argument")
 }
 
-func (c *CommandGroup[User]) GetHelp(args []string) string {
+func (c *CommandGroup[User]) GetHelp(args []string) (string, error) {
 	resolved, _ := c.resolve(args)
-	return c.Prefix(resolved.Help())
+	if resolved == nil {
+		return "", fmt.Errorf("missing command")
+	}
+	return c.Prefix(resolved.Help()), nil
 }
 
 func (c *CommandGroup[User]) Handle(ctx context.Context, user User, args []string) error {
@@ -380,7 +383,7 @@ func (c *CommandGroup[User]) Handle(ctx context.Context, user User, args []strin
 
 type Commandable interface {
 	// Get help for a specific command (or empty string if it does not exist.)
-	GetHelp([]string) string
+	GetHelp([]string) (string, error)
 	// Lists all commands.
 	Help() string
 }
