@@ -291,8 +291,12 @@ func (s *Cluster) registerCommands() {
 		Name:        "creategame",
 		ArgFormat:   "[coop|ffa|insta|ctf|..etc] [map]",
 		Description: "create a private game for you and your friends",
-		Callback: func(ctx context.Context, user *User, mode string, map_ string) error {
-			params, err := s.inferCreateParams([]string{mode, map_})
+		Callback: func(ctx context.Context, user *User, args []string) error {
+			if len(args) == 0 {
+				return fmt.Errorf("you must provide at least one argument")
+			}
+
+			params, err := s.inferCreateParams(args)
 			if err != nil {
 				return err
 			}
