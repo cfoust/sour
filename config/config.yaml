@@ -16,7 +16,7 @@ assetStores:
 cluster:
   logSessions: true
 
-  dbPath: "../../state.db"
+  dbPath: "./state.db"
 
   assets:
     - "!http://localhost:1234/assets/desktop/.index.source"
