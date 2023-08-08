@@ -520,6 +520,7 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			case server.Incoming() <- packet:
 				cancel()
 			case <-timeoutCtx.Done():
+				// TODO(cfoust): 08/08/23 recover from this
 				logger.Error().
 					Msg("client -> server (sending to server timed out)")
 			}
