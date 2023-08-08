@@ -7,6 +7,9 @@ image:
 
 tasks:
   - name: Ingress
+    init: >
+      git lfs pull &&
+      gp sync-done lfs
     command: ./services/ingress/build
 
   - name: WebSocket proxy
@@ -14,7 +17,7 @@ tasks:
     command: ./watch /workspace/sour/services/proxy ./wsproxy 28785
 
   - name: Game server
-    init: ./services/go/build
+    init: gp sync-await lfs && ./services/go/build
     command: ./watch /workspace/sour/services/go ./cluster
 
   - name: Config
@@ -25,17 +28,24 @@ tasks:
     command: /usr/local/bin/redis-server /workspace/sour/services/redis/redis.conf
 
   - name: Client
-    init: cd services/client && yarn install
+    init: >
+      gp sync-await lfs &&
+      cd services/client &&
+      yarn install
     command: /workspace/sour/services/client/build
 
   - name: Assets
     env:
       ASSET_OUTPUT_DIR: /workspace/sour/build/assets
-    init: ./services/assets/build
+    init: >
+      gp sync-await lfs &&
+      ./services/assets/build
     command: ./watch /workspace/sour/services/assets cat
 
   - name: Sauerbraten
-    init: ./services/game/build
+    init: >
+      gp sync-await lfs &&
+      ./services/game/build
     env:
       GAME_OUTPUT_DIR: /workspace/sour/build/game
     command: ./watch /workspace/sour/services/game cat
