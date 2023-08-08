@@ -124,13 +124,13 @@ void leave(bool async, bool cleanup)
     mainmenu = 1;
 }
 
-void createsourgame(const char *presetname)
+void createsourgame(const char *presetname, const char *modename)
 {
     EM_ASM({
-            Module.cluster.createGame(UTF8ToString($0))
-    }, presetname);
+            Module.cluster.createGame(UTF8ToString($0), UTF8ToString($1))
+    }, presetname, modename);
 }
-ICOMMAND(creategame, "s", (char *presetname), createsourgame(presetname));
+ICOMMAND(creategame, "ss", (char *presetname, char *modename), createsourgame(presetname, modename));
 
 void tryleave(bool local)
 {

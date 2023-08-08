@@ -417,7 +417,7 @@ function App() {
           guibar
       ] [
           ${CONFIG.menuOptions}
-          guibutton "create private game..." "creategame ffa mood"
+          guibutton "create private game..." "creategame ffa"
       ]
       guibutton "random map.."  "map random"
       guibutton "server browser.."  "showgui servers"
@@ -702,11 +702,12 @@ function App() {
     }
 
     Module.cluster = {
-      createGame: (preset: string) => {
+      createGame: (preset: string, mode: string) => {
         log.info('creating private game...')
         ;(async () => {
           try {
-            const result = await runCommand('creategame')
+            console.log(`creategame ${preset} ${mode}`);
+            const result = await runCommand(`creategame ${preset} ${mode}`)
             log.success('created game!')
           } catch (e) {
             log.error(`failed to create private game: ${e}`)

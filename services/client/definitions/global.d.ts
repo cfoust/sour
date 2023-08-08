@@ -110,7 +110,7 @@ type ModuleType = {
   }
 
   cluster: {
-    createGame: (name: string) => void
+    createGame: (preset: string, mode: string) => void
     connect: (name: string, password: string) => void
     send: (channel: number, dataPtr: number, dataLength: number) => void
     receive: (dataPtr: number, dataLengthPtr: number) => void
