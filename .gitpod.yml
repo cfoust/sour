@@ -9,7 +9,7 @@ tasks:
   - name: Ingress
     init: >
       git lfs pull &&
-      gp sync-done lfs
+      /usr/bin/gp sync-done lfs
     command: ./services/ingress/build
 
   - name: WebSocket proxy
@@ -17,7 +17,7 @@ tasks:
     command: ./watch /workspace/sour/services/proxy ./wsproxy 28785
 
   - name: Game server
-    init: gp sync-await lfs && ./services/go/build
+    init: /usr/bin/gp sync-await lfs && ./services/go/build
     command: ./watch /workspace/sour/services/go ./cluster
 
   - name: Config
@@ -29,7 +29,7 @@ tasks:
 
   - name: Client
     init: >
-      gp sync-await lfs &&
+      /usr/bin/gp sync-await lfs &&
       cd services/client &&
       yarn install
     command: /workspace/sour/services/client/build
@@ -38,13 +38,13 @@ tasks:
     env:
       ASSET_OUTPUT_DIR: /workspace/sour/build/assets
     init: >
-      gp sync-await lfs &&
+      /usr/bin/gp sync-await lfs &&
       ./services/assets/build
     command: ./watch /workspace/sour/services/assets cat
 
   - name: Sauerbraten
     init: >
-      gp sync-await lfs &&
+      /usr/bin/gp sync-await lfs &&
       ./services/game/build
     env:
       GAME_OUTPUT_DIR: /workspace/sour/build/game
