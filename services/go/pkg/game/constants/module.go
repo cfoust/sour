@@ -100,13 +100,13 @@ type EntityType byte
 
 const (
 	EntityTypeEmpty        EntityType = iota // ET_EMPTY
-	EntityTypeLight                          // ET_LIGHT
-	EntityTypeMapModel                       // ET_MAPMODEL
-	EntityTypePlayerStart                    // ET_PLAYERSTART
-	EntityTypeEnvMap                         // ET_ENVMAP
+	EntityTypeLight                          // ET_LIGHT attr1 = radius, attr2 = intensity
+	EntityTypeMapModel                       // ET_MAPMODEL attr1 = angle, attr2 = idx
+	EntityTypePlayerStart                    // ET_PLAYERSTART attr1 = angle, attr2 = team
+	EntityTypeEnvMap                         // ET_ENVMAP attr1 = radius, attr2 = size, attr3 = blur
 	EntityTypeParticles                      // ET_PARTICLES
 	EntityTypeSound                          // ET_SOUND
-	EntityTypeSpotlight                      // ET_SPOTLIGHT
+	EntityTypeSpotlight                      // ET_SPOTLIGHT attr1=angle
 	EntityTypeShells                         // I_SHELLS
 	EntityTypeBullets                        // I_BULLETS
 	EntityTypeRockets                        // I_ROCKETS
@@ -131,6 +131,58 @@ const (
 	EntityTypeElevator                       // ELEVATOR attr1 = angle, attr2 = idx, attr3 = tag, attr4 = speed
 	EntityTypeFlag                           // FLAG attr1 = angle, attr2 = team
 )
+
+var ENTITY_TYPE_MAP = map[EntityType]string{
+	EntityTypeEmpty:        "empty",
+	EntityTypeLight:        "light",
+	EntityTypeMapModel:     "mapmodel",
+	EntityTypePlayerStart:  "playerstart",
+	EntityTypeEnvMap:       "envmap",
+	EntityTypeParticles:    "particles",
+	EntityTypeSound:        "sound",
+	EntityTypeSpotlight:    "spotlight",
+	EntityTypeShells:       "shells",
+	EntityTypeBullets:      "bullets",
+	EntityTypeRockets:      "rockets",
+	EntityTypeRounds:       "rounds",
+	EntityTypeGrenades:     "grenades",
+	EntityTypeCartridges:   "cartridges",
+	EntityTypeHealth:       "health",
+	EntityTypeBoost:        "boost",
+	EntityTypeGreenArmour:  "greenarmour",
+	EntityTypeYellowArmour: "yellowarmour",
+	EntityTypeQuad:         "quad",
+	EntityTypeTeleport:     "teleport",
+	EntityTypeTeledest:     "teledest",
+	EntityTypeMonster:      "monster",
+	EntityTypeCarrot:       "carrot",
+	EntityTypeJumpPad:      "jumppad",
+	EntityTypeBase:         "base",
+	EntityTypeRespawnPoint: "respawnpoint",
+	EntityTypeBox:          "box",
+	EntityTypeBarrel:       "barrel",
+	EntityTypePlatform:     "platform",
+	EntityTypeElevator:     "elevator",
+	EntityTypeFlag:         "flag",
+}
+
+func (e EntityType) String() string {
+	value, ok := ENTITY_TYPE_MAP[e]
+	if !ok {
+		return ""
+	}
+	return value
+}
+
+func (e *EntityType) FromString(value string) {
+	for type_, key := range ENTITY_TYPE_MAP {
+		if key == value {
+			*e = type_
+			return
+		}
+	}
+	*e = EntityTypeEmpty
+}
 
 const DEMO_VERSION = 1
 const DEMO_MAGIC = "SAUERBRATEN_DEMO"
