@@ -15,9 +15,12 @@ fi
 
 CLIENT_CONFIG=$(echo "$SOUR_CONFIG" | jq '.client')
 # Inject the runtime configuration into the frontend's code
-echo "const INJECTED_SOUR_CONFIG = $CLIENT_CONFIG;" >> /tmp/out.js
-cat /app/index.js >> /tmp/out.js
-cp /tmp/out.js /app/index.js
+# When a container is restarted, the previous FS state still exists, so detect this
+if ! grep -q "INJECTED_SOUR_CONFIG" /app/index.js; then
+  echo "const INJECTED_SOUR_CONFIG = $CLIENT_CONFIG;" >> /tmp/out.js
+  cat /app/index.js >> /tmp/out.js
+  cp /tmp/out.js /app/index.js
+fi
 
 wsproxy 28785 &
 nginx -g 'daemon off;' &

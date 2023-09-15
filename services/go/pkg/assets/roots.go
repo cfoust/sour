@@ -103,7 +103,7 @@ func NewRemoteRoot(
 
 	var index Index
 	if err := cbor.Unmarshal(indexData, &index); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error decoding %s: %s", url, err)
 	}
 
 	root := RemoteRoot{

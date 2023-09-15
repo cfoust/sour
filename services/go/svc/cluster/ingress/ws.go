@@ -469,7 +469,7 @@ func (server *WSIngress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		log.Error().Err(err).Msg("error accepting client connection")
+		// ignore invalid requests
 		return
 	}
 
