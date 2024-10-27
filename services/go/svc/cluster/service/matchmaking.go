@@ -737,9 +737,6 @@ func (server *Cluster) PollDuels(ctx context.Context) {
 				loserELO.Losses++
 			}
 
-			winner.SaveELOState(ctx)
-			loser.SaveELOState(ctx)
-
 			if result.IsDraw {
 				message := "the duel ended in a draw, your rating is unchanged"
 				winner.Message(message)

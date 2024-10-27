@@ -288,49 +288,7 @@ func (u *User) GetSpace() *verse.SpaceInstance {
 }
 
 func (u *User) GetHomeSpace(ctx context.Context) (*state.Space, error) {
-	auth := u.GetAuth()
-	if auth == nil {
-		return nil, fmt.Errorf("user is not logged in")
-	}
-
-	var space state.Space
-	query := state.Space{}
-	query.ID = auth.HomeID
-	err := u.o.db.WithContext(ctx).Where(query).First(&space).Error
-	if err != nil && err != gorm.ErrRecordNotFound {
-		return nil, err
-	}
-
-	// We only create home spaces on demand
-	if err == gorm.ErrRecordNotFound {
-		userSpace, err := u.o.verse.NewSpace(ctx, auth)
-		if err != nil {
-			return nil, err
-		}
-
-		err = userSpace.SetDescription(
-			ctx,
-			"Home",
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		space, err := userSpace.GetSpace(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		auth.HomeID = space.ID
-		err = u.o.db.WithContext(ctx).Save(&auth).Error
-		if err != nil {
-			return nil, err
-		}
-
-		return space, nil
-	}
-
-	return &space, nil
+	return nil, fmt.Errorf("feature disabled")
 }
 
 func (u *User) GetSpaceEntity(ctx context.Context) (*state.Space, error) {
@@ -457,17 +415,7 @@ func (u *User) GetName() string {
 }
 
 func (u *User) SetName(ctx context.Context, name string) error {
-	u.Mutex.Lock()
-	u.Name = name
-	u.Mutex.Unlock()
-
-	auth := u.GetAuth()
-	if auth == nil {
-		return nil
-	}
-
-	auth.Nickname = name
-	return u.o.db.WithContext(ctx).Save(&auth).Error
+	return fmt.Errorf("feature disabled")
 }
 
 func (u *User) GetAuth() *state.User {
@@ -497,46 +445,6 @@ func (u *User) AnnounceELO() {
 	u.Message(result)
 }
 
-func (u *User) HydrateELOState(ctx context.Context, authUser *state.User) error {
-	u.Mutex.Lock()
-	defer u.Mutex.Unlock()
-
-	elo := NewELOState(u.o.Duels)
-
-	for _, duel := range u.o.Duels {
-		state, err := LoadELOState(ctx, u.o.db, authUser, duel.Name)
-
-		if err == nil {
-			elo.Ratings[duel.Name] = state
-			continue
-		}
-
-		return err
-	}
-
-	u.ELO = elo
-
-	return nil
-}
-
-func (u *User) SaveELOState(ctx context.Context) error {
-	if u.Auth == nil {
-		return nil
-	}
-
-	u.Mutex.Lock()
-	defer u.Mutex.Unlock()
-
-	for matchType, state := range u.ELO.Ratings {
-		err := state.SaveState(ctx, u.o.db, u.Auth, matchType)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (u *User) LogVisit(ctx context.Context) error {
 	visit := state.Visit{
 		SessionID: u.sessionLog.ID,
@@ -563,36 +471,12 @@ func (u *User) LogVisit(ctx context.Context) error {
 		}
 	}
 
-	err := u.o.db.WithContext(ctx).Save(&visit).Error
-	if err != nil {
-		return err
-	}
-
 	<-u.ServerSession.Ctx().Done()
-
 	visit.End = time.Now()
-	return u.o.db.WithContext(ctx).Save(&visit).Error
+	return nil
 }
 
 func (u *User) HandleAuthentication(ctx context.Context, auth *state.User) error {
-	if auth == nil {
-		return nil
-	}
-
-	u.Mutex.Lock()
-	u.Auth = auth
-	u.Mutex.Unlock()
-
-	err := u.HydrateELOState(ctx, auth)
-	if err != nil {
-		return err
-	}
-
-	err = u.SaveELOState(ctx)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -731,9 +615,7 @@ type UserOrchestrator struct {
 	Users   []*User
 	Servers map[*servers.GameServer][]*User
 	Mutex   deadlock.RWMutex
-
-	db    *gorm.DB
-	verse *verse.Verse
+	verse   *verse.Verse
 }
 
 func NewUserOrchestrator(duels []config.DuelType) *UserOrchestrator {
@@ -746,14 +628,8 @@ func NewUserOrchestrator(duels []config.DuelType) *UserOrchestrator {
 
 func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
 	<-user.Ctx().Done()
-	logger := user.Logger()
 	u.RemoveUser(user)
-
 	user.sessionLog.End = time.Now()
-	err := u.db.WithContext(ctx).Save(user.sessionLog).Error
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to set session end")
-	}
 }
 
 func (u *UserOrchestrator) newSessionID() (ingress.ClientID, error) {
@@ -813,23 +689,12 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, connection ingress.Conne
 		return nil, err
 	}
 
-	host, err := getAddress(ctx, u.db, utils.HashString(connection.Host()))
-	if err != nil {
-		return nil, err
-	}
-
 	sessionID := utils.HashString(fmt.Sprintf("%d-%s", id, connection.Host()))
 	sessionLog := state.Session{
-		HostID: host.ID,
 		UUID:   sessionID,
 		Device: connection.DeviceType(),
 	}
 	sessionLog.Start = time.Now()
-
-	err = u.db.WithContext(ctx).Save(&sessionLog).Error
-	if err != nil {
-		return nil, err
-	}
 
 	u.Mutex.Lock()
 	user := User{
