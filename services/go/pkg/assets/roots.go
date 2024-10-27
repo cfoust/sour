@@ -46,10 +46,108 @@ func (f FSRoot) Reference(ctx context.Context, path string) (string, error) {
 	return fmt.Sprintf("fs:%s", f.getPath(path)), nil
 }
 
-type RemoteRoot struct {
-	cache  Store
+type packageReader interface {
+	Index(ctx context.Context) ([]byte, error)
+	Read(ctx context.Context, id string) ([]byte, error)
+}
+
+type remoteReader struct {
+	indexURL    string
+	assetURL    string
+	cache       Store
+	shouldCache bool
+}
+
+var _ packageReader = (*remoteReader)(nil)
+
+func (r *remoteReader) Index(ctx context.Context) ([]byte, error) {
+	urlHash := fmt.Sprintf("%x", sha256.Sum256([]byte(r.indexURL)))
+
+	data, err := r.cache.Get(ctx, urlHash)
+	if err == nil {
+		return data, nil
+	}
+
+	if err != Missing {
+		return nil, err
+	}
+
+	data, err = DownloadBytes(r.indexURL)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.shouldCache {
+		err = r.cache.Set(ctx, urlHash, data)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return data, nil
+}
+
+func (r *remoteReader) Read(ctx context.Context, id string) ([]byte, error) {
+	data, err := r.cache.Get(ctx, id)
+	if err == nil {
+		return data, nil
+	}
+
+	if err != nil {
+		if err != Missing {
+			return nil, err
+		}
+
+		url := fmt.Sprintf("%s%s", r.assetURL, id)
+		data, err = DownloadBytes(url)
+		if err != nil {
+			return nil, err
+		}
+
+		if r.shouldCache {
+			err = r.cache.Set(ctx, id, data)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return nil, Missing
+}
+
+func NewRemoteReader(
+	url string,
+	cache Store,
+	shouldCache bool,
+) *remoteReader {
+	return &remoteReader{
+		indexURL:    url,
+		assetURL:    CleanSourcePath(url),
+		cache:       cache,
+		shouldCache: shouldCache,
+	}
+}
+
+type fsReader struct {
+	indexPath string
+	assetPath string
+}
+
+var _ packageReader = (*fsReader)(nil)
+
+func (f *fsReader) Index(ctx context.Context) ([]byte, error) {
+	return os.ReadFile(f.indexPath)
+}
+
+func (f *fsReader) Read(ctx context.Context, id string) ([]byte, error) {
+	return os.ReadFile(filepath.Join(f.assetPath, id))
+}
+
+type PackagedRoot struct {
 	source string
-	url    string
+
+	reader packageReader
+
 	// A path inside of the virtual FS to treat as the "root".
 	base string
 
@@ -72,44 +170,27 @@ type RemoteRoot struct {
 	FS map[string]int
 }
 
-func NewRemoteRoot(
+func NewPackagedRoot(
 	ctx context.Context,
-	cache Store,
-	url string,
+	reader packageReader,
 	base string,
-	shouldCache bool,
 	skip bool,
-) (*RemoteRoot, error) {
-	urlHash := fmt.Sprintf("%x", sha256.Sum256([]byte(url)))
-
-	indexData, err := cache.Get(ctx, urlHash)
+) (*PackagedRoot, error) {
+	indexData, err := reader.Index(ctx)
 	if err != nil {
-		if err != Missing {
-			return nil, err
-		}
-
-		indexData, err = DownloadBytes(url)
-		if err != nil {
-			return nil, err
-		}
-
-		if shouldCache {
-			err = cache.Set(ctx, urlHash, indexData)
-			if err != nil {
-				return nil, err
-			}
-		}
+		return nil, err
 	}
 
 	var index Index
 	if err := cbor.Unmarshal(indexData, &index); err != nil {
-		return nil, fmt.Errorf("error decoding %s: %s", url, err)
+		return nil, fmt.Errorf(
+			"error decoding index: %s",
+			err,
+		)
 	}
 
-	root := RemoteRoot{
-		cache:  cache,
-		url:    CleanSourcePath(url),
-		source: url,
+	root := PackagedRoot{
+		reader: reader,
 		base:   base,
 		skip:   skip,
 	}
@@ -181,12 +262,12 @@ func NewRemoteRoot(
 	return &root, nil
 }
 
-func (f *RemoteRoot) Exists(ctx context.Context, path string) bool {
+func (f *PackagedRoot) Exists(ctx context.Context, path string) bool {
 	_, ok := f.FS[path]
 	return ok
 }
 
-func (f *RemoteRoot) GetID(index int) (string, error) {
+func (f *PackagedRoot) GetID(index int) (string, error) {
 	if id, ok := f.idLookup[index]; ok {
 		return id, nil
 	}
@@ -194,7 +275,7 @@ func (f *RemoteRoot) GetID(index int) (string, error) {
 	return "", Missing
 }
 
-func (f *RemoteRoot) Reference(ctx context.Context, path string) (string, error) {
+func (f *PackagedRoot) Reference(ctx context.Context, path string) (string, error) {
 	index, ok := f.FS[path]
 	if !ok {
 		return "", Missing
@@ -208,34 +289,15 @@ func (f *RemoteRoot) Reference(ctx context.Context, path string) (string, error)
 	return fmt.Sprintf("id:%s", id), nil
 }
 
-func (f *RemoteRoot) ReadAsset(ctx context.Context, id string) ([]byte, error) {
+func (f *PackagedRoot) ReadAsset(ctx context.Context, id string) ([]byte, error) {
 	if _, ok := f.assets[id]; !ok {
 		return nil, Missing
 	}
 
-	cacheData, err := f.cache.Get(ctx, id)
-	if err != nil && err != Missing {
-		return nil, err
-	}
-	if err == nil {
-		return cacheData, nil
-	}
-
-	url := fmt.Sprintf("%s%s", f.url, id)
-	data, err := DownloadBytes(url)
-	if err != nil {
-		return nil, err
-	}
-
-	err = f.cache.Set(ctx, id, data)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
+	return f.reader.Read(ctx, id)
 }
 
-func (f *RemoteRoot) ReadFile(ctx context.Context, path string) ([]byte, error) {
+func (f *PackagedRoot) ReadFile(ctx context.Context, path string) ([]byte, error) {
 	index, ok := f.FS[path]
 	if !ok {
 		return nil, Missing
@@ -250,12 +312,12 @@ func (f *RemoteRoot) ReadFile(ctx context.Context, path string) ([]byte, error) 
 }
 
 var _ Root = (*FSRoot)(nil)
-var _ Root = (*RemoteRoot)(nil)
+var _ Root = (*PackagedRoot)(nil)
 
 func LoadRoots(ctx context.Context, cache Store, targets []string, onlyMaps bool) ([]Root, error) {
 	roots := make([]Root, 0)
 	haveSkip := false
-	var skipRoot *RemoteRoot
+	var skipRoot *PackagedRoot
 
 	for _, target := range targets {
 		// Specify a base dir with @/base/dir
@@ -282,6 +344,31 @@ func LoadRoots(ctx context.Context, cache Store, targets []string, onlyMaps bool
 			target = target[1:]
 		}
 
+		if strings.HasPrefix(target, "fs:") {
+			absolute, err := filepath.Abs(target[3:])
+			if err != nil {
+				return nil, err
+			}
+
+			reader := &fsReader{
+				indexPath: absolute,
+				assetPath: filepath.Dir(absolute),
+			}
+
+			root, err := NewPackagedRoot(
+				ctx,
+				reader,
+				base,
+				skip,
+			)
+			if err != nil {
+				return nil, err
+			}
+			root.source = target
+			roots = append(roots, root)
+			continue
+		}
+
 		if !strings.HasPrefix(target, "http") {
 			absolute, err := filepath.Abs(target)
 			if err != nil {
@@ -291,17 +378,23 @@ func LoadRoots(ctx context.Context, cache Store, targets []string, onlyMaps bool
 			continue
 		}
 
-		root, err := NewRemoteRoot(
-			ctx,
-			cache,
+		reader := NewRemoteReader(
 			target,
-			base,
+			cache,
 			shouldCache,
+		)
+
+		root, err := NewPackagedRoot(
+			ctx,
+			reader,
+			base,
 			skip,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		root.source = target
 
 		if skip {
 			skipRoot = root
@@ -313,7 +406,7 @@ func LoadRoots(ctx context.Context, cache Store, targets []string, onlyMaps bool
 	// root
 	if haveSkip {
 		for _, root := range roots {
-			remote, ok := root.(*RemoteRoot)
+			remote, ok := root.(*PackagedRoot)
 			if !ok {
 				continue
 			}
@@ -348,7 +441,7 @@ func LoadRoots(ctx context.Context, cache Store, targets []string, onlyMaps bool
 		// First pass: note all of the assets used by maps
 		mapAssets := make(map[string]struct{})
 		for _, root := range roots {
-			remote, ok := root.(*RemoteRoot)
+			remote, ok := root.(*PackagedRoot)
 			if !ok {
 				continue
 			}
@@ -364,7 +457,7 @@ func LoadRoots(ctx context.Context, cache Store, targets []string, onlyMaps bool
 
 		// Second pass: clear out assets not used by maps
 		for _, root := range roots {
-			remote, ok := root.(*RemoteRoot)
+			remote, ok := root.(*PackagedRoot)
 			if !ok {
 				continue
 			}

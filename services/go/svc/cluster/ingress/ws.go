@@ -235,15 +235,13 @@ type WSIngress struct {
 	mutex         sync.Mutex
 	serverWatcher *watcher.Watcher
 	httpServer    *http.Server
-	auth          *auth.DiscordService
 }
 
-func NewWSIngress(newClients chan Connection, auth *auth.DiscordService) *WSIngress {
+func NewWSIngress(newClients chan Connection) *WSIngress {
 	return &WSIngress{
 		newClients:    newClients,
 		clients:       make(map[*WSClient]struct{}),
 		serverWatcher: watcher.NewWatcher(),
-		auth:          auth,
 	}
 }
 
@@ -266,38 +264,7 @@ func (server *WSIngress) RemoveClient(client *WSClient) {
 }
 
 func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code string) {
-	if server.auth == nil || code == "" {
-		client.authentication <- nil
-		return
-	}
-
-	user, err := server.auth.AuthenticateCode(ctx, code)
-
-	if err != nil {
-		log.Error().Err(err).Msg("user failed to log in")
-		response := DiscordCodeMessage{
-			Op:   AuthFailedOp,
-			Code: code,
-		}
-		bytes, _ := cbor.Marshal(response)
-		client.send <- bytes
-		return
-	}
-
-	response := AuthSucceededMessage{
-		Op:   AuthSucceededOp,
-		Code: code,
-		User: auth.DiscordUser{
-			Id:            user.UUID,
-			Username:      user.Username,
-			Discriminator: user.Discriminator,
-			Avatar:        user.Avatar,
-		},
-		PrivateKey: user.PrivateKey,
-	}
-	bytes, _ := cbor.Marshal(response)
-	client.send <- bytes
-	client.authentication <- user
+	client.authentication <- nil
 }
 
 func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, host string, deviceType string) error {

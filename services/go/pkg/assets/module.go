@@ -21,7 +21,7 @@ type Job struct {
 type AssetFetcher struct {
 	assets  chan Job
 	bundles chan Job
-	roots   []*RemoteRoot
+	roots   []*PackagedRoot
 	cache   Store
 }
 
@@ -31,9 +31,9 @@ func NewAssetFetcher(ctx context.Context, cache Store, roots []string, onlyMaps 
 		return nil, err
 	}
 
-	remotes := make([]*RemoteRoot, 0)
+	remotes := make([]*PackagedRoot, 0)
 	for _, root := range loaded {
-		if remote, ok := root.(*RemoteRoot); ok {
+		if remote, ok := root.(*PackagedRoot); ok {
 			remotes = append(remotes, remote)
 		}
 	}
@@ -174,7 +174,7 @@ func (m *AssetFetcher) fetchBundle(ctx context.Context, id string) ([]byte, erro
 
 type FoundMap struct {
 	Map   *SlimMap
-	Root  *RemoteRoot
+	Root  *PackagedRoot
 	fetch *AssetFetcher
 }
 

@@ -74,8 +74,8 @@ void cleanupHost(ENetHost* host) {
 enet_uint16 getLastCommand(ENetPeer *peer) {
 	ENetOutgoingCommand * outgoingCommand = NULL;
 	ENetListIterator currentCommand;
-	for (currentCommand = enet_list_begin(&peer->outgoingReliableCommands);
-	currentCommand != enet_list_end(&peer->outgoingReliableCommands);
+	for (currentCommand = enet_list_begin(&peer->outgoingSendReliableCommands);
+	currentCommand != enet_list_end(&peer->outgoingSendReliableCommands);
 	currentCommand = enet_list_next(currentCommand))
 	{
 		outgoingCommand = (ENetOutgoingCommand *) currentCommand;

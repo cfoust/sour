@@ -238,7 +238,7 @@ func (u *User) ResponseTimeout(ctx context.Context, timeout time.Duration, code 
 }
 
 func (u *User) Response(ctx context.Context, code P.MessageCode, messages ...P.Message) (P.Message, error) {
-	return u.ResponseTimeout(ctx, 5 * time.Second, code, messages...)
+	return u.ResponseTimeout(ctx, 5*time.Second, code, messages...)
 }
 
 func (c *User) ReceiveToMessages() <-chan TrackedPacket {
@@ -736,13 +736,11 @@ type UserOrchestrator struct {
 	verse *verse.Verse
 }
 
-func NewUserOrchestrator(db *gorm.DB, verse *verse.Verse, duels []config.DuelType) *UserOrchestrator {
+func NewUserOrchestrator(duels []config.DuelType) *UserOrchestrator {
 	return &UserOrchestrator{
 		Duels:   duels,
 		Users:   make([]*User, 0),
 		Servers: make(map[*servers.GameServer][]*User),
-		db:      db,
-		verse:   verse,
 	}
 }
 

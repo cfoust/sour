@@ -151,10 +151,9 @@ type SpaceManager struct {
 	maps      *assets.AssetFetcher
 }
 
-func NewSpaceManager(verse *Verse, servers *gameServers.ServerManager, maps *assets.AssetFetcher) *SpaceManager {
+func NewSpaceManager(servers *gameServers.ServerManager, maps *assets.AssetFetcher) *SpaceManager {
 	return &SpaceManager{
 		Session:   utils.NewSession(context.Background()),
-		verse:     verse,
 		servers:   servers,
 		instances: make(map[string]*SpaceInstance),
 		maps:      maps,

@@ -368,7 +368,7 @@ func Download(ctx context.Context, cache assets.Store, roots []assets.Root, outD
 
 	for _, target := range targets {
 		for _, root := range roots {
-			remoteRoot, ok := root.(*assets.RemoteRoot)
+			remoteRoot, ok := root.(*assets.PackagedRoot)
 			if !ok {
 				continue
 			}
@@ -391,7 +391,7 @@ func Download(ctx context.Context, cache assets.Store, roots []assets.Root, outD
 
 func List(cache assets.Store, roots []assets.Root) {
 	for _, root := range roots {
-		remoteRoot, ok := root.(*assets.RemoteRoot)
+		remoteRoot, ok := root.(*assets.PackagedRoot)
 		if !ok {
 			continue
 		}

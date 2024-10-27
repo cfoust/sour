@@ -7,19 +7,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"runtime"
-	"runtime/pprof"
 	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
-	"github.com/cfoust/sour/svc/cluster/auth"
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
 	"github.com/cfoust/sour/svc/cluster/service"
-	"github.com/cfoust/sour/svc/cluster/state"
-	"github.com/cfoust/sour/svc/cluster/stores"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -27,8 +21,6 @@ import (
 
 func main() {
 	debug := flag.Bool("debug", false, "Whether to enable debug logging.")
-	cpuProfile := flag.String("cpu", "", "Write cpu profile to `file`.")
-	memProfile := flag.String("memory", "", "Write memory profile to `file`.")
 	flag.Parse()
 
 	sourConfig, err := config.GetSourConfig()
@@ -38,50 +30,8 @@ func main() {
 
 	clusterConfig := sourConfig.Cluster
 
-	db, err := state.InitDB(clusterConfig.DBPath)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to initialize sqlite")
-	}
-
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	log.Logger = log.Output(consoleWriter)
-
-	if clusterConfig.LogDirectory != "" {
-		logDir := clusterConfig.LogDirectory
-		err = os.MkdirAll(logDir, 0755)
-		if err != nil {
-			log.Fatal().Err(err).Msgf("failed to make log dir: %s", logDir)
-		}
-
-		path := filepath.Join(
-			logDir,
-			fmt.Sprintf(
-				"%s.json",
-				time.Now().Format("2006.01.02.03.04.05"),
-			),
-		)
-
-		logFile, err := os.Create(path)
-		if err != nil {
-			log.Fatal().Err(err).Msgf("failed to make log file: %s", path)
-		}
-		defer logFile.Close()
-
-		log.Logger = log.Output(zerolog.MultiLevelWriter(consoleWriter, logFile))
-		log.Info().Msgf("logging to %s", path)
-	}
-
-	if *cpuProfile != "" {
-		f, err := os.Create(*cpuProfile)
-		if err != nil {
-			log.Fatal().Err(err).Msg("could not create CPU profile")
-		}
-		defer f.Close() // error handling omitted for example
-		if err := pprof.StartCPUProfile(f); err != nil {
-			log.Fatal().Err(err).Msg("could not start CPU profile")
-		}
-		defer pprof.StopCPUProfile()
-	}
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if *debug {
@@ -89,21 +39,12 @@ func main() {
 		log.Warn().Msg("debug logging enabled")
 	}
 
-	if clusterConfig.LogSessions {
-		log.Info().Msg("storing user sessions")
-	}
+	clusterConfig.LogSessions = false
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	state := state.NewStateService(sourConfig.Redis)
-
-	stores, err := stores.New(db, sourConfig.AssetStores)
-	if err != nil {
-		log.Fatal().Err(err).Msg("asset stores failed to initialize")
-	}
-
-	var cache assets.Store = assets.NewRedisCache(state.Client, time.Hour)
+	var cache assets.Store
 	cacheDir := clusterConfig.CacheDirectory
 	if cacheDir != "" {
 		err = os.MkdirAll(cacheDir, 0755)
@@ -113,7 +54,16 @@ func main() {
 		cache = assets.FSStore(cacheDir)
 	}
 
-	assetFetcher, err := assets.NewAssetFetcher(ctx, cache, clusterConfig.Assets, true)
+	if cache == nil {
+		log.Fatal().Msg("no cache directory specified")
+	}
+
+	assetFetcher, err := assets.NewAssetFetcher(
+		ctx,
+		cache,
+		clusterConfig.Assets,
+		true,
+	)
 	if err != nil {
 		log.Fatal().Err(err).Msg("asset fetcher failed to initialize")
 	}
@@ -125,20 +75,14 @@ func main() {
 			numCfgMaps++
 		}
 	}
-	log.Info().Msgf("loaded %d maps (%d no .cfg)", len(maps), len(maps) - numCfgMaps)
+
+	if len(maps) == 0 {
+		log.Fatal().Msg("no maps found")
+	}
+
+	log.Info().Msgf("loaded %d maps (%d no .cfg)", len(maps), len(maps)-numCfgMaps)
 
 	go assetFetcher.PollDownloads(ctx)
-
-	var discord *auth.DiscordService = nil
-	discordSettings := sourConfig.Discord
-	if discordSettings.Enabled {
-		log.Info().Msg("Discord authentication enabled")
-		discord = auth.NewDiscordService(
-			discordSettings,
-			state,
-			db,
-		)
-	}
 
 	serverManager := servers.NewServerManager(assetFetcher, clusterConfig.ServerDescription, clusterConfig.Presets)
 	cluster := service.NewCluster(
@@ -146,11 +90,6 @@ func main() {
 		serverManager,
 		assetFetcher,
 		clusterConfig,
-		sourConfig.Discord.Domain,
-		discord,
-		state.Client,
-		db,
-		stores,
 	)
 
 	err = serverManager.Start()
@@ -160,7 +99,7 @@ func main() {
 
 	newConnections := make(chan ingress.Connection)
 
-	wsIngress := ingress.NewWSIngress(newConnections, discord)
+	wsIngress := ingress.NewWSIngress(newConnections)
 
 	enet := make([]*ingress.ENetIngress, 0)
 	infoServices := make([]*servers.ServerInfoService, 0)
@@ -222,18 +161,6 @@ func main() {
 		log.Printf("failed to serve: %v", err)
 	case sig := <-sigs:
 		log.Printf("terminating: %v", sig)
-	}
-
-	if *memProfile != "" {
-		f, err := os.Create(*memProfile)
-		if err != nil {
-			log.Fatal().Err(err).Msg("could not create memory profile")
-		}
-		defer f.Close() // error handling omitted for example
-		runtime.GC()    // get up-to-date statistics
-		if err := pprof.WriteHeapProfile(f); err != nil {
-			log.Fatal().Err(err).Msg("could not write memory profile")
-		}
 	}
 
 	for _, enetIngress := range enet {

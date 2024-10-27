@@ -22,11 +22,8 @@ type Verse struct {
 	db    *gorm.DB
 }
 
-func NewVerse(db *gorm.DB, store *stores.AssetStorage) *Verse {
-	return &Verse{
-		db:    db,
-		store: store,
-	}
+func NewVerse() *Verse {
+	return &Verse{}
 }
 
 type entity struct {

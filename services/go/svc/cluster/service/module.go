@@ -14,7 +14,6 @@ import (
 	"github.com/cfoust/sour/svc/cluster/config"
 	"github.com/cfoust/sour/svc/cluster/ingress"
 	"github.com/cfoust/sour/svc/cluster/servers"
-	"github.com/cfoust/sour/svc/cluster/stores"
 	"github.com/cfoust/sour/svc/cluster/verse"
 
 	"github.com/go-redis/redis/v9"
@@ -60,18 +59,11 @@ func NewCluster(
 	serverManager *servers.ServerManager,
 	maps *assets.AssetFetcher,
 	settings config.ClusterSettings,
-	authDomain string,
-	auth *auth.DiscordService,
-	redis *redis.Client,
-	db *gorm.DB,
-	store *stores.AssetStorage,
 ) *Cluster {
-	v := verse.NewVerse(db, store)
 	server := &Cluster{
-		Users:         NewUserOrchestrator(db, v, settings.Matchmaking.Duel),
+		Users:         NewUserOrchestrator(settings.Matchmaking.Duel),
 		serverCtx:     ctx,
 		settings:      settings,
-		authDomain:    authDomain,
 		hostServers:   make(map[string]*servers.GameServer),
 		commands:      commands.NewCommandGroup[*User]("general", game.ColorOrange),
 		lastCreate:    make(map[string]time.Time),
@@ -79,11 +71,7 @@ func NewCluster(
 		serverMessage: make(chan []byte, 1),
 		servers:       serverManager,
 		started:       time.Now(),
-		auth:          auth,
-		redis:         redis,
-		db:            db,
-		verse:         v,
-		spaces:        verse.NewSpaceManager(v, serverManager, maps),
+		spaces:        verse.NewSpaceManager(serverManager, maps),
 		assets:        maps,
 	}
 
