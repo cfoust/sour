@@ -2,9 +2,7 @@ package config
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"os"
 
 	"github.com/cfoust/sour/pkg/server"
 )
@@ -190,14 +188,9 @@ type Config struct {
 	Discord     DiscordSettings
 }
 
-func GetSourConfig() (*Config, error) {
-	configJson, ok := os.LookupEnv("SOUR_CONFIG")
-	if !ok {
-		return nil, errors.New("SOUR_CONFIG not defined")
-	}
-
+func GetSourConfig(data []byte) (*Config, error) {
 	var config Config
-	err := json.Unmarshal([]byte(configJson), &config)
+	err := json.Unmarshal(data, &config)
 	if err != nil {
 		return nil, err
 	}

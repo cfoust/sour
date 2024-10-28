@@ -88,7 +88,7 @@ func (d *dynamicFS) Open(name string) (fs.File, error) {
 	return d.original.Open(name)
 }
 
-func Site() (http.Handler, error) {
+func Site(config string) (http.Handler, error) {
 	content, _ := fs.Sub(fs.FS(staticFiles), "site")
 
 	// Get index.js and inject config as JSON
@@ -96,7 +96,7 @@ func Site() (http.Handler, error) {
 
 	prefix := fmt.Sprintf(
 		"const INJECTED_SOUR_CONFIG = %s;\n",
-		"{}",
+		string(config),
 	)
 
 	index = append(

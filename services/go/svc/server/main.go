@@ -24,7 +24,12 @@ func main() {
 	debug := flag.Bool("debug", false, "Whether to enable debug logging.")
 	flag.Parse()
 
-	sourConfig, err := config.GetSourConfig()
+	configJson, ok := os.LookupEnv("SOUR_CONFIG")
+	if !ok {
+		log.Fatal().Msg("SOUR_CONFIG not defined")
+	}
+
+	sourConfig, err := config.GetSourConfig([]byte(configJson))
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to load sour configuration, please specify one with the SOUR_CONFIG environment variable")
 	}
@@ -141,7 +146,7 @@ func main() {
 	go cluster.PollDuels(ctx)
 	go wsIngress.StartWatcher(ctx)
 
-	staticSite, err := static.Site()
+	staticSite, err := static.Site(configJson)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to load site data")
 	}

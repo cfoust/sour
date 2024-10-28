@@ -706,7 +706,7 @@ function App() {
         log.info('creating private game...')
         ;(async () => {
           try {
-            console.log(`creategame ${preset} ${mode}`);
+            console.log(`creategame ${preset} ${mode}`)
             const result = await runCommand(`creategame ${preset} ${mode}`)
             log.success('created game!')
           } catch (e) {
