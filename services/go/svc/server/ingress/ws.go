@@ -16,8 +16,8 @@ import (
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/mileusna/useragent"
-	"github.com/rs/zerolog/log"
 	"nhooyr.io/websocket"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -426,7 +426,7 @@ func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, ho
 
 func (server *WSIngress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Ignore the request, this sometimes happens
-	if r.URL.Path != "/" {
+	if r.URL.Path != "/ws/" {
 		return
 	}
 

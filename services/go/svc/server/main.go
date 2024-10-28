@@ -157,6 +157,12 @@ func main() {
 		mux.Handle("/", staticSite)
 		mux.Handle("/ws/", wsIngress)
 		mux.Handle("/api/", cluster)
+		mux.Handle("/assets/", http.StripPrefix(
+			"/assets/",
+			http.FileServer(
+				http.Dir("../client/dist/assets"),
+			),
+		))
 
 		errc <- http.ListenAndServe(
 			fmt.Sprintf("0.0.0.0:%d", clusterConfig.Ingress.Web.Port),
