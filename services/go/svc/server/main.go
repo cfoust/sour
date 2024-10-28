@@ -143,7 +143,7 @@ func main() {
 	errc := make(chan error, 1)
 	go func() {
 		mux := http.NewServeMux()
-		mux.Handle("/", wsIngress)
+		mux.Handle("/ws", wsIngress)
 		mux.Handle("/api/", cluster)
 
 		errc <- http.ListenAndServe(
