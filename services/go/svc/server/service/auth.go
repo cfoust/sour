@@ -7,8 +7,8 @@ import (
 
 	"github.com/cfoust/sour/pkg/game"
 	P "github.com/cfoust/sour/pkg/game/protocol"
-	"github.com/cfoust/sour/svc/cluster/auth"
-	"github.com/cfoust/sour/svc/cluster/state"
+	"github.com/cfoust/sour/svc/server/auth"
+	"github.com/cfoust/sour/svc/server/state"
 )
 
 func (c *Cluster) DoAuthChallenge(ctx context.Context, user *User, id string) (*state.User, error) {

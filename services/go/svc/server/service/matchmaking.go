@@ -9,9 +9,9 @@ import (
 	"github.com/cfoust/sour/pkg/game"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/mmr"
-	"github.com/cfoust/sour/svc/cluster/config"
-	"github.com/cfoust/sour/svc/cluster/ingress"
-	"github.com/cfoust/sour/svc/cluster/servers"
+	"github.com/cfoust/sour/svc/server/config"
+	"github.com/cfoust/sour/svc/server/ingress"
+	"github.com/cfoust/sour/svc/server/servers"
 
 	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog"

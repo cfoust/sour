@@ -11,8 +11,8 @@ import (
 
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/utils"
-	"github.com/cfoust/sour/svc/cluster/state"
-	"github.com/cfoust/sour/svc/cluster/stores"
+	"github.com/cfoust/sour/svc/server/state"
+	"github.com/cfoust/sour/svc/server/stores"
 
 	"gorm.io/gorm"
 )

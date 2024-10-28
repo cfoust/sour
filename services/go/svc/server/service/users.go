@@ -14,11 +14,11 @@ import (
 	"github.com/cfoust/sour/pkg/server"
 	"github.com/cfoust/sour/pkg/utils"
 
-	"github.com/cfoust/sour/svc/cluster/config"
-	"github.com/cfoust/sour/svc/cluster/ingress"
-	"github.com/cfoust/sour/svc/cluster/servers"
-	"github.com/cfoust/sour/svc/cluster/state"
-	"github.com/cfoust/sour/svc/cluster/verse"
+	"github.com/cfoust/sour/svc/server/config"
+	"github.com/cfoust/sour/svc/server/ingress"
+	"github.com/cfoust/sour/svc/server/servers"
+	"github.com/cfoust/sour/svc/server/state"
+	"github.com/cfoust/sour/svc/server/verse"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

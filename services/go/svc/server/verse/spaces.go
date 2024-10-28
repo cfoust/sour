@@ -13,9 +13,9 @@ import (
 	C "github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/server"
 	"github.com/cfoust/sour/pkg/utils"
-	"github.com/cfoust/sour/svc/cluster/config"
-	"github.com/cfoust/sour/svc/cluster/ingress"
-	gameServers "github.com/cfoust/sour/svc/cluster/servers"
+	"github.com/cfoust/sour/svc/server/config"
+	"github.com/cfoust/sour/svc/server/ingress"
+	gameServers "github.com/cfoust/sour/svc/server/servers"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

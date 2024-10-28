@@ -14,9 +14,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/cfoust/sour/svc/cluster/auth/crypto"
-	"github.com/cfoust/sour/svc/cluster/config"
-	"github.com/cfoust/sour/svc/cluster/state"
+	"github.com/cfoust/sour/svc/server/auth/crypto"
+	"github.com/cfoust/sour/svc/server/config"
+	"github.com/cfoust/sour/svc/server/state"
 
 	"gorm.io/gorm"
 )

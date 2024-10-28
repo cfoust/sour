@@ -1,7 +1,7 @@
 package state
 
 import (
-	"github.com/cfoust/sour/svc/cluster/config"
+	"github.com/cfoust/sour/svc/server/config"
 
 	"github.com/go-redis/redis/v9"
 )

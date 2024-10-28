@@ -3,7 +3,7 @@ package ingress
 import (
 	"github.com/cfoust/sour/pkg/game/io"
 	"github.com/cfoust/sour/pkg/utils"
-	"github.com/cfoust/sour/svc/cluster/state"
+	"github.com/cfoust/sour/svc/server/state"
 )
 
 // A unique identifier for this client for the lifetime of their session.

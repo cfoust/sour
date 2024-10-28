@@ -10,9 +10,9 @@ import (
 
 	"github.com/cfoust/sour/pkg/game/io"
 	"github.com/cfoust/sour/pkg/utils"
-	"github.com/cfoust/sour/svc/cluster/auth"
-	"github.com/cfoust/sour/svc/cluster/state"
-	"github.com/cfoust/sour/svc/cluster/watcher"
+	"github.com/cfoust/sour/svc/server/auth"
+	"github.com/cfoust/sour/svc/server/state"
+	"github.com/cfoust/sour/svc/server/watcher"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/mileusna/useragent"

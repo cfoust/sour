@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
-	"github.com/cfoust/sour/svc/cluster/config"
-	"github.com/cfoust/sour/svc/cluster/ingress"
-	"github.com/cfoust/sour/svc/cluster/servers"
-	"github.com/cfoust/sour/svc/cluster/service"
+	"github.com/cfoust/sour/svc/server/config"
+	"github.com/cfoust/sour/svc/server/ingress"
+	"github.com/cfoust/sour/svc/server/servers"
+	"github.com/cfoust/sour/svc/server/service"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

@@ -12,8 +12,8 @@ import (
 	"github.com/cfoust/sour/pkg/game/io"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	S "github.com/cfoust/sour/pkg/server"
-	"github.com/cfoust/sour/svc/cluster/ingress"
-	"github.com/cfoust/sour/svc/cluster/servers"
+	"github.com/cfoust/sour/svc/server/ingress"
+	"github.com/cfoust/sour/svc/server/servers"
 
 	"github.com/rs/zerolog/log"
 )

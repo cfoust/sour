@@ -8,8 +8,8 @@ import (
 
 	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/utils"
-	"github.com/cfoust/sour/svc/cluster/config"
-	"github.com/cfoust/sour/svc/cluster/state"
+	"github.com/cfoust/sour/svc/server/config"
+	"github.com/cfoust/sour/svc/server/state"
 
 	"gorm.io/gorm"
 )
