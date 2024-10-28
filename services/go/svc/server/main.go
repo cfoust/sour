@@ -14,6 +14,7 @@ import (
 	"github.com/cfoust/sour/svc/server/ingress"
 	"github.com/cfoust/sour/svc/server/servers"
 	"github.com/cfoust/sour/svc/server/service"
+	"github.com/cfoust/sour/svc/server/static"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -140,10 +141,16 @@ func main() {
 	go cluster.PollDuels(ctx)
 	go wsIngress.StartWatcher(ctx)
 
+	staticSite, err := static.Site()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to load site data")
+	}
+
 	errc := make(chan error, 1)
 	go func() {
 		mux := http.NewServeMux()
-		mux.Handle("/ws", wsIngress)
+		mux.Handle("/", staticSite)
+		mux.Handle("/ws/", wsIngress)
 		mux.Handle("/api/", cluster)
 
 		errc <- http.ListenAndServe(
