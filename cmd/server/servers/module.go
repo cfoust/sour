@@ -11,13 +11,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cfoust/sour/cmd/server/config"
+	"github.com/cfoust/sour/cmd/server/ingress"
 	"github.com/cfoust/sour/pkg/assets"
 	C "github.com/cfoust/sour/pkg/game/constants"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/server"
-	"github.com/cfoust/sour/svc/server/config"
-	"github.com/cfoust/sour/svc/server/ingress"
 
 	"github.com/repeale/fp-go"
 	"github.com/repeale/fp-go/option"

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"log"
 	"github.com/cfoust/sour/pkg/cs"
+	"log"
 )
 
 func Test(a int) {

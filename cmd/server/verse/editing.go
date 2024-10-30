@@ -7,11 +7,11 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/cfoust/sour/cmd/server/ingress"
 	C "github.com/cfoust/sour/pkg/game/constants"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/maps/worldio"
-	"github.com/cfoust/sour/svc/server/ingress"
 
 	"github.com/rs/zerolog/log"
 )

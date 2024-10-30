@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfoust/sour/cmd/server/ingress"
+	"github.com/cfoust/sour/cmd/server/servers"
+	"github.com/cfoust/sour/cmd/server/verse"
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/game/commands"
 	"github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/server/protocol/gamemode"
-	"github.com/cfoust/sour/svc/server/ingress"
-	"github.com/cfoust/sour/svc/server/servers"
-	"github.com/cfoust/sour/svc/server/verse"
 
 	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog/log"

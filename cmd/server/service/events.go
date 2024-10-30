@@ -6,14 +6,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfoust/sour/cmd/server/ingress"
+	"github.com/cfoust/sour/cmd/server/servers"
 	"github.com/cfoust/sour/pkg/chanlock"
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/game/io"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	S "github.com/cfoust/sour/pkg/server"
-	"github.com/cfoust/sour/svc/server/ingress"
-	"github.com/cfoust/sour/svc/server/servers"
 
 	"github.com/rs/zerolog/log"
 )

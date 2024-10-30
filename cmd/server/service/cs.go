@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	"github.com/cfoust/sour/pkg/utils"
 	C "github.com/cfoust/sour/pkg/game/constants"
 	P "github.com/cfoust/sour/pkg/game/protocol"
+	"github.com/cfoust/sour/pkg/utils"
 )
 
 //go:embed purgatory.ogz
@@ -25,7 +25,7 @@ func sendServerInfo(ctx context.Context, u *User, domain string) (P.Connect, err
 		info,
 	)
 	if err != nil {
-	    return P.Connect{}, err
+		return P.Connect{}, err
 	}
 
 	connect := msg.(P.Connect)

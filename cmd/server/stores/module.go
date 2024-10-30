@@ -6,10 +6,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/cfoust/sour/cmd/server/config"
+	"github.com/cfoust/sour/cmd/server/state"
 	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/utils"
-	"github.com/cfoust/sour/svc/server/config"
-	"github.com/cfoust/sour/svc/server/state"
 
 	"gorm.io/gorm"
 )
@@ -30,7 +30,7 @@ func (s *AssetStorage) Get(ctx context.Context, asset *state.Asset) ([]byte, err
 	asset.Accessed = time.Now()
 	err := s.db.WithContext(ctx).Save(asset).Error
 	if err != nil {
-	    return nil, err
+		return nil, err
 	}
 
 	return store.Get(ctx, asset.Hash)

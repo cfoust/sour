@@ -4,8 +4,8 @@ import (
 	"compress/gzip"
 	"flag"
 	"io"
-	"os"
 	"log"
+	"os"
 	"time"
 
 	I "github.com/cfoust/sour/pkg/game/io"

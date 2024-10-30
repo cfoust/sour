@@ -14,9 +14,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/cfoust/sour/svc/server/auth/crypto"
-	"github.com/cfoust/sour/svc/server/config"
-	"github.com/cfoust/sour/svc/server/state"
+	"github.com/cfoust/sour/cmd/server/auth/crypto"
+	"github.com/cfoust/sour/cmd/server/config"
+	"github.com/cfoust/sour/cmd/server/state"
 
 	"gorm.io/gorm"
 )

@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cfoust/sour/cmd/server/state"
 	"github.com/cfoust/sour/pkg/enet"
 	"github.com/cfoust/sour/pkg/game/io"
 	"github.com/cfoust/sour/pkg/utils"
-	"github.com/cfoust/sour/svc/server/state"
 )
 
 type PacketACK struct {

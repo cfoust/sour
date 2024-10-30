@@ -9,10 +9,10 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/cfoust/sour/cmd/server/state"
+	"github.com/cfoust/sour/cmd/server/stores"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/utils"
-	"github.com/cfoust/sour/svc/server/state"
-	"github.com/cfoust/sour/svc/server/stores"
 
 	"gorm.io/gorm"
 )

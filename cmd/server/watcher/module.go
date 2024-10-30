@@ -91,8 +91,8 @@ type Server struct {
 type Servers map[Address]Server
 
 type Watcher struct {
-	serverMutex  sync.Mutex
-	servers      Servers
+	serverMutex sync.Mutex
+	servers     Servers
 }
 
 func NewWatcher() *Watcher {

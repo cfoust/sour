@@ -8,16 +8,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cfoust/sour/cmd/server/auth"
+	"github.com/cfoust/sour/cmd/server/state"
+	"github.com/cfoust/sour/cmd/server/watcher"
 	"github.com/cfoust/sour/pkg/game/io"
 	"github.com/cfoust/sour/pkg/utils"
-	"github.com/cfoust/sour/svc/server/auth"
-	"github.com/cfoust/sour/svc/server/state"
-	"github.com/cfoust/sour/svc/server/watcher"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/mileusna/useragent"
-	"nhooyr.io/websocket"
 	"github.com/rs/zerolog/log"
+	"nhooyr.io/websocket"
 )
 
 const (

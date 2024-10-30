@@ -9,12 +9,12 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/cfoust/sour/cmd/server/config"
+	"github.com/cfoust/sour/cmd/server/ingress"
+	"github.com/cfoust/sour/cmd/server/servers"
+	"github.com/cfoust/sour/cmd/server/service"
+	"github.com/cfoust/sour/cmd/server/static"
 	"github.com/cfoust/sour/pkg/assets"
-	"github.com/cfoust/sour/svc/server/config"
-	"github.com/cfoust/sour/svc/server/ingress"
-	"github.com/cfoust/sour/svc/server/servers"
-	"github.com/cfoust/sour/svc/server/service"
-	"github.com/cfoust/sour/svc/server/static"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
