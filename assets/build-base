@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+cd "$SCRIPT_DIR"
+
+set -e
+
+./setup
+
+rm -r output
+
+short=$(git rev-parse --short HEAD)
+
+python3 base.py \
+  --prefix $short \
+  --root https://static.sourga.me/blobs/6481/.index.source \
+  --models \
+  --textures
+
+cd output
+
+docker run -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY --rm -it -v ~/.aws:/root/.aws -v $(pwd):$(pwd) -w $(pwd) amazon/aws-cli s3 sync --region us-west-2 . s3://static.sourga.me/blobs/indices/

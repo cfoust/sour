@@ -93,26 +93,24 @@ func (r *remoteReader) Read(ctx context.Context, id string) ([]byte, error) {
 		return data, nil
 	}
 
-	if err != nil {
-		if err != Missing {
-			return nil, err
-		}
+	if err != Missing {
+		return nil, err
+	}
 
-		url := fmt.Sprintf("%s%s", r.assetURL, id)
-		data, err = DownloadBytes(url)
+	url := fmt.Sprintf("%s%s", r.assetURL, id)
+	data, err = DownloadBytes(url)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.shouldCache {
+		err = r.cache.Set(ctx, id, data)
 		if err != nil {
 			return nil, err
 		}
-
-		if r.shouldCache {
-			err = r.cache.Set(ctx, id, data)
-			if err != nil {
-				return nil, err
-			}
-		}
 	}
 
-	return nil, Missing
+	return data, nil
 }
 
 func NewRemoteReader(

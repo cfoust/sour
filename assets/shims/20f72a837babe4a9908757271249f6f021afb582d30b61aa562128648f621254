@@ -1,0 +1,6 @@
+//Obidarids By Poum\\
+
+//Ambience\\
+loadsky penguins/arid
+fog 4000
+skylight 0x39302A

@@ -1,0 +1,489 @@
+mapmodelreset
+mmodel "mitaman/chainlinkfence"
+mmodel "dcp/blade_x"
+mmodel "dcp/blade_y"
+mmodel "dcp/blade_y/big"
+mmodel "crow"
+
+mapsound soundsnap/fan 64
+mapsound kaiser/fx/hum2 64
+mapsound kaiser/fx/hum3 64
+mapsound kaiser/fx/computer1 64
+mapsound ambience/wind.ogg 64
+mapsound ambience/doomish/rumble1 128
+mapsound fanatic/stream_light 64
+
+texturereset
+
+texture 0 "ik2k/ik_sky_day_back.jpg"  
+
+texture 0 "textures/default.png"
+
+texture 0 "textures/default.png"
+texcolor 0.8 0 0
+
+texture 0 "textures/default.png"
+texcolor 0 0.8 0
+
+texture 0 "textures/yves_allaire/e8/e8_base1b.jpg"
+
+setshader bumpspecmapparallaxworld
+setshaderparam specscale 3 3 3
+setshaderparam parallaxscale 0.04 -0.02
+
+texture 0 textures/yves_allaire/ex/clangfloor_01_d.jpg
+texture n textures/yves_allaire/ex/clangfloor_01_local.png
+texture s textures/yves_allaire/ex/clangfloor_01_s.jpg
+texture z textures/yves_allaire/ex/clangfloor_01_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/clangfloor_01b_d.jpg
+texture n textures/yves_allaire/ex/clangfloor_01_local.png
+texture s textures/yves_allaire/ex/clangfloor_01_s.jpg
+texture z textures/yves_allaire/ex/clangfloor_01_h.jpg
+texscale 0.5
+
+texture 0 "textures/yves_allaire/ex/cretefloor_01b_d.jpg"
+texture n "textures/yves_allaire/ex/cretefloor_01b_local.png"
+texture s "textures/yves_allaire/ex/cretefloor_01b_s.jpg"
+texture z "textures/yves_allaire/ex/cretefloor_01b_h.jpg"
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/deswall_01_d.jpg
+texture n textures/yves_allaire/ex/deswall_01_local.png
+texture s textures/yves_allaire/ex/deswall_01_s.jpg
+texture z textures/yves_allaire/ex/deswall_01_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/floor_grate03_d.jpg
+texture n textures/yves_allaire/ex/floor_grate03_local.png
+texture s textures/yves_allaire/ex/floor_grate03_s.jpg
+texture z textures/yves_allaire/ex/floor_grate03_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/floor_mtl_wrn_01_d.jpg
+texture n textures/yves_allaire/ex/floor_mtl_wrn_01_local.png
+texture s textures/yves_allaire/ex/floor_mtl_wrn_01_s.jpg
+texture z textures/yves_allaire/ex/floor_mtl_wrn_01_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/floor_simplines_d.jpg
+texture n textures/yves_allaire/ex/floor_simple_05_local.png
+texture s textures/yves_allaire/ex/floor_simple_05_s.jpg
+texture z textures/yves_allaire/ex/floor_simple_05_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/floor_tile_03_d.jpg
+texture n textures/yves_allaire/ex/floor_tile_03_local.png
+texture s textures/yves_allaire/ex/floor_tile_03_s.jpg
+texture z textures/yves_allaire/ex/floor_tile_03_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/floor_tread_01_d.jpg
+texture n textures/yves_allaire/ex/floor_tread_01_local.png
+texture s textures/yves_allaire/ex/floor_tread_01_s.jpg
+texture z textures/yves_allaire/ex/floor_tread_01_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/metal_supp_01_d.jpg
+texture n textures/yves_allaire/ex/metal_supp_01_local.png
+texture s textures/yves_allaire/ex/metal_supp_01_s.jpg
+texture z textures/yves_allaire/ex/metal_supp_01_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/metal_wall_02_d.jpg
+texture n textures/yves_allaire/ex/metal_wall_02_local.png
+texture s textures/yves_allaire/ex/metal_wall_02_s.jpg
+texture z textures/yves_allaire/ex/metal_wall_02_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/mtl_bigplate_04_d.jpg
+texture n textures/yves_allaire/ex/mtl_bigplate_04_local.png
+texture s textures/yves_allaire/ex/mtl_bigplate_04_s.jpg
+texture z textures/yves_allaire/ex/mtl_bigplate_04_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/mtl_panel_02_d.jpg
+texture n textures/yves_allaire/ex/mtl_panel_02_local.png
+texture s textures/yves_allaire/ex/mtl_panel_02_s.jpg
+texture z textures/yves_allaire/ex/mtl_panel_02_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/mtl_panel_03_d.jpg
+texture n textures/yves_allaire/ex/mtl_panel_03_local.png
+texture s textures/yves_allaire/ex/mtl_panel_03_s.jpg
+texture z textures/yves_allaire/ex/mtl_panel_03_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/mtl_panel_04_d.jpg
+texture n textures/yves_allaire/ex/mtl_panel_04_local.png
+texture s textures/yves_allaire/ex/mtl_panel_04_s.jpg
+texture z textures/yves_allaire/ex/mtl_panel_04_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/q2_01_d.jpg
+texture n textures/yves_allaire/ex/q2_01_local.png
+texture s textures/yves_allaire/ex/q2_01_s.jpg
+texture z textures/yves_allaire/ex/q2_01_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/q2_01b_d.jpg
+texture n textures/yves_allaire/ex/q2_01b_local.png
+texture s textures/yves_allaire/ex/q2_01b_s.jpg
+texture z textures/yves_allaire/ex/q2_01b_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/q2_01e_d.jpg
+texture n textures/yves_allaire/ex/q2_01e_local.png
+texture s textures/yves_allaire/ex/q2_01e_s.jpg
+texture z textures/yves_allaire/ex/q2_01e_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/rndfloor_01_d.jpg
+texture n textures/yves_allaire/ex/rndfloor_01_local.png
+texture s textures/yves_allaire/ex/rndfloor_01_s.jpg
+texture z textures/yves_allaire/ex/rndfloor_01_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/rndfloor_02_d.jpg
+texture n textures/yves_allaire/ex/rndfloor_02_local.png
+texture s textures/yves_allaire/ex/rndfloor_02_s.jpg
+texture z textures/yves_allaire/ex/rndfloor_02_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/rplates_01_d.jpg
+texture n textures/yves_allaire/ex/rplates_01_local.png
+texture s textures/yves_allaire/ex/rplates_01_s.jpg
+texture z textures/yves_allaire/ex/rplates_01_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/steptop_01_d.jpg
+texture n textures/yves_allaire/ex/steptop_01_local.png
+texture s textures/yves_allaire/ex/steptop_01_s.jpg
+texture z textures/yves_allaire/ex/steptop_01_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/trim_01_d.jpg
+texture n textures/yves_allaire/ex/trim_01_local.png
+texture s textures/yves_allaire/ex/trim_01_s.jpg
+texture z textures/yves_allaire/ex/trim_01_h.jpg
+texscale 0.25
+
+texture 0 textures/yves_allaire/ex/trim_baseboard_d.jpg
+texture n textures/yves_allaire/ex/trim_baseboard_local.png
+texture s textures/yves_allaire/ex/trim_baseboard_s.jpg
+texture z textures/yves_allaire/ex/trim_baseboard_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/trim_psimple_04_d.jpg
+texture n textures/yves_allaire/ex/trim_psimple_04_local.png
+texture s textures/yves_allaire/ex/trim_psimple_04_s.jpg
+texture z textures/yves_allaire/ex/trim_psimple_04_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/trim_psimple_05_d.jpg
+texture n textures/yves_allaire/ex/trim_psimple_05_local.png
+texture s textures/yves_allaire/ex/trim_psimple_05_s.jpg
+texture z textures/yves_allaire/ex/trim_psimple_05_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/trim_simple_01_d.jpg
+texture n textures/yves_allaire/ex/trim_simple_01_local.png
+texture s textures/yves_allaire/ex/trim_simple_01_s.jpg
+texture z textures/yves_allaire/ex/trim_simple_01_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/trim_support_03_d.jpg
+texture n textures/yves_allaire/ex/trim_support_03_local.png
+texture s textures/yves_allaire/ex/trim_support_03_s.jpg
+texture z textures/yves_allaire/ex/trim_support_03_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/trim_vert_01_d.jpg
+texture n textures/yves_allaire/ex/trim_vert_01_local.png
+texture s textures/yves_allaire/ex/trim_vert_01_s.jpg
+texture z textures/yves_allaire/ex/trim_vert_01_h.jpg 
+texscale 0.25
+
+texture 0 textures/yves_allaire/ex/wall_01_d.jpg
+texture n textures/yves_allaire/ex/wall_01_local.png
+texture s textures/yves_allaire/ex/wall_01_s.jpg
+texture z textures/yves_allaire/ex/wall_01_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/wall_01b_d.jpg
+texture n textures/yves_allaire/ex/wall_01_local.png
+texture s textures/yves_allaire/ex/wall_01_s.jpg
+texture z textures/yves_allaire/ex/wall_01_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/wall_b01_d.jpg
+texture n textures/yves_allaire/ex/wall_b01_local.png 
+texture s textures/yves_allaire/ex/wall_b01_s.jpg
+texture z textures/yves_allaire/ex/wall_b01_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/wall_bigrib_02_d.jpg
+texture n textures/yves_allaire/ex/wall_bigrib_02_local.png
+texture s textures/yves_allaire/ex/wall_bigrib_02_s.jpg
+texture z textures/yves_allaire/ex/wall_bigrib_02_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/wall_bplate_06_d.jpg
+texture n textures/yves_allaire/ex/wall_bplate_06_local.png
+texture s textures/yves_allaire/ex/wall_bplate_06_s.jpg
+texture z textures/yves_allaire/ex/wall_bplate_06_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/wall_panel_05_d.jpg
+texture n textures/yves_allaire/ex/wall_panel_05_local.png
+texture s textures/yves_allaire/ex/wall_panel_05_s.jpg
+texture z textures/yves_allaire/ex/wall_panel_05_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/wall_panels_08_d.jpg
+texture n textures/yves_allaire/ex/wall_panels_08_local.png
+texture s textures/yves_allaire/ex/wall_panels_08_s.jpg
+texture z textures/yves_allaire/ex/wall_panels_08_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/wall_panels_08b_d.jpg
+texture n textures/yves_allaire/ex/wall_panels_08b_local.png
+texture s textures/yves_allaire/ex/wall_panels_08b_s.jpg
+texture z textures/yves_allaire/ex/wall_panels_08b_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/wall_pipe_d.jpg
+texture n textures/yves_allaire/ex/wall_pipe_local.png
+texture s textures/yves_allaire/ex/wall_pipe_s.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/wall_u207_d.jpg
+texture n textures/yves_allaire/ex/wall_u207_local.png
+texture s textures/yves_allaire/ex/wall_u207_s.jpg
+texture z textures/yves_allaire/ex/wall_u207_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/metal_plate_01b_d.jpg
+texture n textures/yves_allaire/ex/metal_plate_01b_local.png
+texture s textures/yves_allaire/ex/metal_plate_01b_s.jpg
+texture z textures/yves_allaire/ex/metal_plate_01b_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/metal_plate_01c_d.jpg
+texture n textures/yves_allaire/ex/metal_plate_01c_local.png
+texture s textures/yves_allaire/ex/metal_plate_01c_s.jpg
+texture z textures/yves_allaire/ex/metal_plate_01c_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/metal_base_01_d.jpg
+texture n textures/yves_allaire/ex/metal_base_01_local.png
+texture s textures/yves_allaire/ex/metal_base_01_s.jpg
+texture z textures/yves_allaire/ex/metal_base_01_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/metal_base_02_d.jpg
+texture n textures/yves_allaire/ex/metal_base_02_local.png
+texture s textures/yves_allaire/ex/metal_base_02_s.jpg
+texture z textures/yves_allaire/ex/metal_base_02_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/metal_base_03_d.jpg
+texture n textures/yves_allaire/ex/metal_base_03_local.png
+texture s textures/yves_allaire/ex/metal_base_03_s.jpg
+texture z textures/yves_allaire/ex/metal_base_03_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/metal_base_04_d.jpg
+texture n textures/yves_allaire/ex/metal_base_03_local.png
+texture s textures/yves_allaire/ex/metal_base_03_s.jpg
+texture z textures/yves_allaire/ex/metal_base_03_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/metal_base_05_rust_d.jpg
+texture n textures/yves_allaire/ex/metal_base_05_rust_local.png
+texture s textures/yves_allaire/ex/metal_base_05_rust_s.jpg
+texture z textures/yves_allaire/ex/metal_base_05_rust_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/metal_base_06_rust_d.jpg
+texture n textures/yves_allaire/ex/metal_base_05_rust_local.png
+texture s textures/yves_allaire/ex/metal_base_05_rust_s.jpg
+texture z textures/yves_allaire/ex/metal_base_05_rust_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/metal_base_07_rust_d.jpg
+texture n textures/yves_allaire/ex/metal_base_05_rust_local.png
+texture s textures/yves_allaire/ex/metal_base_05_rust_s.jpg
+texture z textures/yves_allaire/ex/metal_base_05_rust_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/metal_floor_02_d.jpg
+texture n textures/yves_allaire/ex/metal_floor_02_local.png
+texture s textures/yves_allaire/ex/metal_floor_02_s.jpg
+texture z textures/yves_allaire/ex/metal_floor_02_h.jpg
+texscale 0.5
+
+texture 0 textures/yves_allaire/ex/metal_rib_01_d.jpg
+texture n textures/yves_allaire/ex/metal_rib_01_local.png
+texture s textures/yves_allaire/ex/metal_rib_01_s.jpg
+texture z textures/yves_allaire/ex/metal_rib_01_h.jpg
+texscale 0.5
+
+setshader bumpspecmapparallaxglowworld
+setshaderparam specscale 3 3 3
+setshaderparam parallaxscale 0.05 -0.025
+setshaderparam glowcolor 1 1 0.8
+texture 0 textures/yves_allaire/ex/light_u201_d.jpg
+texture n textures/yves_allaire/ex/light_u201_local.png
+texture s textures/yves_allaire/ex/light_u201_s.jpg
+texture g textures/yves_allaire/ex/light_u201_add.jpg
+texture z textures/yves_allaire/ex/light_u201_h.jpg
+texscale 0.25
+
+texture 0 textures/yves_allaire/ex/lightpanel_01_d.jpg
+texture n textures/yves_allaire/ex/lightpanel_01_local.png
+texture s textures/yves_allaire/ex/lightpanel_01_s.jpg
+texture g textures/yves_allaire/ex/lightpanel_01_add.jpg
+texture z textures/yves_allaire/ex/lightpanel_01_h.jpg
+texscale 0.5
+
+setshader bumpspecmapparallaxglowworld
+setshaderparam specscale 3 3 3
+setshaderparam parallaxscale 0.05 -0.025
+setshaderparam glowcolor 0 0.5 1
+texture 0 trak5/light2a.jpg
+texture n trak5/light2_n.png
+texture s trak5/light2_s.jpg
+texture g trak5/light2a_g.jpg
+texscale 0.25
+
+texture 0 trak5/light3a.jpg
+texture n trak5/light3_n.png
+texture s trak5/light3_s.jpg
+texture g trak5/light3a_g.jpg
+texscale 0.5
+
+setshader bumpspecmapparallaxglowworld
+setshaderparam specscale 3 3 3
+setshaderparam parallaxscale 0.05 -0.025
+setshaderparam glowcolor 0 0.5 1
+texture 0 textures/yves_allaire/ex/light_u201_d.jpg
+texture n textures/yves_allaire/ex/light_u201_local.png
+texture s textures/yves_allaire/ex/light_u201_s.jpg
+texture g textures/yves_allaire/ex/light_u201_add.jpg
+texture z textures/yves_allaire/ex/light_u201_h.jpg
+texscale 0.25
+
+texture 0 textures/yves_allaire/ex/lightpanel_01_d.jpg
+texture n textures/yves_allaire/ex/lightpanel_01_local.png
+texture s textures/yves_allaire/ex/lightpanel_01_s.jpg
+texture g textures/yves_allaire/ex/lightpanel_01_add.jpg
+texture z textures/yves_allaire/ex/lightpanel_01_h.jpg
+texscale 0.5
+
+setshader bumpspecmapparallaxglowworld
+setshaderparam specscale 3 3 3
+setshaderparam parallaxscale 0.05 -0.025
+setshaderparam glowcolor 1 1 0.8
+texture 0 trak5/light2a.jpg
+texture n trak5/light2_n.png
+texture s trak5/light2_s.jpg
+texture g trak5/light2a_g.jpg
+texscale 0.25
+
+texture 0 trak5/light3a.jpg
+texture n trak5/light3_n.png
+texture s trak5/light3_s.jpg
+texture g trak5/light3a_g.jpg
+texscale 0.5
+
+setshader bumpspecmapparallaxglowworld
+setshaderparam specscale 3 3 3
+setshaderparam parallaxscale 0.05 -0.025
+setshaderparam glowcolor 0 0.5 1
+texture 0 "philipk/pk01_panel01b_d.jpg"
+texture n "philipk/pk01_panel01_local.jpg"
+texture s "philipk/pk01_panel01_s.jpg"
+texture g "philipk/pk01_panel01b_add.jpg"
+
+texture 0 "philipk/pk01_panel02_d.jpg"
+texture n "philipk/pk01_panel02_local.jpg"
+texture s "philipk/pk01_panel02_s.jpg"
+texture g "philipk/pk01_panel02a_add.jpg"
+
+texture 0 "philipk/pk01_panel03a_d.jpg"
+texture n "philipk/pk01_panel03_local.jpg"
+texture s "philipk/pk01_panel03_s.jpg"
+texture g "philipk/pk01_panel03a_add.jpg"
+
+texture 0 "philipk/pk01_panel03b_d.jpg"
+texture n "philipk/pk01_panel03_local.jpg"
+texture s "philipk/pk01_panel03_s.jpg"
+texture g "philipk/pk01_panel03b_add.jpg"
+
+texture 0 "philipk/pk01_panel_small01_d.jpg"
+texture n "philipk/pk01_panel_small01_local.jpg"
+texture s "philipk/pk01_panel_small01_s.jpg"
+texture g "philipk/pk01_panel_small01_add.jpg"
+
+texture 0 "philipk/pk01_panel_small02_d.jpg"
+texture n "philipk/pk01_panel_small02_local.jpg"
+texture s "philipk/pk01_panel_small02_s.jpg"
+texture g "philipk/pk01_panel_small02_add.jpg"
+
+setshader glowworld
+setshaderparam glowcolor 0.25 0.25 0.2
+texture 0 "misanthropx/white.jpg"
+texture g "misanthropx/white.jpg"
+
+setshader pulseglowworld
+setshaderparam pulseglowspeed 0.2
+setshaderparam glowcolor 0 0.5 1
+setshaderparam pulseglowcolor 0 0.25 0.5
+texture 0 caustics/caust00.png
+texture g caustics/caust00.png
+texalpha 0.1 0.1
+texscroll 0.05 0.1
+
+setshader pulseglowworld
+setshaderparam pulseglowspeed 0.2
+setshaderparam glowcolor 0.5 0.5 0.4
+setshaderparam pulseglowcolor 0.25 0.25 0.2
+texture 0 caustics/caust00.png
+texture g caustics/caust00.png
+texalpha 0.1 0.1
+texscroll 0.05
+
+setshader pulseglowworld
+setshaderparam pulseglowspeed 0.2
+setshaderparam glowcolor 0.5 0.5 0.4
+setshaderparam pulseglowcolor 0.25 0.25 0.2
+texture 0 caustics/caust00.png
+texture g caustics/caust00.png
+texalpha 0.1 0.1
+texscroll -0.05 0.1
+
+setshader pulseglowworld
+setshaderparam pulseglowspeed 0.2
+setshaderparam glowcolor 0 0.125 0.25
+setshaderparam pulseglowcolor 0 0.0625 0.125
+texture 0 "misanthropx/white.jpg"
+texture g "misanthropx/white.jpg"
+texalpha 0.1 0.1
+
+setshader pulseglowworld
+setshaderparam pulseglowspeed 0.2
+setshaderparam glowcolor 0 0.25 0.5
+setshaderparam pulseglowcolor 0 0.125 0.25
+texture 0 "misanthropx/white.jpg"
+texture g "misanthropx/white.jpg"
+texalpha 0.1 0.1
+
+setshader pulseglowworld
+setshaderparam pulseglowspeed 0.2
+setshaderparam glowcolor 0 0.5 1.0
+setshaderparam pulseglowcolor 0 0.25 0.5
+texture 0 "misanthropx/white.jpg"
+texture g "misanthropx/white.jpg"
+texalpha 0.1 0.1

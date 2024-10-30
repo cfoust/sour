@@ -1,0 +1,424 @@
+// AN ARMY OF ONE by MitaMAN: PART I
+// 10-23-06
+// mitaman1@optonline.net
+
+//music "fanatic/18.ogg"
+
+killsendsp 0
+
+
+// reset the mapmodels used for this map (replace this with your own mapmodel defs if you want):
+// the number in comments is what you use with "newent mapmodel N"
+
+mapmodelreset						// start counting from 0 again
+
+mapmodel 4  32 0 "tree1"			// 0
+mapmodel 16 12 16 "bridge"			// 1
+ 
+mapmodel 24 48 0 "dcp/tree2"		      // 2
+mapmodel 8  32 0 "dcp/tree3"		      // 3
+mapmodel 4  36 0 "dcp/palmtree"	      // 4
+mapmodel 4  16 0 "dcp/thorns"		      // 5
+mapmodel 4  8  0 "dcp/plant1"		      // 6
+mapmodel 4  0  0 "dcp/grass"		      // 7
+mapmodel 12 0  0 "dcp/ivy"			// 8
+mapmodel 4  12 0 "dcp/barrel"		      // 9
+mapmodel 4  32 0 "dcp/streetlamp"	      // 10
+mapmodel 12 8  0 "dcp/bench"		      // 11
+mapmodel 4  32 0 "dcp/pillar"		      // 12
+mapmodel 8  8  0 "dcp/waterbowl"	      // 13
+mapmodel 8  0  0 "dcp/jumppad2"	      // 14
+mapmodel 8  8  0 "dcp/leafs"		      // 15
+mapmodel 12 12 0 "dcp/valve"		      // 16
+mapmodel 12 4  0 "dcp/palette"		// 17
+mapmodel 8  8  0 "dcp/vent"		      // 18
+mapmodel 4  4  0 "dcp/mushroom"	      // 19
+mapmodel 12 32 0 "dcp/biotank"		// 20
+mapmodel 4  12 0 "dcp/groundlamp"	      // 21
+mapmodel 8  12 0 "dcp/console"		// 22
+mapmodel 4  12 0 "dcp/turret"             // 23
+mapmodel 4  12 0 "dcp/cask"		      // 24
+mapmodel 12 0  0 "dcp/chandelier"	      // 25
+mapmodel 8  12 0 "dcp/chest"		      // 26
+mapmodel 12 0  0 "dcp/hanginlamp"	      // 27
+mapmodel 4  8  0 "dcp/reed"		      // 28
+mapmodel 4  8  0 "dcp/smplant"            // 29
+
+mapmodel 12 0  0 "makke/strahler"         // 30
+
+mapmodel 4  64 0 "vegetation/tree00"	// 31
+mapmodel 4  64 0 "vegetation/tree01"	// 32
+mapmodel 0   0 0 "vegetation/bush01"	// 33
+mapmodel 4  64 0 "vegetation/tree02"	// 34
+mapmodel 4  64 0 "vegetation/tree03"	// 35
+mapmodel 4  64 0 "vegetation/tree04"	// 36
+mapmodel 4  64 0 "vegetation/tree05"	// 37
+mapmodel 4  64 0 "vegetation/tree06"	// 38
+mapmodel 0  64 0 "vegetation/tree07"	// 39
+
+mapmodel 16  16 0 "objects/minekart"	// 40
+mapmodel 8   14 0 "psionic/crate4" 	// 41
+mapmodel 4   12 0 "psionic/barrel2" 	// 42
+mapmodel 8   16 0 "mitaman/locker3" 	// 43
+mapmodel 0   0  0 "tentus/chains/curvechain" 	// 44
+mapmodel 8   1  0 "mitaman/floorgrate1" 	// 45
+mapmodel 0   0  0 "mitaman/chainlinkfence" 	// 46
+mapmodel 7   20 0 "mitaman/locker1" 	// 47
+
+mapmodel 10  16  0 "xeno/box1" 	// 48
+mapmodel 10  16  0 "xeno/box2" 	// 49
+mapmodel 0   0   0 "tentus/chains/chain" 	// 50
+
+// for use as triggers:
+
+mapmodel 0   0 0 "carrot"         100               // 51
+mapmodel 0   0 0 "switch1"        100               // 52
+mapmodel 0   0 0 "switch2"        100               // 53
+
+mapmodel 12 32 0 "doors/door_01"  100               // 54
+mapmodel 12 32 0 "doors/door_02"  100               // 55
+mapmodel 12 32 0 "doors/door_03"  100               // 56
+
+mapmodel 0   0  0 "flags/neutral" 	// 57
+mapmodel 0   0  0 "mitaman/floorgrate3" 	// 58
+mapmodel 0   0  0 "flags/red"             // 59
+
+
+// the skybox for this map:
+
+loadsky "socksky/mars"
+//loadsky "socksky/desert"
+//loadsky "socksky/frozen"
+//loadsky "socksky/mars"
+//loadsky "socksky/emerald"
+//loadsky "stecki/snow"
+
+
+// texture definitions for the map:
+
+// texture 0 is hardcoded as the sky
+// texture 1 is hardcoded as the default liquid texture
+// texture 2 is the default wall texture (for new maps)
+// texture 3 is the default floor texture
+// texture 4 is the default ceiling texture
+
+
+texturereset    // starts the texture slot/index at 0
+
+// ik2k
+
+texture 0 "ik2k/ik_sky_day_back.jpg"     // dummy
+texture 0 "golgotha/water2.jpg"
+
+// dg textures
+
+texture 0 "dg/f_p2_v.jpg"
+texture 0 "dg/floor_pavement_stone_four2.jpg"
+texture 0 "dg/floor_pavement_stone4_2.jpg"
+texture 0 "dg/floor_pavement_stone4_3.jpg"
+texture 0 "dg/floor_pavement_stone4_4moss.jpg"
+texture 0 "dg/floor_pavement_stone5_2.jpg"
+texture 0 "dg/floor_pavingStone.jpg"
+texture 0 "dg/floor_pavingStone_ceramic.jpg"
+texture 0 "noctua/plast06.jpg"
+texture 0 "mitaman/mm-electricpanel.jpg"
+texture 0 "dg/mad051.jpg"
+texture 0 "dg/mad063.jpg"
+texture 0 "dg/mad064.jpg"
+texture 0 "dg/mad065.jpg"
+texture 0 "dg/mad066.jpg"
+texture 0 "dg/mad067.jpg"
+texture 0 "dg/mot088.jpg"
+texture 0 "dg/mot190.jpg"
+
+texture 0 "noctua/planks01.jpg" 0 0 0 .5
+texture 0 "noctua/planks01.jpg" 1 0 0 .5
+texture 0 "noctua/planks02.jpg"
+texture 0 "noctua/planks02.jpg" 1
+texture 0 "mitaman/mm-lightgrill_a.jpg"
+texture 0 "mitaman/mm-steeringcontrol.jpg"
+texture 0 "noctua/plast06.jpg"
+texture 0 "mitaman/mm-window1.jpg"
+
+texture 0 "mitaman/mm-metalpanel-a.jpg"
+texture 0 "mitaman/mm-metalpanel-a.jpg" 1
+texture 0 "rorschach/3r_colrust01b.jpg" 1
+
+texture 0 "golgotha/metalrock.jpg"
+
+//texture 0 "dg/mur068.jpg"
+texture 0 "dg/mur073.jpg"
+texture 0 "dg/mur078.jpg"
+texture 0 "dg/mur079.jpg"
+texture 0 "dg/mur087.jpg"
+texture 0 "dg/mur088.jpg"
+texture 0 "dg/mur109.jpg"
+texture 0 "dg/mur135.jpg"
+texture 0 "dg/mur139.jpg"
+texture 0 "dg/mur142.jpg"
+texture 0 "dg/muv025.jpg"
+texture 0 "dg/muv030.jpg"
+texture 0 "dg/muv032.jpg"
+texture 0 "dg/muv158.jpg"
+texture 0 "dg/muv204.jpg"
+texture 0 "dg/sup075.jpg"
+
+// rorschach
+
+texture 0 "rorschach/1_concrete01.jpg"
+texture 0 "rorschach/1_rust_grill01.jpg"
+texture 0 "rorschach/1_rust_grill02.jpg"
+texture 0 "rorschach/1_th_trim01.jpg"
+texture 0 "rorschach/1_th_trim02.jpg"
+texture 0 "rorschach/128_ivbr_trim02.jpg"
+texture 0 "rorschach/128_tar_metflr01.jpg"
+texture 0 "rorschach/1r_clocktrim01.jpg"
+texture 0 "rorschach/1r_clocktrim03b.jpg"
+texture 0 "rorschach/1r_column01.jpg"
+texture 0 "rorschach/1r_floor02.jpg"
+texture 0 "rorschach/1r_grill02.jpg"
+texture 0 "rorschach/1r_light01.jpg"
+texture 0 "rorschach/1r_metpan05.jpg"
+texture 0 "rorschach/1r_metrim1.jpg"
+texture 0 "rorschach/1r_metwl01.jpg"
+texture 0 "rorschach/1r_plain_met02.jpg"
+texture 0 "rorschach/1r_squ_pan03.jpg"
+texture 0 "rorschach/1r_squ_pan04b.jpg"
+texture 0 "rorschach/1r_steps.jpg"
+texture 0 "rorschach/1r_thickpan03.jpg"
+texture 0 "rorschach/2_064_red_girder02.jpg"
+texture 0 "rorschach/2_128_redpan02.jpg"
+texture 0 "rorschach/2_256_red_thin02.jpg"
+texture 0 "rorschach/2_256_red_thin03.jpg"
+texture 0 "rorschach/2_256_redsup01.jpg"
+texture 0 "rorschach/2_32_red_thin02.jpg"
+texture 0 "rorschach/2_c_thinredtrim03.jpg"
+texture 0 "rorschach/2_c_tiles01.jpg"
+texture 0 "rorschach/2_conc_celing01.jpg"
+texture 0 "rorschach/2_conc_floorpat02_s.jpg"
+texture 0 "rorschach/2_conc_l01.jpg"
+texture 0 "rorschach/2_floor02.jpg"
+texture 0 "rorschach/2_largemet03.jpg"
+texture 0 "rorschach/2_redtrim03.jpg"
+texture 0 "rorschach/2_whitetrim03.jpg"
+texture 0 "rorschach/256_gate_rock07.jpg"
+texture 0 "rorschach/256_gate_water02.jpg"
+texture 0 "rorschach/256_iv_floor01.jpg"
+texture 0 "rorschach/256_iv_floor02.jpg"
+texture 0 "rorschach/256_tar_ccolumn01.jpg"
+texture 0 "rorschach/2r_plaster_floor01.jpg"
+texture 0 "rorschach/3i_crust.jpg"
+texture 0 "rorschach/3i_rockyfloor.jpg"
+texture 0 "rorschach/3m_metflr_tiles.jpg"
+texture 0 "rorschach/3r_colrust01b.jpg"
+texture 0 "rorschach/3r_light01b.jpg"
+texture 0 "rorschach/3r_lighthh01b.jpg"
+texture 0 "rorschach/3r_metblock01.jpg"
+texture 0 "rorschach/3r_plaster02.jpg"
+texture 0 "rorschach/4_conc_floor01.jpg"
+texture 0 "rorschach/4_met01.jpg"
+texture 0 "rorschach/4_met05b.jpg"
+texture 0 "rorschach/5_bricks01.jpg"
+texture 0 "rorschach/5_faces.jpg"
+texture 0 "rorschach/5_light01b.jpg"
+texture 0 "rorschach/5_slabfloor.jpg"
+texture 0 "rorschach/5_trim02.jpg"
+texture 0 "rorschach/64_iv_column01.jpg"
+texture 0 "rorschach/64_warm01.jpg"
+texture 0 "rorschach/128_ivbr_trim02.jpg"
+texture 0 "rorschach/128_tar_metflr01.jpg"
+texture 0 "rorschach/256_iv_floor01.jpg"
+texture 0 "rorschach/256_tar_ccolumn01.jpg"
+texture 0 "rorschach/hh3_m_light01.jpg"
+texture 0 "rorschach/hh3_m_light03.jpg"
+texture 0 "rorschach/hh3_mw_light01.jpg"
+texture 0 "rorschach/hh3_mw_light03.jpg"
+texture 0 "rorschach/j128_brick01.jpg"
+texture 0 "rorschach/j128_item.jpg"
+texture 0 "rorschach/j128_metpan01.jpg"
+texture 0 "rorschach/j128_metpan05.jpg"
+texture 0 "rorschach/j256_cobl01.jpg"
+
+// subverse
+
+texture 0 "subverse/block_wall_02.jpg"
+texture 0 "subverse/crate_space_vents.jpg" 1
+texture 0 "subverse/flat_rocks.jpg"
+texture 0 "subverse/floor_tile_1.jpg"
+texture 0 "subverse/metal_scratch_tile.jpg"
+texture 0 "subverse/metal_siding_kinks.jpg"
+texture 0 "subverse/puzzel_block.jpg"
+texture 0 "subverse/solid_vent.jpg"
+texture 0 "subverse/wood_crate_05.jpg"
+texture 0 "subverse/wood_crate_1.jpg"
+
+// g_pack
+
+texture 0 "g_pack/g-bricks02a.jpg"
+texture 0 "g_pack/g-bricks03.jpg"
+texture 0 "g_pack/g-bricks05.jpg"
+texture 0 "g_pack/g-bricks09.jpg"
+texture 0 "g_pack/g-bricks10.jpg"
+texture 0 "g_pack/g-bricks26.jpg"
+texture 0 "g_pack/g-bricks30.jpg"
+texture 0 "g_pack/g-crate01.jpg"
+texture 0 "g_pack/g-floor04.jpg"
+texture 0 "g_pack/g-floor10.jpg"
+texture 0 "g_pack/g-metbas0c1.jpg"
+texture 0 "g_pack/g-metbas5b.jpg"
+texture 0 "g_pack/g-metbas6.jpg"
+texture 0 "g_pack/g-metfloor3b.jpg"
+texture 0 "g_pack/g-metfloor5b.jpg"
+texture 0 "g_pack/g-metfloor7b.jpg"
+texture 0 "g_pack/g-mettrim03.jpg"
+texture 0 "g_pack/g-wood02.jpg" 1
+texture 0 "g_pack/g-wood02.jpg"
+
+// tech1soc
+
+texture 0 "tech1soc/032-01c.jpg"
+texture 0 "tech1soc/032-10a.jpg"
+texture 0 "tech1soc/032-10b.jpg"
+texture 0 "tech1soc/032-12d.jpg"
+texture 0 "tech1soc/032-14b.jpg"
+texture 0 "tech1soc/032-15a.jpg"
+texture 0 "tech1soc/032-15b.jpg"
+texture 0 "tech1soc/064-11b.jpg"
+texture 0 "tech1soc/064-12a.jpg"
+texture 0 "tech1soc/064-13b.jpg"
+texture 0 "tech1soc/064-15b.jpg"
+texture 0 "tech1soc/064-20a.jpg"
+texture 0 "tech1soc/064-20b.jpg"
+texture 0 "tech1soc/064-22b.jpg"
+texture 0 "tech1soc/128-05b.jpg"
+texture 0 "tech1soc/128-05c.jpg"
+texture 0 "tech1soc/blank01a.jpg"
+texture 0 "tech1soc/blank01c.jpg"
+texture 0 "tech1soc/blank02a.jpg"
+texture 0 "tech1soc/blank02b.jpg"
+texture 0 "tech1soc/blank03a.jpg"
+texture 0 "tech1soc/blank03d.jpg"
+texture 0 "tech1soc/block01b.jpg"
+texture 0 "tech1soc/block01c.jpg"
+texture 0 "tech1soc/block10b.jpg"
+texture 0 "tech1soc/block19b.jpg"
+texture 0 "tech1soc/chain_mesh2.jpg"
+texture 0 "tech1soc/grate_brown1.jpg"
+texture 0 "tech1soc/grate_brown3.jpg"
+texture 0 "tech1soc/grate1b.jpg"
+texture 0 "tech1soc/grill_wall01b.jpg"
+texture 0 "tech1soc/half_grill_wall01b.jpg"
+texture 0 "tech1soc/half_grill_wall03b.jpg"
+texture 0 "tech1soc/mat4b.jpg"
+texture 0 "tech1soc/matbrown_lgt2.jpg"
+texture 0 "tech1soc/met_wall01a.jpg"
+texture 0 "tech1soc/met_wall01c.jpg"
+texture 0 "tech1soc/mix_wall03a.jpg"
+texture 0 "tech1soc/mix_wall03ab.jpg"
+texture 0 "tech1soc/o128-02a.jpg"
+texture 0 "tech1soc/octlig01bc.jpg"
+texture 0 "tech1soc/panel20c.jpg"
+texture 0 "tech1soc/panel40c.jpg"
+texture 0 "tech1soc/s128-01c.jpg"
+texture 0 "tech1soc/s128-02a.jpg"
+texture 0 "tech1soc/s128-02b.jpg"
+texture 0 "tech1soc/s128-03b.jpg"
+texture 0 "tech1soc/s256-01c.jpg"
+texture 0 "tech1soc/s256-01d.jpg"
+texture 0 "tech1soc/s256-02a.jpg"
+texture 0 "tech1soc/s256-02b.jpg"
+texture 0 "tech1soc/sqrlig02wb.jpg"
+texture 0 "tech1soc/sqrlig03bc.jpg"
+
+// payne
+
+texture 0 "payne/Box12b.jpg"
+texture 0 "payne/Brick58_512x512.jpg"
+texture 0 "payne/Grate09b.jpg"
+texture 0 "payne/SlimyTile02_128x128.jpg"
+texture 0 "payne/Tile28b.jpg"
+
+//egyptsoc
+
+texture 0 "textures/nieb/rock01.jpg"
+texture 0 "mitaman/mm-metalpanel-b.jpg"
+texture 0 "egyptsoc/block07b.jpg"
+texture 0 "egyptsoc/stone03d.jpg"
+texture 0 "egyptsoc/stone04d.jpg"
+
+//than_ind
+
+texture 0 "than_ind/cretewall03.jpg"
+texture 0 "than_ind/floor05.jpg"
+texture 0 "than_ind/light03.jpg"
+
+//ik2k
+
+texture 0 "ik2k/ik_brickwall_gry.jpg"	
+texture 0 "ik2k/ik_brick_6432a.jpg"
+texture 0 "ik2k/ik_brick_6464a.jpg"
+texture 0 "ik2k/ik_brick_12832a.jpg"
+texture 0 "ik2k/ik_brick_12864a.jpg"
+texture 0 "ik2k/ik_brick_trimh32a.jpg"
+texture 0 "ik2k/ik_floor_brick128b.jpg"
+texture 0 "ik2k/ik_floor_tile128b.jpg"
+texture 0 "ik2k/ik_ground_pavement128.jpg"
+texture 0 "ik2k/ik_stonestep25632.jpg"
+
+//ikbase
+
+texture 0 "ikbase/ik_conc_gmoss.jpg"	
+texture 0 "ikbase/ik_cwall03a2.jpg"
+texture 0 "ikbase/ik_cwall04a.jpg"
+texture 0 "ikbase/ik_cwall06a.jpg"
+texture 0 "ikbase/ik_floor_conc128a.jpg"
+texture 0 "ikbase/ik_floor_conc128b.jpg"
+texture 0 "ikbase/ik_gtrimv_lit2b.jpg"
+texture 0 "ikbase/ik_gtrimv_lit3b.jpg"
+texture 0 "ikbase/ik_gtrimv_lit4b.jpg"
+texture 0 "ikbase/ik_metplatef_6464b.jpg"
+
+
+texture 0 "rorschach/1r_clocktrim01.jpg" 1
+texture 0 "rorschach/1_th_trim02.jpg" 1
+texture 0 "rorschach/1r_steps.jpg" 1
+texture 0 "rorschach/256_tar_ccolumn01.jpg" 1
+texture 0 "rorschach/hh3_m_light01.jpg" 1
+texture 0 "rorschach/hh3_mw_light01.jpg" 1
+texture 0 "g_pack/g-mettrim03.jpg" 1
+texture 0 "dg/mad065.jpg" 1
+texture 0 "dg/mad067.jpg" 1
+texture 0 "ikbase/ik_gtrimv_lit4b.jpg" 1
+
+
+
+texture 0 "noctua/plast06.jpg"
+texture 0 "noctua/iron02.jpg"
+texture 0 "noctua/iron03.jpg"
+texture 0 "noctua/plast03.jpg"
+texture 0 "noctua/stone16.jpg"
+
+
+texture 0 "loopix/cobbst2.jpg"
+
+texture 0 "rorschach/hh3_64by64_light_c01.jpg"
+texture 0 "noctua/plast06.jpg"
+
+
+texture 0 "noctua/plast06.jpg"
+texture 0 "mitaman/mm-metaldoordouble.jpg"
+texture 0 "rorschach/64_column.jpg"
+
+texture 0 "mitaman/mm-gaugepanel.jpg"
+texture 0 "mitaman/mm-gaugepanel2.jpg"
+texture 0 "rorschach/64_column.jpg" 1
+texture 0 "mitaman/mm-metalsteps.jpg" 0 0 0 .5
+texture 0 "rorschach/3r_colrust01b-32.jpg" 1
+texture 0 "rorschach/3r_colrust01b-32.jpg"
+
+texture 0 "rorschach/64_column.jpg" 1
+texture 0 "mitaman/mm-metaldoor2.jpg"
+texture 0 "mitaman/mm-window4.jpg"
+
+
+

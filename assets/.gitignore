@@ -1,0 +1,8 @@
+working/**
+output/**
+roots/**
+__pycache__
+/sourdump
+quadropolis
+*.tar.gz
+cache/**

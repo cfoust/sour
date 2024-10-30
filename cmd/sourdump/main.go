@@ -367,6 +367,8 @@ func Download(ctx context.Context, cache assets.Store, roots []assets.Root, outD
 	outCache := assets.FSStore(outDir)
 
 	for _, target := range targets {
+		found := false
+
 		for _, root := range roots {
 			remoteRoot, ok := root.(*assets.PackagedRoot)
 			if !ok {
@@ -385,6 +387,12 @@ func Download(ctx context.Context, cache assets.Store, roots []assets.Root, outD
 			if err != nil {
 				log.Fatal().Err(err).Msgf("could not save asset %s", target)
 			}
+
+			found = true
+		}
+
+		if !found {
+			log.Fatal().Msgf("could not find asset '%s'", target)
 		}
 	}
 }
@@ -481,6 +489,8 @@ func main() {
 	if len(args) == 0 {
 		log.Fatal().Msg("You must provide at least one argument.")
 	}
+
+	fmt.Printf("roots: %+v", roots)
 
 	cache := assets.FSStore(*cacheDir)
 	ctx := context.Background()

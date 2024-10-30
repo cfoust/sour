@@ -1,0 +1,20 @@
+
+fog 3000
+texture 0 dg/f_p2_v.jpg
+texture 0 dg/mur013.jpg
+texture 0 dg/mur109.jpg
+texture 0 dg/mot001.jpg
+texture 0 dg/mad064.jpg
+texture 0 dg/mot190.jpg
+texture 0 dg/mot088.jpg 
+texture 0 golgotha/lava.jpg
+texture 0 dg/mur063.jpg
+texture 0 dg/mad065.jpg 1
+texture 0 dg/mot067.jpg
+texture 0 dg/mur088.jpg
+texture 0 gor/ST_GK_005_zu_001_cc.jpg 2
+texture 0 dg/mur000.jpg
+texture 0 dg/mur054.jpg
+texture 0 dg/muv030.jpg
+texture 0 dg/muv032.jpg
+mapmodel  0  0  0 objects/millblade

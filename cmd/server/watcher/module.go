@@ -13,10 +13,11 @@ import (
 )
 
 /*
-#cgo LDFLAGS: -lenet
+#cgo LDFLAGS: -L./../../../pkg/enet/enet -lenet
+#cgo CFLAGS: -I./../../../pkg/enet/enet/include
+#include <enet/enet.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <enet/enet.h>
 
 ENetAddress resolveServer(const char *host, int port) {
 	ENetAddress serverAddress = { ENET_HOST_ANY, ENET_PORT_ANY };
@@ -59,6 +60,8 @@ int receiveServer(ENetSocket socket, ENetAddress address, void * output) {
 		int len = enet_socket_receive(socket, &address, &buf, 1);
 		return len;
 	}
+
+	return 0;
 }
 
 void destroySocket(ENetSocket sock) {

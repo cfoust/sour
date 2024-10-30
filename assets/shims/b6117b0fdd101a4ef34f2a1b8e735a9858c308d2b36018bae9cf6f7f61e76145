@@ -1,0 +1,42 @@
+texturereset
+skybox staffy/staffy
+fog 10000
+texture 0 textures/sky.png
+texture 0 subverse\metal_siding_kinks.jpg
+exec packages/trak5/package.cfg
+exec packages/pyccna/recruit/recruittex.cfg
+exec packages/philipk/package.cfg
+texture 0 textures/waterfall.jpg
+texscroll 0 -1
+texture 0 textures/waterfall.jpg
+texscroll 0 1
+
+mmodel "pyccna/snoutx10k/body"
+mmodel "pyccna/snoutx10k/arms"
+mmodel "pyccna/snoutx10k/legs"
+mmodel "pyccna/snoutx10k/legs_sitting"
+mmodel "pyccna/snoutx10k/arms_gun"
+mmodel "pyccna/snoutx10k/gun"
+mmodel "pyccna/snoutx10k/body_lean"
+mmodel "pyccna/snoutx10k/arms_tense"
+mmodel "pyccna/snoutx10k/gun_lean"
+mmodel "pyccna/snoutx10k/arms_folded"
+mmodel "pyccna/snoutx10k/gun_relax"
+mmodel "pyccna/snoutx10k/legs_relax"
+mmodel "pyccna/snoutx10k/gun_unarmed"
+mmodel "pyccna/snoutx10k/arms_lean"
+mmodel "pyccna/snoutx10k/m390/m390_arms"
+mmodel "pyccna/snoutx10k/m390/m390_unarmed"
+mmodel "pyccna/snoutx10k/svd/svd_arms"
+mmodel "pyccna/snoutx10k/svd/svd_unarmed"
+mmodel "pyccna/snoutx10k/pistol"
+mmodel "pyccna/snoutx10k/mg36/mg36_arms"
+mmodel "pyccna/snoutx10k/mg36/mg36_unarmed"
+mmodel "pyccna/snoutx10k/fsr1/fsr1_arms"
+mmodel "pyccna/snoutx10k/fsr1/fsr1_unarmed"
+mmodel "pyccna/snowevergreen"
+mmodel "pyccna/fed_door"
+mmodel "pyccna/snoutx10k/sergeant"
+mmodel "pyccna/snoutx10k/sergeant/head"
+mmodel "pyccna/window"
+

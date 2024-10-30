@@ -1,11 +1,11 @@
 package enet
 
 /*
-#cgo LDFLAGS: -lenet
+#cgo LDFLAGS: -L./enet -lenet
+#cgo CFLAGS: -I./enet/include
+#include <enet/enet.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <enet/enet.h>
-
 
 ENetSocket _initConnectSocket(const char *host, int port) {
 	ENetAddress serverAddress = { ENET_HOST_ANY, ENET_PORT_ANY };
@@ -58,6 +58,8 @@ int sendSocket(ENetSocket sock, const void * req, size_t numBytes) {
 			if(reqlen <= 0) break;
 		}
 	}
+
+	return 0;
 }
 
 int receiveSocket(ENetSocket sock, void * data, size_t maxSize) {

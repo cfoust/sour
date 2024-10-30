@@ -1,0 +1,1572 @@
+//description
+maptitle "^f0The Mystical Farm^f7, by ^f1Suicizer^f7."
+//This map stays property of the original author and should not be modified in any way. I'm also not responsible for any actions which makes your computer act different than it would on any other map. 
+
+//gameplay
+//thirdperson 1
+//thirdpersondistance 30
+skill 10
+killsendsp 0
+
+//skybox
+loadsky socksky/frozendusk
+skyboxcolour 255 255 255
+yawsky 150 //30
+
+//cloudbox
+cloudbox ""
+spinclouds 0
+cloudboxcolour 255 255 255
+
+//cloudlayer
+cloudlayer blindabuser/blindaclouds
+cloudscrollx .01
+cloudscrolly .01
+cloudheight .25
+cloudfade 1
+cloudscale 1.0
+cloudalpha 1.0
+cloudcolour 0 0 0
+
+//fog
+fog 1500
+fogcolour 128 153 179
+
+//fogdome
+fogdomeheight 0.0
+fogdomeclip .5
+fogdomemin 0.0
+fogdomemax 1.0
+fogdomeclouds 1
+fogdomecap 1
+fogdomecolour 0 0 0
+
+//light
+ambient 24 22 20
+shadowmapambient 22 22 22
+shadowmapangle 10 //170
+
+//sunlight
+sunlight 90 80 70
+sunlightpitch 30 //26
+sunlightyaw 10 //140
+sunlightscale 1.0
+
+//materials
+materialreset
+
+texture water "golgotha/water2.jpg"	   	// surface of water material
+texture 1 "textures/waterfall.jpg"      // side faces of water material
+texture 1 "textures/watern.jpg"         // bump-mapped texture of water material
+texture 1 "textures/waterdudv.jpg" 	    // distortion-mapped texture of water material
+texture 1 "textures/waterfalln.jpg"     // bump-mapped texture for the side faces of water material
+texture 1 "textures/waterfalldudv.jpg"  // distortion-mapped texture for the side faces of water material
+
+watercolour 20 70 80
+waterfog 150
+waterspec 150
+waterfallcolour 0 0 0
+
+texture water2 "golgotha/water2.jpg"	   	// surface of water material
+texture 1 "textures/waterfall.jpg"      // side faces of water material
+texture 1 "textures/watern.jpg"         // bump-mapped texture of water material
+texture 1 "textures/waterdudv.jpg" 	    // distortion-mapped texture of water material
+texture 1 "textures/waterfalln.jpg"     // bump-mapped texture for the side faces of water material
+texture 1 "textures/waterfalldudv.jpg"  // distortion-mapped texture for the side faces of water material
+
+water2colour 50 25 5
+water2fog 10
+water2spec 25
+water2fallcolour 0 0 0
+
+texture water3 "golgotha/water2.jpg"	   	// surface of water material
+texture 1 "textures/waterfall.jpg"      // side faces of water material
+texture 1 "textures/watern.jpg"         // bump-mapped texture of water material
+texture 1 "textures/waterdudv.jpg" 	    // distortion-mapped texture of water material
+texture 1 "textures/waterfalln.jpg"     // bump-mapped texture for the side faces of water material
+texture 1 "textures/waterfalldudv.jpg"  // distortion-mapped texture for the side faces of water material
+
+water3colour 20 70 80
+water3fog 10
+water3spec 25
+water3fallcolour 0 0 0
+
+texture lava "dg/floor_lava2.jpg" 0 0 0 2 // surface of lava material
+texture 1 dg/floor_lava2.jpg"    // side faces of lava material
+
+texture lava2 "dg/floor_lava2.jpg" 0 0 0 2 // surface of lava material
+texture 1 dg/floor_lava2.jpg"     // side faces of lava material
+
+//textures
+texturereset
+setshader stdworld
+
+texture 0 ik2k/ik_sky_day_back.jpg"
+texture 0 "textures/default.png
+
+//blikjebier
+setshader bumpspecmapparallaxworld
+setshaderparam specscale .4 .4 .4
+setshaderparam parallaxscale .04 -.02
+texture 0 "blikjebier/akaritori/brick_big.jpg"
+texture n "blikjebier/akaritori/brick_big_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/brick_big.jpg"
+texture z "blikjebier/akaritori/brick_big_z.jpg"
+texture 0 "blikjebier/akaritori/brick_big2.jpg"
+texture n "blikjebier/akaritori/brick_big2_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/brick_big2.jpg"
+texture z "blikjebier/akaritori/brick_big2_z.jpg"
+texture 0 "blikjebier/akaritori/brick_big3.jpg"
+texture n "blikjebier/akaritori/brick_big3_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/brick_big3.jpg"
+texture z "blikjebier/akaritori/brick_big3_z.jpg"
+texture 0 "blikjebier/akaritori/brick_big4.jpg"
+texture n "blikjebier/akaritori/brick_big4_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/brick_big4.jpg"
+texture z "blikjebier/akaritori/brick_big4_z.jpg"
+texture 0 "blikjebier/akaritori/brick_big5.jpg"
+texture n "blikjebier/akaritori/brick_big5_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/brick_big5.jpg"
+texture z "blikjebier/akaritori/brick_big5_z.jpg"
+texture 0 "blikjebier/akaritori/brick_white.jpg"
+texture n "blikjebier/akaritori/brick_white_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/brick_white.jpg"
+texture z "blikjebier/akaritori/brick_white_z.jpg"
+texture 0 "blikjebier/akaritori/brick.jpg"
+texture n "blikjebier/akaritori/brick_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/brick.jpg"
+texture z "blikjebier/akaritori/brick_z.jpg"
+texture 0 "blikjebier/akaritori/concrete.jpg"
+texture n "blikjebier/akaritori/concrete_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/concrete.jpg"
+texture z "blikjebier/akaritori/concrete_z.jpg"
+texture 0 "blikjebier/akaritori/concrete1.jpg"
+texture n "blikjebier/akaritori/concrete1_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/concrete1.jpg"
+texture z "blikjebier/akaritori/concrete1_z.jpg"
+texture 0 "blikjebier/akaritori/concrete2.jpg"
+texture n "blikjebier/akaritori/concrete2_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/concrete2.jpg"
+texture z "blikjebier/akaritori/concrete2_z.jpg"
+texture 0 "blikjebier/akaritori/concrete3.jpg"
+texture n "blikjebier/akaritori/concrete3_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/concrete3.jpg"
+texture z "blikjebier/akaritori/concrete3_z.jpg"
+texture 0 "blikjebier/akaritori/floor.jpg"
+texture n "blikjebier/akaritori/floor_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/floor.jpg"
+texture z "blikjebier/akaritori/floor_z.jpg"
+setshaderparam parallaxscale .02 -.01
+texture 0 "blikjebier/akaritori/floor1.jpg"
+texture n "blikjebier/akaritori/floor1_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/floor1.jpg"
+texture z "blikjebier/akaritori/floor1_z.jpg"
+texture 0 "blikjebier/akaritori/floor2.jpg"
+texture n "blikjebier/akaritori/floor2_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/floor2.jpg"
+texture z "blikjebier/akaritori/floor2_z.jpg"
+texture 0 "blikjebier/akaritori/floor3.jpg"
+texture n "blikjebier/akaritori/floor3_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/floor3.jpg"
+texture z "blikjebier/akaritori/floor3_z.jpg"
+texture 0 "blikjebier/akaritori/floor4.jpg"
+texture n "blikjebier/akaritori/floor4_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/floor4.jpg"
+texture z "blikjebier/akaritori/floor4_z.jpg"
+texture 0 "blikjebier/akaritori/floor5.jpg"
+texture n "blikjebier/akaritori/floor5_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/floor5.jpg"
+texture z "blikjebier/akaritori/floor5_z.jpg"
+setshaderparam parallaxscale .03 -.015
+texture 0 "blikjebier/akaritori/floor6.jpg"
+texture n "blikjebier/akaritori/floor6_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/floor6.jpg"
+texture z "blikjebier/akaritori/floor6_z.jpg"
+texture 0 "blikjebier/akaritori/floor7.jpg" //appears ingame also with "vscale .75; voffset 128 40; vrotate 1"
+texture n "blikjebier/akaritori/floor7_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/floor7.jpg"
+texture z "blikjebier/akaritori/floor7_z.jpg"
+texture 0 "blikjebier/akaritori/floor8.jpg"
+texture n "blikjebier/akaritori/floor8_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/floor8.jpg"
+texture z "blikjebier/akaritori/floor8_z.jpg"
+texture 0 "blikjebier/akaritori/floor9.jpg" //appears ingame also with "vscale .75; voffset 0 40"
+texture n "blikjebier/akaritori/floor9_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/floor9.jpg"
+texture z "blikjebier/akaritori/floor9_z.jpg"
+setshaderparam parallaxscale .06 -.03
+texture 0 "blikjebier/akaritori/metal.jpg"
+texture n "blikjebier/akaritori/metal_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/metal.jpg"
+texture z "blikjebier/akaritori/metal_z.jpg"
+setshaderparam parallaxscale .04 -.02
+texture 0 "blikjebier/akaritori/metal2.jpg"
+texture n "blikjebier/akaritori/metal2_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/metal2.jpg"
+texture z "blikjebier/akaritori/metal2_z.jpg"
+texture 0 "blikjebier/akaritori/metal3.jpg"
+texture n "blikjebier/akaritori/metal3_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/metal3.jpg"
+texture z "blikjebier/akaritori/metal3_z.jpg"
+texture 0 "blikjebier/akaritori/metal4.jpg"
+texture n "blikjebier/akaritori/metal4_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/metal4.jpg"
+texture z "blikjebier/akaritori/metal4_z.jpg"
+texture 0 "blikjebier/akaritori/metal5.jpg"
+texture n "blikjebier/akaritori/metal5_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/metal5.jpg"
+texture z "blikjebier/akaritori/metal5_z.jpg"
+setshaderparam parallaxscale .08 -.04
+texture 0 "blikjebier/akaritori/rim1.jpg"
+texture n "blikjebier/akaritori/rim1_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/rim1.jpg"
+texture z "blikjebier/akaritori/rim1_z.jpg"
+texture 0 "blikjebier/akaritori/rim2.jpg"
+texture n "blikjebier/akaritori/rim2_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/rim2.jpg"
+texture z "blikjebier/akaritori/rim2_z.jpg"
+setshaderparam parallaxscale .04 -.02
+texture 0 "blikjebier/akaritori/rim3.jpg"
+texture n "blikjebier/akaritori/rim3_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/rim3.jpg"
+texture z "blikjebier/akaritori/rim3_z.jpg"
+texture 0 "blikjebier/akaritori/rim4.jpg"
+texture n "blikjebier/akaritori/rim4_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/rim4.jpg"
+texture z "blikjebier/akaritori/rim4_z.jpg"
+texture 0 "blikjebier/akaritori/rim5.jpg"
+texture n "blikjebier/akaritori/rim5_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/rim5.jpg"
+texture z "blikjebier/akaritori/rim5_z.jpg"
+texture 0 "blikjebier/akaritori/rim6.jpg" //appears ingame also with "vscale .5; voffset 0 124"
+texture n "blikjebier/akaritori/rim6_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/rim6.jpg"
+texture z "blikjebier/akaritori/rim6_z.jpg"
+setshaderparam parallaxscale .02 -.01
+texture 0 "blikjebier/akaritori/rim7.jpg"
+texture n "blikjebier/akaritori/rim7_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/rim7.jpg"
+texture z "blikjebier/akaritori/rim7_z.jpg"
+setshaderparam parallaxscale .03 -.015
+texture 0 "blikjebier/akaritori/rust.jpg"
+texture n "blikjebier/akaritori/rust_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/rust.jpg"
+texture z "blikjebier/akaritori/rust_z.jpg"
+texscale .5
+texture 0 "blikjebier/akaritori/rustpaint.jpg"
+texture n "blikjebier/akaritori/rustpaint_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/rustpaint.jpg"
+texture z "blikjebier/akaritori/rustpaint_z.jpg"
+texture 0 "blikjebier/akaritori/treadplate.jpg"
+texture n "blikjebier/akaritori/treadplate_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/treadplate.jpg"
+texture z "blikjebier/akaritori/treadplate_z.jpg"
+texture 0 "blikjebier/akaritori/treadplate2.jpg"
+texture n "blikjebier/akaritori/treadplate2_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/treadplate.jpg"
+texture z "blikjebier/akaritori/treadplate2_z.jpg"
+texture 0 "blikjebier/akaritori/wall.jpg"
+texture n "blikjebier/akaritori/wall_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/wall.jpg"
+texture z "blikjebier/akaritori/wall_z.jpg"
+texture 0 "blikjebier/akaritori/wall2.jpg"
+texture n "blikjebier/akaritori/wall2_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/wall2.jpg"
+texture z "blikjebier/akaritori/wall2_z.jpg"
+texture 0 "blikjebier/akaritori/wall3.jpg"
+texture n "blikjebier/akaritori/wall3_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/wall3.jpg"
+texture z "blikjebier/akaritori/wall3_z.jpg"
+texture 0 "blikjebier/akaritori/window.jpg"
+texture n "blikjebier/akaritori/window_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/window.jpg"
+texture z "blikjebier/akaritori/window_z.jpg"
+texture 0 "blikjebier/akaritori/window2.jpg"
+texture n "blikjebier/akaritori/window2_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/window2.jpg"
+texture z "blikjebier/akaritori/window2_z.jpg"
+texture 0 "blikjebier/akaritori/window3.jpg"
+texture n "blikjebier/akaritori/window3_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/window3.jpg"
+texture z "blikjebier/akaritori/window3_z.jpg"
+texture 0 "blikjebier/akaritori/window4.jpg"
+texture n "blikjebier/akaritori/window4_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/window4.jpg"
+texture z "blikjebier/akaritori/window4_z.jpg"
+texture 0 "blikjebier/akaritori/window5.jpg"
+texture n "blikjebier/akaritori/window5_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/window5.jpg"
+texture z "blikjebier/akaritori/window5_z.jpg"
+
+setshader bumpspecmapparallaxglowworld
+setshaderparam specscale .4 .4 .4
+setshaderparam parallaxscale .025 -.0125
+setshaderparam "glowcolor" .4 .0 .0
+texture 0 "blikjebier/akaritori/window6.jpg"
+texture n "blikjebier/akaritori/window6_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/window6.jpg"
+texture z "blikjebier/akaritori/window6_z.jpg"
+texture g "blikjebier/akaritori/window6_g.jpg"
+setshaderparam "glowcolor" 0.3 0.4 0.5
+texture 0 "blikjebier/akaritori/window7.jpg"
+texture n "blikjebier/akaritori/window7_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/window7.jpg"
+texture z "blikjebier/akaritori/window7_z.jpg"
+texture g "blikjebier/akaritori/window7_g.jpg"
+texture 0 "blikjebier/akaritori/window8.jpg"
+texture n "blikjebier/akaritori/window8_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/window8.jpg"
+texture z "blikjebier/akaritori/window8_z.jpg"
+texture g "blikjebier/akaritori/window8_g.jpg"
+setshaderparam "glowcolor" .5 .5 .5
+texture 0 "blikjebier/akaritori/light.jpg"
+texture n "blikjebier/akaritori/light_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/light.jpg"
+texture z "blikjebier/akaritori/light_z.jpg"
+texture g "blikjebier/akaritori/light_g.jpg"
+texscale .5
+texture 0 "blikjebier/akaritori/light_g.jpg"
+texture n "blikjebier/akaritori/light_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/light_g.jpg"
+texture z "blikjebier/akaritori/light_z.jpg"
+texture g "blikjebier/akaritori/light_g.jpg"
+texscale .5
+
+setshader stdworld
+texture 0 "blikjebier/concrete/concrete_001.jpg"
+texture 0 "blikjebier/concrete/concrete_002.jpg"
+texture 0 "blikjebier/concrete/concrete_003.jpg"
+texture 0 "blikjebier/concrete/concrete_004.jpg"
+texture 0 "blikjebier/concrete/concrete_005.jpg"
+texture 0 "blikjebier/concrete/concrete_006.jpg"
+texture 0 "blikjebier/concrete/concrete_007.jpg"
+texture 0 "blikjebier/concrete/concrete_008.jpg"
+texture 0 "blikjebier/concrete/concrete_009.jpg"
+texture 0 "blikjebier/concrete/concrete_010.jpg"
+texture 0 "blikjebier/concrete/concrete_011.jpg"
+texture 0 "blikjebier/concrete/concrete_012.jpg"
+texture 0 "blikjebier/concrete/concrete_013.jpg"
+
+texture 0 "blikjebier/ground/ground1.jpg"
+texture 0 "blikjebier/ground/ground2.jpg"
+texture 0 "blikjebier/ground/ground3.jpg"
+texture 0 "blikjebier/ground/ground4.jpg"
+texture 0 "blikjebier/ground/ground5.jpg"
+texture 0 "blikjebier/ground/g0tl.jpg"
+texture 0 "blikjebier/ground/g0tm.jpg"
+texture 0 "blikjebier/ground/g0tr.jpg"
+texture 0 "blikjebier/ground/g0ml.jpg"
+texture 0 "blikjebier/ground/g0mm.jpg"
+texture 0 "blikjebier/ground/g0mr.jpg"
+texture 0 "blikjebier/ground/g0bl.jpg"
+texture 0 "blikjebier/ground/g0bm.jpg"
+texture 0 "blikjebier/ground/g0br.jpg"
+texture 0 "blikjebier/ground/g1tl.jpg"
+texture 0 "blikjebier/ground/g1tm.jpg"
+texture 0 "blikjebier/ground/g1tr.jpg"
+texture 0 "blikjebier/ground/g1ml.jpg"
+texture 0 "blikjebier/ground/g1mm.jpg"
+texture 0 "blikjebier/ground/g1mr.jpg"
+texture 0 "blikjebier/ground/g1bl.jpg"
+texture 0 "blikjebier/ground/g1bm.jpg"
+texture 0 "blikjebier/ground/g1br.jpg"
+
+setshader bumpspecmapparallaxworld
+setshaderparam specscale .8 .8 .8
+setshaderparam parallaxscale .03 -.015
+texture 0 "blikjebier/metal/metal_001.jpg"
+texture n "blikjebier/metal/metal_001_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_001.jpg"
+texture z "blikjebier/metal/metal_001_z.jpg"
+texture 0 "blikjebier/metal/metal_002.jpg"
+texture n "blikjebier/metal/metal_002_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_002.jpg"
+texture z "blikjebier/metal/metal_002_z.jpg"
+texcolor .5 .5 .5
+texture 0 "blikjebier/metal/metal_003.jpg"
+texture n "blikjebier/metal/metal_003_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_003.jpg"
+texture z "blikjebier/metal/metal_003_z.jpg"
+texscale 2
+setshaderparam specscale .4 .4 .4
+setshaderparam parallaxscale .04 -.02
+texture 0 "blikjebier/metal/metal_004.jpg"
+texture n "blikjebier/metal/metal_004_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_004.jpg"
+texture z "blikjebier/metal/metal_004_z.jpg"
+texture 0 "blikjebier/metal/metal_005.jpg"
+texture n "blikjebier/metal/metal_005_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_005.jpg"
+texture z "blikjebier/metal/metal_005_z.jpg"
+setshaderparam specscale .8 .8 .8
+texture 0 "blikjebier/metal/metal_006.jpg"
+texture n "blikjebier/metal/metal_006_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_006.jpg"
+texture z "blikjebier/metal/metal_006_z.jpg"
+setshaderparam specscale .4 .4 .4
+setshaderparam parallaxscale .025 -.0125
+texture 0 "blikjebier/metal/metal_007.jpg"
+texture n "blikjebier/metal/metal_007_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_007.jpg"
+setshaderparam parallaxscale .03 -.015
+texture z "blikjebier/metal/metal_007_z.jpg"
+texture 0 "blikjebier/metal/metal_008.jpg"
+texture n "blikjebier/metal/metal_008_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_008.jpg"
+texture z "blikjebier/metal/metal_008_z.jpg"
+setshaderparam specscale .8 .8 .8
+setshaderparam parallaxscale .02 -.01
+texture 0 "blikjebier/metal/metal_009.jpg"
+texture n "blikjebier/metal/metal_009_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_009.jpg"
+texture z "blikjebier/metal/metal_009_z.jpg"
+setshaderparam parallaxscale .025 -.0125
+texture 0 "blikjebier/metal/metal_010.jpg"
+texture n "blikjebier/metal/metal_010_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_010.jpg"
+texture z "blikjebier/metal/metal_010_z.jpg"
+setshaderparam specscale .4 .4 .4
+setshaderparam parallaxscale .04 -.02
+texture 0 "blikjebier/metal/metal_011.jpg"
+texture n "blikjebier/metal/metal_011_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_011.jpg"
+texture z "blikjebier/metal/metal_011_z.jpg"
+texture 0 "blikjebier/metal/metal_012.jpg"
+texture n "blikjebier/metal/metal_012_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_012.jpg"
+texture z "blikjebier/metal/metal_012_z.jpg"
+texture 0 "blikjebier/metal/metal_013.jpg" //also appears ingame with "voffset 54 50"
+texture n "blikjebier/metal/metal_012_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_013.jpg"
+texture z "blikjebier/metal/metal_012_z.jpg"
+setshaderparam specscale .8 .8 .8
+texture 0 "blikjebier/metal/metal_014.jpg"
+texture n "blikjebier/metal/metal_014_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_014.jpg"
+texture z "blikjebier/metal/metal_014_z.jpg"
+setshaderparam specscale .4 .4 .4
+texture 0 "blikjebier/metal/metal_015.jpg"
+texture n "blikjebier/metal/metal_015_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_015.jpg"
+texture z "blikjebier/metal/metal_015_z.jpg"
+texture 0 "blikjebier/metal/metal_016.jpg"
+texture n "blikjebier/metal/metal_016_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_016.jpg"
+texture z "blikjebier/metal/metal_016_z.jpg"
+texture 0 "blikjebier/metal/metal_017.jpg"
+texture n "blikjebier/metal/metal_017_n.jpg"
+texture s "<mix:0>blikjebier/metal/metal_017.jpg"
+texture z "blikjebier/metal/metal_017_z.jpg"
+
+setshader bumpspecmapparallaxworld
+setshaderparam "specscale" .8 .8 .8
+setshaderparam "parallaxscale" .03 -.015
+texture 0 "mitaman/mm-metaldoor2.jpg"
+texture n "mitaman/mm-metaldoor2_n.jpg"
+texture s "<mix:0>mitaman/mm-metaldoor2.jpg"
+texture z "mitaman/mm-metaldoor2_z.jpg"
+texscale .5
+setshader bumpspecmapworld
+setshaderparam "specscale" 2 2 2
+texture 0 "mitaman/mm-metaldoor3.jpg"
+texture n "mitaman/mm-metaldoor3_normal.jpg"
+texture s "mitaman/mm-metaldoor3_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-tile38.jpg"
+texture n "mitaman/mm-tile38_normal.jpg"
+texture s "mitaman/mm-tile38_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-brickfloor15.jpg"
+texture n "mitaman/mm-brickfloor15_normal.jpg"
+texture s "mitaman/mm-brickfloor15_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-peelingpaint.jpg"
+texture n "mitaman/mm-peelingpaint_normal.jpg"
+texture s "mitaman/mm-peelingpaint_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-metalsteps.jpg"
+texture n "mitaman/mm-metalsteps_normal.jpg"
+texture s "mitaman/mm-metalsteps_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-window5.jpg"
+texture n "mitaman/mm-window5_normal.jpg"
+texture s "mitaman/mm-window5_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-window6.jpg"
+texture n "mitaman/mm-window6_normal.jpg"
+texture s "mitaman/mm-window6_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-grill_b.jpg"
+texture n "mitaman/mm-grill_b_normal.jpg"
+texture s "mitaman/mm-grill_b_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-threadplate25a.jpg"
+texture n "mitaman/mm-threadplate25a_normal.jpg"
+texture s "mitaman/mm-threadplate25a_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-metalbase2.jpg"
+texture n "mitaman/mm-metalbase2_normal.jpg"
+texture s "mitaman/mm-metalbase2_spec.jpg"
+texscale .33
+texture 0 "mitaman/mm-window3.jpg"
+texture n "mitaman/mm-window3_normal.jpg"
+texture s "mitaman/mm-window3_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-doorsindustrial69.jpg"
+texture n "mitaman/mm-doorsindustrial69_normal.jpg"
+texture s "mitaman/mm-doorsindustrial69_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-brick13.jpg"
+texture n "mitaman/mm-brick13_normal.jpg"
+texture s "mitaman/mm-brick13_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-rust07.jpg"
+texture n "mitaman/mm-rust07_normal.jpg"
+texture s "mitaman/mm-rust07_spec.jpg"
+texscale .75
+texture 0 "mitaman/mm-doorsindustrial46.jpg"
+texture n "mitaman/mm-doorsindustrial46_normal.jpg"
+texture s "mitaman/mm-doorsindustrial46_spec.jpg"
+texscale .5
+texoffset 0 256
+texture 0 "mitaman/mm-metalbase3.jpg"
+texture n "mitaman/mm-metalbase3_normal.jpg"
+texture s "mitaman/mm-metalbase3_spec.jpg"
+texscale .33
+texture 0 "mitaman/mm-roadattribute07a.jpg"
+texture n "mitaman/mm-roadattribute07a_normal.jpg"
+texture s "mitaman/mm-roadattribute07a_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-bricksmall44.jpg"
+texture n "mitaman/mm-bricksmall44_normal.jpg"
+texture s "mitaman/mm-bricksmall44_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-panel1.jpg"
+texture n "mitaman/mm-panel1_normal.jpg"
+texture s "mitaman/mm-panel1_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-panel2.jpg"
+texture n "mitaman/mm-panel2_normal.jpg"
+texture s "mitaman/mm-panel2_spec.jpg"
+texscale .25
+
+setshader stdworld
+texture 0 "textures/default.png"
+
+setshader bumpspecmapworld
+setshaderparam "specscale" 2 2 2
+texture 0 "mitaman/mm-brick56.jpg"
+texture n "mitaman/mm-brick56_normal.jpg"
+texture s "mitaman/mm-brick56_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-panel3.jpg"
+texture n "mitaman/mm-panel3_normal.jpg"
+texture s "mitaman/mm-panel3_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-metalcontainer50.jpg"
+texture n "mitaman/mm-metalcontainer50_normal.jpg"
+texture s "mitaman/mm-metalcontainer50_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-wood02_fade.jpg"
+texture n "mitaman/mm-wood02_fade_normal.jpg"
+texture s "mitaman/mm-wood02_fade_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-metalstone.jpg"
+texture n "mitaman/mm-metalstone_normal.jpg"
+texture s "mitaman/mm-metalstone_spec.jpg"
+texscale .5
+texrotate 1
+texture 0 "mitaman/mm-grass33a.jpg"
+texture n "mitaman/mm-grass33a_normal.jpg"
+texture s "mitaman/mm-grass33a_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-brick71a.jpg"
+texture n "mitaman/mm-brick71a_normal.jpg"
+texture s "mitaman/mm-brick71a_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-sewer82.jpg"
+texture n "mitaman/mm-sewer82_normal.jpg"
+texture s "mitaman/mm-sewer82_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-border24.jpg"
+texture n "mitaman/mm-border24_normal.jpg"
+texture s "mitaman/mm-border24_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-metalplates51.jpg"
+texture n "mitaman/mm-metalplates51_normal.jpg"
+texture s "mitaman/mm-metalplates51_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-ornament1.jpg"
+texture n "mitaman/mm-ornament1_normal.jpg"
+texture s "mitaman/mm-ornament1_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-metalseam25.jpg"
+texture n "mitaman/mm-metalseam25_normal.jpg"
+texture s "mitaman/mm-metalseam25_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-metalplate173_1.jpg"
+texture n "mitaman/mm-metalplate173_1_normal.jpg"
+texture s "mitaman/mm-metalplate173_1_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-metalplate173_long_1.jpg"
+texture n "mitaman/mm-metalplate173_long_1_normal.jpg"
+texture s "mitaman/mm-metalplate173_long_1_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-wood-worn.jpg"
+texture n "mitaman/mm-wood-worn_normal.jpg"
+texture s "mitaman/mm-wood-worn_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-doorsindustrial46.jpg"
+texture n "mitaman/mm-doorsindustrial46_normal.jpg"
+texture s "mitaman/mm-doorsindustrial46_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-bricksmall121.jpg"
+texture n "mitaman/mm-bricksmall121_normal.jpg"
+texture s "mitaman/mm-bricksmall121_spec.jpg"
+texscale .75
+texture 0 "mitaman/mm-bricksmall06.jpg"
+texture n "mitaman/mm-bricksmall06_normal.jpg"
+texture s "mitaman/mm-bricksmall06.jpg"
+texscale .33
+texture 0 "mitaman/mm-ceilinglite1.jpg"
+texture n "mitaman/mm-ceilinglite1_normal.jpg"
+texture s "mitaman/mm-ceilinglite1.jpg"
+texscale .25
+texture 0 "mitaman/mm-ceilinglite3.jpg"
+texture n "mitaman/mm-ceilinglite3_normal.jpg"
+texture s "mitaman/mm-ceilinglite3_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-stoneroof1.jpg"
+texture n "mitaman/mm-stoneroof1_normal.jpg"
+texture s "mitaman/mm-stoneroof1_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-stone18.jpg"
+texture n "mitaman/mm-stone18_normal.jpg"
+texture s "mitaman/mm-stone18_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-cementbase1.jpg"
+texture n "mitaman/mm-cementbase1_normal.jpg"
+texture s "mitaman/mm-cementbase1_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-steellfloor.jpg"
+texture n "mitaman/mm-steellfloor_normal.jpg"
+texture s "mitaman/mm-steellfloor_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-woodshutter.jpg"
+texture n "mitaman/mm-woodshutter_normal.jpg"
+texture s "mitaman/mm-woodshutter_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-tilesmedium16.jpg"
+texture n "mitaman/mm-tilesmedium16_normal.jpg"
+texture s "mitaman/mm-tilesmedium16_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-metalbase1.jpg"
+texture n "mitaman/mm-metalbase1_normal.jpg"
+texture s "mitaman/mm-metalbase1_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-concretebare07.jpg"
+texture n "mitaman/mm-concretebare07_normal.jpg"
+texture s "mitaman/mm-concretebare07_spec.jpg"
+texscale .75
+texture 0 "mitaman/mm-concretetrim07a.jpg"
+texture n "mitaman/mm-concretetrim07a_normal.jpg"
+texture s "mitaman/mm-concretetrim07a_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-grateold.jpg"
+texture n "mitaman/mm-grateold_normal.jpg"
+texture s "mitaman/mm-grateold_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-meters12.jpg"
+texture n "mitaman/mm-meters12_normal.jpg"
+texture s "mitaman/mm-meters12_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-meters12a.jpg"
+texture n "mitaman/mm-meters12a_normal.jpg"
+texture s "mitaman/mm-meters12a_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-radiatorcoil.jpg"
+texture n "mitaman/mm-radiatorcoil_normal.jpg"
+texture s "mitaman/mm-radiatorcoil_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-threadplate01.jpg"
+texture n "mitaman/mm-threadplate01_normal.jpg"
+texture s "mitaman/mm-threadplate01_spec.jpg"
+texscale .125
+texture 0 "mitaman/mm-metaltrim02.jpg"
+texture n "mitaman/mm-metaltrim02_normal.jpg"
+texture s "mitaman/mm-metaltrim02_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-controlplate.jpg"
+texture n "mitaman/mm-controlplate_normal.jpg"
+texture s "mitaman/mm-controlplate_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-meters12b.jpg"
+texture n "mitaman/mm-meters12b_normal.jpg"
+texture s "mitaman/mm-meters12b_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-planksnew01.jpg"
+texture n "mitaman/mm-planksnew01_normal.jpg"
+texture s "mitaman/mm-planksnew01_spec.jpg"
+texscale .25
+texture 0 "mitaman/mm-controlplate2.jpg"
+texture n "mitaman/mm-controlplate2_normal.jpg"
+texture s "mitaman/mm-controlplate2_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-controlplate3a.jpg"
+texture n "mitaman/mm-controlplate3a_normal.jpg"
+texture s "mitaman/mm-controlplate3a_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-controlplateside.jpg"
+texture n "mitaman/mm-controlplateside_normal.jpg"
+texture s "mitaman/mm-controlplateside_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-tiles126.jpg"
+texture n "mitaman/mm-tiles126_normal.jpg"
+texture s "mitaman/mm-tiles126_spec.jpg"
+texscale .5
+texture 0 "mitaman/mm-brickold88a.jpg"
+texture n "mitaman/mm-brickold88a_normal.jpg"
+texture s "mitaman/mm-brickold88a_spec.jpg"
+texture 0 "mitaman/mm-grassdead42.jpg"
+texture n "mitaman/mm-grassdead42_normal.jpg"
+texture s "mitaman/mm-grassdead42_spec.jpg"
+texscale .5
+texrotate 1
+
+//aftas textureset
+setshader bumpspecmapworld
+setshaderparam "specscale" .8 .8 .8
+texture 0 "aftas/caibro1.jpg"
+texture n "aftas/caibro1_n.jpg"
+texture s "aftas/caibro1_s.jpg"
+texscale .5
+
+setshader stdworld
+texture 0 "aftas/detalhe1.jpg"
+texscale .5
+
+setshader bumpspecmapparallaxworld
+setshaderparam "specscale" .8 .8 .8
+setshaderparam "parallaxscale" .05 -.025
+texture 0 "aftas/par9.jpg"
+texture n "aftas/par9_n.jpg"
+texture s "aftas/par9_s.jpg"
+texture z "aftas/par9_h.jpg"
+texture 0 "aftas/par10_a.jpg"
+texture n "aftas/par10_a_n.jpg"
+texture s "aftas/par10_a_s.jpg"
+texture z "aftas/par10_a_h.jpg"
+texture 0 "aftas/par12.jpg"
+texture n "aftas/par12_n.jpg"
+texture s "aftas/par12_s.jpg"
+texture z "aftas/par12_h.jpg"
+
+setshader bumpspecmapparallaxworld
+setshaderparam "specscale" .8 .8 .8
+setshaderparam "parallaxscale" .05 -.025
+texture 0 "aftas/pedras.jpg"
+texture n "aftas/pedras_n.jpg"
+texture s "<mix:0>aftas/pedras.jpg"
+texture z "aftas/pedras_z.jpg"
+
+setshader bumpspecmapworld
+setshaderparam "specscale" .8 .8 .8
+texture 0 "aftas/piso2.jpg"
+texture n "aftas/piso2_n.jpg"
+texture s "aftas/piso2_s.jpg"
+
+setshader bumpspecmapparallaxworld
+setshaderparam "specscale" .8 .8 .8
+setshaderparam "parallaxscale" .04 -.02
+texture 0 "aftas/piso3.jpg"
+texture n "aftas/piso3_n.jpg"
+texture s "aftas/piso3_s.jpg"
+texture z "aftas/piso3_h.jpg"
+texture 0 "aftas/piso5.jpg"
+texture n "aftas/piso5_n.jpg"
+texture s "aftas/piso5_s.jpg"
+texture z "aftas/piso5_h.jpg"
+texture 0 "aftas/rodape1.jpg"
+texture n "aftas/rodape1_n.jpg"
+texture s "aftas/rodape1_s.jpg"
+texture z "aftas/rodape1_h.jpg"
+texture 0 "aftas/tabua.jpg"
+texture n "aftas/tabua_n.jpg"
+texture s "aftas/tabua_s.jpg"
+texture z "aftas/tabua_h.jpg"
+
+// g_pack textureset
+setshader stdworld
+texture 0 "g_pack/g-bricks02a.jpg"
+texture 0 "g_pack/g-bricks03.jpg"
+texture 0 "g_pack/g-bricks05.jpg"
+texture 0 "g_pack/g-bricks09.jpg"
+texture 0 "g_pack/g-bricks10.jpg"
+texture 0 "g_pack/g-bricks26.jpg"
+
+setshader bumpspecmapparallaxworld
+setshaderparam "specscale" .8 .8 .8
+setshaderparam "parallaxscale" .04 -.02
+texture 0 "g_pack/g-bricks27.jpg"
+texture n "g_pack/g-bricks27_n.jpg"
+texture s "<mix:0>g_pack/g-bricks27.jpg"
+texture z "g_pack/g-bricks27_z.jpg"
+
+setshader stdworld
+texture 0 "g_pack/g-bricks29.jpg"
+texture 0 "g_pack/g-bricks30.jpg"
+
+setshader bumpspecmapparallaxworld
+setshaderparam "specscale" .8 .8 .8
+setshaderparam "parallaxscale" .02 -.01
+texture 0 "g_pack/g-bricks33.jpg"
+texture n "g_pack/g-bricks33_n.jpg"
+texture s "<mix:0>g_pack/g-bricks33.jpg"
+texture z "g_pack/g-bricks33_z.jpg"
+
+setshader stdworld
+texture 0 "g_pack/g-crate01.jpg"
+texture 0 "g_pack/g-facade01.jpg"
+
+setshader bumpspecmapparallaxworld
+setshaderparam "specscale" .8 .8 .8
+setshaderparam "parallaxscale" .04 -.02
+texture 0 "g_pack/g-floor01.jpg"
+texture n "g_pack/g-floor01_n.jpg"
+texture s "<mix:0>g_pack/g-floor01.jpg"
+texture z "g_pack/g-floor01_z.jpg"
+
+setshader stdworld
+texture 0 "g_pack/g-floor04.jpg"
+
+setshader bumpspecmapparallaxworld
+setshaderparam "specscale" .8 .8 .8
+setshaderparam "parallaxscale" .03 -.015
+texture 0 "g_pack/g-floor10.jpg"
+texture n "g_pack/g-floor10_n.jpg"
+texture s "<mix:0>g_pack/g-floor10.jpg"
+texture z "g_pack/g-floor10_z.jpg"
+
+setshader stdworld
+texture 0 "g_pack/g-metbas0c1.jpg"
+texture 0 "g_pack/g-metbas5b.jpg"
+texture 0 "g_pack/g-metbas6.jpg"
+texture 0 "g_pack/g-metfloor3b.jpg"
+texture 0 "g_pack/g-metfloor5b.jpg"
+texture 0 "g_pack/g-metfloor7b.jpg"
+
+setshader bumpspecmapparallaxworld
+setshaderparam "specscale" .8 .8 .8
+setshaderparam "parallaxscale" .04 -.02
+texture 0 "g_pack/g-mettrim03.jpg"
+texture n "g_pack/g-mettrim03_n.jpg"
+texture s "<mix:0>g_pack/g-mettrim03.jpg"
+texture z "g_pack/g-mettrim03_z.jpg"
+
+setshader stdworld 
+texture 0 "g_pack/g-wood02.jpg"
+
+setshader bumpspecmapworld
+setshaderparam "specscale" 2 2 2				
+texture 0 "g_pack/g-sewer02.jpg"
+texture n "g_pack/g-sewer02_normal.jpg"
+texture s "g_pack/g-sewer02_spec.jpg"
+texscale .5
+texture 0 "g_pack/g-grates09.jpg"
+texture n "g_pack/g-grates09_normal.jpg"
+texture s "g_pack/g-grates09_spec.jpg"
+texscale .5
+texture 0 "g_pack/g-concrete05.jpg"
+texture n "g_pack/g-concrete05_normal.jpg"
+texture s "g_pack/g-concrete05_spec.jpg"
+texscale .5
+
+//loopix textureset
+setshader bumpspecmapworld
+setshaderparam "specscale" 2 2 2
+texture 0 loopix/cobbst2.jpg"
+texture n loopix/cobbst2_normal.jpg"
+texture s loopix/cobbst2_spec.jpg"
+texscale .5
+texrotate 1
+
+//noctua textureset
+setshaderparam "specscale" .2 .2 .2	
+texture 0 "noctua/conc01.jpg"
+texture n "noctua/conc01_normal.jpg"
+texture s "noctua/conc01_spec.jpg"
+texture 0 "noctua/iron02.jpg"
+texture n "noctua/iron02_normal.jpg"
+texture s "noctua/iron02_spec.jpg"
+texture 0 "noctua/iron03.jpg"
+texture n "noctua/iron03_normal.jpg"
+texture s "<mix:0>noctua/iron03.jpg"
+texscale .5
+texture 0 "noctua/planks01.jpg"
+texture n "noctua/planks01_normal.jpg"
+texture s "noctua/planks01_spec.jpg"
+texscale .5
+texture 0 "noctua/planks02.jpg"
+texture n "noctua/planks02_normal.jpg"
+texture s "<mix:0>noctua/planks02.jpg"
+texture 0 "noctua/plast03.jpg"
+texture n "noctua/plast03_normal.jpg"
+texture s "<mix:0>noctua/plast03.jpg"
+texscale .5
+texture 0 "noctua/plast06.jpg"
+texture n "noctua/plast06_normal.jpg"
+texture s "noctua/plast06_spec.jpg"
+texscale .5
+texture 0 "noctua/plast07.jpg"
+texture n "noctua/plast07_normal.jpg"
+texture s "noctua/plast07_spec.jpg"
+texscale .5
+texture 0 "noctua/stone16.jpg"
+texture n "noctua/stone16_normal.jpg"
+texture s "<mix:0>noctua/stone16.jpg"
+//texcolor .9 .75 .6
+
+//payne
+setshader bumpspecmapparallaxworld
+setshaderparam "specscale" .25 .25 .25
+setshaderparam "parallaxscale" .04 -.02
+texture 0 "payne/Box12b.jpg"
+texture n "payne/Box12b_normal.jpg"
+texture s "payne/Box12b_spec.jpg"
+texture z "payne/Box12b_depth.jpg"
+
+setshader bumpspecmapparallaxworld
+setshaderparam "specscale" .25 .25 .25
+setshaderparam "parallaxscale" .04 -.02
+texture c "textures/trak4/brick1.jpg"
+texture n "textures/trak4/brick1_nm.png"
+texture s "textures/trak4/brick1_s.jpg"
+texture c "textures/trak4/brick2.jpg"
+texture n "textures/trak4/brick2_nm.png"
+texture s "textures/trak4/brick2_s.jpg"
+texture c "textures/trak4/brick2a.jpg"
+texture n "textures/trak4/brick2_nm.png"
+texture s "textures/trak4/brick2_s.jpg"
+texture c "textures/trak4/brick2b.jpg"
+texture n "textures/trak4/brick2_nm.png"
+texture s "textures/trak4/brick2_s.jpg"
+texture c "textures/trak4/concrete1a.jpg"
+texture n "textures/trak4/concrete1_nm.png"
+texture s "textures/trak4/concrete1_s.jpg"
+texture c "textures/trak4/concrete1b.jpg"
+texture n "textures/trak4/concrete1_nm.png"
+texture s "textures/trak4/concrete1_s.jpg"
+texture c "textures/trak4/concrete2a.jpg"
+texture n "textures/trak4/concrete2a_nm.png"
+texture s "textures/trak4/concrete2a_s.jpg"
+texture c "textures/trak4/concrete3.jpg"
+texture n "textures/trak4/concrete3_nm.png"
+texture s "textures/trak4/concrete3_s.jpg"
+texture c "textures/trak4/concrete4a.jpg"
+texture n "textures/trak4/concrete4_nm.png"
+texture s "textures/trak4/concrete4_s.jpg"
+texture c "textures/trak4/concrete4b.jpg"
+texture n "textures/trak4/concrete4_nm.png"
+texture s "textures/trak4/concrete4_s.jpg"
+texture c "textures/trak4/concrete5a.jpg"
+texture n "textures/trak4/concrete5_nm.png"
+texture s "textures/trak4/concrete5_s.jpg"
+texture c "textures/trak4/concrete5b.jpg"
+texture n "textures/trak4/concrete5_nm.png"
+texture s "textures/trak4/concrete5_s.jpg"
+texture c "textures/trak4/concrete6.jpg"
+texture n "textures/trak4/concrete6_nm.png"
+texture s "textures/trak4/concrete5_s.jpg"
+texture c "textures/trak4/door1.jpg"
+texture n "textures/trak4/door1_nm.png"
+texture s "textures/trak4/door1_s.jpg"
+texture c "textures/trak4/door1a.jpg"
+texture n "textures/trak4/door1_nm.png"
+texture s "textures/trak4/door1_s.jpg"
+texture c "textures/trak4/door1b.jpg"
+texture n "textures/trak4/door1_nm.png"
+texture s "textures/trak4/door1_s.jpg"
+texture c "textures/trak4/door1c.jpg"
+texture n "textures/trak4/door1_nm.png"
+texture s "textures/trak4/door1_s.jpg"
+texture c "textures/trak4/door1d.jpg"
+texture n "textures/trak4/door1_nm.png"
+texture s "textures/trak4/door1_s.jpg"
+texture c "textures/trak4/door1e.jpg"
+texture n "textures/trak4/door1_nm.png"
+texture s "textures/trak4/door1_s.jpg"
+texture c "textures/trak4/grate1.jpg"
+texture n "textures/trak4/grate1_nm.png"
+texture s "textures/trak4/grate1_s.jpg"
+texture c "textures/trak4/grate2a.jpg"
+texture n "textures/trak4/grate2a_nm.png"
+texture s "textures/trak4/grate2a_s.jpg"
+texture c "textures/trak4/kitchen.jpg"
+texture n "textures/trak4/kitchen_nm.png"
+texture s "textures/trak4/kitchen_s.jpg"
+texture c "textures/trak4/kitchen1.jpg"
+texture n "textures/trak4/kitchen_nm.png"
+texture s "textures/trak4/kitchen_s.jpg"
+texture c "textures/trak4/painted2.jpg"
+texture n "textures/trak4/painted2_nm.png"
+texture s "textures/trak4/painted2_s.jpg"
+texture c "textures/trak4/paint_blue.jpg"
+texture n "textures/trak4/paint_nm.png"
+texture s "textures/trak4/paint_s.jpg"
+texture c "textures/trak4/paint_dblue.jpg"
+texture n "textures/trak4/paint_nm.png"
+texture s "textures/trak4/paint_s.jpg"
+texture c "textures/trak4/paint_green.jpg"
+texture n "textures/trak4/paint_nm.png"
+texture s "textures/trak4/paint_s.jpg"
+texture c "textures/trak4/paint_pink.jpg"
+texture n "textures/trak4/paint_nm.png"
+texture s "textures/trak4/paint_s.jpg"
+texture c "textures/trak4/paint_purp.jpg"
+texture n "textures/trak4/paint_nm.png"
+texture s "textures/trak4/paint_s.jpg"
+texture c "textures/trak4/paint_red.jpg"
+texture n "textures/trak4/paint_nm.png"
+texture s "textures/trak4/paint_s.jpg"
+texture c "textures/trak4/paint_yellow.jpg"
+texture n "textures/trak4/paint_nm.png"
+texture s "textures/trak4/paint_s.jpg"
+texture c "textures/trak4/plaster1.jpg"
+texture n "textures/trak4/plaster1_nm.png"
+texture s "textures/trak4/plaster1_s.jpg"
+texture c "textures/trak4/plaster3-2.jpg"
+texture n "textures/trak4/plaster3_nm.png"
+texture s "textures/trak4/plaster3_s.jpg"
+texture c "textures/trak4/plaster3.jpg"
+texture n "textures/trak4/plaster3_nm.png"
+texture s "textures/trak4/plaster3_s.jpg"
+texture c "textures/trak4/plaster3a-2.jpg"
+texture n "textures/trak4/plaster3_nm.png"
+texture s "textures/trak4/plaster3_s.jpg"
+texture c "textures/trak4/plaster3a-3.jpg"
+texture n "textures/trak4/plaster3_nm.png"
+texture s "textures/trak4/plaster3a-3_s.jpg"
+texture c "textures/trak4/plaster3a.jpg"
+texture n "textures/trak4/plaster3_nm.png"
+texture s "textures/trak4/plaster3_s.jpg"
+texture c "textures/trak4/plaster3b-2.jpg"
+texture n "textures/trak4/plaster3_nm.png"
+texture s "textures/trak4/plaster3_s.jpg"
+texture c "textures/trak4/plaster3b.jpg"
+texture n "textures/trak4/plaster3_nm.png"
+texture s "textures/trak4/plaster3_s.jpg"
+texture c "textures/trak4/plaster3c-2.jpg"
+texture n "textures/trak4/plaster3_nm.png"
+texture s "textures/trak4/plaster3_s.jpg"
+texture c "textures/trak4/plaster3c-3.jpg"
+texture n "textures/trak4/plaster3_nm.png"
+texture s "textures/trak4/plaster3a-3_s.jpg"
+texture c "textures/trak4/plaster3c.jpg"
+texture n "textures/trak4/plaster3_nm.png"
+texture s "textures/trak4/plaster3_s.jpg"
+texture c "textures/trak4/plaster3d-2.jpg"
+texture n "textures/trak4/plaster3_nm.png"
+texture s "textures/trak4/plaster3_s.jpg"
+texture c "textures/trak4/plaster3d.jpg"
+texture n "textures/trak4/plaster3_nm.png"
+texture s "textures/trak4/plaster3_s.jpg"
+texture c "textures/trak4/rust1.jpg"
+texture n "textures/trak4/rust1_nm.png"
+texture s "textures/trak4/rust1_s.jpg"
+texture c "textures/trak4/rust1a.jpg"
+texture n "textures/trak4/rust1_nm.png"
+texture s "textures/trak4/rust1_s.jpg"
+texture c "textures/trak4/rust1b.jpg"
+texture n "textures/trak4/rust1_nm.png"
+texture s "textures/trak4/rust1_s.jpg"
+texture c "textures/trak4/rust1c.jpg"
+texture n "textures/trak4/rust1_nm.png"
+texture s "textures/trak4/rust1_s.jpg"
+texture c "textures/trak4/rust2.jpg"
+texture n "textures/trak4/rust2_nm.png"
+texture s "textures/trak4/rust2_s.jpg"
+texture c "textures/trak4/rust2b.jpg"
+texture n "textures/trak4/rust2_nm.png"
+texture s "textures/trak4/rust2_s.jpg"
+texture c "textures/trak4/tile1.jpg"
+texture n "textures/trak4/tile1_nm.png"
+texture s "textures/trak4/tile1_s.jpg"
+texture c "textures/trak4/tile2a.jpg"
+texture n "textures/trak4/tile2_nm.png"
+texture s "textures/trak4/tile2_s.jpg"
+texture c "textures/trak4/tile2b.jpg"
+texture n "textures/trak4/tile2_nm.png"
+texture s "textures/trak4/tile2_s.jpg"
+texture c "textures/trak4/tile3a.jpg"
+texture n "textures/trak4/tile3_nm.png"
+texture s "textures/trak4/tile3_s.jpg"
+texture c "textures/trak4/tile3b.jpg"
+texture n "textures/trak4/tile3_nm.png"
+texture s "textures/trak4/tile3_s.jpg"
+texture c "textures/trak4/tile3c.jpg"
+texture n "textures/trak4/tile3_nm.png"
+texture s "textures/trak4/tile3_s.jpg"
+texture c "textures/trak4/trim1.jpg"
+texture n "textures/trak4/trim1_nm.png"
+texture s "textures/trak4/trim1_s.jpg"
+texture c "textures/trak4/trim1a.jpg"
+texture n "textures/trak4/trim1_nm.png"
+texture s "textures/trak4/trim1_s.jpg"
+texture c "textures/trak4/trim1b.jpg"
+texture n "textures/trak4/trim1_nm.png"
+texture s "textures/trak4/trim1_s.jpg"
+texture c "textures/trak4/trim1c.jpg"
+texture n "textures/trak4/trim1_nm.png"
+texture s "textures/trak4/trim1_s.jpg"
+texture c "textures/trak4/trim1d.jpg"
+texture n "textures/trak4/trim1_nm.png"
+texture s "textures/trak4/trim1_s.jpg"
+texture c "textures/trak4/trim1e.jpg"
+texture n "textures/trak4/trim1_nm.png"
+texture s "textures/trak4/trim1_s.jpg"
+texture c "textures/trak4/trim1f.jpg"
+texture n "textures/trak4/trim1_nm.png"
+texture s "textures/trak4/trim1_s.jpg"
+texture c "textures/trak4/wood1c.jpg"
+texture n "textures/trak4/wood1_nm.png"
+texture s "textures/trak4/wood1_s.jpg"
+texture c "textures/trak4/wood1d.jpg"
+texture n "textures/trak4/wood1_nm.png"
+texture s "textures/trak4/wood1_s.jpg"
+
+//duketex
+setshader bumpspecmapparallaxworld
+setshaderparam "specscale" .5 .5 .5
+setshaderparam "parallaxscale" .03 -.015
+texture 0 "textures/duketex/0757dt.jpg"
+texture n "textures/duketex/0757dt_n.jpg"
+texture s <mix:0>textures/duketex/0757dt.jpg"
+texture z "textures/duketex/0757dt_z.jpg"
+texture 0 "textures/duketex/0828dt.jpg"
+texture n "textures/duketex/0828dt_n.jpg"
+texture s <mix:0>textures/duketex/0828dt.jpg"
+setshaderparam "parallaxscale" .05 -.025
+texture z "textures/duketex/0828dt_z.jpg"
+texture 0 "textures/duketex/0898dt.jpg"
+texture n "textures/duketex/0898dt_n.jpg"
+texture s <mix:0>textures/duketex/0898dt.jpg"
+texture z "textures/duketex/0898dt_z.jpg"
+texture 0 "textures/duketex/0899dt.jpg"
+texture n "textures/duketex/0898dt_n.jpg"
+texture s <mix:0>textures/duketex/0899dt.jpg"
+texture z "textures/duketex/0898dt_z.jpg"
+texture 0 "textures/duketex/1188dt.jpg"
+texture n "textures/duketex/1188dt_n.jpg"
+texture s <mix:0>textures/duketex/1188dt.jpg"
+texture z "textures/duketex/1188dt_z.jpg"
+setshaderparam "specscale" .2 .2 .2
+texture 0 "textures/duketex/4194dt.jpg"
+texture n "textures/duketex/4194dt_n.jpg"
+texture s <mix:0>textures/duketex/4194dt.jpg"
+texture z "textures/duketex/4194dt_z.jpg"
+texscale .5
+texture 0 "textures/duketex/4195dt.jpg"
+texture n "textures/duketex/4195dt_n.jpg"
+texture s <mix:0>textures/duketex/4195dt.jpg"
+texture z "textures/duketex/4195dt_z.jpg"
+texscale .5
+
+//method
+setshader bumpspecmapworld
+setshaderparam "specscale" 4 4 4
+texture 0 "textures/method/yan/asphalt.jpg"
+texture n "textures/method/yan/asphalt_local.jpg"
+texture s "textures/method/yan/asphalt_s.jpg"
+texcolor .55 .55 .55
+texture 0 "textures/method/yan/asphalt_moss.jpg"
+texture n "textures/method/yan/asphalt_local.jpg"
+texture s "textures/method/yan/asphalt_s.jpg"
+texture 0 "textures/method/yan/brick.jpg"
+texture n "textures/method/yan/brick_local.jpg"
+texture s "textures/method/yan/brick_s.jpg"
+texture 0 "textures/method/yan/brick_moss.jpg"
+texture n "textures/method/yan/brick_local.jpg"
+texture s "textures/method/yan/brick_s.jpg"
+texture 0 "textures/method/yan/brick_white.jpg"
+texture n "textures/method/yan/brick_local.jpg"
+texture s "textures/method/yan/brick_s.jpg"
+texture 0 "textures/method/yan/brick_white_moss.jpg"
+texture n "textures/method/yan/brick_local.jpg"
+texture s "textures/method/yan/brick_s.jpg"
+texture 0 "textures/method/yan/metal2.jpg"
+texture n "textures/method/yan/metal2_local.jpg"
+texture s "textures/method/yan/metal2_s.jpg"
+texture 0 "textures/method/yan/metal2_moss.jpg"
+texture n "textures/method/yan/metal2_local.jpg"
+texture s "textures/method/yan/metal2_s.jpg"
+texture 0 "textures/method/yan/metal_white.jpg"
+texture n "textures/method/yan/metal2_local.jpg"
+texture s "textures/method/yan/metal2_s.jpg"
+texture 0 "textures/method/yan/metal_white_moss.jpg"
+texture n "textures/method/yan/metal2_local.jpg"
+texture s "textures/method/yan/metal2_s.jpg"
+texture 0 "textures/method/yan/metal4.jpg"
+texture n "textures/method/yan/metal3_local.jpg"
+texture s "textures/method/yan/metal2_s.jpg"
+texture 0 "textures/method/yan/metal_floor.jpg"
+texture n "textures/method/yan/metal_floor_local.jpg"
+texture s "textures/method/yan/metal_floor_s.jpg"
+texture 0 "textures/method/yan/metal_floor_white.jpg"
+texture n "textures/method/yan/metal_floor_local.jpg"
+texture s "textures/method/yan/metal_floor_s.jpg"
+texcolor .7 .7 .7
+texture 0 "textures/method/yan/metal_floor_moss.jpg"
+texture n "textures/method/yan/metal_floor_local.jpg"
+texture s "textures/method/yan/metal_floor_s.jpg"
+texture 0 "textures/method/yan/plate.jpg"
+texture n "textures/method/yan/plate_local.jpg"
+texture s "textures/method/yan/plate_s.jpg"
+texture 0 "textures/method/yan/plate_painted.jpg"
+texture n "textures/method/yan/plate_local.jpg"
+texture s "textures/method/yan/plate_s.jpg"
+texture 0 "textures/method/yan/plate_painted_moss.jpg"
+texture n "textures/method/yan/plate_local.jpg"
+texture s "textures/method/yan/plate_s.jpg"
+texture 0 "textures/method/yan/sidewalk.jpg"
+texture n "textures/method/yan/sidewalk_local.jpg"
+texture s "textures/method/yan/sidewalk_s.jpg"
+texture 0 "textures/method/yan/sidewalk_moss.jpg"
+texture n "textures/method/yan/sidewalk_local.jpg"
+texture s "textures/method/yan/sidewalk_s.jpg"
+texture 0 "textures/method/yan/sidewalk_trim.jpg"
+texture n "textures/method/yan/sidewalk_trim_local.jpg"
+texture s "textures/method/yan/sidewalk_trim_s.jpg"
+texture 0 "textures/method/yan/sidewalk_trim_moss.jpg"
+texture n "textures/method/yan/sidewalk_trim_local.jpg"
+texture s "textures/method/yan/sidewalk_trim_s.jpg"
+texture 0 "textures/method/yan/trim_white.jpg"
+texture n "textures/method/yan/trim4_local.jpg"
+texture s "textures/method/yan/trim4_s.jpg"
+texture 0 "textures/method/yan/trim_white_moss.jpg"
+texture n "textures/method/yan/trim4_local.jpg"
+texture s "textures/method/yan/trim4_s.jpg"
+texture 0 "textures/method/yan/trim4.jpg"
+texture n "textures/method/yan/trim4_local.jpg"
+texture s "textures/method/yan/trim4_s.jpg"
+texture 0 "textures/method/yan/trim4_moss.jpg"
+texture n "textures/method/yan/trim4_local.jpg"
+texture s "textures/method/yan/trim4_s.jpg"
+texture 0 "textures/method/yan/trim2.jpg"
+texture n "textures/method/yan/trim2_local.jpg"
+texture s "textures/method/yan/trim2_s.jpg"
+texture 0 "textures/method/yan/trim2_moss.jpg"
+texture n "textures/method/yan/trim2_local.jpg"
+texture s "textures/method/yan/trim2_s.jpg"
+texture 0 "textures/method/yan/wood_planks.jpg"
+texture n "textures/method/yan/wood_planks_local.jpg"
+texture s "textures/method/yan/wood_planks_s.jpg"
+texture 0 "textures/method/yan/wood_moss.jpg"
+texture n "textures/method/yan/wood_planks_local.jpg"
+texture s "textures/method/yan/wood_planks_s.jpg"
+texture 0 "textures/method/yan/wood_white.jpg" //uses "voffset 0 38; vscale .56; vrotate 1", "voffset 0 10", "voffset 0 14" ingame.
+texture n "textures/method/yan/wood_planks_local.jpg"
+texture s "textures/method/yan/wood_planks_s.jpg"
+texture 0 "textures/method/yan/wood_white_moss.jpg"
+texture n "textures/method/yan/wood_planks_local.jpg"
+texture s "textures/method/yan/wood_planks_s.jpg"
+setshaderparam "specscale" 2 2 2
+texture 0 "textures/method/yan/wood_chipped.png
+texture n "textures/method/yan/wood_chipped_local.jpg"
+texture s "textures/method/yan/wood_chipped.png
+
+setshader bumpspecmapglowworld
+setshaderparam "specscale" 4 4 4
+setshaderparam "glowcolor" 0.4 0.4 0.4
+texture 0 "textures/method/yan/window_small.jpg"
+texture n "textures/method/yan/window_small_local.jpg"
+texture s "textures/method/yan/window_small_s.jpg"
+texture g "textures/method/yan/window_small.jpg"
+texture 0 "textures/method/yan/metal_floor2.jpg"
+texture n "textures/method/yan/metal_floor2_local.jpg"
+texture s "textures/method/yan/metal_floor2_s.jpg"
+texture g "textures/method/yan/metal_floor2_g.jpg"
+
+setshader stdworld
+texture 0 "textures/nieb/clock_face.png"
+texscale .5
+
+setshader bumpworld
+texture 0 "textures/nieb/concrete02.jpg"
+texture n "textures/nieb/concrete02_normal.png"
+texture 0 "textures/nieb/concrete03.jpg"
+texture n "textures/nieb/concrete03_normal.png"
+
+setshader stdworld
+texture 0 "textures/nieb/grass1.jpg"
+texture 0 "textures/nieb/rock02.jpg"
+texture 0 "textures/nieb/sand01.jpg"
+texture 0 "textures/nieb/sand02.jpg"
+
+setshader glowworld
+setshaderparam "glowcolor" 1 1 1
+texture 0 "textures/nieb/light.jpg"
+texture g "textures/nieb/light_glow.jpg"
+texscale .25
+
+setshader stdworld
+texture 0 "textures/nieb/autumn/bark01.jpg"
+texscale .5
+texture 0 "textures/nieb/autumn/grass1.jpg"
+texture 0 "textures/nieb/autumn/leaves.jpg"
+texscale .5
+texture 0 "textures/nieb/autumn/rock.jpg"
+
+setshader stdworld
+texture 0 "textures/default.png"
+texture 0 "textures/nieb/garden/bark1.jpg"
+texscale .5
+texture 0 "textures/nieb/garden/bush1.jpg"
+texture 0 "textures/nieb/garden/grass1a.jpg"
+texture 0 "textures/nieb/garden/grass1b.jpg"
+texture 0 "textures/nieb/garden/grass2a.jpg"
+texture 0 "textures/nieb/garden/grass2b.jpg"
+texture 0 "textures/nieb/garden/sand1.jpg"
+
+setshader stdworld
+texture 0 "textures/terrain_soc/rock_brown2.jpg"
+texture 0 "textures/terrain_soc/rock_brown2vine.jpg"
+texture 0 "textures/terrain_soc/rock_brown3.jpg"
+texture 0 "textures/terrain_soc/rock_grey2.jpg"
+texture 0 "textures/terrain_soc/rock_grey2vine.jpg"
+texture 0 "textures/terrain_soc/rock_grey3.jpg"
+texture 0 "textures/terrain_soc/ter_dirt1.jpg"
+texture 0 "textures/terrain_soc/ter_moss1.jpg"
+
+setshader bumpspecmapparallaxworld
+setshaderparam specscale .4 .4 .4
+setshaderparam parallaxscale .04 -.02
+texture 0 "blikjebier/akaritori/wall2.jpg"
+texture n "blikjebier/akaritori/wall2_n.jpg"
+texture s "<mix:0>blikjebier/akaritori/wall2.jpg"
+texture z "blikjebier/akaritori/wall2_z.jpg"
+texscale 2
+
+setshader stdworld
+texture 0 "textures/nieb/autumn/leaves.jpg"
+texlayer 353 "<rotate:3>brushes/gradient_64.png" 4 5
+texscale .5
+
+texture 0 "textures/nieb/garden/grass2a.jpg"
+texlayer 343 "brushes/circle_128_hard.png" 2 4
+
+//mapmodels
+mapmodelreset                                           // start counting from 0 again
+
+mmodel "switch1"
+mmodel "angel"
+mmodel "crow"
+mmodel "skull"
+
+mmodel "aftas/caixa"
+mmodel "aftas/arvores/arg"
+mmodel "aftas/arvores/arp"
+
+mmodel "dcp/thorns"
+mmodel "dcp/grass"
+mmodel "dcp/ivy"
+mmodel "mapmodels/suicizer/dcp/barrel"
+mmodel "mapmodels/suicizer/dcp/bench"
+mmodel "mapmodels/suicizer/dcp/leafs"
+mmodel "dcp/valve"
+mmodel "mapmodels/suicizer/dcp/palette"
+mmodel "mapmodels/suicizer/dcp/vent"
+mmodel "mapmodels/suicizer/dcp/mushroom"
+mmodel "mapmodels/suicizer/dcp/cask"
+mmodel "mapmodels/suicizer/dcp/cart"
+mmodel "mapmodels/suicizer/dcp/vase"
+mmodel "mapmodels/suicizer/dcp/sack"
+mmodel "mapmodels/suicizer/dcp/chest"
+mmodel "mapmodels/suicizer/dcp/smplant"
+mmodel "mapmodels/suicizer/dcp/insect"
+mmodel "mapmodels/suicizer/dcp/reed"
+mmodel "mapmodels/suicizer/dcp/hanginlamp"
+mmodel "mapmodels/suicizer/dcp/bulb"
+mmodel "mapmodels/suicizer/dcp/cbbox"
+mmodel "mapmodels/suicizer/dcp/switch2a"
+mmodel "mapmodels/suicizer/dcp/ventflap"
+mmodel "mapmodels/suicizer/dcp/blade_x"
+mmodel "mapmodels/suicizer/dcp/blade_y"
+
+mmodel "makke/nocamp"
+mmodel "makke/strahler"
+mmodel "makke/mugs/mug01"
+mmodel "makke/mugs/mug02"
+mmodel "makke/mugs/mug03"
+mmodel "makke/fork"
+mmodel "makke/spoon"
+
+mmodel "mapmodels/nieb/tree_dead"
+mmodel "mapmodels/nieb/torso"
+mmodel "mapmodels/nieb/plant01"
+mmodel "mapmodels/nieb/plant02"
+mmodel "mapmodels/nieb/sign_no-exit"
+mmodel "mapmodels/nieb/waterfall/1"
+mmodel "mapmodels/nieb/waterfall/2"
+mmodel "mapmodels/nieb/waterfall/3"
+mmodel "mapmodels/nieb/waterfall/4"
+mmodel "mapmodels/nieb/clockhand/long"
+mmodel "mapmodels/nieb/clockhand/short"
+mmodel "mapmodels/justice/cannon_copter"
+
+mmodel "mapmodels/sitters/gothic/skelet1"
+mmodel "mapmodels/sitters/gothic/skelet2"
+mmodel "mapmodels/sitters/gothic/skelet3"
+
+mmodel "mapmodels/yves_allaire/e6/e6fanblade/horizontal"
+mmodel "mapmodels/yves_allaire/e6/e6fanblade/vertical" 
+
+mmodel "mapmodels/rpg/characters/dragon"
+mmodel "mapmodels/rpg/characters/grizzly"
+mmodel "mapmodels/rpg/characters/horse/artic"
+mmodel "mapmodels/rpg/characters/horse/tame"
+mmodel "mapmodels/rpg/characters/horse/wild"
+mmodel "mapmodels/rpg/characters/mman"
+mmodel "mapmodels/rpg/characters/npcman"
+mmodel "mapmodels/rpg/characters/rat"
+mmodel "mapmodels/rpg/characters/wolf"
+mmodel "mapmodels/rpg/objects/coin"
+
+mmodel "mapmodels/method/yan/beam/64x16_h"
+mmodel "mapmodels/method/yan/beam/64x16_v"
+mmodel "mapmodels/method/yan/cap/64x64_h"
+mmodel "mapmodels/method/yan/cap/64x64_v"
+mmodel "mapmodels/method/yan/metal_floor2/64x64_h"
+mmodel "mapmodels/method/yan/metal_floor2/64x64_v"
+mmodel "mapmodels/method/yan/papers"
+mmodel "mapmotdels/method/yan/puddle/small/64x64_h"
+mmodel "mapmodels/method/yan/puddle/small/64x64_v"
+mmodel "mapmodels/method/yan/puddle/medium/64x64_h"
+mmodel "mapmodels/method/yan/puddle/medium/64x64_v"
+mmodel "mapmodels/method/yan/puddle/large/64x64_h"
+mmodel "mapmodels/method/yan/puddle/large/64x64_v"
+mmodel "mapmodels/method/yan/red_ivy/64x32_h"
+mmodel "mapmodels/method/yan/red_ivy/64x32_v"
+mmodel "mapmodels/method/yan/trim5/64x64_h"
+mmodel "mapmodels/method/yan/trim5/64x64_v"
+mmodel "mapmodels/method/yan/trim5_moss/64x64_h"
+mmodel "mapmodels/method/yan/trim5_moss/64x64_v"
+mmodel "mapmodels/method/yan/wood_chipped"
+
+mmodel "mitaman/chainlinkfence"
+mmodel "mapmodels/suicizer/mitaman/door_06"
+mmodel "mapmodels/suicizer/mitaman/door_07"
+mmodel "mapmodels/suicizer/mitaman/door_08"
+mmodel "mitaman/floorgrate3"
+mmodel "mapmodels/suicizer/mitaman/locker1"
+mmodel "mapmodels/suicizer/mitaman/locker3"
+mmodel "mitaman/woodboard"
+
+mmodel "mapmodels/suicizer/objects/lamp01"
+mmodel "mapmodels/suicizer/objects/chair01"
+mmodel "mapmodels/suicizer/objects/bed01"
+mmodel "mapmodels/suicizer/objects/bench01"
+mmodel "mapmodels/suicizer/objects/lantern01"
+mmodel "mapmodels/suicizer/objects/woodchop"
+mmodel "mapmodels/suicizer/objects/table01"
+mmodel "mapmodels/suicizer/objects/torch"
+mmodel "mapmodels/suicizer/objects/torch_cold"
+mmodel "mapmodels/suicizer/objects/sail01"
+mmodel "mapmodels/suicizer/objects/well_base"
+mmodel "mapmodels/suicizer/objects/well_roof"
+mmodel "mapmodels/suicizer/objects/lamp02"
+mmodel "objects/minekart"
+mmodel "mapmodels/suicizer/objects/axe"
+
+mmodel "steve_e/doors/trapdoor"
+mmodel "steve_e/doors/trapdoor/trapdoor_150"
+mmodel "steve_e/doors/trapdoor/trapdoor_200"
+
+mmodel "tentus/food-drink/goblet"
+mmodel "tentus/food-drink/bowl"
+mmodel "tentus/food-drink/mug"
+mmodel "mapmodels/suicizer/tentus/books/flat"
+mmodel "mapmodels/suicizer/tentus/books/multi"
+mmodel "tentus/chains/chain"
+mmodel "tentus/chains/curvechain"
+mmodel "mapmodels/suicizer/tentus/barrel"
+mmodel "mapmodels/suicizer/tentus/sidebarrel"
+mmodel "mapmodels/suicizer/tentus/ropelamp"
+mmodel "mapmodels/suicizer/tentus/moneybag"
+mmodel "mapmodels/suicizer/tentus/hammer"
+mmodel "mapmodels/suicizer/tentus/anvil"
+mmodel "mapmodels/suicizer/tentus/key"
+mmodel "mapmodels/suicizer/tentus/redshield"
+mmodel "mapmodels/suicizer/tentus/greenshield"
+
+mmodel "vegetation/tree00"
+mmodel "vegetation/tree01"
+mmodel "vegetation/bush01"
+mmodel "vegetation/tree02"
+mmodel "vegetation/tree03"
+mmodel "vegetation/tree04"
+mmodel "vegetation/tree05"
+mmodel "vegetation/tree06"
+mmodel "vegetation/tree07"
+mmodel "vegetation/tree08"
+mmodel "vegetation/tree09"
+mmodel "vegetation/tree10"
+mmodel "vegetation/tree11"
+mmodel "vegetation/tree12"
+mmodel "vegetation/weeds"
+
+mmodel "xeno/box1"
+mmodel "xeno/box2"
+
+mmodel "mapmodels/quakish/atlantis/fall"
+mmodel "mapmodels/quakish/atlantis/fountain"
+mmodel "mapmodels/quakish/bfp/chain45deg"
+mmodel "mapmodels/quakish/bfp/chainhrzntl"
+mmodel "mapmodels/quakish/bfp/chainvrtcl"
+mmodel "mapmodels/quakish/coffin/hrzntl"
+mmodel "mapmodels/quakish/coffin/vrtcl"
+mmodel "mapmodels/quakish/evh"
+mmodel "mapmodels/quakish/giant"
+mmodel "mapmodels/quakish/kt_mushroom/mushroom"
+mmodel "mapmodels/quakish/kt_mushroom/mushroom2"
+mmodel "mapmodels/quakish/old_plane/plane"
+mmodel "mapmodels/quakish/old_plane/plane35"
+mmodel "mapmodels/quakish/old_sparky
+mmodel "mapmodels/quakish/pentagrams/penta_bone/floor"
+mmodel "mapmodels/quakish/pentagrams/penta_bone/wall"
+mmodel "mapmodels/quakish/pentagrams/penta_stone/floor"
+mmodel "mapmodels/quakish/pentagrams/penta_stone/wall"
+mmodel "mapmodels/quakish/tombstones/tombstone01"
+mmodel "mapmodels/quakish/tombstones/tombstone02"
+mmodel "mapmodels/quakish/tombstones/tombstone03"
+mmodel "mapmodels/quakish/tombstones/tombstone04"
+mmodel "mapmodels/quakish/tombstones/tombstone05"
+mmodel "mapmodels/quakish/wallportal"
+mmodel "mapmodels/quakish/wolfhead/wolf"
+mmodel "mapmodels/quakish/wolfhead/wolf_posed"
+
+mmodel "mapmodels/suicizer/transparent"
+
+mmodel "mapmodels/suicizer/quad"
+
+mmodel "mapmodels/method/yan/spanish_moss/64x32_h"
+mmodel "mapmodels/method/yan/spanish_moss/64x32_v"
+
+exec packages/models/mapmodels/sitters/industrial/package.cfg
+exec packages/models/mapmodels/sitters/urbanic/package.cfg
+exec packages/models/mapmodels/sitters/vegetation/package.cfg
+exec packages/models/mapmodels/sitters/vehicles/package.cfg
+
+//sounds
+mapsound "ambience/fire_light.ogg" 300
+mapsound "free/splash1" 200 //jumppad located in the well
+mapsound "ambience/creek.ogg" 200
+mapsound "ambience/cycadas.ogg" 300
+mapsound "ambience/forest1.ogg" 400
+mapsound "ambience/forest2.ogg" 400
+mapsound "ambience/forest3.ogg" 400
+mapsound "ambience/water.ogg" 200
+mapsound "ambience/waterfall.ogg"
+mapsound "ambience/wind.ogg" 200
+mapsound "ambience/Q009/ambient2.ogg" 200
+mapsound "ambience/Q009/ambient3.ogg" 250
+mapsound "soundtransit/waterfall.ogg"

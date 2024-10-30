@@ -1,0 +1,95 @@
+loadsky staffy/staffy
+fog 2000
+fogcolour 0
+skill 1
+elevcontag = 0
+panelset = 1
+mapsound kaiser/fx/hum1 150 -1
+mapsound kaiser/fx/hum2 150 -1
+mapsound kaiser/fx/hum3 150 -1
+mapsound kaiser/fx/hum4 150 -1
+mapsound kaiser/fx/hum5 150 -1
+mapsound kaiser/fx/hum6 150 -1
+mapsound kaiser/fx/hum7 150 -1
+mapsound kaiser/fx/computer1 150 -1
+mapsound kaiser/fx/warning1 150 -1
+mapsound ambience/fire_light 300 -1
+
+trigger 91 1
+texturereset
+exec packages/redon/red_sp1/textures.cfg
+
+setshader bumpspecworld
+texture 0 "philipk/pk01_gra_floor01_d.jpg"
+texscroll 0 2
+texture n "philipk/pk01_gra_floor01_local.jpg"
+texture s "philipk/pk01_gra_floor01_s.jpg"
+
+texture 0 "philipk/pk01_gra_floor01_d.jpg" 1
+texscroll 2 0
+texture n "philipk/pk01_gra_floor01_local.jpg" 1
+texture s "philipk/pk01_gra_floor01_s.jpg" 1
+
+texture 0 "philipk/pk01_gra_floor01_d.jpg" 1
+texscroll -2 0
+texture n "philipk/pk01_gra_floor01_local.jpg" 1
+texture s "philipk/pk01_gra_floor01_s.jpg" 1
+
+texture 0 lunaran/support1_d.jpg
+texscroll 0 2
+texture n lunaran/support1_local.jpg
+texture s lunaran/support1_s.jpg
+texture z lunaran/support1_h.jpg
+
+texture 0 lunaran/support1_d.jpg 1
+texscroll 2
+texture n lunaran/support1_local.jpg 1
+texture s lunaran/support1_s.jpg 1
+texture z lunaran/support1_h.jpg 1
+
+texture 0 lunaran/support1_d.jpg
+texscroll 0 -2
+texture n lunaran/support1_local.jpg
+texture s lunaran/support1_s.jpg
+texture z lunaran/support1_h.jpg
+
+texture 0 lunaran/support1_d.jpg 1
+texscroll -2
+texture n lunaran/support1_local.jpg 1
+texture s lunaran/support1_s.jpg 1
+texture z lunaran/support1_h.jpg 1
+
+texture 0 redon/red_sp1/volt1_d.jpg
+texture n redon/red_sp1/volt_local.jpg
+texture s redon/red_sp1/volt_s.jpg
+texture z redon/red_sp1/volt_h.jpg
+
+texture 0 redon/red_sp1/volt2_d.jpg
+texture n redon/red_sp1/volt_local.jpg
+texture s redon/red_sp1/volt_s.jpg
+texture z redon/red_sp1/volt_h.jpg
+texlayer 1
+setshader glowworld
+texture 0 redon/red_sp1/computerscreen.png
+texture g redon/red_sp1/computerscreen.png
+
+setshader bumpspecmapglowworld
+setshaderparam "specscale" 4 4 4
+texture 0 "philipk/pk01_panel_small01_d.jpg"
+texture n "philipk/pk01_panel_small01_local.jpg"
+texture s "philipk/pk01_panel_small01_s.jpg"
+texture g "philipk/pk01_panel_small01_add.jpg"
+
+include "philipk/pk01_panel_small01red_d.jpg"
+include "philipk/pk01_panel_small01_local.jpg"
+include "philipk/pk01_panel_small01_s.jpg"
+include "philipk/pk01_panel_small01red_add.jpg"
+
+setshader stdworld
+texture 0 "redon/red_sp1/cubecolor1.png"
+texture 0 "redon/red_sp1/cubecolor2.png"
+texture 0 "redon/red_sp1/cubecolor3.png"
+
+texture 0 "redon/red_sp1/checkbox_off.png"
+texture 0 "redon/red_sp1/checkbox_on.png"
+

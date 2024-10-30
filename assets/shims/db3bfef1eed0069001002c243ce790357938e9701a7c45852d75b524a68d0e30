@@ -1,0 +1,613 @@
+
+//MODELS
+mapmodelreset
+
+mmodel "mapmodels/justice/pad/jump"
+mmodel "mapmodels/justice/switch"
+mmodel "mapmodels/justice/vending"
+mmodel "mapmodels/justice/railings/01"
+mmodel "mapmodels/justice/pad/teleport"
+mmodel "mapmodels/justice/pad/teledest"
+
+mmodel "mapmodels/makke/gutter_h_big/trak5"
+mmodel "ao1/metro/sign/player"
+mmodel "ao1/metro/sign/citymap"
+mmodel "ao1/metro/sign/flyingcar"
+
+mmodel "vegetation/tree07"
+mmodel "projectiles/rocket"
+
+mmodel "wohsiesta/tree"
+mmodel "ao1/metro/graffiti/aracari"
+mmodel "ao1/metro/graffiti/see"
+mmodel "ao1/metro/graffiti/ironmetro"
+mmodel "ao1/metro/graffiti/necedemalis"
+mmodel "ao1/metro/graffiti/warning"
+
+mmodel "tentus/food-drink/pieslice"
+
+//BASES
+base_1 = "^fs^f7Peanut Plaza: ^f0Minigun^fr"
+base_2 = "^fs^f7Tram Platform: ^f1Rifle^fr"
+base_3 = "^fs^f7Lobby Balconies: ^f3Shotgun^fr"
+base_4 = "^fs^f7H2O Treatment Hub: ^f6Rockets^fr"
+base_5 = "^fs^f7Restaurant: ^f1Grenades^fr"
+base_6 = "^fs^f7Downtown: ^f4Pistol^fr"
+
+//SOUNDS
+
+//the tracks "cee" and "see" (version 2 of cee) are made by Aracari
+//find his music here:
+//https://soundcloud.com/legendofaracari
+//https://www.youtube.com/channel/UCtaXxLhN-uhoqQCh0YGyvbg
+mapsound "ao1/metro/see_trimmed.ogg" 255		//music by Aracari, butchered by Ao1
+
+mapsound "ao1/metro/shredder" 120 2				//holographic signposts
+mapsound "ambience/doomish/rumble1.ogg" 255		//random ambience
+mapsound "ambience/water.ogg" 255 3				//H2O Hub
+mapsound "fanatic/fountain.wav" 150				//Hotdog grease
+mapsound "kaiser/fx/hum7.wav" 255 1				//Large Jumppads ambient
+mapsound "soundsnap/fan.ogg" 110				//Belt Jumppads ambient
+mapsound "ao1/metro/metro_tele" 255 50			//Teleport action sound
+mapsound "ao1/metro/metro_jumppad" 255 50		//Jumppad action sound
+
+//TEXTURES
+texturereset
+texture 0 "textures/sky.png"
+texture 0 "textures/default.png"
+
+//pk02
+setshader bumpspecmapglowworld
+setshaderparam "specscale" .7 .7 .7
+
+texture 0 "textures/philipk/pk02/ceiling02_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/ceiling02_n.png"
+texture s "textures/philipk/pk02/ceiling02_s.jpg"
+texture g "textures/philipk/pk02/ceiling02_g.jpg"
+
+texture 0 "textures/philipk/pk02/computer01a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/computer01a_n.png"
+texture s "textures/philipk/pk02/computer01a_s.jpg"
+texture g "textures/philipk/pk02/computer01a_g.jpg"
+
+texture 0 "textures/philipk/pk02/computer01b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/computer01b_n.png"
+texture s "textures/philipk/pk02/computer01b_s.jpg"
+texture g "textures/philipk/pk02/computer01b_g.jpg"
+
+texture 0 "textures/philipk/pk02/computer01c_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/computer01c_n.png"
+texture s "textures/philipk/pk02/computer01c_s.jpg"
+texture g "textures/philipk/pk02/computer01c_g.jpg"
+
+texture 0 "textures/philipk/pk02/light01a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/light01_n.png"
+texture s "textures/philipk/pk02/light01_s.jpg"
+texture g "textures/philipk/pk02/p1nokjo_light01_g.jpg"
+
+texture 0 "textures/philipk/pk02/light01b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/light01_n.png"
+texture s "textures/philipk/pk02/light01_s.jpg"
+texture g "textures/philipk/pk02/p1nokjo_light01_g.jpg"
+
+texture 0 "textures/philipk/pk02/light02a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/light02_n.png"
+texture s "textures/philipk/pk02/light02_s.jpg"
+texture g "textures/philipk/pk02/light02_g.jpg"
+
+texture 0 "textures/philipk/pk02/light02b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/light02_n.png"
+texture s "textures/philipk/pk02/light02_s.jpg"
+texture g "textures/philipk/pk02/light02_g.jpg"
+
+texture 0 "textures/philipk/pk02/light02c_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/light02_n.png"
+texture s "textures/philipk/pk02/light02_s.jpg"
+texture g "textures/philipk/pk02/light02_g.jpg"
+
+texture 0 "textures/philipk/pk02/light03_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/light03_n.png"
+texture s "textures/philipk/pk02/light03_s.jpg"
+texture g "textures/philipk/pk02/light03_g.jpg"
+
+texture 0 "textures/philipk/pk02/pipes01_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/pipes01_n.png"
+texture s "textures/philipk/pk02/pipes01_s.jpg"
+texture g "textures/philipk/pk02/pipes01_g.jpg"
+
+texture 0 "textures/philipk/pk02/switches01b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/switches01b_n.png"
+texture s "textures/philipk/pk02/switches01b_s.jpg"
+texture g "textures/philipk/pk02/switches01b_g.jpg"
+
+texture 0 "textures/philipk/pk02/switches01c_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/switches01c_n.png"
+texture s "textures/philipk/pk02/switches01c_s.jpg"
+texture g "textures/philipk/pk02/switches01c_g.jpg"
+
+texture 0 "textures/philipk/pk02/wall02a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall02a_n.png"
+texture s "textures/philipk/pk02/wall02a_s.jpg"
+texture g "textures/philipk/pk02/wall02a_g.jpg"
+
+texture 0 "textures/philipk/pk02/wall02b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall02b_n.png"
+texture s "textures/philipk/pk02/wall02b_s.jpg"
+texture g "textures/philipk/pk02/wall02b_g.jpg"
+
+texture 0 "textures/philipk/pk02/wall02c_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall02c_n.png"
+texture s "textures/philipk/pk02/wall02c_s.jpg"
+texture g "textures/philipk/pk02/wall02c_g.jpg"
+
+setshader bumpspecmapworld
+setshaderparam "specscale" .7 .7 .7
+
+texture 0 "textures/philipk/pk02/ceiling03_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/ceiling03_n.png"
+texture s "textures/philipk/pk02/ceiling03_s.jpg"
+
+texture 0 "textures/philipk/pk02/door01_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/door01_n.png"
+texture s "textures/philipk/pk02/door01_s.jpg"
+
+texture 0 "textures/philipk/pk02/door02_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/door02_n.png"
+texture s "textures/philipk/pk02/door02_s.jpg"
+
+texture 0 "textures/default.png"
+
+texture 0 "textures/philipk/pk02/floor_cyl01_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/floor_cyl01_n.png"
+texture s "textures/philipk/pk02/floor_cyl01_s.jpg"
+
+texture 0 "textures/philipk/pk02/floor_cyl02_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/floor_cyl02_n.png"
+texture s "textures/philipk/pk02/floor_cyl02_s.jpg"
+
+texture 0 "textures/philipk/pk02/floor01_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/floor01_n.png"
+texture s "textures/philipk/pk02/floor01_s.jpg"
+
+texture 0 "textures/philipk/pk02/floor02_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/floor02_n.png"
+texture s "textures/philipk/pk02/floor02_s.jpg"
+
+texture 0 "textures/philipk/pk02/floor03_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/floor03_n.png"
+texture s "textures/philipk/pk02/floor03_s.jpg"
+
+texture 0 "textures/philipk/pk02/floor04_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/floor04_n.png"
+texture s "textures/philipk/pk02/floor04_s.jpg"
+
+texture 0 "textures/philipk/pk02/floor05_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/floor05_n.png"
+texture s "textures/philipk/pk02/floor05_s.jpg"
+
+texture 0 "textures/philipk/pk02/floor06a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/floor06a_n.png"
+texture s "textures/philipk/pk02/floor06a_s.jpg"
+
+texture 0 "textures/philipk/pk02/floor06b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/floor06a_n.png"
+texture s "textures/philipk/pk02/floor06a_s.jpg"
+
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+
+texture 0 "textures/philipk/pk02/floor10_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/floor10_n.png"
+texture s "textures/philipk/pk02/floor10_s.jpg"
+
+texture 0 "textures/default.png"
+
+texture 0 "textures/philipk/pk02/floor12a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/floor12_n.png"
+texture s "textures/philipk/pk02/floor12_s.jpg"
+
+texture 0 "textures/philipk/pk02/floor12b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/floor12_n.png"
+texture s "textures/philipk/pk02/floor12_s.jpg"
+
+texture 0 "textures/philipk/pk02/floor13a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/floor13_n.png"
+texture s "textures/philipk/pk02/floor13_s.jpg"
+
+texture 0 "textures/philipk/pk02/floor13b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/floor13_n.png"
+texture s "textures/philipk/pk02/floor13_s.jpg"
+
+texture 0 "textures/philipk/pk02/generic01a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/generic01_n.png"
+texture s "textures/philipk/pk02/generic01_s.jpg"
+
+texture 0 "textures/philipk/pk02/generic01b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/generic01_n.png"
+texture s "textures/philipk/pk02/generic01_s.jpg"
+
+texture 0 "textures/philipk/pk02/panels01a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/panels01a_n.png"
+texture s "textures/philipk/pk02/panels01a_s.jpg"
+
+texture 0 "textures/philipk/pk02/panels01b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/panels01b_n.png"
+texture s "textures/philipk/pk02/panels01b_s.jpg"
+
+texture 0 "textures/philipk/pk02/panels01c_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/panels01c_n.png"
+texture s "textures/philipk/pk02/panels01c_s.jpg"
+
+texture 0 "textures/philipk/pk02/plates01a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/plates01a_n.png"
+texture s "textures/philipk/pk02/plates01a_s.jpg"
+
+texture 0 "textures/philipk/pk02/plates01b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/plates01b_n.png"
+texture s "textures/philipk/pk02/plates01b_s.jpg"
+
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+
+texture 0 "textures/philipk/pk02/switches01a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/switches01a_n.png"
+texture s "textures/philipk/pk02/switches01a_s.jpg"
+
+texture 0 "textures/philipk/pk02/trim_set01a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/trim_set01_n.png"
+texture s "textures/philipk/pk02/trim_set01_s.jpg"
+
+texture 0 "textures/philipk/pk02/trim_set01b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/trim_set01_n.png"
+texture s "textures/philipk/pk02/trim_set01_s.jpg"
+
+texture 0 "textures/philipk/pk02/trim_set02a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/trim_set02_n.png"
+texture s "textures/philipk/pk02/trim_set02_s.jpg"
+
+texture 0 "textures/philipk/pk02/trim_set02b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/trim_set02_n.png"
+texture s "textures/philipk/pk02/trim_set02_s.jpg"
+
+texture 0 "textures/philipk/pk02/trim01_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/trim01_n.png"
+texture s "textures/philipk/pk02/trim01_s.jpg"
+
+texture 0 "textures/philipk/pk02/trim02_c.jpg"
+texture n "textures/philipk/pk02/trim02_n.png"
+texture s "textures/philipk/pk02/trim02_s.jpg"
+
+texture 0 "textures/philipk/pk02/trim03_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/trim03_n.png"
+texture s "textures/philipk/pk02/trim03_s.jpg"
+
+texture 0 "textures/philipk/pk02/trim04a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/trim04a_n.png"
+texture s "textures/philipk/pk02/trim04a_s.jpg"
+
+texture 0 "textures/philipk/pk02/trim04b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/trim04b_n.png"
+texture s "textures/philipk/pk02/trim04b_s.jpg"
+
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+
+texture 0 "textures/philipk/pk02/wall_big02a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall_big02a_n.png"
+texture s "textures/philipk/pk02/wall_big02a_s.jpg"
+
+texture 0 "textures/philipk/pk02/wall_big02b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall_big02b_n.png"
+texture s "textures/philipk/pk02/wall_big02b_s.jpg"
+
+texture 0 "textures/default.png"
+
+texture 0 "textures/philipk/pk02/wall03a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall03a_n.png"
+texture s "textures/philipk/pk02/wall03a_s.jpg"
+
+texture 0 "textures/philipk/pk02/wall03b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall03b_n.png"
+texture s "textures/philipk/pk02/wall03b_s.jpg"
+
+texture 0 "textures/philipk/pk02/wall04a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall04a_n.png"
+texture s "textures/philipk/pk02/wall04a_s.jpg"
+
+texture 0 "textures/philipk/pk02/wall04b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall04b_n.png"
+texture s "textures/philipk/pk02/wall04b_s.jpg"
+
+texture 0 "textures/philipk/pk02/wall05a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall05a_n.png"
+texture s "textures/philipk/pk02/wall05a_s.jpg"
+
+texture 0 "textures/philipk/pk02/wall05b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall05b_n.png"
+texture s "textures/philipk/pk02/wall05b_s.jpg"
+
+texture 0 "textures/philipk/pk02/wall05c_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall05c_n.png"
+texture s "textures/philipk/pk02/wall05c_s.jpg"
+
+texture 0 "textures/philipk/pk02/wall06a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall06a_n.png"
+texture s "textures/philipk/pk02/wall06a_s.jpg"
+
+texture 0 "textures/philipk/pk02/wall06b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall06b_n.png"
+texture s "textures/philipk/pk02/wall06b_s.jpg"
+
+texture 0 "textures/philipk/pk02/wall07a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall07a_n.png"
+texture s "textures/philipk/pk02/wall07a_s.jpg"
+
+texture 0 "textures/philipk/pk02/wall07b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall07b_n.png"
+texture s "textures/philipk/pk02/wall07b_s.jpg"
+
+texture 0 "textures/philipk/pk02/wall08a_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall08_n.png"
+texture s "textures/philipk/pk02/wall08_s.jpg"
+
+texture 0 "textures/philipk/pk02/wall08b_c.jpg" 0 0 0 .5
+texture n "textures/philipk/pk02/wall08_n.png"
+texture s "textures/philipk/pk02/wall08_s.jpg"
+
+setshader stdworld
+
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+
+//unnamed (from RE)
+
+setshader bumpspecmapparallaxglowworld
+setshaderparam glowcolor 0.800000 0.800000 0.800000 0.000000
+texture c "textures/unnamed/unnamedpipes01.png" 0 0 0 0.500000
+texture n "textures/unnamed/unnamedpipes01_n.png"
+texture s "textures/unnamed/unnamedpipes01_s.png"
+texture g "textures/unnamed/unnamedpipes01_g.png"
+
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+
+setshader bumpenvspecmapparallaxworld
+setshaderparam envscale 0.200000 0.200000 0.200000
+setshaderparam parallaxscale 0.004000 0.004000 0.004000 0.000000
+setshaderparam specscale 0.500000 0.500000 0.500000 0.000000
+texture c "textures/unnamed/tile08-a.png" 0 0 0 0.500000
+texture n "textures/unnamed/tile08_n.png"
+texture s "textures/unnamed/tile08_s.png"
+texture z "textures/unnamed/tile08_z.png"
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.004000 0.004000 0.004000 0.000000
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/wall01.png" 0 0 0 0.500000
+texture n "textures/unnamed/wall01_n.png"
+texture s "textures/unnamed/wall01_s.png"
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.004000 0.004000 0.004000 0.000000
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/wall01-a.png" 0 0 0 0.500000
+texture n "textures/unnamed/wall01-a_n.png"
+texture s "textures/unnamed/wall01_s.png"
+texture z "textures/unnamed/wall01-a_z.png"
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.004000 0.004000 0.004000 0.000000
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/wall01-c.png" 0 0 0 0.500000
+texture n "textures/unnamed/wall01-c_n.png"
+texture s "textures/unnamed/wall01_s.png"
+texture z "textures/unnamed/wall01-c_z.png"
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.004000 0.004000 0.004000 0.000000
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/wall01-f.png" 0 0 0 0.500000
+texture n "textures/unnamed/wall01-f_n.png"
+texture s "textures/unnamed/wall01_s.png"
+texture z "textures/unnamed/wall01-f_z.png"
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.004000 0.004000 0.004000 0.000000
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/wall01-g.png" 0 0 0 0.500000
+texture n "textures/unnamed/wall01-g_n.png"
+texture s "textures/unnamed/wall01_s.png"
+texture z "textures/unnamed/wall01-g_z.png"
+
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+
+setshader bumpenvspecmapparallaxworld
+setshaderparam parallaxscale 0.004000 0.004000 0.004000 0.000000
+setshaderparam specscale 0.600000 0.640000 0.700000 0.000000
+setshaderparam envscale 0.350000 0.400000 0.500000 0.000000
+texture c "textures/unnamed/solar_cell01.png" 0 0 0 0.500000
+texture n "textures/unnamed/solar_cell01_n.png"
+texture s "textures/unnamed/solar_cell01_s.png"
+
+setshader bumpenvspecmapparallaxworld
+setshaderparam parallaxscale 0.004000 0.004000 0.004000 0.000000
+setshaderparam specscale 0.600000 0.640000 0.700000 0.000000
+setshaderparam envscale 0.350000 0.400000 0.500000 0.000000
+texture c "textures/unnamed/solar_cell02.png" 0 0 0 0.500000
+texture n "textures/unnamed/solar_cell02_n.png"
+texture s "textures/unnamed/solar_cell02_s.png"
+
+setshader bumpenvspecmapparallaxworld
+setshaderparam parallaxscale 0.004000 0.004000 0.004000 0.000000
+setshaderparam specscale 0.600000 0.640000 0.700000 0.000000
+setshaderparam envscale 0.350000 0.400000 0.500000 0.000000
+texture c "textures/unnamed/solar_cell03.png" 0 0 0 0.500000
+texture n "textures/unnamed/solar_cell03_n.png"
+texture s "textures/unnamed/solar_cell03_s.png"
+
+setshader bumpenvspecmapparallaxglowworld
+setshaderparam parallaxscale 0.004000 0.004000 0.000000 0.000000
+setshaderparam specscale 0.700000 0.700000 0.700000 0.000000
+setshaderparam envscale 0.100000 0.100000 0.100000 0.000000
+setshaderparam glowcolor 0.100000 0.300000 1.000000
+texture c "textures/unnamed/brick01.png"
+texture n "textures/unnamed/brick01_n.png"
+texture s "textures/unnamed/brick01_s.png"
+texture z "textures/unnamed/brick01_z.png"
+texture g "textures/unnamed/brick01_g.png"
+
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.003000 0.003000 0.000000 0.000000
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/panels02a.png" 0 0 0 0.500000
+texture n "textures/unnamed/panels02_n.png"
+texture s "textures/unnamed/panels02a_s.png"
+texture z "textures/unnamed/panels02_z.png"
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.003000 0.003000 0.000000 0.000000
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/panels02b.png" 0 0 0 0.500000
+texture n "textures/unnamed/panels02_n.png"
+texture s "textures/unnamed/panels02_s.png"
+texture z "textures/unnamed/panels02_z.png"
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.003000 0.003000 0.000000 0.000000
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/panels02c.png" 0 0 0 0.500000
+texture n "textures/unnamed/panels02_n.png"
+texture s "textures/unnamed/panels02_s.png"
+texture z "textures/unnamed/panels02_z.png"
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.003000 0.003000 0.000000 0.000000
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/panels02d.png" 0 0 0 0.500000
+texture n "textures/unnamed/panels02_n.png"
+texture s "textures/unnamed/panels02_s.png"
+texture z "textures/unnamed/panels02_z.png"
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.003000 0.003000 0.000000 0.000000
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/panels02e.png" 0 0 0 0.500000
+texture n "textures/unnamed/panels02_n.png"
+texture s "textures/unnamed/panels02_s.png"
+texture z "textures/unnamed/panels02_z.png"
+
+setshader bumpspecmapparallaxglowworld
+setshaderparam parallaxscale 0.003000 0.003000 0.000000 0.000000
+setshaderparam glowcolor 1.000000 1.000000 1.000000 0.000000 1 1
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/panels02f.png" 0 0 0 0.500000
+texture n "textures/unnamed/panels02f_n.png"
+texture s "textures/unnamed/panels02f_s.png"
+texture z "textures/unnamed/panels02f_z.png"
+texture g "textures/unnamed/panels02f_g.png"
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.002000 0.002000 0.000000 0.000000
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/trim02.png"
+texture n "textures/unnamed/trim02_n.png"
+texture s "textures/unnamed/trim02_s.png"
+texture z "textures/unnamed/trim02_z.png"
+texcolor 0.800000 0.800000 0.800000
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.002000 0.002000 0.000000 0.000000
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/floor01.png" 0 0 0 0.500000
+texture n "textures/unnamed/floor01_n.png"
+texture s "textures/unnamed/floor01_s.png"
+texture z "textures/unnamed/floor01_z.png"
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.002000 0.002000 0.000000 0.000000
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/floor_cyl02.png" 0 0 0 0.500000
+texture n "textures/unnamed/floor_cyl02_n.png"
+texture s "textures/unnamed/floor_cyl02_s.png"
+texture z "textures/unnamed/floor_cyl02_z.png"
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.004000 0.004000 0.000000 0.000000
+setshaderparam specscale 0.500000 0.500000 0.500000 0.000000
+texture c "textures/unnamed/wall02.png" 0 0 0 0.500000
+texture n "textures/unnamed/wall02_n.png"
+texture s "textures/unnamed/wall02_s.png"
+texture z "textures/unnamed/wall02_z.png"
+
+setshader bumpspecmapparallaxworld
+setshaderparam parallaxscale 0.006000 0.006000 0.000000 0.000000
+setshaderparam specscale 0.600000 0.600000 0.600000 0.000000
+texture c "textures/unnamed/wall05.png"
+texture n "textures/unnamed/wall05_n.png"
+texture s "textures/unnamed/wall05_s.png"
+texture z "textures/unnamed/wall05_z.png"
+
+
+//default packs
+exec "packages/textures/nieb/package.cfg"
+exec "packages/trak5/package.cfg"
+
+//trak6 and trak7
+
+	setshader stdworld
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+
+	setshader bumpspecmapworld
+texture c "textures/trak/trak6/trim1.png" 0 0 0 0.5
+texture s "textures/trak/trak6/trim1_s.png"
+texture n "textures/trak/trak6/trim1_n.png"
+
+texture c "textures/trak/trak6/trim2.png"
+texture s "textures/trak/trak6/trim2_s.png"
+texture n "textures/trak/trak6/trim2_n.png"
+
+	setshader stdworld
+texture 0 "textures/default.png"
+
+	setshader bumpglowworld
+setshaderparam "specscale" 0.25 0.25 0.25
+texture c "textures/trak/trak6/light1.png" 0 0 0 0.5
+texture n "textures/trak/trak6/light1_n.png"
+texture g "textures/trak/trak6/light1_g.png"
+
+	setshader stdworld
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+texture 0 "textures/default.png"
+
+	setshader bumpspecmapworld
+setshaderparam "specscale" 2 2 2
+texture c "textures/trak/trak7/tile2.png" 0 0 0 0.5
+texture s "textures/trak/trak7/tile2_s.png"
+texture n "textures/trak/trak7/tile2_n.png"

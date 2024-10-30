@@ -1,0 +1,7 @@
+music hirato/sounds/deep-space-station/syna-max/alarm_of_d00m.ogg
+
+setshader envworld
+
+setpixelparam 0 .15 .15 .15
+
+texture 0 "hirato/textures/nexuiz/defaultmetal.jpg" 0 0 0 .5

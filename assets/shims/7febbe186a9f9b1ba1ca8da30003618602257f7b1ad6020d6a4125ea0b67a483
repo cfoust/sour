@@ -1,0 +1,707 @@
+// skrsp1 by James 'Skur' Rucks 2013
+// version: 1.2
+
+maptitle "^f7- ^f3Meltdown ^f7(skrsp1) by ^f2James ^f7'^f6Skur^f7' ^f2Rucks ^f7in Summer 2013 -"
+
+//settings
+
+skill 10
+killsendsp 0
+ambient 15 15 15
+lightlod 3
+skylight 45 45 45
+skytexturelight 0
+sunlight 180 170 135
+sunlightscale 1.0
+sunlightpitch 30
+sunlightyaw 160
+skybox "socksky/frozendusk"
+yawsky 350
+fog 3000
+fogcolour 130 135 120
+fogdomemin 0
+fogdomemax 1
+fogdomeheight -0.05
+fogdomecap 1
+fogdomeclip 0.3
+fogdomecolour 130 135 120
+
+//sound
+
+mapsound "soundtransit/waterfall.ogg" 100 1
+mapsound "ambience/fire_light.ogg" 255 1
+mapsound "ambience/lavarumble1.ogg" 255 1
+
+//mapmodels
+
+mapmodelreset
+
+mmodel "doors/door_03"
+mmodel "mitaman/door_06"
+mmodel "mitaman/door_07"
+mmodel "mitaman/door_09"
+mmodel "mitaman/door_10"
+mmodel "steve_e/doors/trapdoor"
+mmodel "steve_e/doors/trapdoor/trapdoor_150"
+mmodel "steve_e/doors/trapdoor/trapdoor_200"
+mmodel "switch1"
+mmodel "dcp/cask"
+mmodel "dcp/chest"
+mmodel "dcp/grate"
+mmodel "dcp/switch2a"
+mmodel "objects/torch_cold"
+mmodel "objects/chair01"
+mmodel "objects/bed01"
+mmodel "objects/woodchop"
+mmodel "tentus/key"
+mmodel "tentus/books/flat"
+mmodel "tentus/barrel"
+mmodel "tentus/sidebarrel"
+mmodel "mapmodels/nieb/waterfall/2"
+mmodel "mapmodels/sitters/gothic/skelet1"
+mmodel "mapmodels/sitters/gothic/skelet2"
+mmodel "mapmodels/sitters/gothic/skelet3"
+mmodel "mapmodels/quakish/grim_reaper/adam"
+mmodel "mapmodels/quakish/grim_reaper/grim"
+mmodel "mapmodels/quakish/grim_reaper/vehementi"
+mmodel "mapmodels/rpg/characters/mman"
+mmodel "mapmodels/rpg/characters/npcman"
+mmodel "mapmodels/quakish/tombstones/tombstone01"
+mmodel "mapmodels/quakish/tombstones/tombstone02"
+mmodel "mapmodels/quakish/tombstones/tombstone03"
+mmodel "mapmodels/quakish/tombstones/tombstone04"
+mmodel "mapmodels/quakish/tombstones/tombstone05"
+mmodel "carrot"
+
+//textures
+
+materialreset
+
+texture water1 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture water2 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture water3 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture water4 "golgotha/water2.jpg"    // water surface
+texture 1 "textures/waterfall.jpg"     // waterfall
+texture 1 "textures/watern.jpg"        // water normals
+texture 1 "textures/waterdudv.jpg"     // water distortion
+texture 1 "textures/waterfalln.jpg"    // waterfall normals
+texture 1 "textures/waterfalldudv.jpg" // waterfall distortion
+
+texture lava1 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+texture lava2 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+texture lava3 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+texture lava4 "dg/floor_lava2.jpg" 0 0 0 2 // lava surface
+texture 1 "dg/floor_lava2.jpg"    0 0 0 2 // falling lava
+
+texturereset
+
+texture 0 "textures/sky.png"
+texture 0 "textures/default.png"
+
+//lava
+setshader glowworld
+//setshader pulseglowworld
+//setshaderparam "glowcolor" .3 .3 .3	// glow color
+//setshaderparam "pulseglowspeed" .5	// pulse frequency (Hz)
+//setshaderparam "pulseglowcolor" 0 0 0 // pulse glow color
+texture 0 "dg/floor_lava2.jpg" 0 0 0 3
+texture g "dg/floor_lava2.jpg"
+texscale 2
+texscroll 0 -0.05
+
+//spaceholder
+setshader stdworld
+texture 0 "misanthropx/white.jpg"
+
+//tomek
+setshader bumpspecmapparallaxworld
+
+texture 0 tomek/snow7_d.jpg
+texture n tomek/snow7_local.jpg
+texture s tomek/snow7_s.jpg
+texture z tomek/snow7_h.jpg
+texlayer 7
+
+texture 0 tomek/snow7_d.jpg
+texture n tomek/snow7_local.jpg
+texture s tomek/snow7_s.jpg
+texture z tomek/snow7_h.jpg
+texlayer 8
+
+//gor
+setshader bumpspecmapparallaxworld
+
+setshaderparam "specscale" 4 4 4
+setshaderparam "parallaxscale" 0.02 -0.01
+
+texture 0 gor/WT_GK_011_cc.jpg
+texture n gor/WT_GK_011_nm.jpg
+texture s gor/WT_GK_011_sc.jpg
+texture z gor/WT_GK_011_hm.jpg
+	
+texture 0 gor/WT_GK_017_cc.jpg
+texture n gor/WT_GK_017_nm.jpg
+texture s gor/WT_GK_017_sc.jpg
+texture z gor/WT_GK_017_hm.jpg
+
+texture 0 gor/ST_GK_007_cc.jpg
+texture n gor/ST_GK_007_nm.jpg
+texture s gor/ST_GK_007_sc.jpg
+texture z gor/ST_GK_007_hm.jpg
+	
+//dg
+setshader stdworld
+texture 0 "dg/muv204.jpg"
+
+setshader bumpspecmapparallaxworld		
+setshaderparam parallaxscale 0.025 -0.015
+setshaderparam specscale .4 .4 .4
+
+texture 0 dg/mad064.jpg
+texture n dg/mad064_n.jpg
+texture z dg/mad064_z.jpg
+texture s dg/mad064_s.jpg
+
+texture 0 dg/mad065.jpg
+texture n dg/mad065n.jpg
+texture z dg/mad065z.jpg
+texture s dg/mad065s.jpg
+
+//skur
+texture 0 skur/mad065_27.jpg
+texture n skur/mad065n_27.jpg
+texture z skur/mad065z_27.jpg
+texture s skur/mad065s_27.jpg
+
+texture 0 skur/mad065_45.jpg
+texture n skur/mad065n_45.jpg
+texture z skur/mad065z_45.jpg
+texture s skur/mad065s_45.jpg
+
+//evil_textures
+
+setshader bumpspecmapparallaxworld
+setshaderparam specscale .8 .8 .8
+setshaderparam parallaxscale 0.025 -0.015
+
+//e7bigwall
+texture 0 evil_textures/e7bigwall.jpg
+texture n evil_textures/e7bigwall_NRM.jpg
+texture s evil_textures/e7bigwall_SPEC.jpg
+texture z evil_textures/e7bigwall_DISP.jpg
+
+//e7bmtrim
+texture 0 evil_textures/e7bmtrim.jpg
+texture n evil_textures/e7bmtrim_NRM.jpg
+texture s textures/yves_allaire/e7/e7bmtrim1_s.jpg
+texture z evil_textures/e7bmtrim_DISP.jpg
+
+//e7brickfloor01
+texture 0 evil_textures/e7brickfloor01.jpg
+texture n evil_textures/e7brickfloor01_NRM.jpg
+texture s textures/yves_allaire/e7/e7brickfloor01_s.jpg
+texture z evil_textures/e7brickfloor01_DISP.jpg
+texcolor .8 .8 .8
+
+//e7bricks01
+texture 0 evil_textures/e7bricks01.jpg
+texture n evil_textures/e7bricks01_NRM.jpg
+texture s textures/yves_allaire/e7/e7bricks01_s.jpg
+texture z evil_textures/e7bricks01_DISP.jpg
+
+//e7dimfloor
+texture 0 evil_textures/e7dimfloor.jpg
+texture n evil_textures/e7dimfloor_NRM.jpg
+texture s textures/yves_allaire/e7/e7dimfloor_s.jpg
+texture z evil_textures/e7dimfloor_DISP.jpg
+texscale 2
+
+texture 0 evil_textures/e7dimfloor_ow.jpg
+texture n evil_textures/e7dimfloor_ow_NRM.jpg
+texture s textures/yves_allaire/e7/e7dimfloor_ow_s.jpg
+texture z evil_textures/e7dimfloor_ow_DISP.jpg
+texscale 2
+
+//e7sbrickfloor
+texture 0 evil_textures/e7sbrickfloor.jpg
+texture n evil_textures/e7sbrickfloor_NRM.jpg
+texture s textures/yves_allaire/e7/e7sbrickfloor_s.jpg
+texture z evil_textures/e7sbrickfloor_DISP.jpg
+
+texture 0 evil_textures/e7sbrickfloor_ow.jpg
+texture n evil_textures/e7sbrickfloor_ow_NRM.jpg
+texture s textures/yves_allaire/e7/e7sbrickfloor_ow_s.jpg
+texture z evil_textures/e7sbrickfloor_ow_DISP.jpg
+
+texture 0 evil_textures/e7sbrickfloorbig.jpg
+texture n evil_textures/e7sbrickfloorbig_NRM.jpg
+texture s textures/yves_allaire/e7/e7sbrickfloorbig_s.jpg
+texture z evil_textures/e7sbrickfloorbig_DISP.jpg
+
+//e7window
+texture 0 evil_textures/e7swindow.jpg
+texture n evil_textures/e7swindow_NRM.jpg
+texture s textures/yves_allaire/e7/e7swindow_s.jpg
+texture z evil_textures/e7swindow_DISP.jpg
+
+//e7walldesign01b
+texture 0 evil_textures/e7walldesign01b.jpg 
+texture n evil_textures/e7walldesign01b_NRM.jpg
+texture s textures/yves_allaire/e7/e7walldesign01b_s.jpg
+texture z evil_textures/e7walldesign01b_DISP.jpg
+
+setshaderparam parallaxscale 0.02 -0.01
+
+//e7walldesign
+texture 0 textures/yves_allaire/e7/e7walldesign01.jpg
+texture n textures/yves_allaire/e7/e7walldesign01_n.jpg
+texture s textures/yves_allaire/e7/e7walldesign01_s.jpg
+texture z textures/yves_allaire/e7/e7walldesign01_z.jpg
+
+texture 0 textures/yves_allaire/e7/e7walldesign02.jpg
+texture n textures/yves_allaire/e7/e7walldesign02_n.jpg
+texture s textures/yves_allaire/e7/e7walldesign02_s.jpg
+texture z textures/yves_allaire/e7/e7walldesign02_z.jpg
+
+setshader bumpspecmapparallaxworld
+setshaderparam specscale .8 .8 .8
+setshaderparam parallaxscale 0.025 -0.015
+
+//e7beam
+texture 0 evil_textures/e7beam01.jpg
+texture n textures/yves_allaire/e7/e7beam01_n.jpg
+texture s textures/yves_allaire/e7/e7beam01_s.jpg
+texture z textures/yves_allaire/e7/e7beam01_z.jpg
+
+texture 0 evil_textures/e7beam01b.jpg
+texture n textures/yves_allaire/e7/e7beam01b_n.jpg
+texture s textures/yves_allaire/e7/e7beam01b_s.jpg
+texture z textures/yves_allaire/e7/e7beam01b_z.jpg
+
+texture 0 evil_textures/e7beam02.jpg
+texture n textures/yves_allaire/e7/e7beam02_n.jpg
+texture s textures/yves_allaire/e7/e7beam02_s.jpg
+texture z textures/yves_allaire/e7/e7beam02_z.jpg
+
+texture 0 evil_textures/e7beam02_blue.jpg 
+texture n textures/yves_allaire/e7/e7beam02_blue_n.jpg 
+texture s textures/yves_allaire/e7/e7beam02_blue_s.jpg
+texture z textures/yves_allaire/e7/e7beam02_blue_z.jpg
+
+texture 0 evil_textures/e7beam02_red.jpg
+texture n textures/yves_allaire/e7/e7beam02_red_n.jpg
+texture s textures/yves_allaire/e7/e7beam02_red_s.jpg
+texture z textures/yves_allaire/e7/e7beam02_red_z.jpg
+
+//e7bmtrim2
+texture 0 evil_textures/e7bmtrim2.jpg
+texture n textures/yves_allaire/e7/e7bmtrim2_n.jpg
+texture s textures/yves_allaire/e7/e7bmtrim2_s.jpg
+texture z textures/yves_allaire/e7/e7bmtrim2_z.jpg
+
+//e7brnmetal
+texture 0 evil_textures/e7brnmetal.jpg
+texture n textures/yves_allaire/e7/e7brnmetal_n.jpg
+texture s textures/yves_allaire/e7/e7brnmetal_s.jpg
+texture z textures/yves_allaire/e7/e7brnmetal_z.jpg
+
+//e7plate01
+texture 0 evil_textures/e7plate01.jpg
+texture n textures/yves_allaire/e7/e7plate01_n.jpg 
+texture s textures/yves_allaire/e7/e7plate01_s.jpg
+texture z textures/yves_allaire/e7/e7plate01_z.jpg
+
+//e7stepborder
+texture 0 textures/yves_allaire/e7/e7stepborder1.jpg
+texture n textures/yves_allaire/e7/e7stepborder1_n.jpg
+texture s textures/yves_allaire/e7/e7stepborder1_s.jpg
+texture z textures/yves_allaire/e7/e7stepborder1_z.jpg
+
+//e7steptop
+//texture 0 textures/yves_allaire/e7/e7steptop1.jpg 
+//texture n textures/yves_allaire/e7/e7steptop1_n.jpg 
+//texture s textures/yves_allaire/e7/e7steptop1_s.jpg 
+//texture z textures/yves_allaire/e7/e7steptop1_z.jpg 
+
+texture 0 evil_textures/e7steptop2.jpg
+texture n textures/yves_allaire/e7/e7steptop2_n.jpg
+texture s textures/yves_allaire/e7/e7steptop2_s.jpg
+texture z textures/yves_allaire/e7/e7steptop2_z.jpg
+texrotate 2
+
+//e7trim01
+texture 0 textures/yves_allaire/e7/e7trim01.jpg
+texture n textures/yves_allaire/e7/e7trim01_n.jpg
+texture s textures/yves_allaire/e7/e7trim01_s.jpg
+texture z textures/yves_allaire/e7/e7trim01_z.jpg
+
+setshader bumpspecmapparallaxpulseglowworld
+setshaderparam specscale .8 .8 .8
+setshaderparam parallaxscale 0.025 -0.015
+setshaderparam pulseglowspeed 2
+setshaderparam glowcolor 1.5 .4 .4
+setshaderparam pulseglowcolor 1.8 .5 .5
+
+setshaderparam specscale .5 .5 .5
+setshaderparam pulseglowspeed .75
+setshaderparam glowcolor 1.3 .3 .3
+setshaderparam pulseglowcolor 2 .55 .55
+
+//e7bricksfloor_jump
+//e7sbrickfloor01jump
+texture 0 evil_textures/e7sbrickfloor_jump.jpg
+texture n evil_textures/e7sbrickfloor_jump_NRM.jpg
+texture s textures/yves_allaire/e7/e7sbrickfloor_jump_s.jpg
+texture z evil_textures/e7sbrickfloor_jump_DISP.jpg
+texture g textures/yves_allaire/e7/e7sbrickfloor_jump_red_glow.jpg
+
+//script
+
+skr_ga_01 = "0"
+skr_sg_01 = "0"
+skr_sg_02 = "0"
+skr_log_01 = "0"
+skr_log_01_a = "1"
+skr_log_01_b = "1"
+skr_log_02_a = "1"
+skr_log_02_b = "1"
+skr_log_02_c = "1"
+skr_log_02_d = "1"
+skr_hnt_01 = "0"
+skr_hnt_02 = "0"
+skr_key_01 = "0"
+skr_mkc_01 = "0"
+skr_mkc_02 = "0"
+skr_mkc_03 = "0"
+skr_mkc_04 = "0"
+skr_mkc_05 = "0"
+skr_mkc_06 = "0"
+skr_mkc_07 = "0"
+skr_mkc_08 = "0"
+skr_tmr_01 = "0"
+skr_tmr_01_state = "0"
+skr_tmr_02 = "0"
+skr_tmr_02_state = "0"
+skr_ele_01 = "0"
+skr_ntr_01 = "0"
+skr_ntr_02 = "0"
+skr_rnd_01 = "0"
+skr_rnd_02 = "0"
+skr_cmt_01 = "0"
+
+loop i 100 [(concatword "level_trigger_" $i) = ""]
+
+alias monster_dead_0 ""
+
+alias monster_dead_1 [
+	skr_mkc_01 = (+ $skr_mkc_01 1)
+	if (= $skr_mkc_01 12) [
+		sleep 1000 [trigger 17 1]
+		]
+]
+
+alias monster_dead_2 [skr_ele_01 = "1"]
+
+alias monster_dead_3 [
+	skr_mkc_02 = (+ $skr_mkc_02 1)
+	if (= $skr_mkc_02 3) [
+		sleep 3000 [echo "^f2Mhmmm... I smell gunpowder, let's see what happens if I shoot one of those barrels."]
+		]
+]
+
+alias monster_dead_4 [
+	skr_mkc_03 = (+ $skr_mkc_03 1)
+	if (= $skr_mkc_03 6) [
+		sleep 1000 [
+			platform 33 1
+			sleep 1000 [trigger 31 1]
+		]
+	]
+]
+
+alias monster_dead_5 [
+	skr_mkc_04 = (+ $skr_mkc_04 1)
+	if (= $skr_mkc_04 6) [
+		sleep 1000 [trigger 32 1]
+	]
+]
+
+alias monster_dead_6 [
+	skr_mkc_05 = (+ $skr_mkc_05 1)
+	if (= $skr_mkc_05 21) [
+		sleep 1000 [trigger 34 1]
+	]
+]
+
+alias monster_dead_7 [
+	if (= $skr_cmt_01 0) [
+		echo "^f7mX|Skur: ^f0You knew he was there! >:D"
+	]
+]
+
+alias monster_dead_8 [
+	skr_mkc_06 = (+ $skr_mkc_06 1)
+	if (= $skr_mkc_06 7) [
+		sleep 1000 [trigger 37 1]
+		platform 39 1
+	]
+]
+
+alias monster_dead_9 [
+	skr_mkc_07 = (+ $skr_mkc_07 1)
+	if (= $skr_mkc_07 7) [
+		sleep 1000 [trigger 40 1]
+	]
+]
+
+alias monster_dead_10 [
+	skr_mkc_08 = (+ $skr_mkc_08 1)
+	if (= $skr_mkc_08 29) [
+		sleep 1000 [trigger 45 1]
+	]
+]
+
+skr_cheat_01 = [
+	echo "^f5Sesam öffne dich!"
+	loop i 100 [trigger $i 1]
+]
+
+skr_log = [
+	if ($arg1) [showgui $arg1]
+	$arg1 = "0"
+]
+
+newgui "skr_log_01_a" [
+	guitextbox "It's dangerous out there, go up and put on your armor!" "50"
+	guibar
+	guibutton "Ok." [cleargui] "0"
+] "^f2Gnome"
+
+newgui "skr_log_01_b" [
+	guitextbox "Last night monsters broke into our house and stole all our gold! I didn't dare to go downstairs and stop them, but could you, brave adventurer, try and get it back?" "50"
+	guibar
+	guibutton "Yes, of course!" [cleargui] "0"
+] "^f2Gnome"
+
+newgui "skr_log_02_a" [
+	guitextbox "We've got an armor for you upstairs." "50"
+	guibar
+	guibutton "Ok." [cleargui] "0"
+] "^f0Elf"
+
+newgui "skr_log_02_b" [
+	guitextbox "I'm kinda busy right now. Come back in a minute." "50"
+	guibar
+	guibutton "Alright." [cleargui] "0"
+] "^f0Elf"
+
+newgui "skr_log_02_c" [
+	guitextbox "I saw them running all the way up the hill into the abandoned church. If you want to get in there, we have our own key, which we hid at the graveyard beside it. But wait, before you go off, take those shells below the stairs. You'll need them!" "50"
+	guibar
+	guibutton "Ok, thanks." [cleargui] "0"
+] "^f0Elf"
+
+newgui "skr_log_02_d" [
+	guitextbox "I saw them running all the way up the hill into the abandoned church. If you want to get in there, we have our own key, which we hid at the graveyard beside it. " "50"
+	guibar
+	guibutton "Ok, see you." [cleargui] "0"
+] "^f0Elf"
+
+level_trigger_1 = [skr_ga_01 = "1"]
+
+level_trigger_2 = [
+	if (= $skr_ga_01 0) [
+	skr_log "skr_log_01_a"
+	]
+	if (= $skr_ga_01 1) [
+		skr_log "skr_log_01_b"
+		skr_log_01 = "1"
+	]
+]
+
+level_trigger_3 = [
+	if (= $skr_ga_01 0) [
+		skr_log "skr_log_02_a"
+	]
+	if (= $skr_ga_01 1) [
+		if (= $skr_log_01 0) [
+			skr_log "skr_log_02_b"
+		]
+		if (= $skr_log_01 1) [
+			if (= $skr_sg_01 0) [
+				skr_log "skr_log_02_c"
+				skr_log_02_d = 0
+				skr_sg_02 = "1"
+			]
+			if (= $skr_sg_01 1) [
+				skr_log "skr_log_02_d"
+				sleep 4000 [trigger 5 1]
+			]
+		]
+	]
+]
+
+level_trigger_4 = [
+	if (skr_sg_02) [trigger 5 1]
+	skr_sg_01 = "1"
+]
+
+level_trigger_6 = [
+	trigger 5 0
+	skr_ntr_02 = "1"
+]
+
+level_trigger_7 = [
+	sleep 20000 [
+		if (= $skr_hnt_01 0) [
+			skr_hnt_01 = "1"
+			echo "^f2Mhmmm... That gate is locked, but I might fit through one of the gaps in the rocks."
+		]
+	]
+]
+
+level_trigger_8 = [skr_tmr_01 = (getmillis); skr_hnt_01 = "1"]
+
+level_trigger_9 = [
+	if (= $skr_key_01 1) [
+		trigger 11 1
+	]
+	if (= $skr_key_01 0) [
+		sleep 20000 [
+			if (= $skr_key_01 0) [
+				if (= $skr_hnt_02 0) [
+					echo "^f2Mhmmm... I remember him saying something about a key they hid at the graveyard."
+					skr_hnt_02 = "1"
+				]
+			]
+		]
+	]
+]
+
+level_trigger_10 = [
+	skr_key_01 = "1"
+	echo "^f2Great! I found the key, now I can enter the church."
+] 
+
+level_trigger_12 = [trigger 13 1]
+
+level_trigger_14 = [
+	sleep 1000 [trigger 15 1]
+	sleep 6000 [trigger 16 1]
+]
+
+level_trigger_18 = [
+	if (< (- (getmillis) $skr_tmr_01) 16000) [
+		if (= $skr_tmr_01_state 0) [
+			echo "^f7mX|Skur: ^f0Keep the fl0w!"
+			skr_tmr_01_state = "1"
+		]
+	]
+]
+
+level_trigger_19 = [
+	if (= $skr_ele_01 1) [
+		sleep 1000 [
+			platform 20 -1
+		]
+	]
+]
+
+level_trigger_21 = [skr_tmr_02 = (getmillis)]
+
+level_trigger_22 = [trigger 23 1]
+
+level_trigger_24 = [
+	if (< (- (getmillis) $skr_tmr_02) 10000) [
+		if (= $skr_tmr_02_state 0) [
+			echo "^f7mX|Skur: ^f0Holy sh1t!"
+			skr_tmr_02_state = "1"
+		]
+	]
+]
+
+level_trigger_25 = [trigger 26 1]
+
+level_trigger_27 = [
+	trigger 26 0
+	if (= $skr_ntr_01 0) [
+		sleep 5000 [trigger 28 1]
+	]
+	if (= $skr_ntr_01 1) [
+		sleep 2000 [trigger 28 1]
+	]
+]
+
+level_trigger_29 = [
+	skr_ntr_01 = "1"
+	trigger 28 0
+	if (= $skr_rnd_01 0) [
+		skr_rnd_01 = "1"
+		sleep 3000 [
+			sound (registersound "blindabuser/lets_fight")
+			platform 32 1
+			sleep 1000 [trigger 31 1]
+			sleep 5000 [trigger 31 0]
+		]
+	]
+]
+
+level_trigger_33 = [
+	sleep 2000 [trigger 30 1]
+]
+
+level_trigger_35 = [
+	skr_cmt_01 = "1"
+	sleep 1000 [trigger 36 1]
+]
+
+level_trigger_43 = [
+	if (= $skr_rnd_02 0) [
+		skr_rnd_02 = "1"
+		sleep 1000 [
+			sound (registersound "blindabuser/lets_fight")
+			platform 38 1
+			sleep 1000 [trigger 37 1]
+			sleep 5000 [trigger 37 0]
+		]
+	]
+]
+
+level_trigger_44 = [
+	sleep 1000 [trigger 42 1]
+]
+
+level_trigger_46 = [
+	trigger 47 1
+	sleep 100 [
+		echo "^f7-| Thanks for playing ^f3Meltdown ^f7by ^f2James ^f7'^f6Skur^f7' ^f2Rucks^f7. |-"
+	]
+]
+
+level_trigger_48 = [
+	if (= $skr_ntr_02 1) [trigger 5 1]
+]

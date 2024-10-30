@@ -1,58 +1,332 @@
-# Taken from the Earthly documentation
-# https://docs.earthly.dev/ci-integration/vendor-specific-guides/gh-actions-integration
-name: Publish slim image
+# Copyright (c) 2022-present Bytebase (Hong Kong) Limited.
+#
+# Portions of this software are licensed as follows:
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+name: Build release artifacts and draft release
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
-  build:
+  build-game:
     runs-on: ubuntu-latest
-    env:
-      FORCE_COLOR: 1
     steps:
-    - uses: actions/checkout@v3                                                                                                             
-      with:                                                                                                                                 
-        lfs: true                                                                                                                           
-                                                                                                                                            
-    - name: Checkout LFS objects                                                                                                            
-      run: git lfs checkout   
+      - uses: actions/checkout@v4
 
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v1
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Emscripten
+        run: |
+          sudo apt-get install -y build-essential cmake zlib1g-dev
+          git clone https://github.com/emscripten-core/emsdk.git
+          cd emsdk
+          ./emsdk install 3.1.8
+          ./emsdk activate 3.1.8
 
-    - name: Put back the git branch into git (Earthly uses it for tagging)
-      run: |
-        branch=""
-        if [ -n "$GITHUB_HEAD_REF" ]; then
-          branch="$GITHUB_HEAD_REF"
-        else
-          branch="${GITHUB_REF##*/}"
-        fi
-        git checkout -b "$branch" || true
+      - name: Build Sauerbraten
+        run: |
+          source emsdk/emsdk_env.sh
+          cd game
+          ./build
 
-    - name: Download latest earthly
-      run: "sudo /bin/sh -c 'wget https://github.com/earthly/earthly/releases/download/v0.6.10/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly'"
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: game
+          path: game/dist/game/*
 
-    - name: Earthly version
-      run: earthly --version
+  build-client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
 
-    - name: Run build
-      run: |
-        branch=""
-        if [ -n "$GITHUB_HEAD_REF" ]; then
-          branch="$GITHUB_HEAD_REF"
-        else
-          branch="${GITHUB_REF##*/}"
-        fi
-        earthly --build-arg tag="$GITHUB_SHA" --ci --push +github
-        if [ "$branch" = "main" ]; then
-          earthly --build-arg tag="latest" --ci --push +github
-        fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "14.17.5"
+
+      - name: Build web client
+        run: |
+          cd client
+          yarn install
+          yarn build
+          cp src/index.html src/favicon.ico src/background.png dist/
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: client
+          path: client/dist/*
+
+  build-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Install Emscripten
+        run: |
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            imagemagick \
+            inotify-tools \
+            ucommon-utils \
+            unrar \
+            zlib1g-dev
+          git clone https://github.com/emscripten-core/emsdk.git
+          cd emsdk
+          ./emsdk install 3.1.8
+          ./emsdk activate 3.1.8
+
+      - name: Build sourdump
+        run: |
+          cd assets
+          mkdir dist
+          ./setup
+
+      - name: Build desktop assets
+        run: |
+          source emsdk/emsdk_env.sh
+          cd assets
+          python3 base.py \
+            --root https://static.sourga.me/blobs/6481/.index.source \
+            --download \
+            --outdir dist \
+            complex dust2 turbine
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: assets
+          path: assets/dist/*
+          include-hidden-files: true
+
+  build-linux-binary:
+    needs: [build-assets, build-client, build-game]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download web client
+        uses: actions/download-artifact@v4
+        with:
+          name: client
+          path: ./cmd/server/static/site
+
+      - name: Download game
+        uses: actions/download-artifact@v4
+        with:
+          name: game
+          path: ./cmd/server/static/site/game
+
+      - name: Download assets
+        uses: actions/download-artifact@v4
+        with:
+          name: assets
+          path: ./assets/dist
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 1.23
+
+      - name: Build enet
+        run: |
+          cd pkg/enet/enet
+          make
+
+      - name: Build
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          args: release --skip=publish --snapshot --config .github/goreleaser-for-linux.yaml
+          version: v1.23.0
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: sour-linux
+          path: dist/sour*
+
+  build-darwin-binary:
+    needs: [build-assets, build-client, build-game]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 1.23
+
+      - name: Download web client
+        uses: actions/download-artifact@v4
+        with:
+          name: client
+          path: ./cmd/server/static/site
+
+      - name: Download game
+        uses: actions/download-artifact@v4
+        with:
+          name: game
+          path: ./cmd/server/static/site/game
+
+      - name: Download assets
+        uses: actions/download-artifact@v4
+        with:
+          name: assets
+          path: ./assets/dist
+
+      - name: Build enet
+        run: |
+          cd pkg/enet/enet
+          make
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Install swig
+        run: |
+          brew install automake
+          cd /tmp
+          git clone https://github.com/swig/swig.git
+          cd swig
+          git checkout v4.1.1
+          ./autogen.sh
+          ./configure
+          make
+          sudo make install
+
+      - name: Build
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          args: release --skip=publish --snapshot --config .github/goreleaser-for-darwin.yaml
+          version: v1.23.0
+
+      - name: Copy homebrew
+        run: |
+          cp dist/homebrew/sour.rb dist/sour.rb
+          rm dist/*/sour
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: sour-darwin
+          path: dist/sour*
+
+  draft-release:
+    needs: [build-linux-binary, build-darwin-binary]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Store version in environment
+        run: |
+          TAG=$(git describe --tags --always --abbrev=0)
+          echo "SOUR_VERSION=${TAG:1}" >> $GITHUB_ENV
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 1.23
+      - name: Make directories
+        run: |
+          mkdir -p ./sour-build/linux
+          mkdir -p ./sour-build/darwin
+      - name: Download linux binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: sour-linux
+          path: ./sour-build/linux
+      - name: Download darwin binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: sour-darwin
+          path: ./sour-build/darwin
+      - name: Create tap PR
+        run: |
+          # Remove last line from darwin formula
+          sed '$d' ./sour-build/darwin/sour.rb | grep -v 'depends_on' > sour.rb
+          # Include all other lines from linux
+          sed -n '/on_linux/,$p' ./sour-build/linux/sour.rb >> sour.rb
+
+          # Create versioned formula
+          cp sour.rb "sour@${SOUR_VERSION}.rb"
+
+          # PR flow inspired by:
+          # https://github.com/orgs/community/discussions/49745#discussioncomment-5275999
+          REPOSITORY="cfoust/homebrew-taps"
+          DIRECTORY="homebrew-taps"
+          BRANCH="feat/update-to-$SOUR_VERSION"
+
+          # Clone the remote repository and change working directory to the
+          # folder it was cloned to.
+          git clone \
+            --depth=1 \
+            --branch=main \
+            https://some-user:${{ secrets.ACCESS_TOKEN }}@github.com/$REPOSITORY \
+            $DIRECTORY
+
+          cd $DIRECTORY
+
+          # Setup the committer's identity.
+          git config user.email "cfoust@sqweebloid.com"
+          git config user.name "SourBot"
+
+          # Create a new feature branch for the changes.
+          git checkout -b $BRANCH
+
+          # Update the script files to the latest version.
+          cp ../sour*.rb .
+
+          # Commit the changes and push the feature branch to origin
+          git add .
+          git commit -m "feat: update sour formula to $SOUR_VERSION"
+          git push origin "$BRANCH"
+
+          # Store the PAT in a file that can be accessed by the
+          # GitHub CLI.
+          echo "${{ secrets.ACCESS_TOKEN }}" > token.txt
+
+          # Authorize GitHub CLI for the current repository and
+          # create a pull-requests containing the updates.
+          gh auth login --with-token < token.txt
+          gh pr create \
+            --body "" \
+            --title "update sour to $SOUR_VERSION" \
+            --head "$BRANCH" \
+            --base "main"
+
+          cd ..
+          rm *.rb
+          rm -r "$DIRECTORY"
+      - name: Merge checksum file
+        run: |
+          cd ./sour-build
+          cat ./darwin/sour*checksums.txt >> checksums.txt
+          cat ./linux/sour*checksums.txt >> checksums.txt
+          rm ./darwin/sour*checksums.txt
+          rm ./linux/sour*checksums.txt
+          # where do these come from?
+          rm -f sour{,.rb} linux/sour{,.rb} darwin/sour{,.rb}
+      - name: Release
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          args: release --config ci/goreleaser-release.yaml
+          version: v1.23.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Clones Sauerbraten from SVN and creates an archive of its data/ and packages/
+# directories.
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+set -e
+
+cd /tmp
+svn checkout svn://svn.code.sf.net/p/sauerbraten/code/ sauerbraten-code
+cd sauerbraten-code
+svn up -r$1
+archive_target="sauerbraten-$(svn info --show-item revision).tar.gz"
+tar czvf "$archive_target" data/ packages/
+cp "$archive_target" "$SCRIPT_DIR"
+echo "$archive_target"

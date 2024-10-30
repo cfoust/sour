@@ -1,0 +1,26 @@
+setshader "causticsworld1"
+texture 0 "brushes/square_64_hard.png" 0 0 0 2
+
+setshader "causticsworld2a"
+texture 0 "models/hudguns_old/nebula.jpg"
+texture 0 "golgotha/water2.jpg"
+texture 0 "dg/floor_lava2.jpg"
+
+setshader "causticsworld2b"
+texture 0 "models/hudguns_old/nebula.jpg"
+texture 0 "golgotha/water2.jpg"
+texture 0 "dg/floor_lava2.jpg"
+
+setshader "causticsworld2c"
+texture 0 "models/hudguns_old/nebula.jpg"
+texture 0 "golgotha/water2.jpg"
+texture 0 "dg/floor_lava2.jpg"
+
+setshader "causticsworld2d"
+texture 0 "models/hudguns_old/nebula.jpg"
+texture 0 "golgotha/water2.jpg"
+texture 0 "dg/floor_lava2.jpg"
+
+setshader "causticsworld3"
+texture 0 "caustics/caust00.png"
+texture 0 "brushes/circle_128_soft.png" 0 0 0 2

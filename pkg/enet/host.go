@@ -1,10 +1,11 @@
 package enet
 
 /*
-#cgo LDFLAGS: -lenet
+#cgo LDFLAGS: -L./enet -lenet
+#cgo CFLAGS: -I./enet/include
+#include <enet/enet.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <enet/enet.h>
 
 ENetHost* initClient(const char *addr, int port) {
 	if (enet_initialize() != 0) {

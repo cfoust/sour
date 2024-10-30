@@ -1,7 +1,8 @@
 package enet
 
 /*
-#cgo LDFLAGS: -lenet
+#cgo LDFLAGS: -L./enet -lenet
+#cgo CFLAGS: -I./enet/include
 #include <enet/enet.h>
 #include <stdio.h>
 

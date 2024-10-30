@@ -1,0 +1,22 @@
+////////////////////////////////////////////////////////////////////////// 
+//
+// 3B :: Ithaqua's Depot : by MeatROme
+//
+////////////////////////////////////////////////////////////////////////// 
+loadsky "dash/moon"
+// additional textures
+	texture 0 "tech1soc/half_grill_wall03b.jpg" 1
+	texture 0 "than_ind/light03.jpg" 1
+	texture 0 "4b/inner.jpg" 
+	texture 0 "4b/outer.jpg" 
+setshader glowworld
+	setvertexparam 0 1 1 1 
+	texture 0 "than_ind/light03.jpg" 
+	texture g "4b/light03_g.jpg"
+	texture 0 "than_ind/light03.jpg" 1
+	texture g "4b/light03_g.jpg" 1
+setshader stdworld
+// additional models
+mmodel 4b/floppy/gold/silver/bronze/patch
+// autorun
+// music

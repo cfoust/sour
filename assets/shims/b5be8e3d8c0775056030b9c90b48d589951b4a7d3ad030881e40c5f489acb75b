@@ -1,0 +1,6 @@
+// basic setup :
+actname = "map4menu"
+loadsky "staffy/staffy"
+// basic scripting :
+// do not edit on copy, change of actname is sufficient.
+gamespeed 1000

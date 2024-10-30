@@ -1,0 +1,2 @@
+setshader movie 
+	texture 0 "base/pie_2x2.png"

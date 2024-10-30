@@ -1,0 +1,28 @@
+////////////////////////////////////////////////////////////////////////// 
+//
+// 4B :: Escher Space : by MeatROme
+//
+////////////////////////////////////////////////////////////////////////// 
+// actually waiting for png-starfield skybox
+loadsky "4b/sky/stars" -1.24
+fogcolour 0x000000
+fog 6250
+// additional textures ::
+texture 0 "tech1soc/half_grill_wall03b.jpg" 1
+setshader glowworld
+	setvertexparam 0 1 1 1 
+	texture 0 "than_ind/light03.jpg" 
+	texture g "4b/light03_g.jpg"
+	texture 0 "than_ind/light03.jpg" 1
+	texture g "4b/light03_g.jpg" 1
+setshader glowworld
+	setpixelparam 0 0.4 0.4 1.2
+	texture 0 "tech1soc/032lig12bb.jpg"
+	texture g "4b/032lig12bb_glow.jpg"
+setshader stdworld
+// music
+// mission objective
+// spring-release or earlier : this doesn't work :(
+// fix trigger 23,24 first!
+// This is the last map, ... what then you ask?
+// DMSP! Choose the level here!
