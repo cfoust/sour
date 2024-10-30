@@ -6,3 +6,5 @@ earthly/**
 /dump.rdb
 /state.db
 /assets
+/sour
+/sourdump
