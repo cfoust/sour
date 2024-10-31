@@ -131,13 +131,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: client
-          path: ./cmd/server/static/site
+          path: ./pkg/server/static/site
 
       - name: Download game
         uses: actions/download-artifact@v4
         with:
           name: game
-          path: ./cmd/server/static/site/game
+          path: ./pkg/server/static/site/game
 
       - name: Download assets
         uses: actions/download-artifact@v4
@@ -185,13 +185,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: client
-          path: ./cmd/server/static/site
+          path: ./pkg/server/static/site
 
       - name: Download game
         uses: actions/download-artifact@v4
         with:
           name: game
-          path: ./cmd/server/static/site/game
+          path: ./pkg/server/static/site/game
 
       - name: Download assets
         uses: actions/download-artifact@v4

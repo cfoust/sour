@@ -3,6 +3,7 @@ module github.com/cfoust/sour
 go 1.22.0
 
 require (
+	github.com/alecthomas/kong v1.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/codecat/go-enet v0.0.0-20201213053919-8c1bf6ac65fa // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect

@@ -1,8 +1,8 @@
 package min
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"

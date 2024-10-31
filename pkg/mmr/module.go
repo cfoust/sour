@@ -13,18 +13,18 @@
 //The above copyright notice and this permission notice shall be included in all
 //copies or substantial portions of the Software.
 
-//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-//SOFTWARE.
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 package mmr
 
 import (
-	"math"
 	"fmt"
+	"math"
 
 	"github.com/cfoust/sour/pkg/game"
 )
@@ -44,7 +44,7 @@ type Elo struct {
 
 // Outcome is a match result data for a single player.
 type Outcome struct {
-	Delta int
+	Delta  int
 	Rating int
 }
 
@@ -61,7 +61,7 @@ func (o *Outcome) String() string {
 
 // NewElo instantiates the Elo object with default factors.
 // Default K-Factor is 32
-// Default deviation is 400 
+// Default deviation is 400
 func NewElo() *Elo {
 	return &Elo{K, D}
 }
@@ -78,7 +78,7 @@ func (e *Elo) ExpectedScore(ratingA, ratingB int) float64 {
 
 // ExpectedScoreWithFactors overrides default factors and gives the expected chance that the first player wins
 func (e *Elo) ExpectedScoreWithFactors(ratingA, ratingB, d int) float64 {
-	return 1 / (1 + math.Pow(10, float64(ratingB - ratingA) / float64(d)))
+	return 1 / (1 + math.Pow(10, float64(ratingB-ratingA)/float64(d)))
 }
 
 // RatingDelta gives the ratings change for the first player for the given score
@@ -87,7 +87,7 @@ func (e *Elo) RatingDelta(ratingA, ratingB int, score float64) int {
 }
 
 // RatingDeltaWithFactors overrides default factors and gives the ratings change for the first player for the given score
-func (e *Elo) RatingDeltaWithFactors(ratingA, ratingB int, score float64, k, d int ) int {
+func (e *Elo) RatingDeltaWithFactors(ratingA, ratingB int, score float64, k, d int) int {
 	return int(float64(k) * (score - e.ExpectedScoreWithFactors(ratingA, ratingB, d)))
 }
 
@@ -95,8 +95,9 @@ func (e *Elo) RatingDeltaWithFactors(ratingA, ratingB int, score float64, k, d i
 func (e *Elo) Rating(ratingA, ratingB int, score float64) int {
 	return e.RatingWithFactors(ratingA, ratingB, score, e.K, e.D)
 }
+
 // RatingWithFactors overrides default factors and gives the new rating for the first player for the given score
-func (e *Elo) RatingWithFactors(ratingA, ratingB int, score float64, k, d int ) int {
+func (e *Elo) RatingWithFactors(ratingA, ratingB int, score float64, k, d int) int {
 	return ratingA + e.RatingDeltaWithFactors(ratingA, ratingB, score, k, d)
 }
 
@@ -106,7 +107,7 @@ func (e *Elo) Outcome(ratingA, ratingB int, score float64) (Outcome, Outcome) {
 }
 
 // OutcomeWithFactors overrides default factors and gives an Outcome object for each player for the given score
-func (e *Elo) OutcomeWithFactors(ratingA, ratingB int, score float64, k, d int ) (Outcome, Outcome) {
+func (e *Elo) OutcomeWithFactors(ratingA, ratingB int, score float64, k, d int) (Outcome, Outcome) {
 	delta := e.RatingDeltaWithFactors(ratingA, ratingB, score, k, d)
-	return Outcome{ delta, ratingA + delta }, Outcome{ -delta, ratingB - delta }
+	return Outcome{delta, ratingA + delta}, Outcome{-delta, ratingB - delta}
 }

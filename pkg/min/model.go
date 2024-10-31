@@ -1,11 +1,11 @@
 package min
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
-	"context"
 
 	"github.com/repeale/fp-go/option"
 
