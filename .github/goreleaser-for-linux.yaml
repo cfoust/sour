@@ -66,3 +66,5 @@ brews:
     repository:
       owner: cfoust
       name: homebrew-taps
+    extra_install: |
+      pkgshare.install "assets/"
