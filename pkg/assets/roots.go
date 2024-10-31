@@ -23,6 +23,8 @@ type Root interface {
 // An FSRoot is just an absolute path on the FS.
 type FSRoot string
 
+var _ Root = (*FSRoot)(nil)
+
 func (f FSRoot) getPath(file string) string {
 	return filepath.Join(string(f), file)
 }
@@ -260,6 +262,15 @@ func NewPackagedRoot(
 	return &root, nil
 }
 
+func (f *PackagedRoot) Source() string {
+	return f.source
+}
+
+func (f *PackagedRoot) IsFS() bool {
+	_, ok := f.reader.(*fsReader)
+	return ok
+}
+
 func (f *PackagedRoot) Exists(ctx context.Context, path string) bool {
 	_, ok := f.FS[path]
 	return ok
@@ -309,7 +320,6 @@ func (f *PackagedRoot) ReadFile(ctx context.Context, path string) ([]byte, error
 	return f.ReadAsset(ctx, id)
 }
 
-var _ Root = (*FSRoot)(nil)
 var _ Root = (*PackagedRoot)(nil)
 
 func LoadRoots(ctx context.Context, cache Store, targets []string, onlyMaps bool) ([]Root, error) {
@@ -362,7 +372,7 @@ func LoadRoots(ctx context.Context, cache Store, targets []string, onlyMaps bool
 			if err != nil {
 				return nil, err
 			}
-			root.source = target
+			root.source = target[3:]
 			roots = append(roots, root)
 			continue
 		}

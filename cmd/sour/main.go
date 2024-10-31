@@ -28,7 +28,7 @@ func writeError(err error) {
 
 func main() {
 	if len(os.Args) == 1 {
-		err := serve([]string{})
+		err := serveCommand([]string{})
 		if err != nil {
 			writeError(err)
 		}
@@ -68,8 +68,8 @@ func main() {
 	}
 
 	switch ctx.Command() {
-	case "serve":
-		err := serve(CLI.Serve.Configs)
+	case "serve <configs>":
+		err := serveCommand(CLI.Serve.Configs)
 		if err != nil {
 			writeError(err)
 		}

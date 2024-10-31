@@ -1,24 +1,5 @@
 # This is Sour's default configuration.
-client:
-  assets:
-    - "mobile:#origin/assets/mobile/.index.source"
-    - "mobile:https://static.sourga.me/blobs/6481-mobile/spicy-mobile.index.source"
-    - "#origin/assets/desktop/.index.source"
-    - "https://static.sourga.me/blobs/6481/.index.source"
-
-assetStores:
-  - name: "default"
-    default: true
-    config:
-      type: "fs"
-      path: "../../assets"
-
 server:
-  assets:
-    #- "!http://localhost:1234/assets/desktop/.index.source"
-    - "fs:./assets/output/desktop/.index.source"
-    - "skip:https://static.sourga.me/blobs/6481/.index.source"
-
   presets:
     - name: "ffa-duel"
       virtual: true
@@ -39,10 +20,18 @@ server:
       config:
         defaultMode: "ffa"
         defaultMap: "complex"
+        maps:
+          - "turbine"
+          - "complex"
+          - "dust2"
     - name: "insta"
       config:
         defaultMode: "insta"
         defaultMap: "complex"
+        maps:
+          - "turbine"
+          - "complex"
+          - "dust2"
     - name: "explore"
       config:
         matchLength: 180
@@ -68,24 +57,9 @@ server:
         forceRespawn: "dead"
 
   spaces:
-    - preset: default
+    - preset: ffa
       config:
-        alias: lobby
-        links:
-          - teleport: 77
-            destination: home
-          - teleport: 66
-            destination: insta
-          - teleport: 55
-            destination: ffa
-          - teleport: 11
-            destination: home
-          - teleport: 22
-            destination: home
-          - teleport: 33
-            destination: home
-          - teleport: 44
-            destination: home
+        alias: ffa
     - preset: explore
       exploreMode: true
       config:

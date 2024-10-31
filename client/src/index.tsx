@@ -439,11 +439,11 @@ function App() {
     // All commands in flight
     let commands: CommandRequest[] = []
 
-    const [clusterURL] = CONFIG.clusters
+    const [serverURL] = CONFIG.servers
 
     const { protocol, host } = window.location
     const ws = new WebSocket(
-      `${protocol === 'https:' ? 'wss://' : 'ws:/'}${clusterURL}`
+      `${protocol === 'https:' ? 'wss://' : 'ws:/'}${serverURL}`
     )
     ws.binaryType = 'arraybuffer'
 
@@ -623,9 +623,9 @@ function App() {
           const demoDestination = DEMO_URL_REGEX.exec(pathname)
           if (demoDestination != null) {
             const [, demoId] = demoDestination
-            const [clusterURL] = CONFIG.clusters
+            const [serverURL] = CONFIG.servers
             const { protocol } = window.location
-            const demoURL = `${protocol}//${clusterURL}api/demo/${demoId}`
+            const demoURL = `${protocol}//${serverURL}api/demo/${demoId}`
             remoteConnected = true
             playDemoURL(demoURL, demoId)
           } else {

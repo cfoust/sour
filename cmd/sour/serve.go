@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"time"
+	"path/filepath"
 
 	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/config"
@@ -20,16 +20,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func serve(configs []string) error {
+func serveCommand(configs []string) error {
 	config, err := config.Process(CLI.Serve.Configs)
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to load sour configuration, please specify one with the SOUR_CONFIG environment variable")
+		return err
 	}
 
 	serverConfig := config.Server
-
-	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
-	log.Logger = log.Output(consoleWriter)
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if CLI.Debug {
@@ -50,9 +47,82 @@ func serve(configs []string) error {
 		}
 		cache = assets.FSStore(cacheDir)
 	}
-
 	if cache == nil {
 		log.Fatal().Msg("no cache directory specified")
+	}
+
+	// Check for assets installed via homebrew
+	if homebrew, ok := os.LookupEnv("HOMEBREW_PREFIX"); ok {
+		source := filepath.Join(
+			homebrew,
+			"share/sour/assets/.index.source",
+		)
+
+		if _, err := os.Stat(source); err == nil {
+			serverConfig.Assets = append(
+				serverConfig.Assets,
+				"fs:"+source,
+			)
+		}
+	}
+
+	// Also check the current directory
+	if current, err := os.Getwd(); err != nil {
+		source := filepath.Join(
+			current,
+			"assets/.index.source",
+		)
+
+		if _, err := os.Stat(source); err == nil {
+			serverConfig.Assets = append(
+				serverConfig.Assets,
+				"fs:"+source,
+			)
+		}
+	}
+
+	// Find all of the directories we need to map into the client
+	var fsRoots []string
+	{
+		roots, err := assets.LoadRoots(
+			ctx,
+			cache,
+			serverConfig.Assets,
+			false,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to load roots: %w",
+				err,
+			)
+		}
+
+		for _, root := range roots {
+			packaged, ok := root.(*assets.PackagedRoot)
+			if !ok {
+				continue
+			}
+
+			if !packaged.IsFS() {
+				continue
+			}
+
+			source := packaged.Source()
+
+			fsRoots = append(
+				fsRoots,
+				filepath.Dir(source),
+			)
+
+			config.Client.Assets = append(
+				config.Client.Assets,
+				fmt.Sprintf(
+					"#origin/assets/%d/%s",
+					len(fsRoots)-1,
+					filepath.Base(source),
+				),
+			)
+		}
 	}
 
 	assetFetcher, err := assets.NewAssetFetcher(
@@ -99,14 +169,10 @@ func serve(configs []string) error {
 	}
 
 	newConnections := make(chan ingress.Connection)
-
 	wsIngress := ingress.NewWSIngress(newConnections)
-
 	enet := make([]*ingress.ENetIngress, 0)
 	infoServices := make([]*servers.ServerInfoService, 0)
-
 	cluster.StartServers(ctx)
-
 	for _, enetConfig := range serverConfig.Ingress.Desktop {
 		enetIngress := ingress.NewENetIngress(newConnections)
 		enetIngress.Serve(enetConfig.Port)
@@ -158,12 +224,17 @@ func serve(configs []string) error {
 		mux.Handle("/", staticSite)
 		mux.Handle("/ws/", wsIngress)
 		mux.Handle("/api/", cluster)
-		mux.Handle("/assets/", http.StripPrefix(
-			"/assets/",
-			http.FileServer(
-				http.Dir("../client/dist/assets"),
-			),
-		))
+
+		for i, dir := range fsRoots {
+			prefix := fmt.Sprintf("/assets/%d/", i)
+			mux.Handle(
+				prefix,
+				http.StripPrefix(
+					prefix,
+					http.FileServer(http.Dir(dir)),
+				),
+			)
+		}
 
 		errc <- http.ListenAndServe(
 			fmt.Sprintf("0.0.0.0:%d", serverConfig.Ingress.Web.Port),

@@ -171,11 +171,11 @@ server: #ServerSettings
 	// we might not know the hostname the user will be accessing Sour at ahead
 	// of time. We can take advantage of the browser's automatic addition of the
 	// hostname to bare absolute paths.
-	assets: [...string] | *["#origin/assets/.index.source"]
+	assets: [...string] | *[]
 
 	// The URLs for all of the game servers, for now we only support one.
 	// ws: and wss: are inferred
-	servers: [...string] | *["#host/service/server/"]
+	servers: [...string] | *["#host/ws/"]
 	// ws: and wss: are inferred
 	proxy: string | *"#host/service/proxy/"
 
