@@ -2,7 +2,6 @@ package ingress
 
 import (
 	"github.com/cfoust/sour/pkg/game/io"
-	"github.com/cfoust/sour/pkg/server/state"
 	"github.com/cfoust/sour/pkg/utils"
 )
 
@@ -56,8 +55,6 @@ type Connection interface {
 	ReceiveCommands() <-chan ClusterCommand
 	// When the client disconnects on its own
 	ReceiveDisconnect() <-chan bool
-	// When the client authenticates
-	ReceiveAuthentication() <-chan *state.User
 	// Forcibly disconnect this client
 	Disconnect(reason int, message string)
 	Destroy()

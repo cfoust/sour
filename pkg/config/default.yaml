@@ -13,40 +13,37 @@ assetStores:
       type: "fs"
       path: "../../assets"
 
-cluster:
-  logSessions: true
-
-  dbPath: "./state.db"
-
+server:
   assets:
-    - "!http://localhost:1234/assets/desktop/.index.source"
+    #- "!http://localhost:1234/assets/desktop/.index.source"
+    - "fs:./assets/output/desktop/.index.source"
     - "skip:https://static.sourga.me/blobs/6481/.index.source"
 
   presets:
-    - name: "ffa-duel" 
+    - name: "ffa-duel"
       virtual: true
       config:
         defaultMode: "ffa"
         defaultMap: "turbine"
-    - name: "insta-duel" 
+    - name: "insta-duel"
       virtual: true
       config:
         defaultMode: "insta"
         defaultMap: "turbine"
-    - name: "default" 
+    - name: "default"
       default: true
       config:
         defaultMode: "coop"
         defaultMap: "xmwhub"
-    - name: "ffa" 
+    - name: "ffa"
       config:
         defaultMode: "ffa"
         defaultMap: "complex"
-    - name: "insta" 
+    - name: "insta"
       config:
         defaultMode: "insta"
         defaultMap: "complex"
-    - name: "explore" 
+    - name: "explore"
       config:
         matchLength: 180
 
@@ -56,7 +53,7 @@ cluster:
         target: lobby
         serverInfo:
           enabled: true
-          cluster: true
+          server: true
     web:
       port: 29999
 

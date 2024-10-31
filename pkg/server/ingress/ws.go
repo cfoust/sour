@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game/io"
-	"github.com/cfoust/sour/pkg/server/auth"
-	"github.com/cfoust/sour/pkg/server/state"
 	"github.com/cfoust/sour/pkg/server/watcher"
 	"github.com/cfoust/sour/pkg/utils"
 
@@ -81,7 +79,6 @@ type CommandMessage struct {
 type AuthSucceededMessage struct {
 	Op         int // AuthSucceededOp
 	Code       string
-	User       auth.DiscordUser
 	PrivateKey string
 }
 
@@ -131,7 +128,6 @@ type WSClient struct {
 	toClient       chan io.RawPacket
 	toServer       chan io.RawPacket
 	commands       chan ClusterCommand
-	authentication chan *state.User
 	disconnect     chan bool
 	send           chan []byte
 	closeSlow      func()
@@ -143,7 +139,6 @@ func NewWSClient() *WSClient {
 		toClient:       make(chan io.RawPacket, CLIENT_MESSAGE_LIMIT),
 		toServer:       make(chan io.RawPacket, CLIENT_MESSAGE_LIMIT),
 		commands:       make(chan ClusterCommand, CLIENT_MESSAGE_LIMIT),
-		authentication: make(chan *state.User),
 		send:           make(chan []byte, CLIENT_MESSAGE_LIMIT),
 		disconnect:     make(chan bool, 1),
 	}
@@ -199,10 +194,6 @@ func (c *WSClient) ReceivePackets() <-chan io.RawPacket {
 
 func (c *WSClient) ReceiveCommands() <-chan ClusterCommand {
 	return c.commands
-}
-
-func (c *WSClient) ReceiveAuthentication() <-chan *state.User {
-	return c.authentication
 }
 
 func (c *WSClient) ReceiveDisconnect() <-chan bool {
@@ -264,7 +255,6 @@ func (server *WSIngress) RemoveClient(client *WSClient) {
 }
 
 func (server *WSIngress) HandleLogin(ctx context.Context, client *WSClient, code string) {
-	client.authentication <- nil
 }
 
 func (server *WSIngress) HandleClient(ctx context.Context, c *websocket.Conn, host string, deviceType string) error {

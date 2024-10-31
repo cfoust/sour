@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
+	"github.com/cfoust/sour/pkg/config"
 	C "github.com/cfoust/sour/pkg/game/constants"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/gameserver"
 	"github.com/cfoust/sour/pkg/maps"
-	"github.com/cfoust/sour/pkg/server/config"
 	"github.com/cfoust/sour/pkg/server/ingress"
 
 	"github.com/repeale/fp-go"
@@ -66,7 +66,7 @@ type ServerManager struct {
 	Receive chan []byte
 	Mutex   sync.Mutex
 
-	presets []config.ServerPreset
+	presets []config.Preset
 	Maps    *assets.AssetFetcher
 
 	serverDescription string
@@ -96,7 +96,11 @@ func (manager *ServerManager) GetServerInfo() *ServerInfo {
 	return &info
 }
 
-func NewServerManager(maps *assets.AssetFetcher, serverDescription string, presets []config.ServerPreset) *ServerManager {
+func NewServerManager(
+	maps *assets.AssetFetcher,
+	serverDescription string,
+	presets []config.Preset,
+) *ServerManager {
 	return &ServerManager{
 		Servers:           make([]*GameServer, 0),
 		Maps:              maps,
@@ -212,14 +216,14 @@ func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameS
 	}
 }
 
-func (manager *ServerManager) FindPreset(presetName string, isVirtualOk bool) opt.Option[config.ServerPreset] {
+func (manager *ServerManager) FindPreset(presetName string, isVirtualOk bool) opt.Option[config.Preset] {
 	for _, preset := range manager.presets {
 		if (preset.Name == presetName || (len(presetName) == 0 && preset.Default)) && (isVirtualOk || !preset.Virtual) {
 			return opt.Some(preset)
 		}
 	}
 
-	return opt.None[config.ServerPreset]()
+	return opt.None[config.Preset]()
 }
 
 func (manager *ServerManager) NewServer(ctx context.Context, presetName string, isVirtualOk bool) (*GameServer, error) {

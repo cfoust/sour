@@ -7,11 +7,10 @@ import (
 
 	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/chanlock"
+	"github.com/cfoust/sour/pkg/config"
 	"github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/game/commands"
 	P "github.com/cfoust/sour/pkg/game/protocol"
-	"github.com/cfoust/sour/pkg/server/auth"
-	"github.com/cfoust/sour/pkg/server/config"
 	"github.com/cfoust/sour/pkg/server/ingress"
 	"github.com/cfoust/sour/pkg/server/servers"
 	"github.com/cfoust/sour/pkg/server/verse"
@@ -36,7 +35,7 @@ type Cluster struct {
 	hostServers   map[string]*servers.GameServer
 	started       time.Time
 	authDomain    string
-	settings      config.ClusterSettings
+	settings      config.ServerSettings
 	serverCtx     context.Context
 	serverMessage chan []byte
 
@@ -44,13 +43,11 @@ type Cluster struct {
 
 	// Services
 	Users   *UserOrchestrator
-	auth    *auth.DiscordService
 	servers *servers.ServerManager
 	matches *Matchmaker
 	redis   *redis.Client
 	db      *gorm.DB
 	spaces  *verse.SpaceManager
-	verse   *verse.Verse
 	assets  *assets.AssetFetcher
 }
 
@@ -58,7 +55,7 @@ func NewCluster(
 	ctx context.Context,
 	serverManager *servers.ServerManager,
 	maps *assets.AssetFetcher,
-	settings config.ClusterSettings,
+	settings config.ServerSettings,
 ) *Cluster {
 	server := &Cluster{
 		Users:         NewUserOrchestrator(settings.Matchmaking.Duel),

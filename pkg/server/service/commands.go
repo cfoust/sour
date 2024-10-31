@@ -13,7 +13,6 @@ import (
 	"github.com/cfoust/sour/pkg/server/ingress"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/gamemode"
 	"github.com/cfoust/sour/pkg/server/servers"
-	"github.com/cfoust/sour/pkg/server/verse"
 
 	"github.com/repeale/fp-go/option"
 	"github.com/rs/zerolog/log"
@@ -236,54 +235,16 @@ func (s *Cluster) registerCommands() {
 		ArgFormat:   "[name|id|alias]",
 		Description: "move to a space, server, or map by name, id, or alias",
 		Callback: func(ctx context.Context, user *User, target string) error {
-			if target == "home" {
-				return s.runCommandWithTimeout(ctx, user, "home")
-			}
-
 			for _, gameServer := range s.servers.Servers {
 				if !gameServer.IsReference(target) {
 					continue
 				}
 
 				_, err := user.Connect(gameServer)
-				if err != nil {
-					return err
-				}
-
-				return nil
-			}
-
-			// Look for a space
-			space, err := s.spaces.SearchSpace(ctx, target)
-			if err != nil {
-				return fmt.Errorf("space not found")
-			}
-
-			if space == nil {
-				return fmt.Errorf("failed to find server or space matching %s", target)
-			}
-
-			instance, err := s.spaces.StartSpace(s.serverCtx, target)
-			if err != nil {
 				return err
 			}
 
-			// Appears in the user's URL bar
-			serverName := instance.Space.GetID()
-
-			config, err := space.GetConfig(ctx)
-			if err != nil {
-				return err
-			}
-
-			alias := config.Alias
-
-			if alias != "" {
-				serverName = alias
-			}
-
-			_, err = user.ConnectToSpace(instance.Server, serverName)
-			return err
+			return fmt.Errorf("could not find server '%s'", target)
 		},
 	}
 
@@ -329,164 +290,11 @@ func (s *Cluster) registerCommands() {
 		},
 	}
 
-	homeCommand := commands.Command{
-		Name:        "home",
-		Description: "go to your home space (also available via #go home)",
-		Callback: func(ctx context.Context, user *User) error {
-			return s.GoHome(s.serverCtx, user)
-		},
-	}
-
-	aliasCommand := commands.Command{
-		Name:        "alias",
-		ArgFormat:   "[alias]",
-		Description: "set the alias for the space",
-		Callback: func(ctx context.Context, user *User, alias string) error {
-			if !user.IsLoggedIn() {
-				return fmt.Errorf("you must be logged in to make an alias for a space")
-			}
-
-			isOwner, err := user.IsOwner(ctx)
-			if err != nil {
-				return err
-			}
-
-			if !isOwner {
-				return fmt.Errorf("this is not your space")
-			}
-
-			instance := user.GetSpace()
-			space := instance.Space
-
-			if len(alias) < 7 {
-				return fmt.Errorf("alias too short")
-			}
-
-			if !verse.IsValidAlias(alias) {
-				return fmt.Errorf("aliases must consist of lowercase letters, numbers, or hyphens")
-			}
-
-			if len(alias) > 16 {
-				return fmt.Errorf("alias too long")
-			}
-
-			// Ensure the alias does not match any maps in our asset indices, either
-			found := s.assets.FindMap(alias)
-			if found != nil {
-				return fmt.Errorf("alias taken by a pre-built map")
-			}
-
-			err = space.SetAlias(ctx, alias)
-			if err != nil {
-				return err
-			}
-
-			info, err := instance.GetServerInfo(ctx)
-			if err != nil {
-				return err
-			}
-
-			instance.Server.SetDescription(info)
-			user.Connection.Connect(alias, false, false)
-
-			s.AnnounceInServer(ctx, instance.Server, fmt.Sprintf("space alias set to %s", alias))
-			return nil
-
-		},
-	}
-
-	descCommand := commands.Command{
-		Name:        "desc",
-		ArgFormat:   "[description]",
-		Description: "set the description for the space",
-		Callback: func(ctx context.Context, user *User, args []string) error {
-			description := strings.Trim(strings.Join(args, " "), " ")
-			isOwner, err := user.IsOwner(ctx)
-			if err != nil {
-				return err
-			}
-
-			if !isOwner {
-				return fmt.Errorf("this is not your space")
-			}
-
-			instance := user.GetSpace()
-			space := instance.Space
-			gameServer := instance.Server
-
-			if len(description) == 0 {
-				return fmt.Errorf("description too short")
-			}
-
-			if len(description) > 32 {
-				description = description[:32]
-			}
-
-			err = space.SetDescription(ctx, description)
-			if err != nil {
-				return err
-			}
-
-			info, err := instance.GetServerInfo(ctx)
-			if err != nil {
-				return err
-			}
-
-			gameServer.SetDescription(info)
-
-			s.AnnounceInServer(ctx, instance.Server, fmt.Sprintf("space description set to '%s'", description))
-			return nil
-		},
-	}
-
-	editCommand := commands.Command{
-		Name:        "edit",
-		ArgFormat:   "[yes|no]",
-		Description: "enable or disable open editing on the space.",
-		Callback: func(ctx context.Context, user *User, enabled *bool) error {
-			isOwner, err := user.IsOwner(ctx)
-			if err != nil {
-				log.Error().Err(err).Msg("failed to change edit state")
-				return fmt.Errorf("failed to change edit state")
-			}
-
-			if !isOwner {
-				return fmt.Errorf("this is not your space")
-			}
-
-			space := user.GetSpace()
-			editing := space.Editing
-
-			current := editing.IsOpenEdit()
-			if enabled != nil {
-				editing.SetOpenEdit(*enabled)
-			} else {
-				editing.SetOpenEdit(!current)
-			}
-
-			gameServer := space.Server
-
-			canEdit := editing.IsOpenEdit()
-
-			if canEdit {
-				s.AnnounceInServer(ctx, gameServer, "editing is now enabled")
-			} else {
-				s.AnnounceInServer(ctx, gameServer, "editing is now disabled")
-			}
-
-			return nil
-		},
-	}
-
 	err := s.commands.Register(
 		goCommand,
 		createGameCommand,
 		duelCommand,
 		stopDuelCommand,
-		homeCommand,
-		aliasCommand,
-		descCommand,
-		editCommand,
 	)
 
 	if err != nil {

@@ -1,28 +1,3 @@
-#Discord: {
-	enabled: bool | *false
-	// The domain used for desktop client keys -- should be unique to your
-	// instance
-	domain:           string | *"sour"
-	id:               string | *""
-	secret:           string | *""
-	redirectURI:      string | *""
-	authorizationURL: "https://discord.com/api/oauth2/authorize?client_id=\(id)&redirect_uri={{redirectURI}}&response_type=code&scope=identify&prompt=none"
-}
-
-discord: #Discord
-
-redis: {
-	address:  string | *"localhost:6379"
-	password: string | *""
-	DB:       int | *0
-}
-
-#Service: {
-	enabled: bool | *true
-}
-
-proxy: #Service
-
 #SpaceLink: {
 	teleport:    uint8
 	teledest:    uint8 | *0
@@ -48,24 +23,24 @@ proxy: #Service
 	config:          #SpaceConfig
 }
 
-#ServerConfig: {
+#GameServerConfig: {
 	maxClients: uint8 | *128
 	// Length of game in seconds
 	matchLength:      uint | *600
 	defaultGameSpeed: uint8 | *100
 	defaultMode:      "ffa" | "coop" | "insta" | "instateam" | "effic" | "efficteam" | "tac" | "tacteam" | "ctf" | "instactf" | "efficctf" | *"ffa"
 	defaultMap:       string | *"complex"
-	maps:             [...string] | *[]
+	maps: [...string] | *[]
 }
 
-#ServerPreset: {
+#Preset: {
 	name: string
 
 	// If this is true, the user cannot create servers with this preset,
 	// it's only for inheritance or matchmaking purposes.
 	virtual: bool | *false
 
-	config: #ServerConfig
+	config: #GameServerConfig
 
 	// This means that if the user does not specify a config, we use this preset.
 	default: bool | *false
@@ -108,12 +83,12 @@ proxy: #Service
 		enabled: bool | *false
 		// Whether to register with the master server
 		master: bool | *false
-		// Whether to use the cluster's server info instead of the target info
-		cluster: bool | *false
+		// Whether to use the server's server info instead of the target info
+		server: bool | *false
 	}
 }
 
-// Describes all of the ways desktop clients can join this cluster
+// Describes all of the ways desktop clients can join this server
 #IngressSettings: {
 	desktop: [...#ENetIngress]
 	web: {
@@ -144,19 +119,9 @@ assetStores: [...#AssetStore] | *[{
 	}
 }]
 
-// Sour clusters host game servers.
-#ClusterSettings: {
-	#Service
-
-	dbPath: string | *"state.db"
-
-	// Whether to save demos of user sessions to Redis.
-	logSessions: bool | *false
-
-	// If set, saves server logs to this directory.
-	logDirectory: string | *""
-
-	// If set, used for caching assets in lieu of Redis.
+// Sour servers host game servers.
+#ServerSettings: {
+	// If set, used for caching assets.
 	cacheDirectory: string | *"/tmp/assets"
 
 	// Information used to respond to server info requests
@@ -167,26 +132,22 @@ assetStores: [...#AssetStore] | *[{
 		gameSpeed:   uint | *100
 	}
 
-	// The message of the day for the server, sent to clients on join.
-	serverMOTD: string | *"Press Esc twice to change your name or adjust game options."
-
 	banners: [...string] | *[
-			"^f7Sour ^f7is available online ^f1www.github.com/cfoust/sour^f7.",
-			"Queue for duels with #duel or #duel insta.",
+		"^f7Sour ^f7is available online ^f1www.github.com/cfoust/sour^f7.",
+		"Queue for duels with #duel or #duel insta.",
 	]
 	// How often to send a banner (seconds)
 	bannerInterval: uint32 | *100
 
 	// Server presets are templates for starting new servers, typically by a user through #creategame.
 	// A mapping from preset name -> preset settings.
-	presets: [...#ServerPreset]
+	presets: [...#Preset]
 
-	// This is not the same thing as client.assets because the cluster has to
-	// specify complete URLs (and can access services using their addresses
-	// inside the container.)
+	// This is not the same thing as client.assets because the server has to
+	// specify complete URLs.
 	assets: [...string]
 
-	// These are all of the game servers that will be started when the cluster starts.
+	// These are all of the game servers that will be started when the server starts.
 	spaces: [...#Space]
 
 	matchmaking: #MatchmakingSettings
@@ -196,18 +157,9 @@ assetStores: [...#AssetStore] | *[{
 	// #id is replaced with the server's identifier.
 	serverDescription: string | *"Sour [#id]"
 }
-cluster: #ClusterSettings
+server: #ServerSettings
 
 #ClientSettings: {
-	#Service
-
-	auth: {
-		enabled:          discord.enabled
-		authorizationURL: discord.authorizationURL
-		redirectURI:      discord.redirectURI
-		domain:           discord.domain
-	}
-
 	// All client URLs can use these template variables:
 	// #host: replaced with window.location.host
 	// #origin: replaced with window.location.origin (basically #protocol + #host)
@@ -215,7 +167,7 @@ cluster: #ClusterSettings
 
 	// These are the URLs for each of the asset sources.
 	// Order matters; the client uses the first map it finds.
-	// The client's asset sources may not be the same as the cluster's because
+	// The client's asset sources may not be the same as the server's because
 	// we might not know the hostname the user will be accessing Sour at ahead
 	// of time. We can take advantage of the browser's automatic addition of the
 	// hostname to bare absolute paths.
@@ -223,7 +175,7 @@ cluster: #ClusterSettings
 
 	// The URLs for all of the game servers, for now we only support one.
 	// ws: and wss: are inferred
-	clusters: [...string] | *["#host/service/cluster/"]
+	servers: [...string] | *["#host/service/server/"]
 	// ws: and wss: are inferred
 	proxy: string | *"#host/service/proxy/"
 

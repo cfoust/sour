@@ -186,7 +186,6 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 		return !P.IsConnectingMessage(code)
 	})
 	teleports := user.From.Intercept(P.N_TELEPORT)
-	edits := user.From.InterceptWith(P.IsOwnerOnly)
 	crcs := user.From.Intercept(P.N_MAPCRC)
 	votes := user.From.Intercept(P.N_MAPVOTE)
 	names := user.From.Intercept(P.N_SWITCHNAME)
@@ -248,35 +247,6 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 					}
 				}()
 			}
-		case msg := <-edits.Receive():
-			isOwner, err := user.IsOwner(ctx)
-			if err != nil {
-				msg.Drop()
-				continue
-			}
-
-			space := user.GetSpace()
-			if space != nil {
-				canEditSpace := isOwner || space.IsOpenEdit()
-				if !canEditSpace {
-					user.ConnectToSpace(space.Server, space.GetID())
-					user.Message("you cannot edit this space.")
-					msg.Drop()
-					continue
-				}
-				msg.Pass()
-				continue
-			}
-
-			server := user.GetServer()
-			// For now, users can't edit on named servers (ie the lobby)
-			if server != nil && server.Alias != "" {
-				user.Connect(server)
-				user.Message("you cannot edit this server.")
-				msg.Drop()
-				continue
-			}
-			msg.Pass()
 		case msg := <-teleports.Receive():
 			message := msg.Message
 			teleport := message.(P.Teleport)
@@ -347,7 +317,6 @@ func (c *Cluster) PollToMessages(ctx context.Context, user *User) {
 
 func (c *Cluster) PollUser(ctx context.Context, user *User) {
 	commands := user.Connection.ReceiveCommands()
-	authentication := user.ReceiveAuthentication()
 	connect := user.ReceiveConnections()
 	disconnect := user.Connection.ReceiveDisconnect()
 
@@ -358,16 +327,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 	health := chanLock.Poll(ctx)
 
 	logger := user.Logger()
-
-	if user.Connection.Type() == ingress.ClientTypeENet {
-		go func() {
-			err := c.HandleDesktopLogin(ctx, user)
-
-			if err != nil {
-				logger.Warn().Err(err).Msg("failed to log in enet client")
-			}
-		}()
-	}
 
 	go func() {
 		err := RecordSession(
@@ -414,45 +373,6 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 			logger := user.Logger()
 			logger.Info().Msg("connected to server")
 
-			go func() {
-				err := user.LogVisit(c.serverCtx)
-				if err != nil {
-					logger.Error().Err(err).Msg("could not log user visit")
-				}
-			}()
-
-			isHome, err := user.IsAtHome(ctx)
-			if err != nil {
-				logger.Warn().Err(err).Msg("failed seeing if user was at home")
-				continue
-			}
-
-			if isHome {
-				space := user.GetSpace()
-				message := fmt.Sprintf(
-					"welcome to your home (space %s).",
-					space.GetID()[:5],
-				)
-
-				if user.IsLoggedIn() {
-					user.Message(message)
-					user.Message("editing by others is disabled. say #edit to enable it.")
-				} else {
-					user.Message(message + " anyone can edit it. because you are not logged in, it will be deleted in 4 hours")
-				}
-			}
-
-		case authUser := <-authentication:
-			// Only web clients use this flow, because desktop
-			// clients do authentication imperatively.
-			err := user.HandleAuthentication(ctx, authUser)
-			if err != nil {
-				logger.Error().Err(err).
-					Msg("failed to authenticate user")
-				continue
-			}
-
-			c.GreetClient(ctx, user)
 		case msg := <-toServer:
 			data := msg.Data
 

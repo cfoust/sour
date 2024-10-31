@@ -14,16 +14,14 @@ import (
 	"github.com/cfoust/sour/pkg/gameserver"
 	"github.com/cfoust/sour/pkg/utils"
 
-	"github.com/cfoust/sour/pkg/server/config"
+	"github.com/cfoust/sour/pkg/config"
 	"github.com/cfoust/sour/pkg/server/ingress"
 	"github.com/cfoust/sour/pkg/server/servers"
-	"github.com/cfoust/sour/pkg/server/state"
 	"github.com/cfoust/sour/pkg/server/verse"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/sasha-s/go-deadlock"
-	"gorm.io/gorm"
 )
 
 type TrackedPacket struct {
@@ -47,7 +45,8 @@ const (
 type User struct {
 	*utils.Session
 
-	Id ingress.ClientID
+	sessionID string
+	Id        ingress.ClientID
 	// Whether the user is connected (or connecting) to a game server
 	Status UserStatus
 	Name   string
@@ -63,16 +62,12 @@ type User struct {
 	Server        *servers.GameServer
 	ServerClient  *gameserver.Client
 
-	Auth       *state.User
-	sessionLog *state.Session
-
 	ELO *ELOState
 
 	// True when the user is loading the map
 	delayMessages bool
 	messageQueue  []string
 
-	Authentication    chan *state.User
 	serverConnections chan ConnectionEvent
 
 	to chan TrackedPacket
@@ -99,17 +94,8 @@ func (c *User) ReceiveConnections() <-chan ConnectionEvent {
 	return c.serverConnections
 }
 
-func (c *User) ReceiveAuthentication() <-chan *state.User {
-	// WS clients do their own auth (for now)
-	if c.Connection.Type() == ingress.ClientTypeWS {
-		return c.Connection.ReceiveAuthentication()
-	}
-
-	return c.Authentication
-}
-
 func (u *User) GetSessionID() string {
-	return u.sessionLog.UUID[:5]
+	return u.sessionID[:5]
 }
 
 func (u *User) Logger() zerolog.Logger {
@@ -119,15 +105,6 @@ func (u *User) Logger() zerolog.Logger {
 		Str("type", u.Connection.DeviceType()).
 		Str("name", u.Name).
 		Logger()
-
-	if u.Auth != nil {
-		logger = logger.With().
-			Str("discord", fmt.Sprintf(
-				"%s#%s",
-				u.Auth.Username,
-				u.Auth.Discriminator,
-			)).Logger()
-	}
 
 	if u.Server != nil {
 		logger = logger.With().Str("server", u.Server.Reference()).Logger()
@@ -149,18 +126,6 @@ func (u *User) GetServerInfo() P.ServerInfo {
 	info := u.lastInfo
 	u.Mutex.RUnlock()
 	return *info
-}
-
-func (u *User) GetID() string {
-	u.Mutex.RLock()
-	auth := u.Auth
-	u.Mutex.RUnlock()
-
-	if auth == nil {
-		return ""
-	}
-
-	return auth.UUID
 }
 
 func (c *User) GetStatus() UserStatus {
@@ -245,25 +210,8 @@ func (c *User) ReceiveToMessages() <-chan TrackedPacket {
 	return c.to
 }
 
-func (u *User) IsLoggedIn() bool {
-	u.Mutex.RLock()
-	auth := u.Auth
-	u.Mutex.RUnlock()
-
-	return auth != nil
-}
-
 func (u *User) IsAtHome(ctx context.Context) (bool, error) {
-	if u.Auth == nil {
-		return false, nil
-	}
-
-	entity, err := u.GetSpaceEntity(ctx)
-	if err != nil {
-		return false, nil
-	}
-
-	return u.Auth.HomeID == entity.ID, nil
+	return false, nil
 }
 
 func (u *User) GetServer() *servers.GameServer {
@@ -287,41 +235,6 @@ func (u *User) GetSpace() *verse.SpaceInstance {
 	return space
 }
 
-func (u *User) GetHomeSpace(ctx context.Context) (*state.Space, error) {
-	return nil, fmt.Errorf("feature disabled")
-}
-
-func (u *User) GetSpaceEntity(ctx context.Context) (*state.Space, error) {
-	instance := u.GetSpace()
-	if instance == nil {
-		return nil, fmt.Errorf("user not in space")
-	}
-
-	if instance.Space == nil {
-		return nil, fmt.Errorf("space is not a user space")
-	}
-
-	space, err := instance.Space.GetSpace(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return space, nil
-}
-
-func (u *User) IsOwner(ctx context.Context) (bool, error) {
-	if u.Auth == nil {
-		return false, nil
-	}
-
-	entity, err := u.GetSpaceEntity(ctx)
-	if err != nil {
-		return false, nil
-	}
-
-	return u.Auth.ID == entity.OwnerID, nil
-}
-
 // SPAAAAAAAAACE
 func (u *User) IsInSpace() bool {
 	return u.GetSpace() != nil
@@ -332,12 +245,6 @@ func (u *User) GetServerName() string {
 
 	space := u.GetSpace()
 	if space != nil {
-		// Cached, but that's OK
-		alias := space.Alias
-		if alias != "" {
-			return alias
-		}
-
 		return space.GetID()
 	}
 
@@ -355,11 +262,6 @@ func (u *User) GetServerName() string {
 
 func (u *User) GetFormattedName() string {
 	name := u.GetName()
-
-	if u.Auth != nil {
-		name = game.Blue(name)
-	}
-
 	return name
 }
 
@@ -418,13 +320,6 @@ func (u *User) SetName(ctx context.Context, name string) error {
 	return fmt.Errorf("feature disabled")
 }
 
-func (u *User) GetAuth() *state.User {
-	u.Mutex.RLock()
-	auth := u.Auth
-	u.Mutex.RUnlock()
-	return auth
-}
-
 func (u *User) AnnounceELO() {
 	u.Mutex.RLock()
 	result := "ratings: "
@@ -443,41 +338,6 @@ func (u *User) AnnounceELO() {
 	u.Mutex.RUnlock()
 
 	u.Message(result)
-}
-
-func (u *User) LogVisit(ctx context.Context) error {
-	visit := state.Visit{
-		SessionID: u.sessionLog.ID,
-	}
-	visit.Start = time.Now()
-
-	if auth := u.GetAuth(); auth != nil {
-		visit.UserID = auth.ID
-	}
-
-	if server := u.GetServer(); server != nil {
-		if server.Alias != "" {
-			visit.Location = server.Alias
-		}
-	}
-
-	// TODO maps?
-
-	if space := u.GetSpace(); space != nil && space.Space != nil {
-		entity, err := space.Space.GetSpace(ctx)
-		if err == nil {
-			visit.SpaceID = entity.ID
-			visit.MapPointerID = entity.MapPointerID
-		}
-	}
-
-	<-u.ServerSession.Ctx().Done()
-	visit.End = time.Now()
-	return nil
-}
-
-func (u *User) HandleAuthentication(ctx context.Context, auth *state.User) error {
-	return nil
 }
 
 func (u *User) ConnectToSpace(server *servers.GameServer, id string) (<-chan bool, error) {
@@ -521,13 +381,6 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 			u.o.Servers[u.Server] = newUsers
 		}
 		u.o.Mutex.Unlock()
-	}
-
-	space := u.GetSpace()
-	if space != nil {
-		if space.Editing != nil {
-			space.Editing.ClearClipboard(u.Id)
-		}
 	}
 
 	u.Mutex.Lock()
@@ -615,7 +468,6 @@ type UserOrchestrator struct {
 	Users   []*User
 	Servers map[*servers.GameServer][]*User
 	Mutex   deadlock.RWMutex
-	verse   *verse.Verse
 }
 
 func NewUserOrchestrator(duels []config.DuelType) *UserOrchestrator {
@@ -629,7 +481,6 @@ func NewUserOrchestrator(duels []config.DuelType) *UserOrchestrator {
 func (u *UserOrchestrator) PollUser(ctx context.Context, user *User) {
 	<-user.Ctx().Done()
 	u.RemoveUser(user)
-	user.sessionLog.End = time.Now()
 }
 
 func (u *UserOrchestrator) newSessionID() (ingress.ClientID, error) {
@@ -656,33 +507,6 @@ func (u *UserOrchestrator) newSessionID() (ingress.ClientID, error) {
 	return 0, fmt.Errorf("Failed to assign client ID")
 }
 
-func getAddress(ctx context.Context, db *gorm.DB, address string) (*state.Host, error) {
-	db = db.WithContext(ctx)
-
-	var host state.Host
-	err := db.Where(state.Host{
-		UUID: address,
-	}).First(&host).Error
-	if err == nil {
-		return &host, nil
-	}
-
-	if err != gorm.ErrRecordNotFound {
-		return nil, err
-	}
-
-	host = state.Host{
-		UUID: address,
-	}
-
-	err = db.Create(&host).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return &host, nil
-}
-
 func (u *UserOrchestrator) AddUser(ctx context.Context, connection ingress.Connection) (*User, error) {
 	id, err := u.newSessionID()
 	if err != nil {
@@ -690,25 +514,19 @@ func (u *UserOrchestrator) AddUser(ctx context.Context, connection ingress.Conne
 	}
 
 	sessionID := utils.HashString(fmt.Sprintf("%d-%s", id, connection.Host()))
-	sessionLog := state.Session{
-		UUID:   sessionID,
-		Device: connection.DeviceType(),
-	}
-	sessionLog.Start = time.Now()
 
 	u.Mutex.Lock()
 	user := User{
 		Id:                id,
+		sessionID:         sessionID,
 		Status:            UserStatusDisconnected,
 		Connection:        connection,
 		Session:           connection.Session(),
-		sessionLog:        &sessionLog,
 		ELO:               NewELOState(u.Duels),
 		Name:              "unnamed",
 		From:              P.NewMessageProxy(true),
 		To:                P.NewMessageProxy(false),
 		to:                make(chan TrackedPacket, 1000),
-		Authentication:    make(chan *state.User),
 		serverConnections: make(chan ConnectionEvent),
 		ServerSession:     utils.NewSession(ctx),
 		o:                 u,

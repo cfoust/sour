@@ -9,7 +9,7 @@ import (
 	"github.com/cfoust/sour/pkg/game"
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/mmr"
-	"github.com/cfoust/sour/pkg/server/config"
+	"github.com/cfoust/sour/pkg/config"
 	"github.com/cfoust/sour/pkg/server/ingress"
 	"github.com/cfoust/sour/pkg/server/servers"
 

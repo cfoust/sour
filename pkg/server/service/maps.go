@@ -180,29 +180,6 @@ func (c *Cluster) SendMap(ctx context.Context, user *User, name string) error {
 	}()
 
 	server := user.GetServer()
-	instance := c.spaces.FindInstance(server)
-
-	if instance != nil && instance.Editing != nil {
-		e := instance.Editing
-		err := e.Checkpoint(ctx)
-		if err != nil {
-			return err
-		}
-
-		data, err := e.Map.LoadMapData(ctx)
-		if err != nil {
-			return err
-		}
-
-		user.SendChannel(
-			2,
-			P.SendMap{
-				Map: data,
-			},
-		)
-
-		return nil
-	}
 
 	server.Mutex.RLock()
 	mode := int32(server.GameMode.ID())
