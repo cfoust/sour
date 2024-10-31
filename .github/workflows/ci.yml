@@ -111,6 +111,7 @@ jobs:
           cd assets
           python3 base.py \
             --root https://static.sourga.me/blobs/6481/.index.source \
+            --models \
             --download \
             --outdir dist \
             complex dust2 turbine
@@ -159,6 +160,11 @@ jobs:
         with:
           args: release --skip=publish --snapshot --config .github/goreleaser-for-linux.yaml
           version: v1.23.0
+
+      - name: Copy homebrew
+        run: |
+          cp dist/homebrew/sour.rb dist/sour.rb
+          rm dist/*/sour
 
       - name: Upload
         uses: actions/upload-artifact@v4
