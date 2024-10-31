@@ -7,3 +7,4 @@ earthly/**
 /state.db
 /sour
 /sourdump
+/sour-build
