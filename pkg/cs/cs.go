@@ -159,7 +159,7 @@ func GoCall(
 
 	callValue := reflect.ValueOf(callback)
 	results := callValue.Call(callArgs)
-	
+
 	if type_.NumOut() > 0 {
 		resultVal := results[0]
 		switch type_.Out(0).Kind() {

@@ -490,8 +490,6 @@ func main() {
 		log.Fatal().Msg("You must provide at least one argument.")
 	}
 
-	fmt.Printf("roots: %+v", roots)
-
 	cache := assets.FSStore(*cacheDir)
 	ctx := context.Background()
 	assetRoots, err := assets.LoadRoots(ctx, cache, roots, false)

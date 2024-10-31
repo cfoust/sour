@@ -59,40 +59,6 @@ async function mountImage(filename: string, url: string): Promise<void> {
 export const DISCORD_CODE = 'discord'
 
 export function renderDiscordHeader(state: AuthState): string {
-  if (!CONFIG.auth.enabled) return ''
-
-  if (state.status === AuthStatus.Unauthenticated) {
-    return `
-          guibutton "log in.." [js "Module.discord.login()"]
-      `
-  }
-
-  if (state.status === AuthStatus.Authenticated) {
-    return `
-          guitext "logging in.." 0
-      `
-  }
-
-  if (state.status === AuthStatus.Failed) {
-    return `
-          guitext "${log.colors.error('failed to login')}" 0
-      `
-  }
-
-  if (state.status === AuthStatus.AvatarMounted) {
-    const {
-      avatarPath,
-      user: { Username, Discriminator },
-    } = state
-
-    return `
-        guilist [
-          guiimage "${avatarPath}" [] 0.5
-          guitext "${log.colors.blue(`${Username}#${Discriminator}`)}" 0
-        ]
-      `
-  }
-
   return ''
 }
 
@@ -122,23 +88,9 @@ export default function useAuth(
 
   const initialize = React.useCallback(
     (urlCode: Maybe<string>) => {
-      if (!CONFIG.auth.enabled) {
-        sendMessage({
-          Op: MessageType.DiscordCode,
-          Code: '',
-        })
-        return
-      }
-
-      let code: Maybe<string> = urlCode
-      // Look in localStorage
-      if (code == null) {
-        code = localStorage.getItem(DISCORD_CODE)
-      }
-
       sendMessage({
         Op: MessageType.DiscordCode,
-        Code: code == null ? '' : code,
+        Code: '',
       })
     },
     [sendMessage]
@@ -147,27 +99,8 @@ export default function useAuth(
   React.useEffect(() => {
     Module.discord = {
       login: () => {
-        const { enabled, authorizationURL, redirectURI } = CONFIG.auth
-        if (!enabled) return
-        window.location.assign(
-          authorizationURL.replace(
-            '{{redirectURI}}',
-            encodeURIComponent(redirectURI)
-          )
-        )
       },
       copyKey: () => {
-        if (
-          state.status !== AuthStatus.AvatarMounted &&
-          state.status !== AuthStatus.Authenticated
-        )
-          return
-        log.info(
-          'Copied authkey command to clipboard! Run it in desktop Sauerbraten (hit /) and then run /saveauthkeys.'
-        )
-        navigator.clipboard.writeText(
-          `authkey ${state.user.Id} ${state.key} ${CONFIG.auth.domain}`
-        )
       },
       regenKey: () => {},
       logout: () => {

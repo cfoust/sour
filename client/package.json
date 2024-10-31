@@ -8,7 +8,7 @@
   "scripts": {
     "serve": "./scripts/serve",
     "serve:site": "yarn run parcel watch --target default -p 1239",
-    "build": "SOUR_CONFIG='__SOUR_CONFIG__' yarn run parcel build --target default"
+    "build": "yarn run parcel build --target default"
   },
   "devDependencies": {
     "@types/node": "^18.7.4",

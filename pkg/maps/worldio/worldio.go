@@ -13,7 +13,7 @@ import (
 var M sync.Mutex
 
 func CountRefs(state MapState, numSlots int) []int32 {
-	data := make([]byte, numSlots * 4)
+	data := make([]byte, numSlots*4)
 	Getrefs(state, uintptr(unsafe.Pointer(&data[0])), numSlots)
 
 	result := make([]int32, 0)

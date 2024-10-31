@@ -4,29 +4,15 @@ import { BROWSER } from './utils'
 
 export type Configuration = {
   assets: string[]
-  clusters: string[]
+  servers: string[]
   proxy: string
-
-  auth: {
-    enabled: boolean
-    domain: string
-    redirectURI: string
-    authorizationURL: string
-  }
-
   menuOptions: string
 }
 
 export let CONFIG: Configuration = {
   assets: [],
-  clusters: [],
+  servers: [],
   proxy: '',
-  auth: {
-    enabled: false,
-    domain: '',
-    authorizationURL: '',
-    redirectURI: '',
-  },
   menuOptions: '',
 }
 
@@ -56,7 +42,7 @@ function fillAssetHost(url: string): string {
 
 function getInjected(): Maybe<Configuration> {
   try {
-    const injected = INJECTED_SOUR_CONFIG.client
+    const injected = INJECTED_SOUR_CONFIG
     // This will never run if INJECTED_SOUR_CONFIG is not defined
     return injected
   } catch (e) {
@@ -87,7 +73,7 @@ function init() {
     }
     return [fillAssetHost(v)]
   }, CONFIG.assets)
-  CONFIG.clusters = R.map((v) => fillHost(v), CONFIG.clusters)
+  CONFIG.servers = R.map((v) => fillHost(v), CONFIG.servers)
   CONFIG.proxy = fillHost(CONFIG.proxy)
 }
 

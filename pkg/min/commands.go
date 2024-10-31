@@ -1,8 +1,8 @@
 package min
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"path/filepath"
 
 	"github.com/cfoust/sour/pkg/maps"
