@@ -157,7 +157,7 @@ jobs:
       - name: Build
         uses: goreleaser/goreleaser-action@v5
         with:
-          args: release --skip=publish --snapshot --config .github/goreleaser-for-linux.yaml
+          args: release --skip=publish --config .github/goreleaser-for-linux.yaml
           version: v1.23.0
 
       - name: Copy homebrew
@@ -222,7 +222,7 @@ jobs:
       - name: Build
         uses: goreleaser/goreleaser-action@v5
         with:
-          args: release --skip=publish --snapshot --config .github/goreleaser-for-darwin.yaml
+          args: release --skip=publish --config .github/goreleaser-for-darwin.yaml
           version: v1.23.0
 
       - name: Copy homebrew
