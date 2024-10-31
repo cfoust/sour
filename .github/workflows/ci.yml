@@ -23,9 +23,8 @@ name: Build release artifacts and draft release
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags:
+      - "*.*.*"
 
 jobs:
   build-game:
@@ -332,7 +331,7 @@ jobs:
       - name: Release
         uses: goreleaser/goreleaser-action@v5
         with:
-          args: release --config ci/goreleaser-release.yaml
+          args: release --config .github/goreleaser-release.yaml
           version: v1.23.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
