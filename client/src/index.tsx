@@ -420,7 +420,6 @@ function App() {
           guibutton "create private game..." "creategame ffa"
       ]
       guibutton "random map.."  "map random"
-      guibutton "server browser.."  "showgui servers"
       guibutton "content.." "showgui content"
       if ($fullscreen) [
           guibutton "exit fullscreen.." [fullscreen 0]
