@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/pprof"
+	"runtime/trace"
 	"time"
 
 	"github.com/cfoust/sour/pkg/config"
@@ -14,8 +16,10 @@ import (
 )
 
 var CLI struct {
-	Version bool `help:"Print version information and exit." short:"v"`
-	Debug   bool `help:"Whether to enable debug logging."`
+	Version bool   `help:"Print version information and exit." short:"v"`
+	Debug   bool   `help:"Whether to enable debug logging."`
+	CPU     string `help:"Save a CPU performance report to the given path." name:"perf-file" optional:"" default:""`
+	Trace   string `help:"Save a trace report to the given path." name:"trace-file" optional:"" default:""`
 
 	Serve struct {
 		Configs []string `arg:"" optional:"" name:"configs" help:"Configuration files for the server." type:"file"`
@@ -30,6 +34,46 @@ func writeError(err error) {
 	os.Exit(1)
 }
 
+func runCPUProfile(path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf(
+			"unable to create %s: %s",
+			CLI.CPU,
+			err,
+		)
+	}
+	defer f.Close()
+	if err := pprof.StartCPUProfile(f); err != nil {
+		return fmt.Errorf(
+			"could not start CPU profile: %s",
+			err,
+		)
+	}
+
+	return nil
+}
+
+func runTraceProfile(path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf(
+			"unable to create %s: %s",
+			CLI.Trace,
+			err,
+		)
+	}
+	defer f.Close()
+	if err := trace.Start(f); err != nil {
+		return fmt.Errorf(
+			"could not start trace profile: %s",
+			err,
+		)
+	}
+
+	return nil
+}
+
 func main() {
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	log.Logger = log.Output(consoleWriter)
@@ -42,6 +86,24 @@ func main() {
 			writeError(err)
 		}
 		return
+	}
+
+	if len(CLI.CPU) > 0 {
+		err := runCPUProfile(CLI.CPU)
+		if err != nil {
+			writeError(err)
+		}
+
+		defer pprof.StopCPUProfile()
+	}
+
+	if len(CLI.Trace) > 0 {
+		err := runTraceProfile(CLI.Trace)
+		if err != nil {
+			writeError(err)
+		}
+
+		defer trace.Stop()
 	}
 
 	ctx := kong.Parse(&CLI,
