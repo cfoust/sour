@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 DIST_DIR="$SCRIPT_DIR/../dist"
 SRC_DIR="$SCRIPT_DIR/../src"
@@ -14,17 +16,18 @@ ensure_link() {
   fi
 }
 
-ensure_link "$SRC_DIR/index.html" "$DIST_DIR/index.html"
-ensure_link "$SRC_DIR/favicon.ico" "$DIST_DIR/favicon.ico"
-ensure_link "$SRC_DIR/background.png" "$DIST_DIR/background.png"
-if [ -z "$IN_DOCKER" ]; then
-  ensure_link "$SRC_DIR/../../../build/game" "$DIST_DIR/game"
-  ensure_link "$SRC_DIR/../../../build/assets" "$DIST_DIR/assets"
-fi
-cd "$SCRIPT_DIR/../"
+SITE_DIR="$SCRIPT_DIR/../../pkg/server/static/site"
 
-export SOUR_CONFIG="$(cat $SCRIPT_DIR/../../../config/config.json | jq '.client')"
-yarn serve:site &
-cd dist
-trap 'kill $(jobs -p)' EXIT
-cat
+if [ -d "$SITE_DIR" ]; then
+  rm -rf "$SITE_DIR"
+fi
+mkdir -p "$SITE_DIR"
+
+cd "$SCRIPT_DIR/../"
+yarn build
+
+cp "$SRC_DIR/index.html" "$SITE_DIR/index.html"
+cp "$SRC_DIR/favicon.ico" "$SITE_DIR/favicon.ico"
+cp "$SRC_DIR/background.png" "$SITE_DIR/background.png"
+cp -r "$SRC_DIR/../../game/dist/game" "$SITE_DIR"
+cp "$DIST_DIR"/* "$SITE_DIR"

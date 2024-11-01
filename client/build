@@ -5,5 +5,4 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 yarn install
 
-trap 'kill $(jobs -p)' EXIT
 yarn serve

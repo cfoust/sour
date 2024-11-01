@@ -129,9 +129,9 @@ const DELAY_AFTER_LOAD: CubeMessageType[] = [
   CubeMessageType.N_SPAWN,
 ]
 
-const SERVER_URL_REGEX = /\/server\/([\w.]+)\/?(\d+)?/
-const MAP_URL_REGEX = /\/map\/(\w+)/
-const DEMO_URL_REGEX = /\/demo\/(\w+)/
+const SERVER_URL_REGEX = /#\/server\/([\w.]+)\/?(\d+)?/
+const MAP_URL_REGEX = /#\/map\/(\w+)/
+const DEMO_URL_REGEX = /#\/demo\/(\w+)/
 
 let loadedMods: string[] = []
 let failedMods: string[] = []
@@ -597,11 +597,11 @@ function App() {
       }
 
       const {
-        location: { search: params, pathname, hash },
+        location: { search: params, hash },
       } = window
 
-      const serverDestination = SERVER_URL_REGEX.exec(pathname)
-      const mapDestination = MAP_URL_REGEX.exec(pathname)
+      const serverDestination = SERVER_URL_REGEX.exec(hash)
+      const mapDestination = MAP_URL_REGEX.exec(hash)
       if (serverDestination != null) {
         const [, hostname, port] = serverDestination
         if (port == null) {
@@ -612,14 +612,14 @@ function App() {
       } else if (mapDestination != null) {
         const [, mapId] = mapDestination
         BananaBread.execute(`map ${mapId}`)
-      } else if (pathname.startsWith('/demo/')) {
+      } else if (hash.startsWith('/demo/')) {
         // First check the fragment for a URL
         if (hash.length !== 0) {
           const url = hash.slice(1)
           remoteConnected = true
           playDemoURL(url, 'from-url')
         } else {
-          const demoDestination = DEMO_URL_REGEX.exec(pathname)
+          const demoDestination = DEMO_URL_REGEX.exec(hash)
           if (demoDestination != null) {
             const [, demoId] = demoDestination
             const [serverURL] = CONFIG.servers
@@ -628,12 +628,12 @@ function App() {
             remoteConnected = true
             playDemoURL(demoURL, demoId)
           } else {
-            pushURLState('/')
+            pushURLState('#')
           }
         }
       } else {
         // It should not be anything else
-        pushURLState('/')
+        pushURLState('#')
       }
 
       const parsedParams = new URLSearchParams(params)
@@ -658,11 +658,11 @@ function App() {
     const updateServerURL = (name: string, port: number) => {
       // Sour server
       if (port === 0) {
-        pushURLState(`/server/${name}`)
+        pushURLState(`#/server/${name}`)
         return
       }
 
-      pushURLState(`/server/${name}/${port}`)
+      pushURLState(`#/server/${name}/${port}`)
     }
 
     Module.onConnect = () => {}
@@ -673,7 +673,7 @@ function App() {
 
     Module.loadedMap = (name: string) => {
       if (remoteConnected) return
-      pushURLState(`/map/${name}`)
+      pushURLState(`#/map/${name}`)
     }
 
     let lastPointer: number = 0
