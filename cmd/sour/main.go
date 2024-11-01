@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cfoust/sour/pkg/config"
 	"github.com/cfoust/sour/pkg/version"
 
 	"github.com/alecthomas/kong"
@@ -19,6 +20,9 @@ var CLI struct {
 	Serve struct {
 		Configs []string `arg:"" optional:"" name:"configs" help:"Configuration files for the server." type:"file"`
 	} `cmd:"" help:"Start the sour server."`
+
+	Config struct {
+	} `cmd:"" help:"Write Sour's default configuration to standard output."`
 }
 
 func writeError(err error) {
@@ -75,5 +79,7 @@ func main() {
 		if err != nil {
 			writeError(err)
 		}
+	case "config":
+		os.Stdout.Write(config.DEFAULT)
 	}
 }
