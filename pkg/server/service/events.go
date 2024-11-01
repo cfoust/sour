@@ -62,11 +62,7 @@ func (c *Cluster) NotifyNameChange(ctx context.Context, user *User, name string)
 
 	logger.Info().Msg("client has new name")
 
-	err := user.SetName(ctx, name)
-	if err != nil {
-		logger.Error().Err(err).Msg("could not set user nickname")
-		return
-	}
+	user.SetName(ctx, name)
 
 	clientServer := user.GetServer()
 	serverName := user.GetServerName()
@@ -200,7 +196,7 @@ func (c *Cluster) PollFromMessages(ctx context.Context, user *User) {
 		case msg := <-names.Receive():
 			change := msg.Message.(P.SwitchName)
 			c.NotifyNameChange(ctx, user, change.Name)
-
+			msg.Pass()
 		case msg := <-votes.Receive():
 			space := user.GetSpace()
 			if space == nil {

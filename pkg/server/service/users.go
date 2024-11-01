@@ -316,8 +316,10 @@ func (u *User) GetName() string {
 	return name
 }
 
-func (u *User) SetName(ctx context.Context, name string) error {
-	return fmt.Errorf("feature disabled")
+func (u *User) SetName(ctx context.Context, name string) {
+	u.Mutex.Lock()
+	u.Name = name
+	u.Mutex.Unlock()
 }
 
 func (u *User) AnnounceELO() {
