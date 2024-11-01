@@ -27,6 +27,11 @@ func writeError(err error) {
 }
 
 func main() {
+	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
+	log.Logger = log.Output(consoleWriter)
+
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+
 	if len(os.Args) == 1 {
 		err := serveCommand([]string{})
 		if err != nil {
@@ -43,11 +48,6 @@ func main() {
 			Compact: true,
 			Summary: true,
 		}))
-
-	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
-	log.Logger = log.Output(consoleWriter)
-
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	if CLI.Debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
@@ -68,6 +68,8 @@ func main() {
 	}
 
 	switch ctx.Command() {
+	case "serve":
+		fallthrough
 	case "serve <configs>":
 		err := serveCommand(CLI.Serve.Configs)
 		if err != nil {

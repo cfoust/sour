@@ -39,7 +39,7 @@ server:
   ingress:
     desktop:
       - port: 28785
-        target: lobby
+        target: ffa
         serverInfo:
           enabled: true
           server: true
@@ -59,8 +59,7 @@ server:
   spaces:
     - preset: ffa
       config:
-        alias: ffa
-    - preset: explore
-      exploreMode: true
+        alias: lobby
+    - preset: insta
       config:
-        alias: explore
+        alias: insta
