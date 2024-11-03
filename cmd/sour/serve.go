@@ -136,18 +136,24 @@ func serveCommand(configs []string) error {
 	}
 
 	maps := assetFetcher.GetMaps("")
-	numCfgMaps := 0
+	uniqueMaps := make(map[string]struct{})
 	for _, map_ := range maps {
-		if map_.HasCFG {
-			numCfgMaps++
+		if len(map_.Name) == 0 {
+			continue
 		}
+
+		if _, ok := uniqueMaps[map_.Name]; ok {
+			continue
+		}
+
+		uniqueMaps[map_.Name] = struct{}{}
 	}
 
 	if len(maps) == 0 {
 		return fmt.Errorf("no maps found")
 	}
 
-	log.Info().Msgf("loaded %d maps (%d no .cfg)", len(maps), len(maps)-numCfgMaps)
+	log.Info().Msgf("loaded %d maps", len(uniqueMaps))
 
 	go assetFetcher.PollDownloads(ctx)
 
