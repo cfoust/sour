@@ -25,7 +25,7 @@ var CLI struct {
 		Address string   `optional:"" name:"address" help:"IP address the HTTP server will listen on." default:""`
 		Port    int      `optional:"" name:"port" help:"TCP port the HTTP server will listen on. This overrides the value set in any configurations." default:"-1"`
 		Configs []string `arg:"" optional:"" name:"configs" help:"Configuration files for the server." type:"file"`
-	} `cmd:"" help:"Start the sour server."`
+	} `cmd:"" default:"withargs" help:"Start the sour server."`
 
 	Config struct {
 	} `cmd:"" help:"Write Sour's default configuration to standard output."`
