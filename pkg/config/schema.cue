@@ -92,8 +92,9 @@
 #IngressSettings: {
 	desktop: [...#ENetIngress]
 	web: {
+		address: string | *"0.0.0.0"
 		// The TCP port the WebSocket service should listen on.
-		port: #Port
+		port: #Port | *1337
 	}
 }
 

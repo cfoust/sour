@@ -43,8 +43,6 @@ server:
         serverInfo:
           enabled: true
           server: true
-    web:
-      port: 29999
 
   matchmaking:
     duel:

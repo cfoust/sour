@@ -179,6 +179,13 @@ func serveCommand(configs []string) error {
 		enetIngress.InitialCommand = fmt.Sprintf("join %s", enetConfig.Target)
 		go enetIngress.Poll(ctx)
 
+		log.Info().
+			Str("type", "desktop").
+			Msgf(
+				"listening on udp:0.0.0.0:%d",
+				enetConfig.Port,
+			)
+
 		if enetConfig.ServerInfo.Enabled {
 			serverManager.Mutex.Lock()
 			for _, server := range serverManager.Servers {
@@ -225,7 +232,7 @@ func serveCommand(configs []string) error {
 		mux.Handle("/api/", cluster)
 
 		for i, dir := range fsRoots {
-			log.Info().Msgf("%s -> /assets/%d", dir, i)
+			log.Info().Msgf("serving: %s -> /assets/%d", dir, i)
 			prefix := fmt.Sprintf("/assets/%d/", i)
 
 			handler := http.FileServer(http.Dir(dir))
@@ -237,8 +244,28 @@ func serveCommand(configs []string) error {
 			mux.Handle(prefix, handler)
 		}
 
+		address := serverConfig.Ingress.Web.Address
+		if CLI.Serve.Address != "" {
+			address = CLI.Serve.Address
+		}
+
+		port := serverConfig.Ingress.Web.Port
+		if CLI.Serve.Port != -1 {
+			port = CLI.Serve.Port
+		}
+
+		host := fmt.Sprintf(
+			"%s:%d",
+			address,
+			port,
+		)
+
+		log.Info().
+			Str("type", "web").
+			Msgf("listening on tcp:%s", host)
+
 		errc <- http.ListenAndServe(
-			fmt.Sprintf("0.0.0.0:%d", serverConfig.Ingress.Web.Port),
+			host,
 			mux,
 		)
 	}()

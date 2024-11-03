@@ -66,7 +66,8 @@ type ENetIngress struct {
 type ServerIngress struct {
 	Desktop []ENetIngress
 	Web     struct {
-		Port int
+		Address string
+		Port    int
 	}
 }
 
