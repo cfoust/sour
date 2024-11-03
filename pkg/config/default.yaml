@@ -39,10 +39,9 @@ server:
   ingress:
     desktop:
       - port: 28785
-        target: ffa
+        target: lobby
         serverInfo:
-          enabled: true
-          server: true
+          enabled: false
 
   matchmaking:
     duel:
