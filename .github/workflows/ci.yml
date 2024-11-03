@@ -271,7 +271,7 @@ jobs:
           # https://github.com/orgs/community/discussions/49745#discussioncomment-5275999
           REPOSITORY="cfoust/homebrew-taps"
           DIRECTORY="homebrew-taps"
-          BRANCH="feat/update-to-$SOUR_VERSION"
+          BRANCH="feat/update-sour-to-$SOUR_VERSION"
 
           # Clone the remote repository and change working directory to the
           # folder it was cloned to.
