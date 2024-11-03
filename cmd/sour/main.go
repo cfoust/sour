@@ -83,6 +83,7 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	if len(os.Args) == 1 {
+		CLI.Serve.Port = -1
 		err := serveCommand([]string{})
 		if err != nil {
 			writeError(err)
