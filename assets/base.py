@@ -272,6 +272,7 @@ if __name__ == "__main__":
     for model in fps_models:
         print(model)
         model_files = package.dump_sour("model", model, params.roots)
+
         for mapping in model_files:
             if mapping[1] in fps_mounted:
                 continue
@@ -292,15 +293,25 @@ if __name__ == "__main__":
     def _build_map(_map: str) -> Optional[BuildResult]:
         return build_map(params, outdir, _map)
 
-    with Pool(cpu_count()) as pool:
-        for result in track(pool.imap_unordered(
-            _build_map,
-            maps,
-        ), "building maps", total=len(maps)):
+    # TODO pool.imap_unordered is failing in local macOS dev
+    if package.IS_MACOS:
+        for map_ in maps:
+            result = _build_map(map_)
             if not result:
                 continue
             p.assets = p.assets | result.assets
             p.maps += result.maps
             p.bundles += result.bundles
+    else:
+        with Pool(cpu_count()) as pool:
+            for result in track(pool.imap_unordered(
+                _build_map,
+                maps,
+            ), "building maps", total=len(maps)):
+                if not result:
+                    continue
+                p.assets = p.assets | result.assets
+                p.maps += result.maps
+                p.bundles += result.bundles
 
     p.dump_index(args.prefix)

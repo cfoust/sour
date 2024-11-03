@@ -19,6 +19,7 @@ from typing import NamedTuple, Optional, Tuple, List, Set, Dict
 # Example: ("/home/cfoust/Downloads/blah.ogz", "packages/base/blah.ogz")
 Mapping = Tuple[str, str]
 
+IS_MACOS = sys.platform == 'darwin'
 
 class Asset(NamedTuple):
     # The hash of the asset's file contents. Also used as a unique reference.
@@ -82,8 +83,9 @@ def hash_string(string: str) -> str:
 
 
 def hash_files(files: List[str]) -> str:
+    sha256 = 'sha256sum' if not IS_MACOS else 'sha3-256sum'
     if len(files) == 1:
-        sha = subprocess.check_output(['sha256sum', files[0]])
+        sha = subprocess.check_output([sha256, files[0]])
         return sha.decode('utf-8').split(' ')[0]
 
     tar = subprocess.Popen([
@@ -98,7 +100,7 @@ def hash_files(files: List[str]) -> str:
         "--numeric-owner",
         *files,
     ], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    sha = subprocess.check_output(['sha256sum'], stdin=tar.stdout)
+    sha = subprocess.check_output([sha256], stdin=tar.stdout)
     tar.wait()
     return sha.decode('utf-8').split(' ')[0]
 

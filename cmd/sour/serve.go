@@ -226,14 +226,16 @@ func serveCommand(configs []string) error {
 		mux.Handle("/api/", cluster)
 
 		for i, dir := range fsRoots {
+			log.Info().Msgf("%s -> /assets/%d", dir, i)
 			prefix := fmt.Sprintf("/assets/%d/", i)
-			mux.Handle(
+
+			handler := http.FileServer(http.Dir(dir))
+			handler = http.StripPrefix(
 				prefix,
-				http.StripPrefix(
-					prefix,
-					http.FileServer(http.Dir(dir)),
-				),
+				handler,
 			)
+			handler = SkipIndex(handler)
+			mux.Handle(prefix, handler)
 		}
 
 		errc <- http.ListenAndServe(

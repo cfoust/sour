@@ -17,17 +17,12 @@ ensure_link() {
 }
 
 SITE_DIR="$SCRIPT_DIR/../../pkg/server/static/site"
-
-if [ -d "$SITE_DIR" ]; then
-  rm -rf "$SITE_DIR"
-fi
 mkdir -p "$SITE_DIR"
 
 cd "$SCRIPT_DIR/../"
-yarn build
 
 cp "$SRC_DIR/index.html" "$SITE_DIR/index.html"
 cp "$SRC_DIR/favicon.ico" "$SITE_DIR/favicon.ico"
 cp "$SRC_DIR/background.png" "$SITE_DIR/background.png"
 cp -r "$SRC_DIR/../../game/dist/game" "$SITE_DIR"
-cp "$DIST_DIR"/* "$SITE_DIR"
+yarn serve:site

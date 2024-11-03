@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "serve": "./scripts/serve",
-    "serve:site": "yarn run parcel watch --target default -p 1239",
+    "serve:site": "yarn run parcel watch --target package -p 1239",
     "build": "yarn run parcel build --target default"
   },
   "devDependencies": {
@@ -39,6 +39,11 @@
       "source": "./src/index.tsx",
       "context": "browser",
       "distDir": "./dist"
+    },
+    "package": {
+      "source": "./src/index.tsx",
+      "context": "browser",
+      "distDir": "../pkg/server/static/site"
     }
   }
 }

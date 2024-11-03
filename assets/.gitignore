@@ -6,3 +6,4 @@ __pycache__
 quadropolis
 *.tar.gz
 cache/**
+/dist

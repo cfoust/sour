@@ -1,0 +1,67 @@
+# This configuration can be used for local development.
+server:
+  assets:
+    - "fs:./assets/dist/.index.source"
+  presets:
+    - name: "ffa-duel"
+      virtual: true
+      config:
+        defaultMode: "ffa"
+        defaultMap: "turbine"
+    - name: "insta-duel"
+      virtual: true
+      config:
+        defaultMode: "insta"
+        defaultMap: "turbine"
+    - name: "default"
+      default: true
+      config:
+        defaultMode: "coop"
+        defaultMap: "xmwhub"
+    - name: "ffa"
+      config:
+        defaultMode: "ffa"
+        defaultMap: "complex"
+        maps:
+          - "turbine"
+          - "complex"
+          - "dust2"
+    - name: "insta"
+      config:
+        defaultMode: "insta"
+        defaultMap: "complex"
+        maps:
+          - "turbine"
+          - "complex"
+          - "dust2"
+    - name: "explore"
+      config:
+        matchLength: 180
+
+  ingress:
+    desktop:
+      - port: 28785
+        target: ffa
+        serverInfo:
+          enabled: true
+          server: true
+    web:
+      port: 29999
+
+  matchmaking:
+    duel:
+      - name: "ffa"
+        preset: "ffa-duel"
+        forceRespawn: "dead"
+        default: true
+      - name: "insta"
+        preset: "insta-duel"
+        forceRespawn: "dead"
+
+  spaces:
+    - preset: ffa
+      config:
+        alias: lobby
+    - preset: insta
+      config:
+        alias: insta

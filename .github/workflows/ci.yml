@@ -108,12 +108,7 @@ jobs:
         run: |
           source emsdk/emsdk_env.sh
           cd assets
-          python3 base.py \
-            --root https://static.sourga.me/blobs/6481/.index.source \
-            --models \
-            --download \
-            --outdir dist \
-            complex dust2 turbine
+          ./ci
 
       - name: Upload
         uses: actions/upload-artifact@v4
