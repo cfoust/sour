@@ -205,7 +205,6 @@ func serveCommand(configs []string) error {
 	}
 	go cluster.PollUsers(ctx, newConnections)
 	go cluster.PollDuels(ctx)
-	go wsIngress.StartWatcher(ctx)
 
 	// Encode the client config as json
 	clientConfig, err := json.Marshal(config.Client)
