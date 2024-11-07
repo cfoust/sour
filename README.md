@@ -30,7 +30,7 @@ brew install cfoust/taps/sour
 brew install cfoust/taps/sour@0.2.2
 ```
 
-These archives only contain three maps: `complex`, `dust2`, and `turbine`.
+In addition to all of the base game assets, these archives only contain three maps: `complex`, `dust2`, and `turbine`.
 
 ## Running Sour
 
@@ -62,7 +62,7 @@ Sour also supports merging configurations together.
 sour serve config_a.yaml some_path/config_b.json config_c.yaml
 ```
 
-These configurations are merged from left to right using [CUE](https://cuelang.org/docs/). CUE merges JSON data by overwriting values (if they're scalar, such as strings, booleans, and numbers) or combining values (if they're arrays). In effect, this means that configurations can specify values for only a subset of properties without problems.
+These configurations are merged from left to right using [CUE](https://cuelang.org/docs/). In other words, configurations are evaluated in order from left to right. CUE merges JSON data by overwriting values (if they're scalar, such as strings, booleans, and numbers) or combining values (if they're arrays). In effect, this means that configurations can specify values for only a subset of properties without problems.
 
 ## Goals
 
