@@ -5,14 +5,14 @@
 </p>
 
 <p align="center">
-    <a href="https://discord.gg/WP3EbYym4M"><img src="https://img.shields.io/discord/1175485543421837455?color=5865F2&label=discord&style=flat-square" alt="Discord" /></a>
+    <a href="https://discord.gg/WP3EbYym4M"><img src="https://img.shields.io/discord/1071091858576523274?color=5865F2&label=discord&style=flat-square" alt="Discord" /></a>
     <a href="https://github.com/cfoust/sour/releases"><img src="https://img.shields.io/github/downloads/cfoust/sour/latest/total?style=flat-square" alt="sour releases" /></a>
     <a href="https://github.com/cfoust/sour/blob/main/LICENSE"><img src="https://img.shields.io/github/license/cfoust/sour?color=48AC75&style=flat-square" alt="sour License Badge MIT" /></a>
 </p>
 
 ## What is this?
 
-Sour is a multiplatform modernization of <a target="_blank" href="http://sauerbraten.org/">Cube 2: Sauerbraten</a> delivered as a single executable (with adjacent assets.) It is a Sauerbraten server that serves a fully-featured web-version of Sauerbraten (with support for mobile devices) in addition to accepting connections from the traditional, desktop version of the game. Sour is the easiest way to play Sauerbraten with your friends.
+Sour is a <a target="_blank" href="http://sauerbraten.org/">Cube 2: Sauerbraten</a> server that serves a fully-featured web-version of Sauerbraten (with support for mobile devices) in addition to accepting connections from the traditional, desktop version of the game. Sour is the easiest way to play Sauerbraten with your friends.
 
 <a target="_blank" href="https://sourga.me/">Give it a try.</a>
 
@@ -29,6 +29,8 @@ brew install cfoust/taps/sour
 # Or a specific one:
 brew install cfoust/taps/sour@0.2.2
 ```
+
+These archives only contain three maps: `complex`, `dust2`, and `turbine`.
 
 ## Running Sour
 
