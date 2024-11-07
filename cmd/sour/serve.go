@@ -67,10 +67,11 @@ func serveCommand(configs []string) error {
 	}
 
 	// Also check the current directory
-	if current, err := os.Getwd(); err != nil {
+	if current, err := os.Getwd(); err == nil {
 		source := filepath.Join(
 			current,
-			"assets/.index.source",
+			"assets",
+			".index.source",
 		)
 
 		if _, err := os.Stat(source); err == nil {
