@@ -159,13 +159,13 @@ def combine_bundle(data_file: str, js_file: str, dest: str):
     package = re.search('loadPackage\((.+)\)', js)
 
     if not package:
-        raise Exception("Failed to find loadPackage in %s" % js_file)
+        raise Exception(f"Failed to find loadPackage in {js_file}")
 
     # We could compute these directories from the file list alone, but I'm
     # lazy.
     paths = []
     for directory in re.finditer('createPath...(.+), true', js):
-        paths.append(json.loads('[%s]' % directory[1][:-6]))
+        paths.append(json.loads(f'[{directory[1][:-6]}]'))
 
     directories = json.dumps(paths)
     metadata = package[1]
@@ -195,7 +195,7 @@ def build_sour_bundle(
     # We may remap files after conversion
     cleaned: List[Mapping] = []
 
-    sour_target = path.join(outdir, "%s.sour" % bundle.id)
+    sour_target = path.join(outdir, f"{bundle.id}.sour")
 
     if path.exists(sour_target):
         return bundle.id
@@ -205,18 +205,18 @@ def build_sour_bundle(
         out = asset.path
         cleaned.append((_in, out))
 
-    js_file = "/tmp/preload_%s.js" % bundle.id
-    data_file = "/tmp/%s.data" % bundle.id
+    js_file = f"/tmp/preload_{bundle.id}.js"
+    data_file = f"/tmp/{bundle.id}.data"
 
     result = subprocess.run(
         [
             "python3",
-            "%s/upstream/emscripten/tools/file_packager.py" % os.getenv('EMSDK', '/emsdk'),
+            f"{os.getenv('EMSDK', '/emsdk')}/upstream/emscripten/tools/file_packager.py",
             data_file,
             "--use-preload-plugins",
             "--preload",
             *list(map(
-                lambda v: "%s@%s" % (v[0], v[1]),
+                lambda v: f"{v[0]}@{v[1]}",
                 cleaned
             )),
         ],
@@ -234,7 +234,7 @@ def build_sour_bundle(
 
 def build_desktop_bundle(outdir: str, bundle: Bundle):
     added: Set[str] = set()
-    zip_path = path.join(outdir, "%s.desktop" % bundle.id)
+    zip_path = path.join(outdir, f"{bundle.id}.desktop")
 
     if path.exists(zip_path):
         return
@@ -447,10 +447,7 @@ class Packager:
 
         compressed = path.join(
             "working/",
-            "%s%s" % (
-                file_hash,
-                extension
-            )
+            f"{file_hash}{extension}"
         )
 
         if path.exists(compressed):
@@ -680,7 +677,7 @@ class Packager:
         if not asset:
             return None
         result = path.join(self.outdir, asset.id)
-        image = "%s%s" % (asset.id, extension)
+        image = f"{asset.id}{extension}"
         shutil.copy(result, path.join(self.outdir, image))
         return image
 
@@ -709,13 +706,13 @@ class Packager:
 
         base, _ = path.splitext(map_file)
 
-        map_hash_files = [map_file, "%s.cfg" % (base)]
+        map_hash_files = [map_file, f"{base}.cfg"]
         map_hash = hash_assets(params.roots, map_hash_files)
 
         if not image:
             # Look for an image file adjacent to the map
             for extension in ['.png', '.jpg']:
-                image_path = "%s%s" % (base, extension)
+                image_path = f"{base}{extension}"
                 image = self.build_image(
                     params,
                     image_path,
@@ -757,7 +754,7 @@ class Packager:
             self,
             prefix = ''
     ) -> None:
-        index = '%s.index.source' % prefix
+        index = f'{prefix}.index.source'
 
         lookup: Dict[str, int] = {}
         for i, asset in enumerate(self.assets):

@@ -44,8 +44,8 @@ def build_map(
         params,
         _map,
         base,
-        """Base game map %s as it appeared in game version r6481.
-        """ % base,
+        f"""Base game map {base} as it appeared in game version r6481.
+        """,
     )
 
     return BuildResult(
@@ -171,7 +171,7 @@ if __name__ == "__main__":
 
     maps = list(filter(lambda a: a.endswith('.ogz'), files))
     if args.maps:
-        maps = list(map(lambda a: "packages/base/%s.ogz" % a, args.maps))
+        maps = list(map(lambda a: f"packages/base/{a}.ogz", args.maps))
 
     maps.append("packages/base/xmwhub.ogz")
 

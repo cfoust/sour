@@ -61,7 +61,7 @@ if __name__ == "__main__":
             tmpdir = tempfile.mkdtemp()
 
             if file_name.endswith('.tar.gz'):
-                target = path.join("/tmp", "%s.tar.gz" % file_hash)
+                target = path.join("/tmp", f"{file_hash}.tar.gz")
                 shutil.copy(db(file_hash), target)
                 subprocess.run(
                     [
@@ -76,7 +76,7 @@ if __name__ == "__main__":
                     check=True
                 )
             elif file_name.endswith('.zip'):
-                target = path.join("/tmp", "%s.zip" % file_hash)
+                target = path.join("/tmp", f"{file_hash}.zip")
                 shutil.copy(db(file_hash), target)
                 subprocess.run(
                     [
@@ -90,7 +90,7 @@ if __name__ == "__main__":
                     stdout=subprocess.DEVNULL,
                 )
             elif file_name.endswith('.rar'):
-                target = path.join("/tmp", "%s.rar" % file_hash)
+                target = path.join("/tmp", f"{file_hash}.rar")
                 shutil.copy(db(file_hash), target)
                 subprocess.run(
                     [
@@ -104,7 +104,7 @@ if __name__ == "__main__":
                     check=True
                 )
             else:
-                print('Unhandled archive: %s' % file_name)
+                print(f'Unhandled archive: {file_name}')
                 continue
 
             for subfile in list(Path(tmpdir).rglob("*")):
