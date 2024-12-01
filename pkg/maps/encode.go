@@ -54,7 +54,7 @@ func MapToCXX(cube *Cube) worldio.Cube {
 		cxx.SetMerged(cube.Merged)
 		cxx.SetEscaped(cube.Escaped)
 
-		worldio.CubeArray_setitem(parent, i, cxx)
+		worldio.CubeArray_setitem(parent, int64(i), cxx)
 	}
 
 	return parent
