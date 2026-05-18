@@ -49,7 +49,7 @@ import * as log from './logging'
 
 import { LoadRequestType } from './assets/types'
 
-import Browse from './catalog/Browse'
+import Menu from './menu/Menu'
 import { useCatalog } from './catalog/hook'
 import type { BrowseMapEntry, Catalog } from './catalog/types'
 
@@ -993,10 +993,13 @@ function App() {
   if (browsing) {
     return (
       <BrowseContainer>
-        <Browse
+        <Menu
           maps={browseEntries}
           loading={catalogLoading}
           onPlay={handlePlay}
+          onClose={() => setBrowsing(false)}
+          isInGame={state.type === GameStateType.Ready}
+          initialView={state.type === GameStateType.Ready ? 'pause' : 'browse'}
         />
       </BrowseContainer>
     )
