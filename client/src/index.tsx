@@ -1,3 +1,4 @@
+import './fonts/fonts.css'
 import styled from '@emotion/styled'
 import { useResizeDetector } from 'react-resize-detector'
 import start from './unsafe-startup'
