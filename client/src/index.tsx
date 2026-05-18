@@ -418,8 +418,9 @@ function App() {
   )
 
   React.useEffect(() => {
+    if (browsing) return
     setResolution(width, height)
-  }, [width, height])
+  }, [width, height, browsing])
 
   React.useEffect(() => {
     if (state.type !== GameStateType.Ready) return
