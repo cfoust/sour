@@ -172,6 +172,8 @@ def build_map(
 
 
 class BuildResult(NamedTuple):
+    node_id: int
+    map_names: List[str]
     assets: Set[str]
     bundles: List[package.Bundle]
     maps: List[package.GameMap]
@@ -335,6 +337,8 @@ def build_node(
                 break
 
     return BuildResult(
+        node_id=_id,
+        map_names=[m.name for m in p.maps],
         assets=p.assets,
         bundles=p.bundles,
         maps=p.maps,
@@ -387,6 +391,8 @@ if __name__ == "__main__":
     def _build_node(node: Any) -> Optional[BuildResult]:
         return build_node(params, outdir, node)
 
+    node_map = {}
+
     with Pool(cpu_count()) as pool:
         for result in track(pool.imap_unordered(
             _build_node,
@@ -399,6 +405,9 @@ if __name__ == "__main__":
             p.maps += result.maps
             p.bundles += result.bundles
 
+            if result.map_names:
+                node_map[result.node_id] = result.map_names
+
             for map_ in result.failed_maps:
                 failures.write(map_ + "\n")
 
@@ -406,5 +415,11 @@ if __name__ == "__main__":
     num_maps = len(p.maps)
 
     failures.close()
+
+    # Write node-to-map-name mapping for catalog generation
+    with open(path.join(outdir, 'node_map.json'), 'w') as f:
+        json.dump(node_map, f)
+    print(f"wrote node_map.json with {len(node_map)} nodes")
+
     print(f"built {num_mods} mods and {num_maps} maps")
     p.dump_index(args.prefix)

@@ -89,6 +89,7 @@ type ServerSettings struct {
 	CacheDirectory    string
 	ServerInfo        ServerServerInfo
 	Assets            []string
+	Catalogs          []string
 	Presets           []Preset
 	Spaces            []PresetSpace
 	Matchmaking       MatchmakingSettings
@@ -98,6 +99,7 @@ type ServerSettings struct {
 
 type ClientSettings struct {
 	Assets      []string `json:"assets"`
+	Catalog     string   `json:"catalog"`
 	Servers     []string `json:"servers"`
 	Proxy       string   `json:"proxy"`
 	MenuOptions string   `json:"menuOptions"`

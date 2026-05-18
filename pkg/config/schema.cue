@@ -148,6 +148,10 @@ assetStores: [...#AssetStore] | *[{
 	// specify complete URLs.
 	assets: [...string]
 
+	// Catalog sources for map/mod metadata (author, date, description, screenshots).
+	// Same format as assets: fs: prefix for local, HTTP URLs for remote.
+	catalogs: [...string] | *[]
+
 	// These are all of the game servers that will be started when the server starts.
 	spaces: [...#Space]
 
@@ -173,6 +177,9 @@ server: #ServerSettings
 	// of time. We can take advantage of the browser's automatic addition of the
 	// hostname to bare absolute paths.
 	assets: [...string] | *[]
+
+	// URL for the merged catalog JSON, served by the Go server.
+	catalog: string | *""
 
 	// The URLs for all of the game servers, for now we only support one.
 	// ws: and wss: are inferred

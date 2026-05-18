@@ -49,6 +49,10 @@ import * as log from './logging'
 
 import { LoadRequestType } from './assets/types'
 
+import Browse from './catalog/Browse'
+import { useCatalog } from './catalog/hook'
+import type { BrowseMapEntry, Catalog } from './catalog/types'
+
 start()
 
 const colors = {
@@ -133,6 +137,31 @@ const SERVER_URL_REGEX = /#\/server\/([\w.]+)\/?(\d+)?/
 const MAP_URL_REGEX = /#\/map\/(\w+)/
 const DEMO_URL_REGEX = /#\/demo\/(\w+)/
 
+const BrowseContainer = styled.div`
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  z-index: 3;
+`
+
+function hasDirectNavHash(): boolean {
+  const { hash } = window.location
+  return (
+    SERVER_URL_REGEX.test(hash) ||
+    MAP_URL_REGEX.test(hash) ||
+    DEMO_URL_REGEX.test(hash) ||
+    hash.startsWith('#/demo/')
+  )
+}
+
+function catalogToEntries(catalog: Catalog): BrowseMapEntry[] {
+  return Object.entries(catalog.maps).map(([name, entry]) => ({
+    ...entry,
+    name,
+    available: true,
+  }))
+}
+
 let loadedMods: string[] = []
 let failedMods: string[] = []
 
@@ -158,6 +187,16 @@ async function playDemoURL(url: string, reference: string) {
 }
 
 function App() {
+  const hasCatalog = CONFIG.catalog !== ''
+  const [browsing, setBrowsing] = React.useState(
+    hasCatalog && !hasDirectNavHash()
+  )
+  const { catalog, loading: catalogLoading } = useCatalog()
+  const browseEntries = React.useMemo(
+    () => (catalog ? catalogToEntries(catalog) : []),
+    [catalog]
+  )
+
   const [state, setState] = React.useState<GameState>({
     type: GameStateType.PageLoading,
   })
@@ -239,7 +278,13 @@ function App() {
     }
   }, [])
 
+  // Game engine initialization — only runs when not browsing
+  const gameStarted = React.useRef(false)
   React.useEffect(() => {
+    if (browsing) return
+    if (gameStarted.current) return
+    gameStarted.current = true
+
     ;(async () => {
       // Waits for the WASM file to be downloaded and memory to be initialized
       // This solves a race condition wherein we were mounting things to the
@@ -299,7 +344,10 @@ function App() {
       Module.calledRun = false
       Module.run()
     })()
+  }, [browsing])
 
+  // Module callback setup — always runs on mount
+  React.useEffect(() => {
     Module.socket = (addr, port) => {
       const { protocol, host } = window.location
       const prefix = `${
@@ -420,6 +468,7 @@ function App() {
           guibutton "create private game..." "creategame ffa"
       ]
       guibutton "random map.."  "map random"
+      ${hasCatalog ? 'guibutton "browse maps.." [js "Module.showBrowse && Module.showBrowse()"]' : ''}
       guibutton "content.." "showgui content"
       if ($fullscreen) [
           guibutton "exit fullscreen.." [fullscreen 0]
@@ -511,6 +560,7 @@ function App() {
     let queuedEvents: SocketMessage[] = []
     let loadingWorld = false
 
+    Module.showBrowse = () => setBrowsing(true)
     Module.running = false
     Module.postLoadWorld = function () {
       loadingWorld = false
@@ -932,6 +982,23 @@ function App() {
 
     return
   }, [])
+
+  const handlePlay = React.useCallback((mapName: string) => {
+    window.location.hash = `#/map/${mapName}`
+    setBrowsing(false)
+  }, [])
+
+  if (browsing) {
+    return (
+      <BrowseContainer>
+        <Browse
+          maps={browseEntries}
+          loading={catalogLoading}
+          onPlay={handlePlay}
+        />
+      </BrowseContainer>
+    )
+  }
 
   return (
     <OuterContainer ref={containerRef}>

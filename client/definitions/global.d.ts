@@ -99,6 +99,7 @@ type ModuleType = {
     ) => void
   },
 
+  showBrowse: (() => void) | null
   loadedMap: (name: string) => void
   onLocalDisconnect: () => void
 

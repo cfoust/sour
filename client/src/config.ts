@@ -4,6 +4,7 @@ import { BROWSER } from './utils'
 
 export type Configuration = {
   assets: string[]
+  catalog: string
   servers: string[]
   proxy: string
   menuOptions: string
@@ -11,6 +12,7 @@ export type Configuration = {
 
 export let CONFIG: Configuration = {
   assets: [],
+  catalog: '',
   servers: [],
   proxy: '',
   menuOptions: '',
@@ -73,6 +75,9 @@ function init() {
     }
     return [fillAssetHost(v)]
   }, CONFIG.assets)
+  if (CONFIG.catalog) {
+    CONFIG.catalog = fillHost(CONFIG.catalog)
+  }
   CONFIG.servers = R.map((v) => fillHost(v), CONFIG.servers)
   CONFIG.proxy = fillHost(CONFIG.proxy)
 }

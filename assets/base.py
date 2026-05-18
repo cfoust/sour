@@ -1,6 +1,8 @@
 import argparse
+import json
 from pathlib import Path
 import package
+import catalog as cat
 import sys
 import glob
 from os import path
@@ -315,3 +317,26 @@ if __name__ == "__main__":
                 p.bundles += result.bundles
 
     p.dump_index(args.prefix)
+
+    # Generate base game catalog
+    catalog_dir = path.join(outdir, 'catalog')
+    os.makedirs(catalog_dir, exist_ok=True)
+    catalog_maps: Dict[str, dict] = {}
+    for game_map in p.maps:
+        entry: dict = {
+            'author': 'Sauerbraten',
+            'description': game_map.description,
+        }
+        if game_map.image:
+            # Copy the image from the asset output to the catalog directory
+            img_src = path.join(outdir, game_map.image)
+            if path.exists(img_src):
+                import shutil
+                dest = path.join(catalog_dir, game_map.image)
+                if not path.exists(dest):
+                    shutil.copy2(img_src, dest)
+                entry['image'] = game_map.image
+        catalog_maps[game_map.name] = entry
+
+    cat.write_catalog(catalog_dir, {'maps': catalog_maps})
+    print(f"wrote base catalog with {len(catalog_maps)} maps to {catalog_dir}")

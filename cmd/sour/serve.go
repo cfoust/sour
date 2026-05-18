@@ -8,8 +8,10 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 
 	"github.com/cfoust/sour/pkg/assets"
+	"github.com/cfoust/sour/pkg/catalog"
 	"github.com/cfoust/sour/pkg/config"
 	"github.com/cfoust/sour/pkg/server/ingress"
 	"github.com/cfoust/sour/pkg/server/servers"
@@ -126,6 +128,46 @@ func serveCommand(configs []string) error {
 		}
 	}
 
+	// Load and merge catalog sources
+	var catalogFSDirs []string
+	var mergedCatalogJSON []byte
+	if len(serverConfig.Catalogs) > 0 {
+		var sources []catalog.Source
+		for _, src := range serverConfig.Catalogs {
+			if strings.HasPrefix(src, "fs:") {
+				catPath := src[3:]
+				absPath, err := filepath.Abs(catPath)
+				if err != nil {
+					log.Warn().Err(err).Msgf("failed to resolve catalog path: %s", catPath)
+					continue
+				}
+				cat, err := catalog.LoadCatalog(absPath)
+				if err != nil {
+					log.Warn().Err(err).Msgf("failed to load catalog: %s", absPath)
+					continue
+				}
+				dir := filepath.Dir(absPath)
+				catalogFSDirs = append(catalogFSDirs, dir)
+				sources = append(sources, catalog.Source{
+					Catalog: cat,
+					BaseURL: fmt.Sprintf("/catalog/%d", len(catalogFSDirs)-1),
+				})
+			}
+			// HTTP catalog sources would be fetched here
+		}
+
+		if len(sources) > 0 {
+			resolved := catalog.MergeCatalogs(sources)
+			mergedCatalogJSON, err = json.Marshal(resolved)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to marshal merged catalog")
+			} else {
+				config.Client.Catalog = "#origin/catalog.json"
+				log.Info().Msgf("merged %d catalog source(s)", len(sources))
+			}
+		}
+	}
+
 	assetFetcher, err := assets.NewAssetFetcher(
 		ctx,
 		cache,
@@ -237,6 +279,24 @@ func serveCommand(configs []string) error {
 		mux.Handle("/", staticSite)
 		mux.Handle("/ws/", wsIngress)
 		mux.Handle("/api/", cluster)
+
+		// Serve the merged catalog JSON
+		if mergedCatalogJSON != nil {
+			catalogJSON := mergedCatalogJSON
+			mux.HandleFunc("/catalog.json", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write(catalogJSON)
+			})
+		}
+
+		// Serve catalog image directories
+		for i, dir := range catalogFSDirs {
+			log.Info().Msgf("serving catalog: %s -> /catalog/%d", dir, i)
+			prefix := fmt.Sprintf("/catalog/%d/", i)
+			handler := http.FileServer(http.Dir(dir))
+			handler = http.StripPrefix(prefix, handler)
+			mux.Handle(prefix, handler)
+		}
 
 		for i, dir := range fsRoots {
 			log.Info().Msgf("serving: %s -> /assets/%d", dir, i)
