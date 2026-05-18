@@ -130,7 +130,7 @@ func serveCommand(configs []string) error {
 
 	// Load and merge catalog sources
 	var catalogFSDirs []string
-	var mergedCatalogJSON []byte
+	var mergedCatalog *catalog.ResolvedCatalog
 	if len(serverConfig.Catalogs) > 0 {
 		var sources []catalog.Source
 		for _, src := range serverConfig.Catalogs {
@@ -157,14 +157,9 @@ func serveCommand(configs []string) error {
 		}
 
 		if len(sources) > 0 {
-			resolved := catalog.MergeCatalogs(sources)
-			mergedCatalogJSON, err = json.Marshal(resolved)
-			if err != nil {
-				log.Warn().Err(err).Msg("failed to marshal merged catalog")
-			} else {
-				config.Client.Catalog = "#origin/catalog.json"
-				log.Info().Msgf("merged %d catalog source(s)", len(sources))
-			}
+			mergedCatalog = catalog.MergeCatalogs(sources)
+			config.Client.Catalog = "#origin/catalog.json"
+			log.Info().Msgf("merged %d catalog source(s)", len(sources))
 		}
 	}
 
@@ -197,6 +192,17 @@ func serveCommand(configs []string) error {
 	}
 
 	log.Info().Msgf("loaded %d maps", len(uniqueMaps))
+
+	// Now that we know which maps exist, finalize the catalog
+	var mergedCatalogJSON []byte
+	if mergedCatalog != nil {
+		mergedCatalog.FilterAvailable(uniqueMaps)
+		mergedCatalogJSON, err = json.Marshal(mergedCatalog)
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to marshal merged catalog")
+			mergedCatalogJSON = nil
+		}
+	}
 
 	go assetFetcher.PollDownloads(ctx)
 

@@ -138,9 +138,11 @@ const MAP_URL_REGEX = /#\/map\/(\w+)/
 const DEMO_URL_REGEX = /#\/demo\/(\w+)/
 
 const BrowseContainer = styled.div`
-  width: 100%;
-  height: 100%;
-  position: absolute;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 3;
 `
 
@@ -158,7 +160,6 @@ function catalogToEntries(catalog: Catalog): BrowseMapEntry[] {
   return Object.entries(catalog.maps).map(([name, entry]) => ({
     ...entry,
     name,
-    available: true,
   }))
 }
 

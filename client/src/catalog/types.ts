@@ -12,5 +12,4 @@ export type Catalog = {
 
 export type BrowseMapEntry = MapEntry & {
   name: string
-  available: boolean
 }

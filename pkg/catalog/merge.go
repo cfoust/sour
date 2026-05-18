@@ -84,6 +84,15 @@ func MergeCatalogs(sources []Source) *ResolvedCatalog {
 	return result
 }
 
+// FilterAvailable removes catalog entries for maps that don't exist in the asset index.
+func (c *ResolvedCatalog) FilterAvailable(mapNames map[string]struct{}) {
+	for name := range c.Maps {
+		if _, ok := mapNames[name]; !ok {
+			delete(c.Maps, name)
+		}
+	}
+}
+
 func resolveURL(base, hash string) string {
 	if hash == "" {
 		return ""

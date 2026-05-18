@@ -23,7 +23,6 @@ export default function MapCard({ entry, onPlay }: MapCardProps) {
       borderRadius="md"
       overflow="hidden"
       bg="gray.800"
-      opacity={entry.available ? 1 : 0.5}
     >
       <Image
         src={imgSrc}
@@ -55,7 +54,6 @@ export default function MapCard({ entry, onPlay }: MapCardProps) {
           mt={2}
           width="100%"
           onClick={onPlay}
-          isDisabled={!entry.available}
         >
           Play
         </Button>
