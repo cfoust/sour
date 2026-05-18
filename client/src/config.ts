@@ -32,12 +32,33 @@ function fillHost(url: string): string {
 function fillAssetHost(url: string): string {
   const newHost = fillHost(url)
 
-  // Don't cache asset sources pointing to this host
-  if (url.includes(REPLACED.HOST) || url.includes(REPLACED.ORIGIN)) {
-    return `!${newHost}`
+  // Rebase assets to current path if pointing at same-origin /assets
+  // This makes assets work when the app is hosted under a subpath (e.g., /sour/)
+  const rebase = (absolute: string): string => {
+    try {
+      const u = new URL(absolute, window.location.href)
+      if (
+        u.origin === window.location.origin &&
+        u.pathname.startsWith('/assets/')
+      ) {
+        const baseAssetsPath = new URL('assets/', window.location.href).pathname
+        u.pathname = baseAssetsPath + u.pathname.slice('/assets/'.length)
+        return u.toString()
+      }
+      return u.toString()
+    } catch (_e) {
+      return absolute
+    }
   }
 
-  return newHost
+  const rebased = rebase(newHost)
+
+  // Don't cache asset sources pointing to this host
+  if (url.includes(REPLACED.HOST) || url.includes(REPLACED.ORIGIN)) {
+    return `!${rebased}`
+  }
+
+  return rebased
 }
 
 function getInjected(): Maybe<Configuration> {

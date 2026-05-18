@@ -2,6 +2,7 @@ package gameserver
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -49,11 +50,12 @@ func (cm *ClientManager) GetClientByCN(cn uint32) *Client {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
 
-	if int(cn) < 0 || int(cn) >= len(cm.clients) {
-		return nil
+	for _, client := range cm.clients {
+		if client.CN == cn {
+			return client
+		}
 	}
-
-	return cm.clients[cn]
+	return nil
 }
 
 func (cm *ClientManager) GetClientByID(sessionId uint32) *Client {
@@ -218,6 +220,9 @@ func (s *Server) SendWelcome(c *Client) {
 
 // Tells other clients that the client disconnected, giving a disconnect reason in case it's not a normal leave.
 func (cm *ClientManager) Disconnect(c *Client, reason disconnectreason.ID) {
+	log.Printf("Client %d (CN: %d) disconnecting: final state=%d, life sequence=%d, reason=%s", 
+		c.SessionID, c.CN, c.State, c.LifeSequence, reason.String())
+	
 	cm.Relay(c, P.ClientDisconnected{int32(c.CN)})
 
 	msg := ""

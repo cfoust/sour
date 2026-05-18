@@ -1,0 +1,52 @@
+--- sauerbraten.js.orig	2025-09-10 22:51:23.261415063 +0200
++++ sauerbraten.js	2025-09-10 23:38:13.752435014 +0200
+@@ -5279,7 +5279,14 @@
+    if (Module["elementPointerLock"]) {
+     canvas.addEventListener("click", function(ev) {
+      if (!Browser.pointerLock && Module["canvas"].requestPointerLock) {
+-      Module["canvas"].requestPointerLock();
++      try {
++       var promise = Module["canvas"].requestPointerLock({ unadjustedMovement: true });
++       if (promise) promise.catch(function() {
++        Module["canvas"].requestPointerLock();
++       });
++      } catch (e) {
++       Module["canvas"].requestPointerLock();
++      }
+       ev.preventDefault();
+      }
+     }, false);
+@@ -5350,7 +5357,16 @@
+    var canvasContainer = canvas.parentNode;
+    if ((document["fullscreenElement"] || document["mozFullScreenElement"] || document["msFullscreenElement"] || document["webkitFullscreenElement"] || document["webkitCurrentFullScreenElement"]) === canvasContainer) {
+     canvas.exitFullscreen = Browser.exitFullscreen;
+-    if (Browser.lockPointer) canvas.requestPointerLock();
++    if (Browser.lockPointer) {
++     try {
++      var promise = canvas.requestPointerLock({ unadjustedMovement: true });
++      if (promise) promise.catch(function() {
++       canvas.requestPointerLock();
++      });
++     } catch (e) {
++      canvas.requestPointerLock();
++     }
++    }
+     Browser.isFullscreen = true;
+     if (Browser.resizeCanvas) {
+      Browser.setFullscreenCanvasSize();
+@@ -6769,7 +6785,14 @@
+ 
+ function requestPointerLock(target) {
+  if (target.requestPointerLock) {
+-  target.requestPointerLock();
++  try {
++   var promise = target.requestPointerLock({ unadjustedMovement: true });
++   if (promise) promise.catch(function() {
++    target.requestPointerLock();
++   });
++  } catch (e) {
++   target.requestPointerLock();
++  }
+  } else if (target.msRequestPointerLock) {
+   target.msRequestPointerLock();
+  } else {

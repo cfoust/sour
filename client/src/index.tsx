@@ -118,6 +118,33 @@ const pushURLState = (url: string) => {
 
 const clearURLState = () => pushURLState('/')
 
+const MODE_NAMES = [
+  'ffa',
+  'coop-edit',
+  'teamplay',
+  'insta',
+  'insta team',
+  'efficiency',
+  'efficiency team',
+  'tactics',
+  'tactics team',
+  'capture',
+  'regen capture',
+  'ctf',
+  'insta ctf',
+  'protect',
+  'insta protect',
+  'hold',
+  'insta hold',
+  'efficiency ctf',
+  'efficiency protect',
+  'efficiency hold',
+  'collect',
+  'insta collect',
+  'efficiency collect',
+] as const
+const modeName = (id: number): string => MODE_NAMES[id] ?? `mode ${id}`
+
 export type CommandRequest = {
   id: number
   promiseSet: PromiseSet<string>
@@ -207,6 +234,24 @@ function App() {
       [WeaponType.Pistol]: 0,
     },
   })
+
+  const internalServersRef = React.useRef<string>(`newgui integrated [
+        guitab "servers"
+        guiservers [
+            guilist [
+                guicheckbox \"auto-sort\" autosortservers
+                if (= $autosortservers 0) [ guibar ; guibutton \"sort\" \"sortservers\" ]
+            ]
+            guibar
+        ] 17
+    ] "" [initservers]
+  `)
+  const [internalServers, _setInternalServers] = React.useState<string>(internalServersRef.current)
+  const setInternalServers = React.useCallback((gui: string) => {
+    if (internalServersRef.current === gui) return
+    internalServersRef.current = gui
+    _setInternalServers(gui)
+  }, [])
 
   React.useEffect(() => {
     Module.gameState = {
@@ -302,9 +347,9 @@ function App() {
 
     Module.socket = (addr, port) => {
       const { protocol, host } = window.location
-      const prefix = `${
-        protocol === 'https:' ? 'wss://' : 'ws:/'
-      }${host}/service/proxy/`
+      const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:'
+      const basePath = new URL('service/proxy/', window.location.href).pathname
+      const prefix = `${wsProtocol}//${host}${basePath}`
 
       return new WebSocket(
         addr === 'sour' ? prefix : `${prefix}u/${addr}:${port}`,
@@ -375,18 +420,38 @@ function App() {
   React.useEffect(() => {
     if (state.type !== GameStateType.Ready) return
 
-    const menu = `
-    newgui discord [
-        guibutton "copy authkey command.." [js "Module.discord.copyKey()"]
-        //guibutton "regenerate auth key.." [js "Module.discord.regenKey()"]
-        guibutton "log out.." [js "Module.discord.logout()"]
-    ]
+    // To show the server browser, add:
+    //   guibutton "server browser.." "showgui servers"
+    // 
+    // Proxy setup is incomplete though at the moment, so
+    // connecting won't work
 
+    // Removed discord button for now
+    // 
+    //   newgui discord [
+    //       guibutton "copy authkey command.." [js "Module.discord.copyKey()"]
+    //       //guibutton "regenerate auth key.." [js "Module.discord.regenKey()"]
+    //       guibutton "log out.." [js "Module.discord.logout()"]
+    //   ]
+
+    // Removed menu options for now
+    // 
+    //   ${CONFIG.menuOptions}
+    //   guibutton "join insta-dust2" "join insta-dust2"
+    //   guibutton "join ffa-dust2" "join ffa-dust2"
+    //   guibutton "join insta rotating maps" "join insta"
+    //   guibutton "join ffa rotating maps" "join lobby"
+    //   ${renderDiscordHeader(authState)}
+    //   ${renderDiscordButton(authState)}
+
+    const menu = `
     newgui content [
         guibutton "mods.."  "showgui mods"
         guibutton "put mods in url.."  [js "Module.assets.modsToURL()"]
         guibutton "reload page.."  [js "window.location.reload()"]
     ]
+
+    ${internalServers}
 
     injectedmenu = [
         guilist [
@@ -403,7 +468,6 @@ function App() {
               ]
           ]
       ]
-      ${renderDiscordHeader(authState)}
       guibar
       if (isconnected) [
           if (|| $editing (m_edit (getmode))) [
@@ -415,10 +479,9 @@ function App() {
           guibutton "master.." [showgui master]
           guibutton "disconnect" "disconnect"         "exit"
           guibar
-      ] [
-          ${CONFIG.menuOptions}
-          guibutton "create private game..." "creategame ffa"
       ]
+      guibutton "server browser.." "showgui integrated"
+      guibutton "create private game..." "creategame ffa"
       guibutton "random map.."  "map random"
       guibutton "content.." "showgui content"
       if ($fullscreen) [
@@ -426,7 +489,6 @@ function App() {
       ] [
           guibutton "enter fullscreen.." [fullscreen 1]
       ]
-      ${renderDiscordButton(authState)}
       guibutton "options.."        "showgui options"
       guibutton "about.."          "showgui about"
     ]
@@ -440,10 +502,14 @@ function App() {
 
     const [serverURL] = CONFIG.servers
 
-    const { protocol, host } = window.location
-    const ws = new WebSocket(
-      `${protocol === 'https:' ? 'wss://' : 'ws:/'}${serverURL}`
-    )
+    const { protocol } = window.location
+    const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:'
+    const sameHost = serverURL.startsWith(window.location.host)
+    const baseWsPath = new URL('ws/', window.location.href).pathname
+    const targetUrl = sameHost
+      ? `${wsProtocol}//${window.location.host}${baseWsPath}`
+      : `${wsProtocol}//${serverURL}`
+    const ws = new WebSocket(targetUrl)
     ws.binaryType = 'arraybuffer'
 
     ws.onopen = () => {
@@ -488,6 +554,14 @@ function App() {
     }
 
     const injectServers = (servers: any) => {
+      const count = servers?.length ?? 0
+      if (!servers || count === 0) {
+        console.log('[sour] no servers to inject; keeping existing list')
+        return
+      }
+      // Clear previous list entirely to avoid conflicting state
+      BananaBread.execute('clearservers 1')
+      console.log('[sour] injecting servers:', count)
       R.map((server) => {
         const { Host, Port, Info, Length } = server
 
@@ -496,10 +570,17 @@ function App() {
 
         // Copy data to Emscripten heap (directly accessed from Module.HEAPU8)
         const dataHeap = new Uint8Array(Module.HEAPU8.buffer, pointer, Length)
-        dataHeap.set(new Uint8Array(Info.buffer, Info.byteOffset, Length))
+        const source =
+          Info instanceof Uint8Array
+            ? new Uint8Array(Info.buffer, Info.byteOffset, Length)
+            : new Uint8Array(Info, 0, Length)
+        dataHeap.set(source)
 
         // Call function and get result
         BananaBread.injectServer(Host, Port, pointer, Length)
+
+        // Mark injected entries as kept so engine maintenance doesn't remove them
+        BananaBread.execute(`keepserver ${Host} ${Port}`)
 
         // Free memory
         Module._free(pointer)
@@ -548,10 +629,13 @@ function App() {
       Module.FS_createPath(`/`, 'demo', true, true)
 
       if (BROWSER.isFirefox || BROWSER.isSafari) {
+        // Disable effects for Firefox/Safari due to WebGL performance issues
         BananaBread.execute('skipparticles 1')
         BananaBread.execute('glare 0')
       } else {
+        // Full quality for other browsers
         BananaBread.execute('skipparticles 0')
+        BananaBread.execute('glare 1')
       }
 
       if (!BROWSER.isMobile) {
@@ -579,6 +663,9 @@ function App() {
       setState({
         type: GameStateType.Ready,
       })
+
+      // Re-enable automatic updates (built-in tab is rendered separately)
+      BananaBread.execute('autoupdateservers 1')
 
       if (cachedServers != null) {
         injectServers(cachedServers)
@@ -816,17 +903,47 @@ function App() {
 
       if (serverMessage.Op === MessageType.Info) {
         const { Cluster, Master } = serverMessage
+        const combined = [...(Master || [])]
+
+        // Rebuild the Servers GUI with a Built in tab based on Cluster
+        let gui: Maybe<string> = null
+        try {
+          const builtins = (Cluster || []) as any[]
+          const rows = builtins
+            .map(
+              (s: any) =>
+                `guibutton "${s.Alias} (^f2${s.NumClients} player${s.NumClients === 1 ? '' : 's'}^f7) - ${modeName(s.Mode)} ${s.Map}" "join ${s.Alias}"`
+            )
+            .join("\n")
+
+          // Create a new, separate GUI so we don't mutate the stock "servers" GUI
+          gui = `newgui integrated [
+            ${rows}
+            guitab "servers"
+            guiservers [
+              guilist [
+                guicheckbox \"auto-sort\" autosortservers
+                if (= $autosortservers 0) [ guibar ; guibutton \"sort\" \"sortservers\" ]
+              ]
+              guibar
+            ] 17
+          ] "" [initservers]`
+          setInternalServers(gui)
+        } catch (e) {
+          console.warn('failed to build built-in servers tab', e)
+        }
 
         if (
           BananaBread == null ||
           BananaBread.execute == null ||
           BananaBread.injectServer == null
         ) {
-          cachedServers = Master
+          cachedServers = combined
           return
         }
 
-        injectServers(Master)
+        // Inject only master into engine list as before
+        injectServers(combined)
         return
       }
 
@@ -940,6 +1057,7 @@ function App() {
           className="game"
           style={{ opacity: state.type !== GameStateType.Ready ? 0 : 1 }}
           id="canvas"
+          tabIndex={0}
           ref={(canvas) => {
             if (canvas != null) {
               // This is a bug in mobile Safari where Reader holds on to canvas refs
@@ -948,8 +1066,19 @@ function App() {
               canvas._evaluatedForTextContent = true
               // @ts-ignore
               canvas._cachedElementBoundingRect = {}
+              // Ensure the canvas is focusable for keyboard events
+              // (SDL with Emscripten binds keyboard to the target element)
+              // eslint-disable-next-line no-param-reassign
+              canvas.tabIndex = 0
             }
             Module.canvas = canvas
+          }}
+          onMouseDown={(_e: React.MouseEvent<HTMLCanvasElement>) => {
+            // Focus the canvas so key events are delivered here
+            // (important when SDL binds to #canvas)
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+            const el = document.getElementById('canvas') as HTMLCanvasElement | null
+            if (el) el.focus()
           }}
           onContextMenu={(event) => event.preventDefault()}
         ></canvas>

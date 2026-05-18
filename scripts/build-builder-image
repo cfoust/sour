@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/buildenv-vars"
+
+build_image() {
+  $CONTAINER_CMD build -f "$PROJECT_ROOT/docker/emscripten.Dockerfile" -t "$IMAGE_TAG" "$PROJECT_ROOT"
+}
+
+build_image

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/buildenv-vars"
+
+$CONTAINER_CMD run \
+  --rm \
+  --user "$HOST_UID:$HOST_GID" \
+  --env-file "$PROJECT_ROOT/docker/common.env" \
+  -v "$PROJECT_ROOT":/workspace \
+  -w /workspace/proxy \
+  "$IMAGE_TAG" \
+  bash -lc '
+    set -e
+    make clean || true
+    make
+    echo "Built proxy: /workspace/proxy/wsproxy"
+  '
+
+echo "Successfully built proxy"
+

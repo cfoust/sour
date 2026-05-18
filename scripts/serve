@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/buildenv-vars"
+
+# Ports and address
+WEB_ADDR=${WEB_ADDR:-0.0.0.0}
+WEB_PORT=${WEB_PORT:-1337}
+
+# Optional config file path (in host workspace). Pass as first arg.
+CONFIG_FILE=${1:-}
+
+# Ensure local assets index symlink exists (use relative path so it works in container)
+if [ -f "$PROJECT_ROOT/assets/dist/.index.source" ]; then
+  # Always refresh symlink to ensure it works inside the container
+  (cd "$PROJECT_ROOT/assets" && ln -sf "dist/.index.source" ".index.source")
+fi
+
+# Ensure the static site can serve required overlay assets (like downloading.png)
+SITE_DIR="$PROJECT_ROOT/pkg/server/static/site"
+if [ -d "$PROJECT_ROOT/assets/sour/packages" ]; then
+  mkdir -p "$SITE_DIR/packages"
+  cp -rf "$PROJECT_ROOT/assets/sour/packages/"* "$SITE_DIR/packages/" 2>/dev/null || true
+fi
+
+CMD="go run ./cmd/sour serve"
+if [ -n "$CONFIG_FILE" ]; then
+  # Map host path to container path
+  if [ -f "$CONFIG_FILE" ]; then
+    REL="${CONFIG_FILE#$PROJECT_ROOT/}"
+    CMD="go run ./cmd/sour serve \"$REL\""
+  fi
+else
+  # If a dev.auto.yaml exists, use it; otherwise run with defaults
+  if [ -f "$PROJECT_ROOT/dev.auto.yaml" ]; then
+    REL="${PROJECT_ROOT#$PROJECT_ROOT/}dev.auto.yaml"
+    CMD="go run ./cmd/sour serve \"dev.auto.yaml\""
+  fi
+fi
+
+handle_signal() {
+  echo "SIGINT received, stopping container..."
+  $CONTAINER_CMD stop sour-game
+  exit 0
+}
+trap handle_signal SIGINT
+trap handle_signal SIGTERM
+
+cleanup() {
+  $CONTAINER_CMD rm -f sour-game >/dev/null 2>&1 || true
+}
+trap cleanup INT TERM EXIT
+
+$CONTAINER_CMD run \
+  --rm \
+  --init \
+  --user "$HOST_UID:$HOST_GID" \
+  --name sour-game \
+  --env-file "$PROJECT_ROOT/docker/common.env" \
+  -p "$WEB_ADDR:$WEB_PORT:$WEB_PORT" \
+  -v "$PROJECT_ROOT":/workspace \
+  -w /workspace \
+  "$IMAGE_TAG" \
+  bash -lc "$CMD" &
+
+PID=$!
+wait $PID

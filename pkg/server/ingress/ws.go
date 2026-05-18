@@ -50,7 +50,18 @@ type InfoMessage struct {
 	// All of the servers from the master (real Sauerbraten servers.)
 	Master []ServerInfo
 	// All of the servers this cluster hosts.
-	Cluster []string
+	Cluster []struct{
+		Alias       string
+		Map         string
+		Mode        int
+		NumClients  int
+		Description string
+	}
+}
+
+// ClusterLister provides a minimal interface to enumerate built-in servers.
+type ClusterLister interface {
+	ForEachClusterServer(func(alias, mapName string, mode, numClients int, desc string))
 }
 
 // Contains a packet from the server a client is connected to.
@@ -226,13 +237,15 @@ type WSIngress struct {
 	mutex         sync.Mutex
 	serverWatcher *watcher.Watcher
 	httpServer    *http.Server
+	serverManager ClusterLister
 }
 
-func NewWSIngress(newClients chan Connection) *WSIngress {
+func NewWSIngress(newClients chan Connection, manager ClusterLister) *WSIngress {
 	return &WSIngress{
 		newClients:    newClients,
 		clients:       make(map[*WSClient]struct{}),
 		serverWatcher: watcher.NewWatcher(),
+		serverManager: manager,
 	}
 }
 
@@ -494,6 +507,25 @@ func (server *WSIngress) BuildBroadcast() ([]byte, error) {
 	infoMessage := InfoMessage{
 		Op:     InfoOp,
 		Master: masterServers,
+	}
+
+	// Add built-in servers from this cluster in a lightweight summary
+	if server.serverManager != nil {
+		server.serverManager.ForEachClusterServer(func(alias, mapName string, mode, numClients int, desc string) {
+			infoMessage.Cluster = append(infoMessage.Cluster, struct{
+				Alias       string
+				Map         string
+				Mode        int
+				NumClients  int
+				Description string
+			}{
+				Alias:       alias,
+				Map:         mapName,
+				Mode:        mode,
+				NumClients:  numClients,
+				Description: desc,
+			})
+		})
 	}
 
 	bytes, err := cbor.Marshal(infoMessage)

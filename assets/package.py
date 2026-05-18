@@ -266,8 +266,12 @@ def run_sourdump(roots: List[str], args: List[str]) -> str:
         root_args.append("-root")
         root_args.append(root)
 
+    cache_dir = os.getenv('ASSET_CACHE_DIR', 'cache/')
+
     args = [
         "./sourdump",
+        "-cache",
+        cache_dir,
         *root_args,
         *args,
     ]

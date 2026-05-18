@@ -172,11 +172,11 @@ if __name__ == "__main__":
     maps = list(filter(lambda a: a.endswith('.ogz'), files))
     if args.maps:
         maps = list(map(lambda a: f"packages/base/{a}.ogz", args.maps))
-
-    maps.append("packages/base/xmwhub.ogz")
-
-    if 'none' in args.maps:
-        maps = []
+        if 'none' in args.maps:
+            maps = []
+    else:
+        # Only add the default map when no explicit map list is provided.
+        maps.append("packages/base/xmwhub.ogz")
 
     outdir = args.outdir
     os.makedirs(outdir, exist_ok=True)

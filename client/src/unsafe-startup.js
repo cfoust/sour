@@ -8,9 +8,9 @@ export default function start() {
     websocket: {
       url: (addr, port) => {
         const { protocol, host } = window.location
-        const prefix = `${
-          protocol === 'https:' ? 'wss://' : 'ws:/'
-        }${host}/service/proxy/`
+        const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:'
+        const basePath = new URL('service/proxy/', window.location.href).pathname
+        const prefix = `${wsProtocol}//${host}${basePath}`
 
         return addr === 'sour' ? prefix : `${prefix}u/${addr}:${port}`
       },
@@ -106,7 +106,10 @@ export default function start() {
       BananaBread.execute(`screenres ${width} ${height}`)
     },
     locateFile: (file) => {
-      if (file.endsWith('.wasm')) return `/game/${file}`
+      if (file.endsWith('.wasm')) {
+        const u = new URL(`game/${file}`, window.location.href)
+        return u.pathname
+      }
       return null
     },
     preRun: [],

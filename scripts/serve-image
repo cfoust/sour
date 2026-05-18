@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/buildenv-vars"
+
+WEB_ADDR=${WEB_ADDR:-0.0.0.0}
+WEB_PORT=${WEB_PORT:-1337}
+
+# Optionally pass a config file (e.g., dev.auto.yaml)
+CONFIG_FILE=${1:-}
+
+handle_signal() {
+  echo "SIGINT received, stopping container..."
+  $CONTAINER_CMD stop sour-game
+  exit 0
+}
+trap handle_signal SIGINT
+trap handle_signal SIGTERM
+
+$CONTAINER_CMD run \
+  --rm \
+  --init \
+  --name sour-game \
+  --user "$HOST_UID:$HOST_GID" \
+  -p "$WEB_ADDR:$WEB_PORT:$WEB_PORT" \
+  -v "$PROJECT_ROOT/dev.auto.yaml":/workspace/dev.auto.yaml:ro \
+  -v "$PROJECT_ROOT/.cache/assets":/workspace/.cache/assets \
+  sour-game:latest &
+
+PID=$!
+wait $PID

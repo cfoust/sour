@@ -236,3 +236,12 @@ func (server *Cluster) PollUsers(ctx context.Context, newConnections chan ingres
 func (server *Cluster) Shutdown() {
 	server.servers.Shutdown()
 }
+
+// ForEachClusterServer enumerates running built-in servers (alias, map, mode, players, description)
+func (server *Cluster) ForEachClusterServer(cb func(alias, mapName string, mode, numClients int, desc string)) {
+    server.servers.Mutex.Lock()
+    for _, gs := range server.servers.Servers {
+        cb(gs.Reference(), gs.Map, int(gs.GameMode.ID()), gs.NumClients(), gs.Description)
+    }
+    server.servers.Mutex.Unlock()
+}

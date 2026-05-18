@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/buildenv-vars"
+
+cd "$PROJECT_ROOT"
+
+$COMPOSE_CMD -f "$PROJECT_ROOT/docker/docker-compose.yml" up --force-recreate

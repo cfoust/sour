@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+# Script to detect available container and compose commands
+# This script sets CONTAINER_CMD and COMPOSE_CMD environment variables
+# Usage: source scripts/detect-container-tools.sh
+
+set -euo pipefail
+
+IMAGE_TAG="sour-emscripten:3.1.8"
+PROJECT_ROOT="$(cd "$(dirname "$0")"/.. && pwd)"
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
+
+# Cache for downloaded assets persists across runs
+ASSET_CACHE_DIR=${ASSET_CACHE_DIR:-cache}
+ASSET_OUTPUT_DIR=${ASSET_OUTPUT_DIR:-output}
+# Space-separated maps to build; use 'none' to skip maps
+ASSET_MAPS=${ASSET_MAPS:-"complex dust2 turbine"}
+
+# Cache for emscripten
+EM_CACHE_DIR="$PROJECT_ROOT/.emscripten-cache"
+
+# Allow overriding output dir
+GAME_OUTPUT_DIR=${GAME_OUTPUT_DIR:-dist/game}
+
+# Detect container command (docker or podman)
+CONTAINER_CMD=${CONTAINER_CMD:-}
+if [ -z "${CONTAINER_CMD}" ]; then
+  if command -v docker >/dev/null 2>&1; then
+    CONTAINER_CMD="docker"
+  elif command -v podman >/dev/null 2>&1; then
+    CONTAINER_CMD="podman"
+  else
+    echo "Neither docker nor podman found. Please install one or set CONTAINER_CMD." >&2
+    exit 1
+  fi
+fi
+# Detect compose command based on container engine
+
+COMPOSE_CMD=${COMPOSE_CMD:-}
+if [ -z "${COMPOSE_CMD}" ]; then
+  if [ "${CONTAINER_CMD}" = "docker" ]; then
+    if command -v docker-compose >/dev/null 2>&1; then
+      COMPOSE_CMD="docker-compose"
+    elif command -v docker compose >/dev/null 2>&1; then
+      COMPOSE_CMD="docker compose"
+    else
+      echo "Neither docker-compose nor docker compose found. Please install one or set COMPOSE_CMD." >&2
+      exit 1
+    fi
+  elif [ "${CONTAINER_CMD}" = "podman" ]; then
+    if command -v podman-compose >/dev/null 2>&1; then
+      COMPOSE_CMD="podman-compose"
+    elif command -v podman compose >/dev/null 2>&1; then
+      COMPOSE_CMD="podman compose"
+    else
+      echo "Neither podman-compose nor podman compose found. Please install one or set COMPOSE_CMD." >&2
+      exit 1
+    fi
+  fi
+fi
+
+# Export the variables so they're available to calling scripts
+export CONTAINER_CMD
+export COMPOSE_CMD
+export IMAGE_TAG
+export PROJECT_ROOT
+export HOST_UID
+export HOST_GID
+export ASSET_CACHE_DIR
+export ASSET_OUTPUT_DIR
+export ASSET_MAPS
+export EM_CACHE_DIR
+export GAME_OUTPUT_DIR
+
+# Optional: Print detected commands for debugging
+if [ "${DEBUG:-}" = "1" ]; then
+  echo "Detected container command: ${CONTAINER_CMD}" >&2
+  echo "Detected compose command: ${COMPOSE_CMD}" >&2
+fi

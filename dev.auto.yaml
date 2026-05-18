@@ -1,0 +1,107 @@
+# This is Sour's default configuration.
+server:
+  cacheDirectory: "./.cache/assets"
+  assets:
+    - "fs:assets/dist/.index.source"
+  presets:
+    - name: "ffa-duel"
+      virtual: true
+      config:
+        defaultMode: "ffa"
+        defaultMap: "turbine"
+    - name: "insta-duel"
+      virtual: true
+      config:
+        defaultMode: "insta"
+        defaultMap: "turbine"
+    - name: "default"
+      default: true
+      config:
+        defaultMode: "coop"
+        defaultMap: "xmwhub"
+    - name: "ffa"
+      config:
+        defaultMode: "ffa"
+        defaultMap: "complex"
+        maps:
+          - "turbine"
+          - "complex"
+          - "dust2"
+    - name: "insta"
+      config:
+        defaultMode: "insta"
+        defaultMap: "complex"
+        maps:
+          - "turbine"
+          - "complex"
+          - "dust2"
+    - name: "insta-dust2"
+      config:
+        defaultMode: "insta"
+        defaultMap: "dust2"
+        maps:
+          - "dust2"
+    - name: "ffa-dust2"
+      config:
+        defaultMode: "ffa"
+        defaultMap: "dust2"
+        maps:
+          - "dust2"
+    - name: "ctf"
+      config:
+        defaultMode: "ctf"
+        defaultMap: "dust2"
+        maps:
+          - "dust2"
+    - name: "effic"
+      config:
+        defaultMode: "effic"
+        defaultMap: "dust2"
+        maps:
+          - "dust2"
+          - "complex"
+          - "turbine"
+    - name: "explore"
+      config:
+        matchLength: 180
+
+  ingress:
+    desktop:
+      - port: 28785
+        target: ffa
+        serverInfo:
+          enabled: false
+
+  matchmaking:
+    duel:
+      - name: "ffa"
+        preset: "ffa-duel"
+        forceRespawn: "dead"
+        default: true
+      - name: "insta"
+        preset: "insta-duel"
+        forceRespawn: "dead"
+
+  spaces:
+    - preset: ffa
+      config:
+        alias: ffa
+    - preset: insta-dust2
+      config:
+        alias: insta-dust2
+    - preset: ffa-dust2
+      config:
+        alias: ffa-dust2
+    - preset: insta
+      config:
+        alias: insta
+    - preset: ctf
+      config:
+        alias: ctf
+    - preset: effic
+      config:
+        alias: effic
+
+client:
+  assets:
+    - "#origin/assets/0/.index.source"

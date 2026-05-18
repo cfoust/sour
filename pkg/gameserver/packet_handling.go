@@ -103,24 +103,34 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 		msg := message.(P.Pos)
 
 		// client sending his position and movement in the world
-		if client.State == playerstate.Alive {
+		// Allow position updates from both Alive players and Editing players (matches original server)
+		if client.State == playerstate.Alive || client.State == playerstate.Editing {
 			msg.State.LifeSequence = client.LifeSequence
 			client.Positions.Publish(msg)
 			client.Position = mapVec(msg.State.O)
+		} else {
+			log.Printf("Position update rejected for client %d (CN: %d): client state is %d (expected Alive=%d or Editing=%d), life sequence=%d, lastSpawnAttempt.IsZero=%t", 
+				client.SessionID, client.CN, client.State, playerstate.Alive, playerstate.Editing, client.LifeSequence, client.LastSpawnAttempt.IsZero())
 		}
 		return
 
 	case P.N_JUMPPAD:
 		msg := message.(P.JumpPad)
-		if client.State == playerstate.Alive {
+		if client.State == playerstate.Alive || client.State == playerstate.Editing {
 			s.relay.FlushPositionAndSend(client.CN, msg)
+		} else {
+			log.Printf("Jumppad event rejected for client %d (CN: %d): client state is %d (expected Alive or Editing)", 
+				client.SessionID, client.CN, client.State)
 		}
 
 	case P.N_TELEPORT:
 		msg := message.(P.Teleport)
 
-		if client.State == playerstate.Alive {
+		if client.State == playerstate.Alive || client.State == playerstate.Editing {
 			s.relay.FlushPositionAndSend(client.CN, msg)
+		} else {
+			log.Printf("Teleport event rejected for client %d (CN: %d): client state is %d (expected Alive or Editing)", 
+				client.SessionID, client.CN, client.State)
 		}
 
 	case P.N_ADDBOT, P.N_DELBOT:
@@ -189,6 +199,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 		}
 
 		if toggle {
+			log.Printf("Client %d (CN: %d) transitioning to spectator mode from state %d", spectator.SessionID, spectator.CN, spectator.State)
 			if client.State == playerstate.Alive {
 				s.GameMode.HandleFrag(&spectator.Player, &spectator.Player)
 			}
@@ -196,6 +207,7 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 			s.Clock.Leave(&spectator.Player)
 			spectator.State = playerstate.Spectator
 		} else {
+			log.Printf("Client %d (CN: %d) leaving spectator mode, transitioning to Dead state", spectator.SessionID, spectator.CN)
 			spectator.State = playerstate.Dead
 			if teamedMode, ok := s.GameMode.(game.TeamMode); ok {
 				teamedMode.Join(&spectator.Player)
@@ -310,8 +322,11 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 
 	case P.N_TRYSPAWN:
 		if !client.Joined || client.State != playerstate.Dead || !client.LastSpawnAttempt.IsZero() || !s.GameMode.CanSpawn(&client.Player) {
+			log.Printf("Spawn attempt rejected for client %d (CN: %d): joined=%t, state=%d (expected Dead=%d), lastSpawnAttempt.IsZero=%t, canSpawn=%t", 
+				client.SessionID, client.CN, client.Joined, client.State, playerstate.Dead, client.LastSpawnAttempt.IsZero(), s.GameMode.CanSpawn(&client.Player))
 			return
 		}
+		log.Printf("Spawning client %d (CN: %d) with life sequence %d", client.SessionID, client.CN, client.LifeSequence+1)
 		s.Spawn(client)
 		client.Send(P.SpawnState{int32(client.CN), client.ToWire()})
 
@@ -334,8 +349,13 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 	case P.N_SHOOT:
 		msg := message.(P.Shoot)
 
+		log.Printf("Shoot request from client %d (CN: %d): state=%d, weapon=%d, ammo=%d", 
+			client.SessionID, client.CN, client.State, msg.Gun, client.Ammo[weapon.ID(msg.Gun)])
+
 		wpn := weapon.ByID(weapon.ID(msg.Gun))
 		if time.Now().Before(client.GunReloadEnd) || client.Ammo[wpn.ID] <= 0 {
+			log.Printf("Shoot rejected for client %d (CN: %d): reload or no ammo, ammo=%d, reloadEnd=%v", 
+				client.SessionID, client.CN, client.Ammo[wpn.ID], client.GunReloadEnd)
 			return
 		}
 

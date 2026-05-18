@@ -1,0 +1,65 @@
+#!/bin/bash
+
+set -euo pipefail
+cd "$(dirname "$0")/.."
+source "$(dirname "$0")/buildenv-vars"
+
+ALLOWED_STEPS=("assets" "game" "proxy" "web" "server" "image")
+
+if [ "$#" -eq 0 ]; then
+  echo "Running the script with no parameters will run all build steps (and that's fine)."
+  echo "If you updated code and only want to build a specific part, you can also pass a custom set of steps."
+  echo "Available steps: ${ALLOWED_STEPS[*]}"
+  echo "  Example: ./scripts/build game server image"
+  echo "The build will continue automatically in 2 seconds..."
+  sleep 2
+else
+  for step in "$@"; do
+    found=0
+    for allowed in "${ALLOWED_STEPS[@]}"; do
+      if [[ "$step" == "$allowed" ]]; then
+        found=1
+        break
+      fi
+    done
+    if [[ $found -eq 0 ]]; then
+      echo "Error: Unknown build step '$step'."
+      echo "Available steps: ${ALLOWED_STEPS[*]}"
+      exit 1
+    fi
+  done
+  echo "Building steps: $* ..."
+fi
+
+# build image if it doesn't exist
+if ! $CONTAINER_CMD image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
+  ./scripts/build-builder-image
+else
+  echo "Image $IMAGE_TAG already exists. Skipping build."
+fi
+
+if [[ " $* " == *" assets "* || "$#" -eq 0 ]]; then
+  ./scripts/build-assets
+fi
+
+if [[ " $* " == *" game "* || "$#" -eq 0 ]]; then
+  ./scripts/build-game
+fi
+
+if [[ " $* " == *" proxy "* || "$#" -eq 0 ]]; then
+  ./scripts/build-proxy
+fi
+
+if [[ " $* " == *" web "* || "$#" -eq 0 ]]; then
+./scripts/build-web
+fi
+
+if [[ " $* " == *" server "* || "$#" -eq 0 ]]; then
+  ./scripts/build-server
+fi
+
+if [[ " $* " == *" image "* || "$#" -eq 0 ]]; then
+  ./scripts/build-game-image
+fi
+
+echo "Build complete. You can now run ./scripts/serve or ./scripts/serve-image to run the game server."

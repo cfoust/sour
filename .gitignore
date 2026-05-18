@@ -8,3 +8,9 @@ earthly/**
 /sour
 /sourdump
 /sour-build
+.home/
+.pip-cache/
+.go-cache/
+.emscripten-cache/
+.gopath/
+bin/sour

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/buildenv-vars"
+
+# Build sour binary
+$CONTAINER_CMD run \
+  --rm \
+  --user "$HOST_UID:$HOST_GID" \
+  --env-file "$PROJECT_ROOT/docker/common.env" \
+  -v "$PROJECT_ROOT":/workspace \
+  -w /workspace \
+  "$IMAGE_TAG" \
+  bash -lc 'go build -o /workspace/bin/sour ./cmd/sour'
+
+# Build the serve image
+$CONTAINER_CMD build -f "$PROJECT_ROOT/docker/serve.Dockerfile" -t sour-game:latest "$PROJECT_ROOT"
+
+echo "Built image sour-game:latest"
+
+

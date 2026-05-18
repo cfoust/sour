@@ -176,7 +176,7 @@ func serveCommand(configs []string) error {
 	}
 
 	newConnections := make(chan ingress.Connection)
-	wsIngress := ingress.NewWSIngress(newConnections)
+	wsIngress := ingress.NewWSIngress(newConnections, cluster)
 	enet := make([]*ingress.ENetIngress, 0)
 	infoServices := make([]*servers.ServerInfoService, 0)
 	cluster.StartServers(ctx)
@@ -219,6 +219,9 @@ func serveCommand(configs []string) error {
 	}
 	go cluster.PollUsers(ctx, newConnections)
 	go cluster.PollDuels(ctx)
+
+	// Start periodic server list watcher/broadcasts for the web server browser
+	wsIngress.StartWatcher(ctx)
 
 	// Encode the client config as json
 	clientConfig, err := json.Marshal(config.Client)

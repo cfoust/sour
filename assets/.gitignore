@@ -7,3 +7,5 @@ quadropolis
 *.tar.gz
 cache/**
 /dist
+.index.source
+.index.json

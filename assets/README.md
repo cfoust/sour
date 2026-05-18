@@ -57,15 +57,15 @@ Asset sources are specified at runtime using the `ASSET_SOURCE` environment vari
 # Valid ASSET_SOURCES:
 ######################
 
-# /assets/.index.json is the asset source that comes baked into the image. Generally you want this even if you're using your own map sources; this is because Sour automatically loads the `base` bundle, which contains all of the basic assets necessary to run the game, like main menu graphics.
-ASSET_SOURCE="/assets/.index.json"
+# /assets/.index.source is the asset source that comes baked into the image. Generally you want this even if you're using your own map sources; this is because Sour automatically loads the `base` bundle, which contains all of the basic assets necessary to run the game, like main menu graphics.
+ASSET_SOURCE="/assets/.index.source"
 
 # Asset sources are separated by single semicolons.
-ASSET_SOURCE="/assets/.index.json;https://example.com/2bfc017.index.json"
-# As an example, if a user runs `/map complex`, Sour first searches /assets/.index.json; if there is a `complex` map, it loads that verssion even if one also exists in the second source.
+ASSET_SOURCE="/assets/.index.source;https://example.com/2bfc017.index.source"
+# As an example, if a user runs `/map complex`, Sour first searches /assets/.index.source; if there is a `complex` map, it loads that verssion even if one also exists in the second source.
 
 # In production (sourga.me) the ASSET_SOURCE looks like this:
-ASSET_SOURCE="/assets/.index.json;https://static.sourga.me/blobs/XXXXX.index.json;https://static.sourga.me/quadropolis/XXXXX.index.json"
+ASSET_SOURCE="/assets/.index.source;https://static.sourga.me/blobs/XXXXX.index.source;https://static.sourga.me/quadropolis/XXXXX.index.source"
 # In other words, Sour will load maps that appear in the latest SVN version of the game _first_, then from Quadropolis if the map did not appear in the base game.
 ```
 

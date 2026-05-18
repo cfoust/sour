@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/buildenv-vars"
+
+$CONTAINER_CMD run \
+  --rm \
+  --user "$HOST_UID:$HOST_GID" \
+  --env-file "$PROJECT_ROOT/docker/common.env" \
+  -e ASSET_OUTPUT_DIR="$ASSET_OUTPUT_DIR" \
+  -e ASSET_CACHE_DIR="$ASSET_CACHE_DIR" \
+  -e ASSET_MAPS="$ASSET_MAPS" \
+  -v "$PROJECT_ROOT":/workspace \
+  -w /workspace/assets \
+  "$IMAGE_TAG" \
+  bash -lc '
+    set -e
+    rm -rf /workspace/assets/dist || true
+    mkdir -p "$HOME" "$PIP_CACHE_DIR"
+    python3 -m pip install --user -r requirements.txt || true
+    mkdir -p "$ASSET_CACHE_DIR"
+    ./setup
+    # OPTIONAL: Rebuild sourdump to ensure latest code is used
+    # rm -f sourdump
+    # go build -o sourdump ../cmd/sourdump/main.go
+    # Build base assets; configure maps via ASSET_MAPS
+    # Expand ASSET_MAPS into positional args
+    set -- $ASSET_MAPS
+    python3 base.py \
+      --root https://static.sourga.me/blobs/6481/.index.source \
+      --models \
+      --download \
+      --outdir dist \
+      "$@"
+  '
+
+echo "Successfully built assets"

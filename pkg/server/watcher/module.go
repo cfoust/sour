@@ -223,9 +223,13 @@ func (watcher *Watcher) ReceivePings() {
 
 func (watcher *Watcher) Get() Servers {
 	watcher.serverMutex.Lock()
-	servers := watcher.servers
+	// Return a copy of the servers map to prevent concurrent map iteration and map write
+	serversCopy := make(Servers)
+	for key, server := range watcher.servers {
+		serversCopy[key] = server
+	}
 	watcher.serverMutex.Unlock()
-	return servers
+	return serversCopy
 }
 
 func (watcher *Watcher) Watch() error {

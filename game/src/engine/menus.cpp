@@ -694,22 +694,22 @@ static struct applymenu : menu
     void gui(g3d_gui &g, bool firstpass)
     {
         if(guistack.empty()) return;
-        g.start(menustart, 0.03f);
+        /* g.start(menustart, 0.03f);
         g.text("the following settings have changed:", GUI_TEXT_COLOR, "info");
         loopv(needsapply) g.text(needsapply[i].desc, GUI_TEXT_COLOR, "info");
         g.separator();
         g.text("apply changes now?", GUI_TEXT_COLOR, "info");
         if(g.button("yes", GUI_BUTTON_COLOR, "action")&G3D_UP)
-        {
+        { */
             int changetypes = 0;
             loopv(needsapply) changetypes |= needsapply[i].type;
             if(changetypes&CHANGE_GFX) updatelater.add().schedule("resetgl");
             if(changetypes&CHANGE_SOUND) updatelater.add().schedule("resetsound");
             clearlater = true;
-        }
+        /* }
         if(g.button("no", GUI_BUTTON_COLOR, "action")&G3D_UP)
             clearlater = true;
-        g.end();
+        g.end(); */
     }
 
     void clear()

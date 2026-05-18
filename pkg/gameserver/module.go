@@ -300,24 +300,76 @@ func (s *Server) UniqueName(p *game.Player) string {
 }
 
 func (s *Server) Spawn(client *Client) {
+	oldLifeSequence := client.LifeSequence
 	client.Spawn()
+	
+	// CRITICAL FIX: Set state to Alive immediately after spawn
+	// This prevents the race condition where position updates arrive
+	// before N_SPAWN confirmation on channel 1
+	client.State = playerstate.Alive
+	
+	log.Info().
+		Uint32("sessionID", client.SessionID).
+		Uint32("CN", client.CN).
+		Int32("oldLifeSequence", oldLifeSequence).
+		Int32("newLifeSequence", client.LifeSequence).
+		Msg("Client spawned: life sequence incremented and state set to Alive")
 	s.GameMode.Spawn(&client.PlayerState)
 }
 
 func (s *Server) ConfirmSpawn(client *Client, lifeSequence, _weapon int32) {
-	if client.State != playerstate.Dead || lifeSequence != client.LifeSequence || client.LastSpawnAttempt.IsZero() {
-		// client may not spawn
+	// Updated validation: client should now be Alive (set in Spawn() function)
+	// and have matching life sequence
+	if client.State != playerstate.Alive || lifeSequence != client.LifeSequence || client.LastSpawnAttempt.IsZero() {
+		log.Warn().
+			Uint32("sessionID", client.SessionID).
+			Uint32("CN", client.CN).
+			Int("state", int(client.State)).
+			Int("expectedState", int(playerstate.Alive)).
+			Int32("lifeSequence", lifeSequence).
+			Int32("expectedLifeSequence", client.LifeSequence).
+			Bool("lastSpawnAttemptIsZero", client.LastSpawnAttempt.IsZero()).
+			Msg("Spawn confirmation rejected")
 		return
 	}
 
-	client.State = playerstate.Alive
-	client.SelectedWeapon = weapon.ByID(weapon.ID(_weapon))
+	// Clear spawn attempt - spawn process is complete
 	client.LastSpawnAttempt = time.Time{}
+	
+	// Follow original protocol: set weapon to what client confirms
+	// The client sends their CURRENT weapon choice in N_SPAWN (after any weapon switches)
+	// This ensures client-server weapon synchronization
+	requestedWeapon := weapon.ByID(weapon.ID(_weapon))
+	if _weapon < int32(weapon.Saw) || _weapon > int32(weapon.Pistol) {
+		// Invalid weapon, keep current
+		log.Warn().
+			Uint32("sessionID", client.SessionID).
+			Uint32("CN", client.CN).
+			Int32("requestedWeapon", _weapon).
+			Int("currentWeapon", int(client.SelectedWeapon.ID)).
+			Msg("Invalid weapon in spawn confirmation, keeping current")
+	} else {
+		// Update to client's actual weapon choice
+		client.SelectedWeapon = requestedWeapon
+		log.Info().
+			Uint32("sessionID", client.SessionID).
+			Uint32("CN", client.CN).
+			Int("weapon", int(requestedWeapon.ID)).
+			Msg("Spawn confirmed: weapon synchronized with client")
+	}
 
+	// SECOND: Notify ALL clients (including spawning client - they need their own spawn confirmation)
 	client.Packets.Publish(P.SpawnResponse{
-		EntityState: client.ToWire(),
+		EntityState: client.ToWire(), // Now contains ALIVE state + correct life sequence
 	})
+	
+	log.Info().
+		Uint32("sessionID", client.SessionID).
+		Uint32("CN", client.CN).
+		Int32("lifeSequence", client.LifeSequence).
+		Msg("Spawn notification sent immediately to other clients")
 
+	// THIRD: Handle competitive mode timing
 	if clock, competitive := s.GameMode.(game.Competitive); competitive {
 		clock.Spawned(&client.Player)
 	}
@@ -338,7 +390,10 @@ func (s *Server) Disconnect(client *Client, reason disconnectreason.ID) {
 	s.Clients.Disconnect(client, reason)
 	err := s.relay.RemoveClient(client.CN)
 	if err != nil {
-		log.Error().Err(err).Msgf("could not disconnect %d", client.SessionID)
+		// ZOMBIE CN PREVENTION: Even if RemoveClient fails, our resilient AddClient
+		// will force-cleanup any zombie CNs when new clients connect to the same CN.
+		// This prevents accumulation while maintaining system robustness.
+		log.Warn().Err(err).Uint32("sessionID", client.SessionID).Uint32("CN", client.CN).Msg("Relay cleanup failed, but will be force-cleaned on CN reuse")
 	}
 	if len(s.Clients.PrivilegedUsers()) == 0 {
 		s.Unsupervised()
@@ -526,11 +581,24 @@ func (s *Server) HandleShoot(client *Client, wpn weapon.Weapon, id int32, from, 
 		rays := int32(0)
 		for _, h := range hits {
 			target := s.Clients.GetClientByCN(h.target)
-			if target == nil ||
-				target.State != playerstate.Alive ||
-				target.LifeSequence != h.lifeSequence ||
-				h.rays < 1 ||
-				h.distance > wpn.Range+1.0 {
+			if target == nil {
+				log.Warn().Uint32("targetCN", h.target).Uint32("clientSessionID", client.SessionID).Uint32("clientCN", client.CN).Msg("Damage rejected for non-existent target")
+				continue
+			}
+			if target.State != playerstate.Alive {
+				log.Warn().Uint32("targetSessionID", target.SessionID).Uint32("targetCN", target.CN).Int("targetState", int(target.State)).Msg("Damage rejected: target state is not Alive")
+				continue
+			}
+			if target.LifeSequence != h.lifeSequence {
+				log.Warn().Uint32("targetSessionID", target.SessionID).Uint32("targetCN", target.CN).Int32("targetLifeSequence", target.LifeSequence).Int32("hitLifeSequence", h.lifeSequence).Uint32("clientSessionID", client.SessionID).Uint32("clientCN", client.CN).Msg("Damage rejected: life sequence mismatch")
+				continue
+			}
+			if h.rays < 1 {
+				log.Warn().Uint32("targetSessionID", target.SessionID).Uint32("targetCN", target.CN).Int32("rays", h.rays).Uint32("clientSessionID", client.SessionID).Uint32("clientCN", client.CN).Msg("Damage rejected: invalid rays count")
+				continue
+			}
+			if h.distance > wpn.Range+1.0 {
+				log.Warn().Uint32("targetSessionID", target.SessionID).Uint32("targetCN", target.CN).Float64("distance", h.distance).Float64("weaponRange", wpn.Range+1.0).Uint32("clientSessionID", client.SessionID).Uint32("clientCN", client.CN).Msg("Damage rejected: distance exceeds weapon range")
 				continue
 			}
 
@@ -563,11 +631,24 @@ func (s *Server) HandleExplode(client *Client, millis int32, wpn weapon.Weapon, 
 hits:
 	for i, h := range hits {
 		target := s.Clients.GetClientByCN(h.target)
-		if target == nil ||
-			target.State != playerstate.Alive ||
-			target.LifeSequence != h.lifeSequence ||
-			h.distance < 0 ||
-			h.distance > wpn.ExplosionRadius {
+		if target == nil {
+			log.Warn().Uint32("targetCN", h.target).Uint32("clientSessionID", client.SessionID).Uint32("clientCN", client.CN).Msg("Explosion damage rejected for non-existent target")
+			continue
+		}
+		if target.State != playerstate.Alive {
+			log.Warn().Uint32("targetSessionID", target.SessionID).Uint32("targetCN", target.CN).Int("targetState", int(target.State)).Msg("Explosion damage rejected: target state is not Alive")
+			continue
+		}
+		if target.LifeSequence != h.lifeSequence {
+			log.Warn().Uint32("targetSessionID", target.SessionID).Uint32("targetCN", target.CN).Int32("targetLifeSequence", target.LifeSequence).Int32("hitLifeSequence", h.lifeSequence).Uint32("clientSessionID", client.SessionID).Uint32("clientCN", client.CN).Msg("Explosion damage rejected: life sequence mismatch")
+			continue
+		}
+		if h.distance < 0 {
+			log.Warn().Uint32("targetSessionID", target.SessionID).Uint32("targetCN", target.CN).Float64("distance", h.distance).Uint32("clientSessionID", client.SessionID).Uint32("clientCN", client.CN).Msg("Explosion damage rejected: negative distance")
+			continue
+		}
+		if h.distance > wpn.ExplosionRadius {
+			log.Warn().Uint32("targetSessionID", target.SessionID).Uint32("targetCN", target.CN).Float64("distance", h.distance).Float64("explosionRadius", wpn.ExplosionRadius).Uint32("clientSessionID", client.SessionID).Uint32("clientCN", client.CN).Msg("Explosion damage rejected: distance exceeds explosion radius")
 			continue
 		}
 
@@ -614,6 +695,15 @@ func (s *Server) applyDamage(attacker, victim *Client, damage int32, wpnID weapo
 		}
 	}
 	if victim.Health <= 0 {
+		log.Warn().
+			Uint32("victimSessionID", victim.SessionID).
+			Uint32("victimCN", victim.CN).
+			Uint32("attackerSessionID", attacker.SessionID).
+			Uint32("attackerCN", attacker.CN).
+			Int32("finalHealth", victim.Health).
+			Int32("damage", damage).
+			Int32("weaponID", int32(wpnID)).
+			Msg("Player killed - HandleFrag called")
 		s.GameMode.HandleFrag(&attacker.Player, &victim.Player)
 	}
 }

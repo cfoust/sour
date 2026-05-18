@@ -33,7 +33,7 @@
 
   <body
     style="
-      background: #393e3f repeat url('/background.png');
+      background: #393e3f repeat url('background.png');
       background-size: 400px;
       overflow: hidden;
     "
@@ -52,10 +52,14 @@
       var WASM_PROMISE = new Promise((resolve, reject) => {
         WASM_PROMISE_RESOLVE = resolve;
       })
+      // Override the locateFile function to use the game directory
+      Module.locateFile = function(path, prefix) {
+        return new URL('game/' + path, window.location.href).toString();
+      }
     </script>
-    <script src="/index.js"></script>
+    <script src="index.js"></script>
 
-    <script async src="/game/api.js"></script>
-    <script async type="text/javascript" src="/game/sauerbraten.js"></script>
+    <script async src="game/api.js"></script>
+    <script async type="text/javascript" src="game/sauerbraten.js"></script>
   </body>
 </html>

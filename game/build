@@ -22,4 +22,5 @@ mkdir -p "$OUTPUT_DIR"
 patch sauerbraten.js file_create.patch
 patch sauerbraten.js arbitrary_ws.patch
 patch sauerbraten.js resolve_wasm.patch
+patch sauerbraten.js unadjusted_movement.patch
 cp -r js/api.js sauerbraten.* "$OUTPUT_DIR"

@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  game:
+    image: sour-game:latest
+    container_name: sour-game
+    # expose game HTTP (1337) and ws proxy (1338) to nginx only
+    init: true
+    volumes:
+      - ../dev.auto.yaml:/workspace/dev.auto.yaml:ro
+      - ../.cache/assets:/workspace/.cache/assets
+    expose:
+      - "1337"
+      - "1338"
+
+  nginx:
+    image: nginx:alpine
+    container_name: sour-nginx
+    depends_on:
+      - game
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+

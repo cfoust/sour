@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/buildenv-vars"
+
+mkdir -p "$EM_CACHE_DIR"
+
+$CONTAINER_CMD run \
+  --rm \
+  --user "$HOST_UID:$HOST_GID" \
+  --env-file "$PROJECT_ROOT/docker/common.env" \
+  -e GAME_OUTPUT_DIR="$GAME_OUTPUT_DIR" \
+  -v "$PROJECT_ROOT":/workspace \
+  -w /workspace/game \
+  "$IMAGE_TAG" \
+  bash -lc '
+    set -e
+    source /emsdk/emsdk_env.sh
+
+    echo "[1/2] Building web client..."
+    cd /workspace/client
+    rm -rf dist
+    rm -rf .parcel-cache
+    yarn install
+    yarn build
+    cp -a src/index.html src/favicon.ico src/background.png dist/
+    mkdir -p dist/game && cp -a ../game/dist/game/. dist/game/
+
+    echo "[2/2] Staging site for Go server..."
+    rm -rf /workspace/pkg/server/static/site
+    mkdir -p /workspace/pkg/server/static/site
+    cp -a dist/. /workspace/pkg/server/static/site/
+  '
+
+echo "Successfully built web client"

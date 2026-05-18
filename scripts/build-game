@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/buildenv-vars"
+
+# Run as the host user to avoid root-owned files; mount a writable EM_CACHE
+mkdir -p "$EM_CACHE_DIR"
+
+$CONTAINER_CMD run \
+  --rm \
+  --user "$HOST_UID:$HOST_GID" \
+  --env-file "$PROJECT_ROOT/docker/common.env" \
+  -e GAME_OUTPUT_DIR="$GAME_OUTPUT_DIR" \
+  -v "$PROJECT_ROOT":/workspace \
+  -w /workspace/game \
+  "$IMAGE_TAG" \
+  bash -lc '
+    set -e
+    source /emsdk/emsdk_env.sh
+
+    echo "[1/1] Building WASM game..."
+    cd /workspace/game
+    rm -rf dist/game
+    ./build
+  '
+
+echo "Successfully built game"
