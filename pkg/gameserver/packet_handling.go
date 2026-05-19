@@ -147,7 +147,8 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 				return
 			}
 		}
-		if (spectator.State == playerstate.Spectator) == !toggle {
+		alreadySpec := spectator.State == playerstate.Spectator
+		if (alreadySpec && toggle) || (!alreadySpec && !toggle) {
 			return
 		}
 

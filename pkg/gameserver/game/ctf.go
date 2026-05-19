@@ -13,7 +13,7 @@ type ctfMode = handlesFlags
 
 func newCTFMode(s Server, keepTeams bool) *ctfMode {
 	good, evil := NewTeam("good"), NewTeam("evil")
-	return handlingFlags(
+	return handlingFlags(s,
 		newCTF(
 			s,
 			withTeams(s, false, keepTeams, good, evil),
@@ -76,6 +76,11 @@ func (m *CTF) Resume() {
 func (m *CTF) CleanUp() {
 	m.ctfMode.CleanUp()
 	m.handlesPickups.CleanUp()
+}
+
+func (m *CTF) Tick(clock int64) {
+	m.ctfMode.Tick(clock)
+	m.handlesPickups.Tick(clock)
 }
 
 func (*CTF) ID() gamemode.ID { return gamemode.CTF }

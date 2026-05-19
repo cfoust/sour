@@ -7,10 +7,18 @@ import (
 
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/gameserver"
+	"github.com/cfoust/sour/pkg/gameserver/protocol/gamemode"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/playerstate"
 )
 
 var nextSessionID uint32 = 1000
+
+// FlagInfo tracks the state of a CTF flag as seen by the client.
+type FlagInfo struct {
+	Version int32
+	Owner   int32 // CN of carrier, -1 if not carried
+	Dropped bool
+}
 
 // Client simulates a Sauerbraten client's protocol-level behavior.
 // It is pure data — the test drives it by calling methods and stepping
@@ -35,6 +43,21 @@ type Client struct {
 
 	Ping  int32
 	Alive bool
+
+	// Game state received from server
+	Team     string
+	Map      string
+	GameMode gamemode.ID
+	TimeLeft int32
+
+	// Other players this client knows about (CN -> name)
+	KnownPlayers map[int32]string
+	// Other players' state from Resume (CN -> frags)
+	ResumeFrags map[int32]int32
+
+	// CTF flag state
+	Flags     []FlagInfo
+	TeamScore [2]int32
 
 	outbox []gameserver.ServerPacket
 	millis int32

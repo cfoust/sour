@@ -186,7 +186,12 @@ func (s *Server) Step(dtMs int64, incoming []InputPacket) []ServerPacket {
 		s.State.Clock.Tick(s.gameClock)
 	}
 
-	// 3. Check pending map change (from Intermission)
+	// 3. Tick game mode timers (pickup respawns, flag resets)
+	if tickable, ok := s.GameMode.(game.Tickable); ok {
+		tickable.Tick(s.gameClock)
+	}
+
+	// 4. Check pending map change (from Intermission)
 	if s.pendingMapChange.Expired(s.gameClock) {
 		s.pendingMapChange.Stop()
 		s.StartGame(s.StartMode(s.GameMode.ID()), s.pendingMap)

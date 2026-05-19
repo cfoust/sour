@@ -47,8 +47,9 @@ var (
 	_ HasTimers = &handlesFlags{}
 )
 
-func handlingFlags(fm flagMode) *handlesFlags {
+func handlingFlags(s Server, fm flagMode) *handlesFlags {
 	return &handlesFlags{
+		s:        s,
 		flagMode: fm,
 	}
 }

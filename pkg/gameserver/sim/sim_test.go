@@ -4,21 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cfoust/sour/pkg/gameserver"
 	"github.com/cfoust/sour/pkg/gameserver/sim"
 )
-
-func newTestServer() *gameserver.Server {
-	server := gameserver.New(&gameserver.Config{
-		MaxClients:       32,
-		MatchLength:      600,
-		DefaultGameSpeed: 100,
-		DefaultMode:      "ffa",
-		DefaultMap:       "complex",
-	})
-	server.StartGame(server.StartMode(0), "complex") // 0 = FFA
-	return server
-}
 
 func TestSingleClientConnectAndSpawn(t *testing.T) {
 	server := newTestServer()

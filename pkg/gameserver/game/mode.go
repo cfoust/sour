@@ -19,6 +19,12 @@ type HandlesPackets interface {
 	HandlePacket(*Player, P.Message) bool
 }
 
+// Tickable is implemented by game modes that need periodic updates
+// (e.g., pickup respawns, flag resets).
+type Tickable interface {
+	Tick(clock int64)
+}
+
 type noSpawnWait struct{}
 
 func (*noSpawnWait) CanSpawn(clock int64, p *Player) bool { return true }

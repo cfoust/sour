@@ -41,3 +41,25 @@ func ConnectAndSpawn(server *gameserver.Server, name string) *Client {
 
 	return c
 }
+
+// ConnectAndSpawnWith creates a client and steps it with the given existing
+// clients so they all see each other's join/init messages.
+func ConnectAndSpawnWith(server *gameserver.Server, name string, others ...*Client) *Client {
+	c, connectOutput := New(server, name)
+	for _, o := range others {
+		o.HandleOutputs(connectOutput)
+	}
+
+	all := append([]*Client{c}, others...)
+	Tick(server, 0, all...)
+	Tick(server, 0, all...)
+	if !c.IsAlive() {
+		Tick(server, 0, all...)
+	}
+
+	if !c.IsAlive() {
+		panic("client " + name + " failed to spawn")
+	}
+
+	return c
+}

@@ -8,9 +8,37 @@ import (
 	"github.com/cfoust/sour/pkg/gameserver/protocol/weapon"
 )
 
-// TextMsg creates a P.Text message (exported for tests).
-func TextMsg(text string) P.Message {
-	return P.Text{Text: text}
+// Message constructors for tests
+
+func TextMsg(text string) P.Message         { return P.Text{Text: text} }
+func SuicideMsg() P.Message                 { return P.Suicide{} }
+func SayTeamMsg(text string) P.Message      { return P.SayTeam{Text: text} }
+func SpectatorMsg(cn int32, on bool) P.Message {
+	return P.Spectator{Client: cn, Spectating: on}
+}
+
+// SayTeamType is exported so tests can type-assert on relayed team messages.
+type SayTeamType = P.SayTeam
+
+// InitFlags sends flag positions for CTF modes. Two flags are required:
+// team 1 (good) and team 2 (evil).
+func (c *Client) InitFlags(goodX, goodY, goodZ, evilX, evilY, evilZ float64) {
+	c.Send(1, P.ClientInitFlags{
+		Flags: []P.ClientFlagState{
+			{Team: 1, Position: P.Vec{X: goodX, Y: goodY, Z: goodZ}},
+			{Team: 2, Position: P.Vec{X: evilX, Y: evilY, Z: evilZ}},
+		},
+	})
+}
+
+// TakeFlag sends a flag pickup attempt.
+func (c *Client) TakeFlag(flag int32, version int32) {
+	c.Send(1, P.ClientTakeFlag{Flag: flag, Version: version})
+}
+
+// DropFlag sends a flag drop.
+func (c *Client) DropFlag() {
+	c.Send(1, P.TryDropFlag{})
 }
 
 // Shoot fires at a target position.
