@@ -3,12 +3,11 @@ package game
 import (
 	"fmt"
 	"log"
-	"time"
 
 	P "github.com/cfoust/sour/pkg/game/protocol"
+	"github.com/cfoust/sour/pkg/gameserver/deadline"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/entity"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/playerstate"
-	"github.com/cfoust/sour/pkg/gameserver/timer"
 )
 
 type PickupMode interface {
@@ -24,7 +23,7 @@ func (*noMapInfo) NeedsMapInfo() bool { return false }
 type timedPickup struct {
 	id int32
 	entity.Pickup
-	pendingSpawn *timer.Timer
+	pendingSpawn deadline.Deadline
 }
 
 type handlesPickups struct {
@@ -42,7 +41,7 @@ func handlingPickups(s Server) *handlesPickups {
 }
 
 func (m *handlesPickups) spawnDelayed(p *timedPickup) {
-	delayDependingOnNumPlayers := func() time.Duration {
+	delayDependingOnNumPlayers := func() int64 {
 		numPlayers := m.s.NumberOfPlayers()
 		if numPlayers < 3 {
 			return 4
@@ -53,7 +52,7 @@ func (m *handlesPickups) spawnDelayed(p *timedPickup) {
 		return 3
 	}
 
-	var delay time.Duration
+	var delaySeconds int64
 	switch p.Typ {
 	case entity.PickupShotgun,
 		entity.PickupMinigun,
@@ -61,26 +60,33 @@ func (m *handlesPickups) spawnDelayed(p *timedPickup) {
 		entity.PickupRifle,
 		entity.PickupGrenadeLauncher,
 		entity.PickupPistol:
-		delay = 4 * delayDependingOnNumPlayers()
+		delaySeconds = 4 * delayDependingOnNumPlayers()
 	case entity.PickupHealth:
-		delay = 5 * delayDependingOnNumPlayers()
+		delaySeconds = 5 * delayDependingOnNumPlayers()
 	case entity.PickupGreenArmour:
-		delay = 20
+		delaySeconds = 20
 	case entity.PickupYellowArmor:
-		delay = 30
+		delaySeconds = 30
 	case entity.PickupBoost:
-		delay = 60
+		delaySeconds = 60
 	case entity.PickupQuadDamage:
-		delay = 70
+		delaySeconds = 70
 	default:
 		panic(fmt.Sprintf("unhandled entity type %d pickup.delay", p.Typ))
 	}
-	p.pendingSpawn = timer.AfterFunc(delay*time.Second, func() {
-		m.s.Broadcast(P.ItemSpawn{
-			Index: p.id,
-		})
-	})
-	go p.pendingSpawn.Start()
+	p.pendingSpawn.Set(m.s.GameClock(), delaySeconds*1000)
+}
+
+// Tick checks all pickups for expired spawn timers and broadcasts ItemSpawn.
+func (m *handlesPickups) Tick(clock int64) {
+	for _, p := range m.pickups {
+		if p.pendingSpawn.Expired(clock) {
+			p.pendingSpawn.Stop()
+			m.s.Broadcast(P.ItemSpawn{
+				Index: p.id,
+			})
+		}
+	}
 }
 
 func (m *handlesPickups) NeedsMapInfo() bool {
@@ -112,17 +118,17 @@ func (m *handlesPickups) HandlePacket(p *Player, message P.Message) bool {
 			log.Printf("player tried to pick up unknown ent with ID %d", entityID)
 			break
 		}
-		if pu.pendingSpawn.TimeLeft() > 0 {
+		clock := m.s.GameClock()
+		if pu.pendingSpawn.TimeLeftMs(clock) > 0 {
 			log.Printf("player tried to pick up %d, but it hasn't spawned", entityID)
-			// pick up either didn't spawn yet or another player got it first
 			break
 		}
-		if !p.CanPickup(pu) {
+		if !p.CanPickup(clock, pu) {
 			break
 		}
 		m.spawnDelayed(pu)
 		m.s.Broadcast(P.ItemAck{entityID, int32(p.CN)})
-		p.Pickup(pu)
+		p.Pickup(clock, pu)
 
 	default:
 		log.Println("received unrelated packet", message.Type())
@@ -154,7 +160,7 @@ func (m *handlesPickups) initPickups(pkt P.ItemList) {
 			entity.PickupQuadDamage:
 			m.spawnDelayed(p)
 		default:
-			p.pendingSpawn = timer.NewTimer(0) // 0 time left -> treated as spawned
+			// 0 time left -> treated as spawned (deadline inactive)
 		}
 
 		m.pickups[id] = p
@@ -162,9 +168,10 @@ func (m *handlesPickups) initPickups(pkt P.ItemList) {
 }
 
 func (m *handlesPickups) PickupsInitPacket() P.Message {
+	clock := m.s.GameClock()
 	message := P.ItemList{}
 	for id, p := range m.pickups {
-		if p.pendingSpawn.TimeLeft() == 0 {
+		if p.pendingSpawn.TimeLeftMs(clock) == 0 {
 			message.Items = append(message.Items, P.Item{id, int32(p.Typ)})
 		}
 	}
@@ -172,22 +179,22 @@ func (m *handlesPickups) PickupsInitPacket() P.Message {
 }
 
 func (m *handlesPickups) Pause() {
+	clock := m.s.GameClock()
 	for _, p := range m.pickups {
-		p.pendingSpawn.Pause()
+		p.pendingSpawn.Pause(clock)
 	}
 }
 
 func (m *handlesPickups) Resume() {
+	clock := m.s.GameClock()
 	for _, p := range m.pickups {
-		p.pendingSpawn.Start()
+		p.pendingSpawn.Resume(clock)
 	}
 }
 
 func (m *handlesPickups) CleanUp() {
 	for id, p := range m.pickups {
-		if p.pendingSpawn != nil {
-			p.pendingSpawn.Stop()
-		}
+		p.pendingSpawn.Stop()
 		delete(m.pickups, id)
 	}
 }

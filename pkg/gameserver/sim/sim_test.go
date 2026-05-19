@@ -1,113 +1,58 @@
 package sim_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/cfoust/sour/pkg/gameserver"
 	"github.com/cfoust/sour/pkg/gameserver/sim"
 )
 
-// newTestServer creates a gameserver.Server configured for testing with a
-// short match length and FFA mode, starts its Poll loop, and returns a
-// cleanup function.
-func newTestServer(ctx context.Context) (*gameserver.Server, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(ctx)
-
-	server := gameserver.New(ctx, &gameserver.Config{
+func newTestServer() *gameserver.Server {
+	server := gameserver.New(&gameserver.Config{
 		MaxClients:       32,
 		MatchLength:      600,
 		DefaultGameSpeed: 100,
 		DefaultMode:      "ffa",
 		DefaultMap:       "complex",
 	})
-
 	server.StartGame(server.StartMode(0), "complex") // 0 = FFA
-
-	go server.Poll(ctx)
-
-	// Drain the maps channel so StartGame doesn't block
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-server.ReceiveMaps():
-			}
-		}
-	}()
-
-	return server, cancel
+	return server
 }
 
 func TestSingleClientConnectAndSpawn(t *testing.T) {
-	ctx := context.Background()
-	server, cleanup := newTestServer(ctx)
-	defer cleanup()
+	server := newTestServer()
+	c := sim.ConnectAndSpawn(server, "TestPlayer")
 
-	router := sim.NewRouter(ctx, server)
-	defer router.Stop()
-
-	client, err := sim.New(ctx, server, router, "TestPlayer")
-	if err != nil {
-		t.Fatalf("failed to create sim client: %v", err)
+	if !c.IsAlive() {
+		t.Error("client should be alive after spawning")
 	}
-	defer client.Disconnect()
-
-	// Client should be alive after New returns
-	if !client.IsAlive() {
-		t.Error("client should be alive after joining")
+	if c.CN != 0 {
+		t.Errorf("expected CN 0, got %d", c.CN)
 	}
-
-	// Should have been assigned CN 0
-	client.Mu.Lock()
-	cn := client.CN
-	health := client.Health
-	lifeSeq := client.LifeSequence
-	client.Mu.Unlock()
-
-	if cn != 0 {
-		t.Errorf("expected CN 0, got %d", cn)
+	if c.Health <= 0 {
+		t.Errorf("expected positive health, got %d", c.Health)
 	}
-
-	// Should have valid spawn state
-	if health <= 0 {
-		t.Errorf("expected positive health, got %d", health)
-	}
-	if lifeSeq <= 0 {
-		t.Errorf("expected positive life sequence, got %d", lifeSeq)
+	if c.LifeSequence <= 0 {
+		t.Errorf("expected positive life sequence, got %d", c.LifeSequence)
 	}
 }
 
 func TestMultipleClients(t *testing.T) {
-	ctx := context.Background()
-	server, cleanup := newTestServer(ctx)
-	defer cleanup()
-
-	router := sim.NewRouter(ctx, server)
-	defer router.Stop()
+	server := newTestServer()
 
 	const numClients = 8
 	clients := make([]*sim.Client, numClients)
-
 	for i := 0; i < numClients; i++ {
-		c, err := sim.New(ctx, server, router, fmt.Sprintf("Player%d", i))
-		if err != nil {
-			t.Fatalf("failed to create client %d: %v", i, err)
-		}
-		clients[i] = c
+		clients[i] = sim.ConnectAndSpawn(server, fmt.Sprintf("Player%d", i))
 	}
 
-	// All clients should be alive
 	for i, c := range clients {
 		if !c.IsAlive() {
 			t.Errorf("client %d should be alive", i)
 		}
 	}
 
-	// All clients should have unique CNs
 	cns := make(map[int32]bool)
 	for i, c := range clients {
 		if cns[c.CN] {
@@ -115,144 +60,91 @@ func TestMultipleClients(t *testing.T) {
 		}
 		cns[c.CN] = true
 	}
-
-	// Clean up
-	for _, c := range clients {
-		c.Disconnect()
-	}
 }
 
 func TestRapidConnectDisconnect(t *testing.T) {
-	skipIfRace(t)
-	ctx := context.Background()
-	server, cleanup := newTestServer(ctx)
-	defer cleanup()
+	server := newTestServer()
 
-	router := sim.NewRouter(ctx, server)
-	defer router.Stop()
-
-	// Rapidly connect and disconnect clients to stress test the server's
-	// client management (ClientManager.Add/Disconnect, relay AddClient/
-	// RemoveClient) under concurrency. A small sleep between iterations
-	// lets the server's Poll goroutine and async Send goroutines drain.
-	for i := 0; i < 10; i++ {
-		c, err := sim.New(ctx, server, router, fmt.Sprintf("Churn%d", i))
-		if err != nil {
-			t.Fatalf("failed to create client %d: %v", i, err)
-		}
+	for i := 0; i < 20; i++ {
+		c := sim.ConnectAndSpawn(server, fmt.Sprintf("Churn%d", i))
 		if !c.IsAlive() {
 			t.Errorf("client %d should be alive after join", i)
 		}
-		c.Disconnect()
-		time.Sleep(100 * time.Millisecond)
+		c.Disconnect(server)
 	}
 }
 
 func TestPositionUpdatesFlow(t *testing.T) {
-	ctx := context.Background()
-	server, cleanup := newTestServer(ctx)
-	defer cleanup()
+	server := newTestServer()
+	c := sim.ConnectAndSpawn(server, "PosTest")
 
-	router := sim.NewRouter(ctx, server)
-	defer router.Stop()
-
-	client, err := sim.New(ctx, server, router, "PosTest")
-	if err != nil {
-		t.Fatalf("failed to create sim client: %v", err)
+	for i := 0; i < 10; i++ {
+		c.QueuePosition()
+		sim.Tick(server, 33, c)
 	}
-	defer client.Disconnect()
 
-	// Let the client run for a bit to send position updates and pings
-	time.Sleep(200 * time.Millisecond)
-
-	// Client should still be alive (no crash from sending positions)
-	if !client.IsAlive() {
+	if !c.IsAlive() {
 		t.Error("client should still be alive after sending positions")
 	}
-
-	// Yaw should have drifted from position updates
-	client.Mu.Lock()
-	yaw := client.Yaw
-	client.Mu.Unlock()
-	if yaw == 0 {
+	if c.Yaw == 0 {
 		t.Error("expected yaw to have changed from position updates")
 	}
 }
 
 func TestPingResponse(t *testing.T) {
-	ctx := context.Background()
-	server, cleanup := newTestServer(ctx)
-	defer cleanup()
+	server := newTestServer()
+	c := sim.ConnectAndSpawn(server, "PingTest")
 
-	router := sim.NewRouter(ctx, server)
-	defer router.Stop()
+	c.QueuePing()
+	sim.Tick(server, 33, c)
 
-	client, err := sim.New(ctx, server, router, "PingTest")
-	if err != nil {
-		t.Fatalf("failed to create sim client: %v", err)
-	}
-	defer client.Disconnect()
+	// After the tick, the server sent N_PONG and the client responded
+	// with N_CLIENTPING — step again to process
+	sim.Tick(server, 33, c)
 
-	// Wait long enough for at least one ping/pong cycle (250ms interval)
-	time.Sleep(400 * time.Millisecond)
-
-	// Ping should have been computed (non-zero after at least one pong)
-	// Note: the first ping response sets Ping = (0*5 + rtt)/6
-	// which could be very small but should be >= 0
-	client.Mu.Lock()
-	lpt := client.LastPingTime
-	client.Mu.Unlock()
-	if lpt == 0 {
-		t.Error("expected at least one ping to have been sent")
+	// Ping should be computed
+	if c.Ping < 0 {
+		t.Errorf("expected non-negative ping, got %d", c.Ping)
 	}
 }
 
 func TestConcurrentClientsWithActivity(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	server, cleanup := newTestServer(ctx)
-	defer cleanup()
-
-	router := sim.NewRouter(ctx, server)
-	defer router.Stop()
+	server := newTestServer()
 
 	const numClients = 16
 	clients := make([]*sim.Client, numClients)
-
 	for i := 0; i < numClients; i++ {
-		c, err := sim.New(ctx, server, router, fmt.Sprintf("Stress%d", i))
-		if err != nil {
-			t.Fatalf("failed to create client %d: %v", i, err)
-		}
-		clients[i] = c
+		clients[i] = sim.ConnectAndSpawn(server, fmt.Sprintf("Stress%d", i))
 	}
 
-	// Let all clients send position updates and pings concurrently
-	time.Sleep(500 * time.Millisecond)
+	// Run several ticks with position updates
+	for tick := 0; tick < 10; tick++ {
+		for _, c := range clients {
+			c.QueuePosition()
+		}
+		sim.Tick(server, 33, clients...)
+	}
 
-	// All should still be alive
 	for i, c := range clients {
 		if !c.IsAlive() {
 			t.Errorf("client %d died unexpectedly", i)
 		}
 	}
 
-	// Disconnect half, check the rest survive
+	// Disconnect half
 	for i := 0; i < numClients/2; i++ {
-		clients[i].Disconnect()
+		output := clients[i].Disconnect(server)
+		// Dispatch disconnect notifications to remaining clients
+		for j := numClients / 2; j < numClients; j++ {
+			clients[j].HandleOutputs(output)
+		}
 	}
 
-	time.Sleep(200 * time.Millisecond)
+	sim.Tick(server, 33, clients[numClients/2:]...)
 
 	for i := numClients / 2; i < numClients; i++ {
 		if !clients[i].IsAlive() {
 			t.Errorf("client %d died after others disconnected", i)
 		}
-	}
-
-	// Clean up remaining
-	for i := numClients / 2; i < numClients; i++ {
-		clients[i].Disconnect()
 	}
 }

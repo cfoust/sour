@@ -1,8 +1,6 @@
 package game
 
 import (
-	"time"
-
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/gamemode"
 )
@@ -12,9 +10,9 @@ type Mode interface {
 	ID() gamemode.ID
 	NeedsMapInfo() bool
 	Leave(*Player)
-	CanSpawn(*Player) bool
+	CanSpawn(clock int64, p *Player) bool
 	Spawn(*PlayerState) // sets armour, ammo, and health
-	HandleFrag(fragger, victim *Player)
+	HandleFrag(clock int64, fragger, victim *Player)
 }
 
 type HandlesPackets interface {
@@ -23,12 +21,12 @@ type HandlesPackets interface {
 
 type noSpawnWait struct{}
 
-func (*noSpawnWait) CanSpawn(*Player) bool { return true }
+func (*noSpawnWait) CanSpawn(clock int64, p *Player) bool { return true }
 
 type fiveSecondsSpawnWait struct{}
 
-func (*fiveSecondsSpawnWait) CanSpawn(p *Player) bool {
-	return p.LastDeath.IsZero() || time.Since(p.LastDeath) > 5*time.Second
+func (*fiveSecondsSpawnWait) CanSpawn(clock int64, p *Player) bool {
+	return p.LastDeath == 0 || clock-p.LastDeath > 5000
 }
 
 // simple frag handling
@@ -42,8 +40,8 @@ func withoutTeams(s Server) *teamlessMode {
 	}
 }
 
-func (m *teamlessMode) HandleFrag(actor, victim *Player) {
-	victim.Die()
+func (m *teamlessMode) HandleFrag(clock int64, actor, victim *Player) {
+	victim.Die(clock)
 	if actor == victim {
 		actor.Frags--
 	} else {

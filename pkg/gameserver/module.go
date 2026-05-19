@@ -1,15 +1,14 @@
 package gameserver
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"time"
 
-	"github.com/cfoust/sour/pkg/chanlock"
 	G "github.com/cfoust/sour/pkg/game"
 	"github.com/cfoust/sour/pkg/game/commands"
 	P "github.com/cfoust/sour/pkg/game/protocol"
+	"github.com/cfoust/sour/pkg/gameserver/deadline"
 	"github.com/cfoust/sour/pkg/gameserver/game"
 	"github.com/cfoust/sour/pkg/gameserver/geom"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/cubecode"
@@ -19,33 +18,23 @@ import (
 	"github.com/cfoust/sour/pkg/gameserver/protocol/playerstate"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/role"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/weapon"
-	"github.com/cfoust/sour/pkg/gameserver/relay"
-	"github.com/cfoust/sour/pkg/utils"
 
 	"github.com/rs/zerolog/log"
 )
 
 type ServerPacket struct {
-	// Either the sender (if incoming) or the recipient (if outgoing)
 	Session  uint32
 	Channel  uint8
 	Messages []P.Message
 }
 
-type MapEdit struct {
-	Client  uint32
-	Message P.Message
-}
-
-type Incoming <-chan ServerPacket
-type Outgoing chan<- ServerPacket
+type InputPacket = ServerPacket
 
 type Server struct {
-	utils.Session
-
 	*Config
 	*State
-	relay *relay.Relay
+	relay SyncRelay
+	out   OutputBuffer
 
 	Description string
 
@@ -53,15 +42,12 @@ type Server struct {
 
 	Commands *commands.CommandGroup[*Client]
 
-	pendingMapChange *time.Timer
+	pendingMapChange deadline.Deadline
+	pendingMap       string
 	rng              *rand.Rand
+	gameClock        int64 // current server time in ms
 
-	incoming chan ServerPacket
-	outgoing chan ServerPacket
-	maps     chan string
-
-	Broadcasts *utils.Topic[[]P.Message]
-	Edits      *utils.Topic[MapEdit]
+	Broadcasts [][]P.Message
 
 	// non-standard stuff
 	KeepTeams       bool
@@ -69,126 +55,166 @@ type Server struct {
 	ReportStats     bool
 }
 
-func New(ctx context.Context, conf *Config) *Server {
-	broadcasts := utils.NewTopic[[]P.Message]()
+// Implement game.Server interface
 
-	clients := &ClientManager{
-		broadcasts: broadcasts,
+func (s *Server) GameDuration() int64 {
+	return int64(s.Config.MatchLength) * 1000
+}
+
+func (s *Server) GameClock() int64 {
+	return s.gameClock
+}
+
+func (s *Server) Broadcast(messages ...P.Message) {
+	s.Clients.BroadcastTo(&s.out, messages...)
+	s.Broadcasts = append(s.Broadcasts, messages)
+}
+
+func (s *Server) Message(message string) {
+	s.Broadcast(P.ServerMessage{Text: message})
+}
+
+func (s *Server) UniqueName(p *game.Player) string {
+	c := s.Clients.GetClientByCN(p.CN)
+	if c == nil {
+		return p.Name
 	}
+	return s.Clients.UniqueName(c)
+}
 
-	incoming := make(chan ServerPacket)
-	outgoing := make(chan ServerPacket)
+func (s *Server) ForEachPlayer(f func(p *game.Player)) {
+	s.Clients.ForEach(func(c *Client) {
+		f(&c.Player)
+	})
+}
 
+func (s *Server) NumberOfPlayers() (n int) {
+	s.Clients.ForEach(func(c *Client) {
+		if !c.Joined || c.State == playerstate.Spectator {
+			return
+		}
+		n++
+	})
+	return
+}
+
+// ClientMessage sends a server message to a specific client.
+func (s *Server) ClientMessage(c *Client, text string) {
+	s.out.Send(c.SessionID, P.ServerMessage{Text: text})
+}
+
+func New(conf *Config) *Server {
 	s := &Server{
-		Session:    utils.NewSession(ctx),
-		Broadcasts: broadcasts,
-		Commands:   commands.NewCommandGroup[*Client]("server", G.ColorBlue),
-		Edits:      utils.NewTopic[MapEdit](),
-		Config:     conf,
+		Config: conf,
 		State: &State{
 			MasterMode: mastermode.Auth,
-			UpSince:    time.Now(),
-			NumClients: clients.GetNumClients,
 		},
-		relay:    relay.New(),
-		Clients:  clients,
-		incoming: incoming,
-		outgoing: outgoing,
-		maps:     make(chan string, 1),
+		relay:    NewSyncRelay(),
+		Clients:  &ClientManager{},
+		Commands: commands.NewCommandGroup[*Client]("server", G.ColorBlue),
 		rng:      rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 
 	return s
 }
 
-func (s *Server) Poll(ctx context.Context) {
-	chanLock := chanlock.New()
-	health := chanLock.Poll(s.Ctx())
-
-	for {
-		select {
-		case <-s.Ctx().Done():
-			return
-		case <-health:
-			continue
-		case msg := <-s.incoming:
-			client := s.Clients.GetClientByID(msg.Session)
-			if client == nil {
-				continue
-			}
-
-			for _, message := range msg.Messages {
-				s.HandlePacket(client, msg.Channel, message)
-			}
-		}
-	}
-}
-
-func (s *Server) Incoming() chan<- ServerPacket {
-	return s.incoming
-}
-
-func (s *Server) Outgoing() <-chan ServerPacket {
-	return s.outgoing
-}
-
-func (s *Server) ReceiveMaps() <-chan string {
-	return s.maps
-}
-
-func (s *Server) GameDuration() time.Duration {
-	return time.Duration(s.Config.MatchLength) * time.Second
-}
-
-func (s *Server) Connect(sessionId uint32) (*Client, <-chan bool) {
+// Connect registers a new client. Returns output packets (including ServerInfo).
+func (s *Server) Connect(sessionId uint32) []ServerPacket {
 	existing := s.Clients.GetClientByID(sessionId)
 	if existing != nil {
-		log.Error().Msgf("client %d already connected")
-		return nil, nil
+		log.Error().Uint32("session", sessionId).Msg("client already connected")
+		return nil
 	}
 
-	connected := make(chan bool, 1)
-
-	client := s.Clients.Add(sessionId, s.outgoing)
-	client.connected = connected
+	client := s.Clients.Add(sessionId)
 	client.server = s
-	client.Positions, client.Packets = s.relay.AddClient(client.CN, func(channel uint8, payload []P.Message) {
-		s.outgoing <- ServerPacket{
-			Session:  client.SessionID,
-			Channel:  channel,
-			Messages: payload,
-		}
-	})
+	s.relay.AddClient(client.CN, client.SessionID)
 
-	if client.Positions == nil {
-		log.Error().Msgf("client %d had no channels")
-		return nil, nil
-	}
-
-	client.Send(
+	s.out.Send(client.SessionID,
 		P.ServerInfo{
 			Client:      int32(client.CN),
 			Protocol:    P.PROTOCOL_VERSION,
 			SessionId:   int32(client.SessionID),
-			HasPassword: false, // password protection is not used by this implementation
+			HasPassword: false,
 			Description: s.Description,
 			Domain:      "",
 		},
 	)
 
-	return client, connected
+	return s.out.Drain()
 }
 
-// Send the server info to clients again, which updates the description on the
-// scoreboard.
+// Leave removes a client. Returns output packets (disconnect notifications).
+func (s *Server) Leave(sessionId uint32) []ServerPacket {
+	client := s.Clients.GetClientByID(sessionId)
+	if client == nil {
+		return nil
+	}
+	s.Disconnect(client, disconnectreason.None)
+	return s.out.Drain()
+}
+
+// Step advances the server clock by dtMs milliseconds, processes all
+// incoming packets, ticks timers, flushes the relay, and returns output.
+func (s *Server) Step(dtMs int64, incoming []InputPacket) []ServerPacket {
+	s.gameClock += dtMs
+
+	// 1. Process incoming packets grouped by sender, matching the C++
+	// server's processevents() (server.cpp:2440) which iterates clients
+	// in order and flushes each client's event queue completely before
+	// moving to the next. This prevents cross-client interleaving where
+	// one client's respawn increments their LifeSequence before another
+	// client's shot (referencing the old LifeSequence) is validated.
+	bySession := make(map[uint32][]InputPacket)
+	for _, pkt := range incoming {
+		bySession[pkt.Session] = append(bySession[pkt.Session], pkt)
+	}
+	s.Clients.ForEach(func(c *Client) {
+		pkts, ok := bySession[c.SessionID]
+		if !ok {
+			return
+		}
+		for _, pkt := range pkts {
+			for _, message := range pkt.Messages {
+				s.HandlePacket(c, pkt.Channel, message)
+			}
+		}
+	})
+
+	// 2. Tick game clock (intermission, etc.)
+	if s.State.Clock != nil {
+		s.State.Clock.Tick(s.gameClock)
+	}
+
+	// 3. Check pending map change (from Intermission)
+	if s.pendingMapChange.Expired(s.gameClock) {
+		s.pendingMapChange.Stop()
+		s.StartGame(s.StartMode(s.GameMode.ID()), s.pendingMap)
+	}
+
+	// 4. Flush relay (batched position/packet distribution)
+	s.relay.Flush(&s.out)
+
+	return s.out.Drain()
+}
+
+// PendingMap returns and clears any pending map change notification.
+func (s *Server) PendingMap() string {
+	m := s.pendingMap
+	if m != "" {
+		s.pendingMap = ""
+	}
+	return m
+}
+
 func (s *Server) RefreshServerInfo() {
 	s.Clients.ForEach(func(c *Client) {
-		c.Send(
+		s.out.Send(c.SessionID,
 			P.ServerInfo{
 				Client:      int32(c.CN),
 				Protocol:    P.PROTOCOL_VERSION,
 				SessionId:   int32(c.SessionID),
-				HasPassword: false, // password protection is not used by this implementation
+				HasPassword: false,
 				Description: s.Description,
 				Domain:      "",
 			},
@@ -202,7 +228,7 @@ func (s *Server) SetDescription(description string) {
 }
 
 func (s *Server) RefreshTime() {
-	s.Broadcast(P.TimeUp{Remaining: int32(s.Clock.TimeLeft() / time.Second)})
+	s.Broadcast(P.TimeUp{Remaining: int32(s.State.Clock.TimeLeft(s.gameClock) / time.Second)})
 }
 
 func (s *Server) BroadcastTime(seconds int) {
@@ -210,33 +236,29 @@ func (s *Server) BroadcastTime(seconds int) {
 }
 
 func (s *Server) Pause() {
-	s.Clock.Pause(nil)
+	s.State.Clock.Pause(s.gameClock, nil)
 }
 
 func (s *Server) Resume() {
-	s.Clock.Pause(nil)
+	s.State.Clock.Resume(s.gameClock, nil)
 }
 
-// Forcibly respawn a player. Passing nil respawns all non-spectating players.
 func (s *Server) ForceRespawn(target *Client) {
 	s.Clients.ForEach(func(c *Client) {
 		if target != nil && c != target {
 			return
 		}
-
 		if c.State == playerstate.Spectator {
 			return
 		}
-
 		s.Spawn(c)
-		c.Send(P.SpawnState{Client: int32(c.CN), EntityState: c.ToWire()})
+		s.out.Send(c.SessionID, P.SpawnState{Client: int32(c.CN), EntityState: c.ToWire()})
 	})
 }
 
-// Kill all players, reset their scores (if resetFrags is true), and respawn them.
 func (s *Server) ResetPlayers(resetFrags bool) {
 	s.Clients.ForEach(func(c *Client) {
-		c.Die()
+		c.Die(s.gameClock)
 
 		if resetFrags {
 			c.Frags = 0
@@ -255,20 +277,16 @@ func (s *Server) ResetPlayers(resetFrags bool) {
 }
 
 func (s *Server) TryJoin(c *Client, name string, playerModel int32, authDomain, authName string) {
-	// ignore this if the user has already joined
 	if c.Joined {
 		return
 	}
-
 	c.Name = name
 	c.Model = playerModel
 	s.Join(c)
 }
 
-// Puts a client into the current game, using the data the client provided with his nmc.TryJoin packet.
 func (s *Server) Join(c *Client) {
 	c.Joined = true
-	c.connected <- true
 
 	if s.MasterMode == mastermode.Locked {
 		c.State = playerstate.Spectator
@@ -278,43 +296,30 @@ func (s *Server) Join(c *Client) {
 	}
 
 	if teamedMode, ok := s.GameMode.(game.TeamMode); ok {
-		teamedMode.Join(&c.Player) // may set client's team
+		teamedMode.Join(&c.Player)
 	}
-	s.SendWelcome(c) // tells client about her team
+	s.SendWelcome(c)
 	if flagMode, ok := s.GameMode.(game.FlagMode); ok {
-		c.Send(flagMode.FlagsInitPacket())
+		s.out.Send(c.SessionID, flagMode.FlagsInitPacket())
 	}
-	s.Clients.InformOthersOfJoin(c)
-}
-
-func (s *Server) Message(message string) {
-	s.Broadcast(P.ServerMessage{Text: message})
-}
-
-func (s *Server) Broadcast(messages ...P.Message) {
-	s.Clients.Broadcast(messages...)
-}
-
-func (s *Server) UniqueName(p *game.Player) string {
-	return s.Clients.UniqueName(s.Clients.GetClientByCN(p.CN))
+	s.Clients.InformOthersOfJoin(c, &s.out)
 }
 
 func (s *Server) Spawn(client *Client) {
-	client.Spawn()
+	client.Spawn(s.gameClock)
 	s.GameMode.Spawn(&client.PlayerState)
 }
 
 func (s *Server) ConfirmSpawn(client *Client, lifeSequence, _weapon int32) {
-	if client.State != playerstate.Dead || lifeSequence != client.LifeSequence || client.LastSpawnAttempt.IsZero() {
-		// client may not spawn
+	if client.State != playerstate.Dead || lifeSequence != client.LifeSequence || client.LastSpawnAttempt == -1 {
 		return
 	}
 
 	client.State = playerstate.Alive
 	client.SelectedWeapon = weapon.ByID(weapon.ID(_weapon))
-	client.LastSpawnAttempt = time.Time{}
+	client.LastSpawnAttempt = -1
 
-	client.Packets.Publish(P.SpawnResponse{
+	s.relay.AddPacket(client.CN, P.SpawnResponse{
 		EntityState: client.ToWire(),
 	})
 
@@ -323,23 +328,11 @@ func (s *Server) ConfirmSpawn(client *Client, lifeSequence, _weapon int32) {
 	}
 }
 
-func (s *Server) Leave(sessionId uint32) {
-	client := s.Clients.GetClientByID(sessionId)
-	if client == nil {
-		return
-	}
-
-	s.Disconnect(client, disconnectreason.None)
-}
-
 func (s *Server) Disconnect(client *Client, reason disconnectreason.ID) {
 	s.GameMode.Leave(&client.Player)
-	s.Clock.Leave(&client.Player)
-	s.Clients.Disconnect(client, reason)
-	err := s.relay.RemoveClient(client.CN)
-	if err != nil {
-		log.Error().Err(err).Msgf("could not disconnect %d", client.SessionID)
-	}
+	s.State.Clock.Leave(&client.Player)
+	s.Clients.Disconnect(client, &s.out, reason)
+	s.relay.RemoveClient(client.CN)
 	if len(s.Clients.PrivilegedUsers()) == 0 {
 		s.Unsupervised()
 	}
@@ -375,42 +368,27 @@ func (s *Server) AuthKick(client *Client, rol role.ID, domain, name string, vict
 }
 
 func (s *Server) Unsupervised() {
-	s.Clock.Resume(nil)
+	s.State.Clock.Resume(s.gameClock, nil)
 	s.MasterMode = mastermode.Auth
 	s.KeepTeams = false
 	s.CompetitiveMode = false
 	s.ReportStats = true
 }
 
-func (s *Server) Empty() {
-	// We don't want to do this anymore
-	// s.StartGame(s.StartMode(s.FallbackGameModeID), s.Map)
-}
+func (s *Server) Empty() {}
 
 func (s *Server) Intermission() {
-	s.Clock.Stop()
+	s.State.Clock.Stop()
 
 	allMaps := make([]string, 0)
 	allMaps = append(allMaps, s.Maps...)
 	allMaps = append(allMaps, s.DefaultMap)
 	nextMap := allMaps[s.rng.Uint32()%uint32(len(allMaps))]
 
-	s.pendingMapChange = time.AfterFunc(10*time.Second, func() {
-		s.StartGame(s.StartMode(s.GameMode.ID()), nextMap)
-	})
+	s.pendingMap = nextMap
+	s.pendingMapChange.Set(s.gameClock, 10000)
 
 	s.Message("next up: " + nextMap)
-}
-
-// Returns the number of connected clients playing (i.e. joined and not spectating)
-func (s *Server) NumberOfPlayers() (n int) {
-	s.Clients.ForEach(func(c *Client) {
-		if !c.Joined || c.State == playerstate.Spectator {
-			return
-		}
-		n++
-	})
-	return
 }
 
 func (s *Server) EmptyMap() {
@@ -430,27 +408,21 @@ func (s *Server) SetMap(map_ string) {
 }
 
 func (s *Server) StartGame(mode game.Mode, mapname string) {
-	if s.Clock != nil {
-		s.Clock.CleanUp()
+	if s.State.Clock != nil {
+		s.State.Clock.CleanUp()
 	}
 	if s.CompetitiveMode {
-		s.Clock = game.NewCompetitiveClock(s, mode)
+		s.State.Clock = game.NewCompetitiveClock(s, mode)
 	} else if mode.ID() == gamemode.CoopEdit {
-		s.Clock = game.NewEndlessClock(s, mode)
+		s.State.Clock = game.NewEndlessClock(s, mode)
 	} else {
-		s.Clock = game.NewCasualClock(s, mode)
+		s.State.Clock = game.NewCasualClock(s, mode)
 	}
 
-	// stop any pending map change
-	if s.pendingMapChange != nil {
-		s.pendingMapChange.Stop()
-		s.pendingMapChange = nil
-	}
+	s.pendingMapChange.Stop()
 
 	s.Map = mapname
 	s.GameMode = mode
-
-	s.maps <- mapname
 
 	if teamedMode, ok := s.GameMode.(game.TeamMode); ok {
 		s.ForEachPlayer(teamedMode.Join)
@@ -464,14 +436,13 @@ func (s *Server) StartGame(mode game.Mode, mapname string) {
 		},
 	)
 
-	s.Clock.Start()
+	s.State.Clock.Start(s.gameClock)
 
 	s.MapChange()
 }
 
 func (s *Server) SetMasterMode(c *Client, mm mastermode.ID) {
 	if mm < mastermode.Open || mm > mastermode.Private {
-		log.Info().Msgf("invalid mastermode %d requested", mm)
 		return
 	}
 	if mm == mastermode.Open {
@@ -491,7 +462,7 @@ func (s *Server) SetPublicServer(mm mastermode.ID) {
 
 func (s *Server) _SetMasterMode(mm mastermode.ID) {
 	s.MasterMode = mm
-	s.Clients.Broadcast(P.MasterMode{int32(mm)})
+	s.Broadcast(P.MasterMode{MasterMode: int32(mm)})
 }
 
 type hit struct {
@@ -503,8 +474,8 @@ type hit struct {
 }
 
 func (s *Server) HandleShoot(client *Client, wpn weapon.Weapon, id int32, from, to *geom.Vector, hits []hit) {
-	s.Clients.Relay(
-		client,
+	s.Clients.RelayTo(
+		client, &s.out,
 		P.ShotFX{
 			Client: int32(client.CN),
 			Gun:    int32(wpn.ID),
@@ -513,16 +484,15 @@ func (s *Server) HandleShoot(client *Client, wpn weapon.Weapon, id int32, from, 
 			To:     P.Vec{X: to.X(), Y: to.Y(), Z: to.Z()},
 		},
 	)
-	client.LastShot = time.Now()
-	client.DamagePotential += wpn.Damage * wpn.Rays // TODO: quad damage
+	client.LastShot = s.gameClock
+	client.DamagePotential += wpn.Damage * wpn.Rays
 	if wpn.ID != weapon.Saw {
 		client.Ammo[wpn.ID]--
 	}
 	switch wpn.ID {
 	case weapon.GrenadeLauncher, weapon.RocketLauncher:
-		// wait for nmc.Explode pkg
+		// wait for Explode
 	default:
-		// apply damage
 		rays := int32(0)
 		for _, h := range hits {
 			target := s.Clients.GetClientByCN(h.target)
@@ -540,26 +510,21 @@ func (s *Server) HandleShoot(client *Client, wpn weapon.Weapon, id int32, from, 
 			}
 
 			damage := h.rays * wpn.Damage
-			// TODO: quad damage
-
 			s.applyDamage(client, target, int32(damage), wpn.ID, h.dir)
 		}
 	}
 }
 
 func (s *Server) HandleExplode(client *Client, millis int32, wpn weapon.Weapon, id int32, hits []hit) {
-	// TODO: delete stored projectile
-
-	s.Clients.Relay(
-		client,
+	s.Clients.RelayTo(
+		client, &s.out,
 		P.ExplodeFX{
-			int32(client.CN),
-			int32(wpn.ID),
-			id,
+			Client: int32(client.CN),
+			Gun:    int32(wpn.ID),
+			Id:     id,
 		},
 	)
 
-	// apply damage
 hits:
 	for i, h := range hits {
 		target := s.Clients.GetClientByCN(h.target)
@@ -571,7 +536,6 @@ hits:
 			continue
 		}
 
-		// avoid duplicates
 		for j := range hits[:i] {
 			if hits[j].target == h.target {
 				continue hits
@@ -579,7 +543,6 @@ hits:
 		}
 
 		damage := float64(wpn.Damage)
-		// TODO: quad damage
 		damage *= (1 - h.distance/weapon.ExplosionDistanceScale/wpn.ExplosionRadius)
 		if target == client {
 			damage *= weapon.ExplosionSelfDamageScale
@@ -591,35 +554,30 @@ hits:
 
 func (s *Server) applyDamage(attacker, victim *Client, damage int32, wpnID weapon.ID, dir *geom.Vector) {
 	victim.ApplyDamage(&attacker.Player, damage, wpnID, dir)
-	s.Clients.Broadcast(
+	s.Broadcast(
 		P.Damage{
-			int32(victim.CN),
-			int32(attacker.CN),
-			damage,
-			victim.Armour,
-			victim.Health,
+			Client:    int32(victim.CN),
+			Aggressor: int32(attacker.CN),
+			Damage:    damage,
+			Armour:    victim.Armour,
+			Health:    victim.Health,
 		},
 	)
-	// TODO: setpushed ???
 	if !dir.IsZero() {
 		dir = dir.Scale(geom.DNF)
 		hitPush := P.HitPush{
-			int32(victim.CN), int32(wpnID), damage,
-			P.Vec{dir.X(), dir.Y(), dir.Z()},
+			Client: int32(victim.CN),
+			Gun:    int32(wpnID),
+			Damage: damage,
+			From:   P.Vec{X: dir.X(), Y: dir.Y(), Z: dir.Z()},
 		}
 		if victim.Health <= 0 {
-			s.Clients.Broadcast(hitPush)
+			s.Broadcast(hitPush)
 		} else {
-			victim.Send(hitPush)
+			s.out.Send(victim.SessionID, hitPush)
 		}
 	}
 	if victim.Health <= 0 {
-		s.GameMode.HandleFrag(&attacker.Player, &victim.Player)
+		s.GameMode.HandleFrag(s.gameClock, &attacker.Player, &victim.Player)
 	}
-}
-
-func (s *Server) ForEachPlayer(f func(p *game.Player)) {
-	s.Clients.ForEach(func(c *Client) {
-		f(&c.Player)
-	})
 }

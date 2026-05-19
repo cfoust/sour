@@ -3,7 +3,6 @@ package gameserver
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	P "github.com/cfoust/sour/pkg/game/protocol"
@@ -12,20 +11,13 @@ import (
 	"github.com/cfoust/sour/pkg/gameserver/protocol/disconnectreason"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/playerstate"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/role"
-	"github.com/cfoust/sour/pkg/utils"
-
-	"github.com/sasha-s/go-deadlock"
 )
 
 type ClientManager struct {
-	clients    []*Client
-	mutex      deadlock.RWMutex
-	broadcasts *utils.Topic[[]P.Message]
+	clients []*Client
 }
 
-func (cm *ClientManager) Add(sessionId uint32, outgoing Outgoing) *Client {
-	cm.mutex.Lock()
-
+func (cm *ClientManager) Add(sessionId uint32) *Client {
 	taken := make(map[uint32]struct{})
 	for _, client := range cm.clients {
 		taken[client.CN] = struct{}{}
@@ -39,92 +31,67 @@ func (cm *ClientManager) Add(sessionId uint32, outgoing Outgoing) *Client {
 		cn++
 	}
 
-	c := NewClient(cn, sessionId, outgoing)
+	c := NewClient(cn, sessionId)
 	cm.clients = append(cm.clients, c)
-	cm.mutex.Unlock()
 	return c
 }
 
 func (cm *ClientManager) GetClientByCN(cn uint32) *Client {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	if int(cn) < 0 || int(cn) >= len(cm.clients) {
-		return nil
-	}
-
-	return cm.clients[cn]
-}
-
-func (cm *ClientManager) GetClientByID(sessionId uint32) *Client {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	for _, client := range cm.clients {
-		if client.SessionID == sessionId {
-			return client
-		}
-	}
-
-	return nil
-}
-
-func (cm *ClientManager) FindClientByName(name string) *Client {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	name = strings.ToLower(name)
 	for _, c := range cm.clients {
-		if strings.Contains(c.Name, name) {
+		if c.CN == cn {
 			return c
 		}
 	}
 	return nil
 }
 
-// Send a packet to a client's team, but not the client himself, over the specified channel.
-func (cm *ClientManager) SendToTeam(c *Client, messages ...P.Message) {
-	excludeSelfAndOtherTeams := func(_c *Client) bool {
-		return _c == c || _c.Team != c.Team
+func (cm *ClientManager) GetClientByID(sessionId uint32) *Client {
+	for _, client := range cm.clients {
+		if client.SessionID == sessionId {
+			return client
+		}
 	}
-	cm.broadcast(excludeSelfAndOtherTeams, messages...)
+	return nil
 }
 
-func (cm *ClientManager) Message(message string) {
-	cm.Broadcast(P.ServerMessage{message})
-}
-
-// Sends a packet to all clients currently in use.
-func (cm *ClientManager) Broadcast(messages ...P.Message) {
-	cm.broadcast(nil, messages...)
-}
-
-func (cm *ClientManager) broadcast(exclude func(*Client) bool, messages ...P.Message) {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	cm.broadcasts.Publish(messages)
-
+func (cm *ClientManager) FindClientByName(name string) *Client {
 	for _, c := range cm.clients {
-		if exclude != nil && exclude(c) {
+		if cubecode.SanitizeString(c.Name) == cubecode.SanitizeString(name) {
+			return c
+		}
+	}
+	return nil
+}
+
+func (cm *ClientManager) SendToTeam(c *Client, out *OutputBuffer, messages ...P.Message) {
+	for _, _c := range cm.clients {
+		if _c == c || _c.Team != c.Team {
 			continue
 		}
-
-		c.Send(messages...)
+		out.Send(_c.SessionID, messages...)
 	}
 }
 
-func exclude(c *Client) func(*Client) bool {
-	return func(_c *Client) bool {
-		return _c == c
+func (cm *ClientManager) MessageAll(out *OutputBuffer, message string) {
+	cm.BroadcastTo(out, P.ServerMessage{Text: message})
+}
+
+func (cm *ClientManager) BroadcastTo(out *OutputBuffer, messages ...P.Message) {
+	for _, c := range cm.clients {
+		out.Send(c.SessionID, messages...)
 	}
 }
 
-func (cm *ClientManager) Relay(from *Client, messages ...P.Message) {
-	cm.broadcast(exclude(from), messages...)
+func (cm *ClientManager) RelayTo(from *Client, out *OutputBuffer, messages ...P.Message) {
+	for _, c := range cm.clients {
+		if c == from {
+			continue
+		}
+		out.Send(c.SessionID, messages...)
+	}
 }
 
-// Sends 'welcome' information to a newly joined client like map, mode, time left, other players, etc.
+// SendWelcome sends welcome information to a newly joined client.
 func (s *Server) SendWelcome(c *Client) {
 	messages := []P.Message{
 		P.Welcome{},
@@ -133,58 +100,50 @@ func (s *Server) SendWelcome(c *Client) {
 			Mode:     int32(s.GameMode.ID()),
 			HasItems: s.GameMode.NeedsMapInfo(),
 		},
-		// time left in this round
-		P.TimeUp{int32(s.Clock.TimeLeft() / time.Second)},
+		P.TimeUp{int32(s.Clock.TimeLeft(s.gameClock) / time.Second)},
 	}
 
 	if pickupMode, ok := s.GameMode.(game.PickupMode); ok && !s.GameMode.NeedsMapInfo() {
 		messages = append(messages, pickupMode.PickupsInitPacket())
 	}
 
-	// send list of clients which have privilege higher than PRIV_NONE and their respecitve privilege level
 	privileged, empty := s.PrivilegedUsersPacket()
 	if !empty {
 		messages = append(messages, privileged)
 	}
 
 	if s.Clock.Paused() {
-		messages = append(messages, P.PauseGame{true, -1})
+		messages = append(messages, P.PauseGame{Paused: true, Client: -1})
 	}
 
 	if teamMode, ok := s.GameMode.(game.TeamMode); ok {
 		teamInfo := P.TeamInfo{}
-
 		teamMode.ForEachTeam(func(t *game.Team) {
 			if t.Frags > 0 {
-				teamInfo.Teams = append(teamInfo.Teams, P.Team{t.Name, t.Frags})
+				teamInfo.Teams = append(teamInfo.Teams, P.Team{Team: t.Name, Frags: t.Frags})
 			}
 		})
-
 		messages = append(messages, teamInfo)
 	}
 
-	// tell the client what team he was put in by the server
 	messages = append(messages, P.SetTeam{
 		Client: int32(c.CN),
 		Team:   c.Team.Name,
 		Reason: -1,
 	})
 
-	// tell the client how to spawn (what health, what armour, what weapons, what ammo, etc.)
 	if c.State == playerstate.Spectator {
 		messages = append(messages, P.Spectator{
 			Client:     int32(c.CN),
 			Spectating: true,
 		})
 	} else {
-		// TODO: handle spawn delay (e.g. in ctf modes)
 		messages = append(messages, P.SpawnState{
 			Client:      int32(c.CN),
 			EntityState: c.ToWire(),
 		})
 	}
 
-	// send other players' state (frags, flags, etc.)
 	resume := P.Resume{}
 	for _, client := range s.Clients.clients {
 		if client != c {
@@ -196,7 +155,7 @@ func (s *Server) SendWelcome(c *Client) {
 					Frags:       client.Frags,
 					Flags:       client.Flags,
 					Deaths:      client.Deaths,
-					Quadmillis:  int32(client.QuadTimer.TimeLeft() / time.Millisecond),
+					Quadmillis:  int32(client.QuadDeadline.TimeLeftMs(s.gameClock)),
 					EntityState: client.ToWire(),
 				},
 			)
@@ -204,32 +163,29 @@ func (s *Server) SendWelcome(c *Client) {
 	}
 	messages = append(messages, resume)
 
-	// send other client's state (name, team, playermodel)
 	for _, client := range s.Clients.clients {
 		if client != c {
 			messages = append(messages, P.InitClient{
-				int32(client.CN), client.Name, client.Team.Name, int32(client.Model),
+				Client:      int32(client.CN),
+				Name:        client.Name,
+				Team:        client.Team.Name,
+				Playermodel: int32(client.Model),
 			})
 		}
 	}
 
-	c.Send(messages...)
+	s.out.Send(c.SessionID, messages...)
 }
 
-// Tells other clients that the client disconnected, giving a disconnect reason in case it's not a normal leave.
-func (cm *ClientManager) Disconnect(c *Client, reason disconnectreason.ID) {
-	cm.Relay(c, P.ClientDisconnected{int32(c.CN)})
+func (cm *ClientManager) Disconnect(c *Client, out *OutputBuffer, reason disconnectreason.ID) {
+	cm.RelayTo(c, out, P.ClientDisconnected{Client: int32(c.CN)})
 
-	msg := ""
 	if reason != disconnectreason.None {
-		msg = fmt.Sprintf("%s disconnected because: %s", cm.UniqueName(c), reason)
-		cm.Relay(c, P.ServerMessage{msg})
-	} else {
-		msg = fmt.Sprintf("%s disconnected", cm.UniqueName(c))
+		msg := fmt.Sprintf("%s disconnected because: %s", cm.UniqueName(c), reason)
+		cm.RelayTo(c, out, P.ServerMessage{Text: msg})
 	}
 
-	cm.mutex.Lock()
-	newClients := make([]*Client, 0)
+	newClients := make([]*Client, 0, len(cm.clients))
 	for _, client := range cm.clients {
 		if client == c {
 			continue
@@ -237,18 +193,20 @@ func (cm *ClientManager) Disconnect(c *Client, reason disconnectreason.ID) {
 		newClients = append(newClients, client)
 	}
 	cm.clients = newClients
-	cm.mutex.Unlock()
 }
 
-// Informs all other clients that a client joined the game.
-func (cm *ClientManager) InformOthersOfJoin(c *Client) {
-	cm.Relay(c, P.InitClient{
-		int32(c.CN), c.Name, c.Team.Name, int32(c.Model),
+func (cm *ClientManager) InformOthersOfJoin(c *Client, out *OutputBuffer) {
+	cm.RelayTo(c, out, P.InitClient{
+		Client:      int32(c.CN),
+		Name:        c.Name,
+		Team:        c.Team.Name,
+		Playermodel: int32(c.Model),
 	})
 
 	if c.State == playerstate.Spectator {
-		cm.Relay(c, P.Spectator{
-			int32(c.CN), true,
+		cm.RelayTo(c, out, P.Spectator{
+			Client:     int32(c.CN),
+			Spectating: true,
 		})
 	}
 }
@@ -260,7 +218,7 @@ func (s *Server) MapChange() {
 			return
 		}
 		s.Spawn(c)
-		c.Send(P.SpawnState{
+		s.out.Send(c.SessionID, P.SpawnState{
 			Client:      int32(c.CN),
 			EntityState: c.ToWire(),
 		})
@@ -284,8 +242,8 @@ func (s *Server) PrivilegedUsersPacket() (P.Message, bool) {
 	s.Clients.ForEach(func(c *Client) {
 		if c.Role > role.None {
 			message.Clients = append(message.Clients, P.ClientPrivilege{
-				int32(c.CN),
-				int32(c.Role),
+				Client:    int32(c.CN),
+				Privilege: int32(c.Role),
 			})
 		}
 	})
@@ -293,20 +251,12 @@ func (s *Server) PrivilegedUsersPacket() (P.Message, bool) {
 	return message, len(message.Clients) == 0
 }
 
-// Returns the number of connected clients.
-func (cm *ClientManager) GetNumClients() (n int) {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
+func (cm *ClientManager) GetNumClients() int {
 	return len(cm.clients)
 }
 
 func (cm *ClientManager) ForEach(do func(c *Client)) {
-	cm.mutex.RLock()
-	clients := cm.clients
-	cm.mutex.RUnlock()
-
-	for _, c := range clients {
+	for _, c := range cm.clients {
 		do(c)
 	}
 }
