@@ -7,7 +7,7 @@ build-client:
     cd client && yarn build
 
 # Start both dev servers (client watcher + sour server)
-dev: build
+dev:
     #!/usr/bin/env bash
     set -e
 
@@ -19,13 +19,11 @@ dev: build
     sleep 3
 
     # Start sour server in dev mode
-    cd "{{justfile_directory()}}" && ./sour serve --dev test-config.yaml &
+    cd "{{justfile_directory()}}" && go run ./cmd/sour serve --dev test-config.yaml &
     SERVER_PID=$!
 
     trap "kill $CLIENT_PID $SERVER_PID 2>/dev/null" EXIT
     echo "Dev servers running — http://localhost:1337"
-    echo "  Client watcher PID: $CLIENT_PID"
-    echo "  Sour server PID:    $SERVER_PID"
     echo "Press Ctrl+C to stop."
     wait
 
@@ -34,17 +32,13 @@ dev-client:
     cd client && yarn serve
 
 # Start just the sour server in dev mode
-dev-server: build
-    ./sour serve --dev test-config.yaml
+dev-server:
+    go run ./cmd/sour serve --dev test-config.yaml
 
 # Run Go tests
 test:
     go test ./...
 
-# Build sourdump
-build-sourdump:
-    go build ./cmd/sourdump
-
 # Derive game modes from a map file
 modes file:
-    ./sourdump modes {{file}}
+    go run ./cmd/sourdump modes {{file}}
