@@ -3,7 +3,6 @@ package gameserver
 import (
 	"fmt"
 	"log"
-	"time"
 
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/gameserver/game"
@@ -18,58 +17,43 @@ import (
 )
 
 func mapVec(v P.Vec) *geom.Vector {
-	return geom.NewVector(
-		v.X,
-		v.Y,
-		v.Z,
-	)
+	return geom.NewVector(v.X, v.Y, v.Z)
 }
 
 func mapHits(hits []P.Hit) []hit {
 	result := make([]hit, 0)
 	for _, hit_ := range hits {
-		result = append(
-			result,
-			hit{
-				uint32(hit_.Target),
-				int32(hit_.LifeSequence),
-				hit_.Distance,
-				int32(hit_.Rays),
-				mapVec(hit_.Direction),
-			},
-		)
+		result = append(result, hit{
+			uint32(hit_.Target),
+			int32(hit_.LifeSequence),
+			hit_.Distance,
+			int32(hit_.Rays),
+			mapVec(hit_.Direction),
+		})
 	}
-
 	return result
 }
 
-// checks if the client is allowed to send a certain type of message to us.
 func isValidMessage(c *Client, code P.MessageCode) bool {
 	if code == P.N_PING {
 		return true
 	}
-
 	if !c.Joined {
 		if c.AuthRequiredBecause > disconnectreason.None {
 			return code == P.N_AUTHANS
 		}
 		return code == P.N_CONNECT
 	}
-
 	if P.IsServerOnly(code) {
 		return false
 	}
-
 	return true
 }
 
-// parses a packet and decides what to do based on the network message code at the front of the packet
 func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message) {
-	// this implementation does not support channel 2 (for coop edit purposes) yet.
-	if client == nil || 0 > channelID || channelID > 1 {
+	if client == nil || channelID > 1 {
 		return
 	}
-
 	if !client.Joined && channelID == 0 {
 		return
 	}
@@ -86,26 +70,17 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 		if s.GameMode.ID() != gamemode.CoopEdit {
 			return
 		}
-
-		s.Clients.Broadcast(message)
-
-		s.Edits.Publish(MapEdit{
-			Client:  client.SessionID,
-			Message: message,
-		})
+		s.Broadcast(message)
 		return
 	}
 
 	switch packetType {
 
-	// channel 0 traffic
 	case P.N_POS:
 		msg := message.(P.Pos)
-
-		// client sending his position and movement in the world
 		if client.State == playerstate.Alive {
 			msg.State.LifeSequence = client.LifeSequence
-			client.Positions.Publish(msg)
+			s.relay.SetPosition(client.CN, msg)
 			client.Position = mapVec(msg.State.O)
 		}
 		return
@@ -113,20 +88,18 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 	case P.N_JUMPPAD:
 		msg := message.(P.JumpPad)
 		if client.State == playerstate.Alive {
-			s.relay.FlushPositionAndSend(client.CN, msg)
+			s.relay.FlushPositionAndSend(client.CN, msg, &s.out)
 		}
 
 	case P.N_TELEPORT:
 		msg := message.(P.Teleport)
-
 		if client.State == playerstate.Alive {
-			s.relay.FlushPositionAndSend(client.CN, msg)
+			s.relay.FlushPositionAndSend(client.CN, msg, &s.out)
 		}
 
 	case P.N_ADDBOT, P.N_DELBOT:
 		client.Message("bots currently not supported")
 
-	// channel 1 traffic
 	case P.N_CONNECT:
 		msg := message.(P.Connect)
 		s.TryJoin(client, msg.Name, int32(msg.Model), msg.AuthDescription, msg.AuthName)
@@ -134,7 +107,6 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 	case P.N_SETMASTER:
 		msg := message.(P.SetMaster)
 		cn := uint32(msg.Client)
-
 		switch msg.Master {
 		case 0:
 			s.setRole(client, cn, role.None)
@@ -147,24 +119,18 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 
 	case P.N_KICK:
 		msg := message.(P.Kick)
-
-		cn := uint32(msg.Victim)
-
-		victim := s.Clients.GetClientByCN(cn)
+		victim := s.Clients.GetClientByCN(uint32(msg.Victim))
 		if victim == nil {
 			return
 		}
-
 		s.Kick(client, victim, msg.Reason)
 
 	case P.N_MASTERMODE:
 		msg := message.(P.MasterMode)
-		mm := mastermode.ID(msg.MasterMode)
-		s.SetMasterMode(client, mm)
+		s.SetMasterMode(client, mastermode.ID(msg.MasterMode))
 
 	case P.N_SPECTATOR:
 		msg := message.(P.Spectator)
-
 		spectator := s.Clients.GetClientByCN(uint32(msg.Client))
 		if spectator == nil {
 			return
@@ -172,88 +138,72 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 		toggle := msg.Spectating
 
 		if client.Role == role.None {
-			// unprivileged clients can never change spec state of others
 			if spectator != client {
 				client.Message(cubecode.Fail("you can't do that"))
 				return
 			}
-			// unprivileged clients can not unspec themselves in mm>=2
 			if client.State == playerstate.Spectator && s.MasterMode >= mastermode.Locked {
 				client.Message(cubecode.Fail("you can't do that"))
 				return
 			}
 		}
-		if (spectator.State == playerstate.Spectator) == !toggle {
-			// nothing to do
+		alreadySpec := spectator.State == playerstate.Spectator
+		if (alreadySpec && toggle) || (!alreadySpec && !toggle) {
 			return
 		}
 
 		if toggle {
 			if client.State == playerstate.Alive {
-				s.GameMode.HandleFrag(&spectator.Player, &spectator.Player)
+				s.GameMode.HandleFrag(s.gameClock, &spectator.Player, &spectator.Player)
 			}
 			s.GameMode.Leave(&spectator.Player)
-			s.Clock.Leave(&spectator.Player)
+			s.State.Clock.Leave(&spectator.Player)
 			spectator.State = playerstate.Spectator
 		} else {
 			spectator.State = playerstate.Dead
 			if teamedMode, ok := s.GameMode.(game.TeamMode); ok {
 				teamedMode.Join(&spectator.Player)
 			}
-			// todo: checkmap
 		}
-		s.Clients.Broadcast(P.Spectator{int32(spectator.CN), toggle})
+		s.Broadcast(P.Spectator{Client: int32(spectator.CN), Spectating: toggle})
 
 	case P.N_MAPVOTE:
 		msg := message.(P.MapVote)
-
 		mapname := msg.Map
 		if mapname == "" {
 			mapname = s.Map
 		}
-
 		modeID := gamemode.ID(msg.Mode)
-
 		if !gamemode.Valid(modeID) {
 			client.Message(cubecode.Fail(fmt.Sprintf("%s is not implemented on this server", modeID)))
-			log.Println("invalid gamemode", modeID, "requested")
 			return
 		}
-
 		if s.MasterMode < mastermode.Veto {
 			client.Message(cubecode.Fail("this server does not support map voting"))
 			return
 		}
-
 		if client.Role < role.Master {
 			client.Message(cubecode.Fail("you can't do that"))
 			return
 		}
-
 		s.StartGame(s.StartMode(modeID), mapname)
 		s.Message(fmt.Sprintf("%s forced %s on %s", s.Clients.UniqueName(client), modeID, mapname))
-		log.Println(client, "forced", modeID, "on", mapname)
 
 	case P.N_PING:
 		msg := message.(P.Ping)
-
-		// client pinging server → send pong
-		client.Send(P.Pong{msg.Cmillis})
+		s.out.Send(client.SessionID, P.Pong{Cmillis: msg.Cmillis})
 
 	case P.N_CLIENTPING:
 		msg := message.(P.ClientPing)
-
-		// client sending the amount of lag he measured to the server → broadcast to other clients
 		client.Ping = int32(msg.Ping)
-		client.Packets.Publish(P.ClientPing{int32(client.Ping)})
+		s.relay.AddPacket(client.CN, P.ClientPing{Ping: int32(client.Ping)})
 
 	case P.N_TEXT:
-		client.Packets.Publish(message.(P.Text))
+		s.relay.AddPacket(client.CN, message.(P.Text))
 
 	case P.N_SAYTEAM:
-		// client sending team chat message → pass on to team immediately
 		msg := message.(P.SayTeam).Text
-		s.Clients.SendToTeam(client, P.SayTeam{msg})
+		s.Clients.SendToTeam(client, &s.out, P.SayTeam{Text: msg})
 
 	case P.N_SWITCHMODEL:
 		msg := message.(P.SwitchModel)
@@ -262,58 +212,45 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 
 	case P.N_SWITCHNAME:
 		msg := message.(P.SwitchName)
-
 		newName := cubecode.Filter(msg.Name, false)
-
 		if len(newName) == 0 || len(newName) > 24 {
 			return
 		}
-
 		client.Name = newName
-		client.Packets.Publish(msg)
+		s.relay.AddPacket(client.CN, msg)
 
 	case P.N_SWITCHTEAM:
 		msg := message.(P.SwitchTeam)
-
-		teamName := msg.Team
-
-		if client.Team.Name == teamName {
+		if client.Team.Name == msg.Team {
 			return
 		}
-
 		teamMode, ok := s.GameMode.(game.TeamMode)
 		if !ok {
 			return
 		}
-
-		teamMode.ChangeTeam(&client.Player, teamName, false)
+		teamMode.ChangeTeam(&client.Player, msg.Team, false)
 
 	case P.N_SETTEAM:
 		msg := message.(P.SetTeam)
-
 		victim := s.Clients.GetClientByCN(uint32(msg.Client))
-		teamName := msg.Team
-
-		if victim == nil || victim.Team.Name == teamName || client.Role == role.None {
+		if victim == nil || victim.Team.Name == msg.Team || client.Role == role.None {
 			return
 		}
-
 		teamMode, ok := s.GameMode.(game.TeamMode)
 		if !ok {
 			return
 		}
-
-		teamMode.ChangeTeam(&victim.Player, teamName, true)
+		teamMode.ChangeTeam(&victim.Player, msg.Team, true)
 
 	case P.N_MAPCRC:
 		// TODO
 
 	case P.N_TRYSPAWN:
-		if !client.Joined || client.State != playerstate.Dead || !client.LastSpawnAttempt.IsZero() || !s.GameMode.CanSpawn(&client.Player) {
+		if !client.Joined || client.State != playerstate.Dead || client.LastSpawnAttempt != -1 || !s.GameMode.CanSpawn(s.gameClock, &client.Player) {
 			return
 		}
 		s.Spawn(client)
-		client.Send(P.SpawnState{int32(client.CN), client.ToWire()})
+		s.out.Send(client.SessionID, P.SpawnState{Client: int32(client.CN), EntityState: client.ToWire()})
 
 	case P.N_SPAWN:
 		msg := message.(P.SpawnRequest)
@@ -321,40 +258,27 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 
 	case P.N_GUNSELECT:
 		msg := message.(P.GunSelect)
-		requested := weapon.ID(msg.GunSelect)
-		selected, ok := client.SelectWeapon(requested)
+		selected, ok := client.SelectWeapon(weapon.ID(msg.GunSelect))
 		if !ok {
 			break
 		}
-		client.Packets.Publish(P.GunSelect{int32(selected.ID)})
+		s.relay.AddPacket(client.CN, P.GunSelect{GunSelect: int32(selected.ID)})
 
 	case P.N_TAUNT:
-		client.Packets.Publish(message)
+		s.relay.AddPacket(client.CN, message)
 
 	case P.N_SHOOT:
 		msg := message.(P.Shoot)
-
 		wpn := weapon.ByID(weapon.ID(msg.Gun))
-		if time.Now().Before(client.GunReloadEnd) || client.Ammo[wpn.ID] <= 0 {
+		if s.gameClock < client.GunReloadEnd || client.Ammo[wpn.ID] <= 0 {
 			return
 		}
-
 		from := mapVec(msg.From)
 		to := mapVec(msg.To)
-
 		if dist := geom.Distance(from, to); dist > wpn.Range+1.0 {
-			log.Println("shot distance out of weapon's range: distane =", dist, "range =", wpn.Range+1)
 			return
 		}
-
-		s.HandleShoot(
-			client,
-			wpn,
-			int32(msg.Id),
-			from,
-			to,
-			mapHits(msg.Hits),
-		)
+		s.HandleShoot(client, wpn, int32(msg.Id), from, to, mapHits(msg.Hits))
 
 	case P.N_EXPLODE:
 		msg := message.(P.Explode)
@@ -362,23 +286,20 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 		s.HandleExplode(client, int32(msg.Cmillis), wpn, int32(msg.Id), mapHits(msg.Hits))
 
 	case P.N_SUICIDE:
-		s.GameMode.HandleFrag(&client.Player, &client.Player)
+		s.GameMode.HandleFrag(s.gameClock, &client.Player, &client.Player)
 
 	case P.N_SOUND:
-		msg := message.(P.Sound)
-		client.Packets.Publish(msg)
+		s.relay.AddPacket(client.CN, message.(P.Sound))
 
 	case P.N_PAUSEGAME:
 		msg := message.(P.PauseGame)
-		if s.MasterMode < mastermode.Locked {
-			if client.Role == role.None {
-				return
-			}
+		if client.Role < role.Master {
+			return
 		}
 		if msg.Paused {
-			s.Clock.Pause(&client.Player)
+			s.State.Clock.Pause(s.gameClock, &client.Player)
 		} else {
-			s.Clock.Resume(&client.Player)
+			s.State.Clock.Resume(s.gameClock, &client.Player)
 		}
 
 	default:

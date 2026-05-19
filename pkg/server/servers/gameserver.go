@@ -7,6 +7,8 @@ import (
 	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/gameserver"
 	"github.com/cfoust/sour/pkg/maps"
+	"github.com/cfoust/sour/pkg/server/ingress"
+	"github.com/cfoust/sour/pkg/utils"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -15,6 +17,9 @@ import (
 
 type GameServer struct {
 	*gameserver.Server
+
+	// Lifecycle
+	Session utils.Session
 
 	Id string
 	// Another way for the client to refer to this server
@@ -38,6 +43,22 @@ type GameServer struct {
 
 	kicks   chan ClientKick
 	packets chan ClientPacket
+
+	// Buffered channel for incoming packets from the cluster layer.
+	// The Step ticker goroutine drains this.
+	incoming chan gameserver.InputPacket
+}
+
+func (server *GameServer) Ctx() <-chan struct{} {
+	return server.Session.Ctx().Done()
+}
+
+func (server *GameServer) Cancel() {
+	server.Session.Cancel()
+}
+
+func (server *GameServer) NumClients() int {
+	return server.Clients.GetNumClients()
 }
 
 func (server *GameServer) GetEntities() []maps.Entity {
@@ -75,12 +96,56 @@ func (server *GameServer) Shutdown() {
 	server.Cancel()
 }
 
+// SendPacket queues a packet to be processed in the next Step() call.
+func (server *GameServer) SendPacket(packet gameserver.InputPacket) {
+	select {
+	case server.incoming <- packet:
+	default:
+		// Drop packet if buffer is full
+		log.Warn().Str("server", server.Reference()).Msg("incoming packet buffer full, dropping packet")
+	}
+}
+
+// ConnectClient registers a new client. Output packets are routed through
+// the manager's packets channel. Returns the server-side Client.
+func (server *GameServer) ConnectClient(sessionID uint32) *gameserver.Client {
+	server.Mutex.Lock()
+	server.LastEvent = time.Now()
+	server.Mutex.Unlock()
+
+	outputs := server.Server.Connect(sessionID)
+	for _, pkt := range outputs {
+		server.packets <- ClientPacket{
+			Client:   ingress.ClientID(pkt.Session),
+			Channel:  pkt.Channel,
+			Messages: pkt.Messages,
+			Server:   server,
+		}
+	}
+
+	return server.Clients.GetClientByID(sessionID)
+}
+
+// LeaveClient removes a client and routes output packets.
+func (server *GameServer) LeaveClient(sessionID uint32) {
+	outputs := server.Server.Leave(sessionID)
+	for _, pkt := range outputs {
+		server.packets <- ClientPacket{
+			Client:   ingress.ClientID(pkt.Session),
+			Channel:  pkt.Channel,
+			Messages: pkt.Messages,
+			Server:   server,
+		}
+	}
+}
+
 func (s *GameServer) GetServerInfo() *ServerInfo {
+	clock := s.Server.GameClock()
 	return &ServerInfo{
 		NumClients:   int32(s.NumClients()),
 		GamePaused:   s.Clock.Paused(),
 		GameMode:     int32(s.GameMode.ID()),
-		TimeLeft:     int32(s.Clock.TimeLeft() / time.Second),
+		TimeLeft:     int32(s.Clock.TimeLeft(clock) / time.Second),
 		MaxClients:   64,
 		PasswordMode: 0,
 		GameSpeed:    100,
@@ -118,17 +183,16 @@ func (s *GameServer) GetClientInfo() []*ClientExtInfo {
 }
 
 func (s *GameServer) GetTeamInfo() *TeamInfo {
-	// TODO get team scores
-
+	clock := s.Server.GameClock()
 	return &TeamInfo{
 		IsDeathmatch: false,
 		GameMode:     int(s.GameMode.ID()),
-		TimeLeft:     int(s.Clock.TimeLeft() / time.Second),
+		TimeLeft:     int(s.Clock.TimeLeft(clock) / time.Second),
 	}
 }
 
 func (s *GameServer) GetUptime() int {
-	return int(time.Now().Sub(s.Started).Round(time.Second) / time.Second)
+	return int(time.Since(s.Started).Round(time.Second) / time.Second)
 }
 
 var _ InfoProvider = (*GameServer)(nil)

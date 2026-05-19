@@ -1,13 +1,12 @@
 package game
 
 import (
-	"time"
-
 	"github.com/cfoust/sour/pkg/game/protocol"
 )
 
 type Server interface {
-	GameDuration() time.Duration
+	GameDuration() int64 // match length in milliseconds
+	GameClock() int64    // current server time in milliseconds
 	Broadcast(messages ...protocol.Message)
 	Message(message string)
 	Intermission()

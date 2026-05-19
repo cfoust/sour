@@ -2,10 +2,8 @@ package game
 
 import (
 	"log"
-	"time"
 
 	P "github.com/cfoust/sour/pkg/game/protocol"
-	"github.com/cfoust/sour/pkg/gameserver/timer"
 )
 
 type ctf struct {
@@ -67,7 +65,7 @@ func (m *ctf) TouchFlag(p *Player, f *flag) {
 	if p.Team != f.team {
 		// player stealing enemy flag
 		m.takeFlag(p, f)
-	} else if !f.dropTime.IsZero() {
+	} else if f.dropTime != 0 {
 		// player touches her own, dropped flag
 		f.pendingReset.Stop()
 		m.returnFlag(f)
@@ -110,10 +108,7 @@ func (m *ctf) TouchFlag(p *Player, f *flag) {
 
 func (m *ctf) takeFlag(p *Player, f *flag) {
 	// cancel reset
-	if f.pendingReset != nil {
-		f.pendingReset.Stop()
-		f.pendingReset = nil
-	}
+	f.pendingReset.Stop()
 
 	f.version++
 	m.s.Broadcast(P.ServerTakeFlag{
@@ -125,14 +120,14 @@ func (m *ctf) takeFlag(p *Player, f *flag) {
 }
 
 func (m *ctf) returnFlag(f *flag) {
-	f.dropTime = time.Time{}
+	f.dropTime = 0
 	f.carrier = nil
 	f.version++
 }
 
 func (m *ctf) DropFlag(p *Player, f *flag) {
 	f.dropLocation = p.Position
-	f.dropTime = time.Now()
+	f.dropTime = m.s.GameClock()
 	f.carrier = nil
 	f.version++
 
@@ -147,19 +142,10 @@ func (m *ctf) DropFlag(p *Player, f *flag) {
 		},
 	})
 
-	f.pendingReset = timer.AfterFunc(10*time.Second, func() {
-		m.returnFlag(f)
-		m.s.Broadcast(P.ResetFlag{
-			f.index,
-			f.version,
-			0,
-			f.teamID,
-			f.team.Score,
-		})
-	})
-	f.pendingReset.Start()
+	// Schedule reset in 10 seconds — checked by handlesFlags.Tick()
+	f.pendingReset.Set(m.s.GameClock(), 10000)
 }
 
-func (m *ctf) CanSpawn(p *Player) bool {
-	return p.LastDeath.IsZero() || time.Since(p.LastDeath) > 5*time.Second
+func (m *ctf) CanSpawn(clock int64, p *Player) bool {
+	return p.LastDeath == 0 || clock-p.LastDeath > 5000
 }

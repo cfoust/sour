@@ -18,6 +18,7 @@ import (
 	"github.com/cfoust/sour/pkg/gameserver"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/server/ingress"
+	"github.com/cfoust/sour/pkg/utils"
 
 	"github.com/repeale/fp-go"
 	"github.com/repeale/fp-go/option"
@@ -221,27 +222,59 @@ func (manager *ServerManager) ReadEntities(ctx context.Context, server *GameServ
 	return nil
 }
 
-func (manager *ServerManager) PollMapRequests(ctx context.Context, server *GameServer) {
-	requests := server.ReceiveMaps()
+func (manager *ServerManager) handleMapChange(ctx context.Context, server *GameServer, mapName string) {
+	if mapName == "" {
+		return
+	}
+
+	logger := log.With().Str("map", mapName).Logger()
+	data, err := manager.Maps.FetchMapBytes(ctx, mapName)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to download map")
+		return
+	}
+
+	go manager.ReadEntities(ctx, server, data)
+}
+
+// runStepLoop drives a GameServer via Step() on a fixed ticker. It drains
+// incoming packets, steps the server, routes output, and handles map changes.
+func (manager *ServerManager) runStepLoop(server *GameServer, tickRate time.Duration) {
+	ticker := time.NewTicker(tickRate)
+	defer ticker.Stop()
+
+	dtMs := int64(tickRate / time.Millisecond)
 
 	for {
 		select {
-		case request := <-requests:
-			logger := log.With().Str("map", request).Logger()
-
-			if request == "" {
-				continue
-			}
-
-			data, err := manager.Maps.FetchMapBytes(ctx, request)
-			if err != nil {
-				logger.Error().Err(err).Msg("failed to download map")
-				continue
-			}
-
-			go manager.ReadEntities(ctx, server, data)
-		case <-ctx.Done():
+		case <-server.Ctx():
 			return
+		case <-ticker.C:
+			var batch []gameserver.InputPacket
+			for {
+				select {
+				case pkt := <-server.incoming:
+					batch = append(batch, pkt)
+				default:
+					goto drained
+				}
+			}
+		drained:
+
+			outputs := server.Server.Step(dtMs, batch)
+
+			for _, pkt := range outputs {
+				server.packets <- ClientPacket{
+					Client:   ingress.ClientID(pkt.Session),
+					Channel:  pkt.Channel,
+					Messages: pkt.Messages,
+					Server:   server,
+				}
+			}
+
+			if mapName := server.Server.PendingMap(); mapName != "" {
+				go manager.handleMapChange(server.Session.Ctx(), server, mapName)
+			}
 		}
 	}
 }
@@ -266,7 +299,8 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 	config := found.Value.Config
 
 	server := GameServer{
-		Server:    gameserver.New(ctx, &config),
+		Server:    gameserver.New(&config),
+		Session:   utils.NewSession(ctx),
 		Alias:     "",
 		LastEvent: time.Now(),
 		Entities:  make([]maps.Entity, 0),
@@ -275,6 +309,7 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 		kicks:     manager.kicks,
 		packets:   manager.packets,
 		Id:        FindIdentity(),
+		incoming:  make(chan gameserver.InputPacket, 256),
 
 		From: P.NewMessageProxy(false),
 		To:   P.NewMessageProxy(true),
@@ -291,30 +326,13 @@ func (manager *ServerManager) NewServer(ctx context.Context, presetName string, 
 
 	server.ChangeMap(int32(mode.Value), config.DefaultMap)
 
-	go server.Poll(server.Ctx())
-	go manager.PollMapRequests(server.Ctx(), &server)
-
-	go func() {
-		for {
-			select {
-			case packet := <-server.Outgoing():
-				manager.packets <- ClientPacket{
-					Client:   ingress.ClientID(packet.Session),
-					Channel:  packet.Channel,
-					Messages: packet.Messages,
-					Server:   &server,
-				}
-			case <-server.Ctx().Done():
-				return
-			}
-		}
-	}()
+	go manager.runStepLoop(&server, time.Duration(config.GetTickRateMs())*time.Millisecond)
 
 	manager.Servers = append(manager.Servers, &server)
 
 	// Remove the server when it exits for any reason
 	go func() {
-		<-server.Ctx().Done()
+		<-server.Ctx()
 		manager.RemoveServer(&server)
 	}()
 

@@ -13,7 +13,7 @@ type TeamMode interface {
 	Join(*Player)
 	ChangeTeam(*Player, string, bool)
 	Leave(*Player)
-	HandleFrag(fragger, victim *Player)
+	HandleFrag(clock int64, fragger, victim *Player)
 }
 
 type teamMode struct {
@@ -69,8 +69,8 @@ func (*teamMode) Leave(p *Player) {
 	p.Team.Remove(p)
 }
 
-func (m *teamMode) HandleFrag(fragger, victim *Player) {
-	victim.Die()
+func (m *teamMode) HandleFrag(clock int64, fragger, victim *Player) {
+	victim.Die(clock)
 	if fragger.Team == victim.Team {
 		fragger.Frags--
 	} else {
@@ -101,7 +101,7 @@ func (m *teamMode) ChangeTeam(p *Player, newTeamName string, forced bool) {
 
 	setTeam := func(old, new *Team) {
 		if p.State == playerstate.Alive {
-			m.HandleFrag(p, p)
+			m.HandleFrag(m.s.GameClock(), p, p)
 		}
 		old.Remove(p)
 		new.Add(p)

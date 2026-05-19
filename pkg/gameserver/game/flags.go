@@ -2,13 +2,12 @@ package game
 
 import (
 	"log"
-	"time"
 
 	"github.com/cfoust/sour/pkg/game/protocol"
 
+	"github.com/cfoust/sour/pkg/gameserver/deadline"
 	"github.com/cfoust/sour/pkg/gameserver/geom"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/playerstate"
-	"github.com/cfoust/sour/pkg/gameserver/timer"
 )
 
 type FlagMode interface {
@@ -18,7 +17,7 @@ type FlagMode interface {
 
 type flagMode interface {
 	TeamMode
-	CanSpawn(*Player) bool
+	CanSpawn(clock int64, p *Player) bool
 	InitFlags([]*flag) bool
 	TouchFlag(*Player, *flag)
 	DropFlag(*Player, *flag)
@@ -33,8 +32,8 @@ type flag struct {
 	version       int32
 	spawnLocation *geom.Vector
 	dropLocation  *geom.Vector
-	dropTime      time.Time
-	pendingReset  *timer.Timer
+	dropTime      int64 // ms timestamp, 0 = not dropped
+	pendingReset  deadline.Deadline
 }
 
 type handlesFlags struct {
@@ -48,8 +47,9 @@ var (
 	_ HasTimers = &handlesFlags{}
 )
 
-func handlingFlags(fm flagMode) *handlesFlags {
+func handlingFlags(s Server, fm flagMode) *handlesFlags {
 	return &handlesFlags{
+		s:        s,
 		flagMode: fm,
 	}
 }
@@ -162,7 +162,7 @@ func (m *handlesFlags) FlagsInitPacket() protocol.Message {
 		}
 
 		if f.carrier == nil {
-			dropped := !f.dropTime.IsZero()
+			dropped := f.dropTime != 0
 			flagState.Dropped = dropped
 			if dropped {
 				v := f.dropLocation
@@ -178,26 +178,49 @@ func (m *handlesFlags) FlagsInitPacket() protocol.Message {
 	return message
 }
 
-func (m *handlesFlags) HandleFrag(actor, victim *Player) {
+func (m *handlesFlags) HandleFrag(clock int64, actor, victim *Player) {
 	m.dropAllFlags(victim)
-	m.flagMode.HandleFrag(actor, victim)
+	m.flagMode.HandleFrag(clock, actor, victim)
+}
+
+// Tick checks all pending flag resets and executes them if expired.
+func (m *handlesFlags) Tick(clock int64) {
+	for _, f := range m.flags {
+		if f == nil || !f.pendingReset.Expired(clock) {
+			continue
+		}
+		f.pendingReset.Stop()
+		// Reset the flag
+		f.dropTime = 0
+		f.carrier = nil
+		f.version++
+		m.s.Broadcast(protocol.ResetFlag{
+			Flag:    f.index,
+			Version: f.version,
+			Spawn:   0,
+			Team:    f.teamID,
+			Score:   f.team.Score,
+		})
+	}
 }
 
 func (m *handlesFlags) Pause() {
+	clock := m.s.GameClock()
 	for _, f := range m.flags {
-		if f == nil || f.pendingReset == nil || f.pendingReset.TimeLeft() == 0 {
+		if f == nil {
 			continue
 		}
-		f.pendingReset.Pause()
+		f.pendingReset.Pause(clock)
 	}
 }
 
 func (m *handlesFlags) Resume() {
+	clock := m.s.GameClock()
 	for _, f := range m.flags {
-		if f == nil || f.pendingReset == nil || f.pendingReset.TimeLeft() == 0 {
+		if f == nil {
 			continue
 		}
-		f.pendingReset.Start()
+		f.pendingReset.Resume(clock)
 	}
 }
 
@@ -208,7 +231,7 @@ func (m *handlesFlags) Leave(p *Player) {
 
 func (m *handlesFlags) CleanUp() {
 	for _, f := range m.flags {
-		if f == nil || f.pendingReset == nil {
+		if f == nil {
 			continue
 		}
 		f.pendingReset.Stop()

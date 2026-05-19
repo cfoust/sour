@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/game"
-	P "github.com/cfoust/sour/pkg/game/protocol"
 	"github.com/cfoust/sour/pkg/mmr"
 	"github.com/cfoust/sour/pkg/config"
 	"github.com/cfoust/sour/pkg/server/ingress"
@@ -215,51 +214,10 @@ func (d *Duel) Respawn(ctx context.Context, user *User) {
 }
 
 func (d *Duel) PollDeaths(ctx context.Context) {
-	broadcasts := d.server.Broadcasts.Subscribe()
-	defer broadcasts.Done()
-
-	for {
-		select {
-		case messages := <-broadcasts.Recv():
-			for _, message := range messages {
-				if message.Type() != P.N_DIED {
-					continue
-				}
-				died := message.(P.Died)
-
-				var killed *User
-
-				numA := int32(d.A.GetClientNum())
-				numB := int32(d.B.GetClientNum())
-
-				if died.Client == numA {
-					killed = d.A
-				} else if died.Client == numB {
-					killed = d.B
-				}
-
-				d.Respawn(ctx, killed)
-
-				d.Mutex.Lock()
-				if died.Client == died.Killer {
-					if killed == d.A {
-						d.scoreA = died.KillerFrags
-					} else if killed == d.B {
-						d.scoreB = died.KillerFrags
-					}
-				} else {
-					if killed == d.A {
-						d.scoreB = died.KillerFrags
-					} else if killed == d.B {
-						d.scoreA = died.KillerFrags
-					}
-				}
-				d.Mutex.Unlock()
-			}
-		case <-ctx.Done():
-			return
-		}
-	}
+	// TODO: Adapt to step-driven architecture. The old broadcast
+	// subscription pattern no longer exists. Death events need to be
+	// observed from the Step() output packets or via a callback.
+	<-ctx.Done()
 }
 
 // Free up resources and move clients back to their original servers
@@ -355,7 +313,7 @@ func (d *Duel) Run(ctx context.Context) {
 
 	go func() {
 		select {
-		case <-gameServer.Ctx().Done():
+		case <-gameServer.Ctx():
 			cancelMatch()
 		case <-matchContext.Done():
 			return

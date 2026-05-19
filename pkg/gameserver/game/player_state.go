@@ -1,14 +1,12 @@
 package game
 
 import (
-	"time"
-
 	"github.com/cfoust/sour/pkg/game/protocol"
+	"github.com/cfoust/sour/pkg/gameserver/deadline"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/armour"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/entity"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/playerstate"
 	"github.com/cfoust/sour/pkg/gameserver/protocol/weapon"
-	"github.com/cfoust/sour/pkg/gameserver/timer"
 )
 
 type PlayerState struct {
@@ -18,10 +16,10 @@ type PlayerState struct {
 	EditState playerstate.ID
 
 	// fields that reset at spawn
-	LastSpawnAttempt time.Time
-	QuadTimer        *timer.Timer
-	LastShot         time.Time
-	GunReloadEnd     time.Time
+	LastSpawnAttempt int64 // ms timestamp, -1 = none
+	QuadDeadline    deadline.Deadline
+	LastShot        int64 // ms timestamp
+	GunReloadEnd    int64 // ms timestamp
 	// reset at spawn to value depending on mode
 	Health         int32
 	Armour         int32
@@ -31,7 +29,7 @@ type PlayerState struct {
 
 	// reset at map change
 	LifeSequence    int32
-	LastDeath       time.Time
+	LastDeath       int64 // ms timestamp, 0 = none
 	MaxHealth       int32
 	Frags           int32
 	Deaths          int32
@@ -42,7 +40,9 @@ type PlayerState struct {
 }
 
 func NewPlayerState() PlayerState {
-	ps := PlayerState{}
+	ps := PlayerState{
+		LastSpawnAttempt: -1,
+	}
 	ps.Reset()
 	return ps
 }
@@ -66,13 +66,13 @@ func (ps *PlayerState) ToWire() protocol.EntityState {
 	return spawnState
 }
 
-func (ps *PlayerState) Spawn() {
+func (ps *PlayerState) Spawn(clock int64) {
 	ps.LifeSequence = (ps.LifeSequence + 1) % 128
 
-	ps.LastSpawnAttempt = time.Now()
-	ps.QuadTimer = nil
-	ps.LastShot = time.Time{}
-	ps.GunReloadEnd = time.Time{}
+	ps.LastSpawnAttempt = clock
+	ps.QuadDeadline.Stop()
+	ps.LastShot = 0
+	ps.GunReloadEnd = 0
 }
 
 func (ps *PlayerState) SelectWeapon(id weapon.ID) (weapon.Weapon, bool) {
@@ -93,7 +93,7 @@ func (ps *PlayerState) applyDamage(damage int32) {
 	ps.Health -= damage
 }
 
-func (ps *PlayerState) CanPickup(p *timedPickup) bool {
+func (ps *PlayerState) CanPickup(clock int64, p *timedPickup) bool {
 	switch p.Typ {
 	case entity.PickupBoost:
 		return ps.MaxHealth < p.MaxAmount
@@ -107,13 +107,13 @@ func (ps *PlayerState) CanPickup(p *timedPickup) bool {
 	case entity.PickupYellowArmor:
 		return ps.ArmourType == armour.None || ps.Armour < p.MaxAmount
 	case entity.PickupQuadDamage:
-		return int32(ps.QuadTimer.TimeLeft()/time.Millisecond) < p.MaxAmount
+		return ps.QuadDeadline.TimeLeftMs(clock) < int64(p.MaxAmount)
 	default:
 		return ps.Ammo[weapon.ID(p.Typ-7)] < p.MaxAmount
 	}
 }
 
-func (ps *PlayerState) Pickup(p *timedPickup) {
+func (ps *PlayerState) Pickup(clock int64, p *timedPickup) {
 	min := func(a, b int32) int32 {
 		if a < b {
 			return a
@@ -122,8 +122,8 @@ func (ps *PlayerState) Pickup(p *timedPickup) {
 	}
 	switch p.Typ {
 	case entity.PickupBoost:
-		ps.MaxHealth = min(ps.MaxHealth+p.Amount, p.MaxAmount) // add 50 to max health
-		ps.Health = min(ps.Health+(2*p.Amount), ps.MaxHealth)  // add 100 to health
+		ps.MaxHealth = min(ps.MaxHealth+p.Amount, p.MaxAmount)
+		ps.Health = min(ps.Health+(2*p.Amount), ps.MaxHealth)
 	case entity.PickupHealth:
 		ps.Health = min(ps.Health+p.Amount, ps.MaxHealth)
 	case entity.PickupGreenArmour:
@@ -133,28 +133,22 @@ func (ps *PlayerState) Pickup(p *timedPickup) {
 		ps.ArmourType = armour.Yellow
 		ps.Armour = min(ps.Armour+p.Amount, p.MaxAmount)
 	case entity.PickupQuadDamage:
-		timeLeft := ps.QuadTimer.TimeLeft()
-		newTimeLeft := time.Duration(min(int32(timeLeft)+p.Amount, p.MaxAmount))
-		if ps.QuadTimer != nil {
-			ps.QuadTimer.Stop()
-		}
-		ps.QuadTimer = timer.NewTimer(newTimeLeft)
-		go ps.QuadTimer.Start()
+		timeLeft := ps.QuadDeadline.TimeLeftMs(clock)
+		newTimeLeft := int64(min(int32(timeLeft)+p.Amount, p.MaxAmount))
+		ps.QuadDeadline.Set(clock, newTimeLeft)
 	default:
 		ps.Ammo[weapon.ID(p.Typ-7)] = min(ps.Ammo[weapon.ID(p.Typ-7)]+p.Amount, p.MaxAmount)
 	}
 }
 
-func (ps *PlayerState) Die() {
+func (ps *PlayerState) Die(clock int64) {
 	if ps.State != playerstate.Alive {
 		return
 	}
 	ps.State = playerstate.Dead
 	ps.Deaths++
-	ps.LastDeath = time.Now()
-	if ps.QuadTimer != nil {
-		ps.QuadTimer.Stop()
-	}
+	ps.LastDeath = clock
+	ps.QuadDeadline.Stop()
 }
 
 // Resets a client's game state.
@@ -164,7 +158,7 @@ func (ps *PlayerState) Reset() {
 	}
 
 	ps.LifeSequence = 0
-	ps.LastDeath = time.Time{}
+	ps.LastDeath = 0
 	ps.MaxHealth = 100
 	ps.Frags = 0
 	ps.Deaths = 0

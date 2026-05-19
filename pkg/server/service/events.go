@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/cfoust/sour/pkg/chanlock"
 	"github.com/cfoust/sour/pkg/game"
@@ -425,23 +424,11 @@ func (c *Cluster) PollUser(ctx context.Context, user *User) {
 
 			}
 
-			packet := S.ServerPacket{
+			server.SendPacket(S.ServerPacket{
 				Session:  uint32(user.Id),
 				Channel:  msg.Channel,
 				Messages: processed,
-			}
-
-			timeoutCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
-			select {
-			case server.Incoming() <- packet:
-				cancel()
-			case <-timeoutCtx.Done():
-				// TODO(cfoust): 08/08/23 recover from this
-				logger.Error().
-					Msg("client -> server (sending to server timed out)")
-			}
-
-			cancel()
+			})
 
 		case msg := <-toClient:
 			packet := msg.Packet

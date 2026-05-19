@@ -16,11 +16,11 @@ func (s *Server) setAuthRole(client *Client, rol role.ID, domain, name string) {
 
 	if client.Role >= rol {
 		msg := fmt.Sprintf("%s authenticated as %s", s.Clients.UniqueName(client), authUser)
-		s.Clients.Message(msg)
+		s.Message(msg)
 		log.Println(cubecode.SanitizeString(msg))
 	} else {
 		msg := fmt.Sprintf("%s claimed %s privileges as %s", s.Clients.UniqueName(client), rol, authUser)
-		s.Clients.Message(msg)
+		s.Message(msg)
 		log.Println(cubecode.SanitizeString(msg))
 		s._setRole(client, rol)
 	}
@@ -50,7 +50,7 @@ func (s *Server) setRole(client *Client, targetCN uint32, rol role.ID) {
 	} else {
 		msg = fmt.Sprintf("%s gave %s privileges to %s", s.Clients.UniqueName(client), rol, s.Clients.UniqueName(target))
 	}
-	s.Clients.Message(msg)
+	s.Message(msg)
 	log.Println(cubecode.SanitizeString(msg))
 
 	s._setRole(target, rol)
@@ -59,5 +59,5 @@ func (s *Server) setRole(client *Client, targetCN uint32, rol role.ID) {
 func (s *Server) _setRole(client *Client, rol role.ID) {
 	client.Role = rol
 	message, _ := s.PrivilegedUsersPacket()
-	s.Clients.Broadcast(message)
+	s.Broadcast(message)
 }

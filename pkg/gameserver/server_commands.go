@@ -129,9 +129,9 @@ var ToggleKeepTeams = &ServerCommand{
 		}
 		if changed {
 			if s.KeepTeams {
-				s.Clients.Message("teams will be kept")
+				s.Message("teams will be kept")
 			} else {
-				s.Clients.Message("teams will be shuffled")
+				s.Message("teams will be shuffled")
 			}
 		} else {
 			if s.KeepTeams {
@@ -169,9 +169,9 @@ var ToggleCompetitiveMode = &ServerCommand{
 		}
 		if changed {
 			if s.CompetitiveMode {
-				s.Clients.Message("competitive mode will be enabled with next game")
+				s.Message("competitive mode will be enabled with next game")
 			} else {
-				s.Clients.Message("competitive mode will be disabled with next game")
+				s.Message("competitive mode will be disabled with next game")
 			}
 		} else {
 			if s.CompetitiveMode {
@@ -201,9 +201,9 @@ var ToggleReportStats = &ServerCommand{
 		}
 		if changed {
 			if s.ReportStats {
-				s.Clients.Message("stats will be reported at intermission")
+				s.Message("stats will be reported at intermission")
 			} else {
-				s.Clients.Message("stats will not be reported")
+				s.Message("stats will not be reported")
 			}
 		} else {
 			if s.ReportStats {
@@ -239,6 +239,6 @@ var SetTimeLeft = &ServerCommand{
 			s.Message(fmt.Sprintf("%s set the time remaining to %s", s.Clients.UniqueName(c), d))
 		}
 
-		s.Clock.SetTimeLeft(d)
+		s.Clock.SetTimeLeft(s.gameClock, d)
 	},
 }
