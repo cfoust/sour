@@ -293,10 +293,8 @@ func (s *Server) HandlePacket(client *Client, channelID uint8, message P.Message
 
 	case P.N_PAUSEGAME:
 		msg := message.(P.PauseGame)
-		if s.MasterMode < mastermode.Locked {
-			if client.Role == role.None {
-				return
-			}
+		if client.Role < role.Master {
+			return
 		}
 		if msg.Paused {
 			s.State.Clock.Pause(s.gameClock, &client.Player)

@@ -1,4 +1,4 @@
-package sim_test
+package tests
 
 import (
 	"github.com/cfoust/sour/pkg/gameserver"
