@@ -60,6 +60,19 @@ func MergeCatalogs(sources []Source) *ResolvedCatalog {
 			if entry.Gif != "" {
 				existing.GifURL = resolveURL(src.BaseURL, entry.Gif)
 			}
+			if len(entry.Images) > 0 {
+				urls := make([]string, len(entry.Images))
+				for i, img := range entry.Images {
+					urls[i] = resolveURL(src.BaseURL, img)
+				}
+				existing.ImageURLs = urls
+			}
+			if len(entry.Modes) > 0 {
+				existing.Modes = entry.Modes
+			}
+			if entry.Players != "" {
+				existing.Players = entry.Players
+			}
 
 			result.Maps[name] = existing
 		}

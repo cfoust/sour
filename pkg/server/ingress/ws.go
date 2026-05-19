@@ -43,14 +43,22 @@ type ServerInfo struct {
 	Length int
 }
 
+type ClusterServerInfo struct {
+	Name           string
+	Map            string
+	Mode           string
+	CurrentPlayers int
+	MaxPlayers     int
+}
+
 // Contains information on servers this cluster contains and real ones from the
 // master.
 type InfoMessage struct {
 	Op int // InfoOp
 	// All of the servers from the master (real Sauerbraten servers.)
 	Master []ServerInfo
-	// All of the servers this cluster hosts.
-	Cluster []string
+	// Decoded info for cluster-hosted servers.
+	Servers []ClusterServerInfo
 }
 
 // Contains a packet from the server a client is connected to.
@@ -226,6 +234,7 @@ type WSIngress struct {
 	mutex         sync.Mutex
 	serverWatcher *watcher.Watcher
 	httpServer    *http.Server
+	clusterLister func() []ClusterServerInfo
 }
 
 func NewWSIngress(newClients chan Connection) *WSIngress {
@@ -234,6 +243,12 @@ func NewWSIngress(newClients chan Connection) *WSIngress {
 		clients:       make(map[*WSClient]struct{}),
 		serverWatcher: watcher.NewWatcher(),
 	}
+}
+
+// SetClusterLister sets a callback that provides decoded cluster server info.
+// This avoids a circular import between ingress and servers.
+func (server *WSIngress) SetClusterLister(fn func() []ClusterServerInfo) {
+	server.clusterLister = fn
 }
 
 func WriteTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn, msg []byte) error {
@@ -491,9 +506,15 @@ func (server *WSIngress) BuildBroadcast() ([]byte, error) {
 		index++
 	}
 
+	var clusterServers []ClusterServerInfo
+	if server.clusterLister != nil {
+		clusterServers = server.clusterLister()
+	}
+
 	infoMessage := InfoMessage{
-		Op:     InfoOp,
-		Master: masterServers,
+		Op:      InfoOp,
+		Master:  masterServers,
+		Servers: clusterServers,
 	}
 
 	bytes, err := cbor.Marshal(infoMessage)

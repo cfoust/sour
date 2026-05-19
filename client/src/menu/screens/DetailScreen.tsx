@@ -4,6 +4,7 @@ import { t } from '../theme'
 import { Btn, BtnIcon, Marker, FilterLabel, MetaSection, Mono } from '../styled'
 import Icon from '../Icon'
 import MapThumb from '../MapThumb'
+import ModePill from '../ModePill'
 import MapCard from '../MapCard'
 import type { BrowseMapEntry } from '../../catalog/types'
 
@@ -258,6 +259,41 @@ const PermalinkNote = styled.div`
   line-height: 1.5;
 `
 
+const ModesList = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+`
+
+const ModeNote = styled.div`
+  font-family: ${t.fontMono};
+  font-size: 10px;
+  color: ${t.mute};
+  margin-top: 10px;
+  line-height: 1.5;
+`
+
+const Gallery = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 32px;
+`
+
+const GalleryShot = styled.div`
+  aspect-ratio: 4 / 3;
+  background: ${t.surface};
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+`
+
+const GalleryImg = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`
+
 function yearFromDate(date?: string): string | null {
   if (!date) return null
   const y = date.slice(0, 4)
@@ -304,6 +340,9 @@ export default function DetailScreen({ map, allMaps, onBack, onPlay, onOpenAutho
         <HeroStamps>
           <span>{map.name.toUpperCase()}</span>
           {year && <><span>·</span><span>{year}</span></>}
+          {map.modes && map.modes.length > 0 && (
+            <><span>·</span><span>{map.modes.map(m => m.toUpperCase()).join(' / ')}</span></>
+          )}
         </HeroStamps>
       </HeroImg>
 
@@ -336,9 +375,36 @@ export default function DetailScreen({ map, allMaps, onBack, onPlay, onOpenAutho
               <p>{map.description}</p>
             </Descr>
           )}
+          {map.imageUrls && map.imageUrls.length > 1 && (
+            <>
+              <FilterLabel>Screenshots · {map.imageUrls.length}</FilterLabel>
+              <Gallery>
+                {map.imageUrls.map((url, i) => (
+                  <GalleryShot key={i}>
+                    <GalleryImg src={url} alt={`${map.name} screenshot ${i + 1}`} loading="lazy" />
+                  </GalleryShot>
+                ))}
+              </Gallery>
+            </>
+          )}
         </Left>
 
         <Sidebar>
+          {/* Game modes */}
+          {map.modes && map.modes.length > 0 && (
+            <MetaSection>
+              <FilterLabel>Game modes</FilterLabel>
+              <ModesList>
+                {map.modes.map((m, i) => (
+                  <ModePill key={m} mode={m} primary={i === 0} />
+                ))}
+              </ModesList>
+              <ModeNote>
+                Designed primarily for <span style={{ color: t.bone2 }}>{map.modes[0].toUpperCase()}</span>.
+              </ModeNote>
+            </MetaSection>
+          )}
+
           {/* Particulars */}
           <MetaSection>
             <FilterLabel>Particulars</FilterLabel>
@@ -346,6 +412,12 @@ export default function DetailScreen({ map, allMaps, onBack, onPlay, onOpenAutho
               <MetaRow>
                 <MetaKey>Released</MetaKey>
                 <MetaVal>{map.date}</MetaVal>
+              </MetaRow>
+            )}
+            {map.players && (
+              <MetaRow>
+                <MetaKey>Players</MetaKey>
+                <MetaVal>{map.players}</MetaVal>
               </MetaRow>
             )}
           </MetaSection>

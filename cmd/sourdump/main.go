@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
+	"github.com/cfoust/sour/pkg/game/constants"
 	V "github.com/cfoust/sour/pkg/game/variables"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/min"
@@ -183,6 +185,56 @@ func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.M
 	}
 
 	return references, nil
+}
+
+// DeriveGameModes analyzes map entities to determine supported game modes.
+func DeriveGameModes(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	_map, err := maps.FromGZ(data)
+	if err != nil {
+		return nil, err
+	}
+
+	hasTeamSpawns := false
+	hasFlags := false
+	hasBases := false
+
+	team0 := false
+	team1 := false
+
+	for _, ent := range _map.Entities {
+		switch constants.EntityType(ent.Type) {
+		case constants.EntityTypePlayerStart:
+			if ent.Attr2 == 0 {
+				team0 = true
+			} else if ent.Attr2 == 1 {
+				team1 = true
+			}
+		case constants.EntityTypeFlag:
+			hasFlags = true
+		case constants.EntityTypeBase:
+			hasBases = true
+		}
+	}
+
+	hasTeamSpawns = team0 && team1
+
+	modes := []string{"ffa"}
+	if hasTeamSpawns || hasFlags || hasBases {
+		modes = append(modes, "tdm")
+	}
+	if hasFlags {
+		modes = append(modes, "ctf")
+	}
+	if hasBases {
+		modes = append(modes, "capture")
+	}
+
+	return modes, nil
 }
 
 const MODEL_DIR = "packages/models"
@@ -468,6 +520,8 @@ func main() {
 	downloadCmd := flag.NewFlagSet("download", flag.ExitOnError)
 	outDir := downloadCmd.String("outdir", "output/", "The directory in which to save the assets.")
 
+	modesCmd := flag.NewFlagSet("modes", flag.ExitOnError)
+
 	listCmd := flag.NewFlagSet("list", flag.ExitOnError)
 	queryCmd := flag.NewFlagSet("query", flag.ExitOnError)
 	hashCmd := flag.NewFlagSet("hash", flag.ExitOnError)
@@ -526,6 +580,18 @@ func main() {
 			log.Fatal().Msg("You must provide at least one path to query.")
 		}
 		Query(cache, assetRoots, args)
+	case "modes":
+		modesCmd.Parse(args[1:])
+		args := modesCmd.Args()
+		if len(args) != 1 {
+			log.Fatal().Msg("You must provide a single .ogz file path.")
+		}
+		modes, err := DeriveGameModes(args[0])
+		if err != nil {
+			log.Fatal().Err(err).Msg("could not derive game modes")
+		}
+		out, _ := json.Marshal(modes)
+		fmt.Println(string(out))
 	case "hash":
 		hashCmd.Parse(args[1:])
 		args := hashCmd.Args()

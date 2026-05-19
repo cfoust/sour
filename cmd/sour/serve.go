@@ -225,6 +225,19 @@ func serveCommand(configs []string) error {
 
 	newConnections := make(chan ingress.Connection)
 	wsIngress := ingress.NewWSIngress(newConnections)
+	wsIngress.SetClusterLister(func() []ingress.ClusterServerInfo {
+		var result []ingress.ClusterServerInfo
+		for _, s := range serverManager.ListServers() {
+			result = append(result, ingress.ClusterServerInfo{
+				Name:           s.Name,
+				Map:            s.Map,
+				Mode:           s.Mode,
+				CurrentPlayers: s.CurrentPlayers,
+				MaxPlayers:     s.MaxPlayers,
+			})
+		}
+		return result
+	})
 	enet := make([]*ingress.ENetIngress, 0)
 	infoServices := make([]*servers.ServerInfoService, 0)
 	cluster.StartServers(ctx)

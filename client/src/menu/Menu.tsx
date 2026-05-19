@@ -36,16 +36,20 @@ const Placeholder = styled.div`
   color: ${t.mute};
 `
 
+import type { ClusterServerInfo } from '../protocol'
+
 type Props = {
   maps: BrowseMapEntry[]
   loading: boolean
   onPlay: (mapName: string) => void
+  onJoinServer: (serverName: string) => void
   onClose: () => void
   isInGame: boolean
   initialView?: 'pause' | 'browse'
+  servers?: ClusterServerInfo[]
 }
 
-export default function Menu({ maps, loading, onPlay, onClose, isInGame, initialView }: Props) {
+export default function Menu({ maps, loading, onPlay, onJoinServer, onClose, isInGame, initialView, servers = [] }: Props) {
   const { view, activeTab, switchTab, openDetail, openAuthor, goBack } = useMenuNav('browse')
   const [searchQuery, setSearchQuery] = React.useState('')
   const [showPause, setShowPause] = React.useState(initialView === 'pause')
@@ -182,9 +186,11 @@ export default function Menu({ maps, loading, onPlay, onClose, isInGame, initial
         return (
           <HomeScreen
             maps={maps}
+            servers={servers}
             onOpenMap={handleOpenMap}
             onPlayMap={handlePlay}
             onSeeAll={() => switchTab('browse')}
+            onJoinServer={onJoinServer}
           />
         )
       case 'browse':

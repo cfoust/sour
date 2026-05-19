@@ -27,10 +27,18 @@ export type ServerInfo = {
   Length: number
 }
 
+export type ClusterServerInfo = {
+  Name: string
+  Map: string
+  Mode: string
+  CurrentPlayers: number
+  MaxPlayers: number
+}
+
 export type InfoMessage = {
   Op: MessageType.Info
   Master: ServerInfo[]
-  Cluster: string[]
+  Servers: ClusterServerInfo[]
 }
 
 export type PacketMessage = {

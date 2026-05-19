@@ -3,7 +3,7 @@ import styled from '@emotion/styled'
 import { css } from '@emotion/react'
 import { t } from './theme'
 import { FilterLabel, Mono } from './styled'
-import type { Filters } from './useFilters'
+import type { Filters, ModeCount } from './useFilters'
 
 const Rail = styled.aside`
   border-right: 1px solid ${t.line};
@@ -137,22 +137,37 @@ const YearValue = styled.span`
   color: ${t.bone};
 `
 
+const MODE_LABELS: Record<string, string> = {
+  ffa: 'Free for All',
+  tdm: 'Team DM',
+  ctf: 'Capture the Flag',
+  capture: 'Capture',
+  insta: 'Instagib',
+  effic: 'Efficiency',
+  tac: 'Tactics',
+  coop: 'Co-op',
+}
+
 type Props = {
   filters: Filters
   onToggleHasScreenshot: () => void
+  onToggleMode: (mode: string) => void
   onSetYear: (year: number) => void
   yearRange: [number, number]
   totalMaps: number
   mapsWithScreenshots: number
+  modeCounts: ModeCount[]
 }
 
 export default function FilterRail({
   filters,
   onToggleHasScreenshot,
+  onToggleMode,
   onSetYear,
   yearRange,
   totalMaps,
   mapsWithScreenshots,
+  modeCounts,
 }: Props) {
   const [minYear, maxYear] = yearRange
   const yearSpan = maxYear - minYear || 1
@@ -167,6 +182,24 @@ export default function FilterRail({
 
   return (
     <Rail>
+      {modeCounts.length > 0 && (
+        <Group>
+          <FilterLabel>Game mode</FilterLabel>
+          {modeCounts.map(mc => {
+            const active = filters.activeModes.has(mc.mode)
+            return (
+              <Row key={mc.mode} $active={active} onClick={() => onToggleMode(mc.mode)}>
+                <RowLeft>
+                  <Check $active={active} />
+                  {MODE_LABELS[mc.mode] || mc.mode}
+                </RowLeft>
+                <Num>{mc.count.toLocaleString()}</Num>
+              </Row>
+            )
+          })}
+        </Group>
+      )}
+
       <Group>
         <FilterLabel>Year</FilterLabel>
         <SliderWrap onClick={handleSliderClick}>

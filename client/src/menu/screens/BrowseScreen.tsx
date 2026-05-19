@@ -143,7 +143,7 @@ type Props = {
 }
 
 export default function BrowseScreen({ maps, searchQuery, onOpenMap, onPlayMap }: Props) {
-  const { filters, filtered, yearRange, mapsWithScreenshots, setYear, toggleHasScreenshot } = useFilters(maps)
+  const { filters, filtered, yearRange, mapsWithScreenshots, modeCounts, setYear, toggleHasScreenshot, toggleMode } = useFilters(maps)
   const { query, setQuery, sortBy, setSortBy, results } = useSearch(filtered)
   const [shown, setShown] = React.useState(PAGE_SIZE)
 
@@ -176,10 +176,12 @@ export default function BrowseScreen({ maps, searchQuery, onOpenMap, onPlayMap }
       <FilterRail
         filters={filters}
         onToggleHasScreenshot={toggleHasScreenshot}
+        onToggleMode={toggleMode}
         onSetYear={setYear}
         yearRange={yearRange}
         totalMaps={maps.length}
         mapsWithScreenshots={mapsWithScreenshots}
+        modeCounts={modeCounts}
       />
       <Main>
         <Subhead>

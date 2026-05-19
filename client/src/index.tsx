@@ -199,6 +199,10 @@ function App() {
     [catalog]
   )
 
+  const [clusterServers, setClusterServers] = React.useState<
+    import('./protocol').ClusterServerInfo[]
+  >([])
+
   const [state, setState] = React.useState<GameState>({
     type: GameStateType.PageLoading,
   })
@@ -868,7 +872,11 @@ function App() {
       const serverMessage: ServerMessage = CBOR.decode(evt.data)
 
       if (serverMessage.Op === MessageType.Info) {
-        const { Cluster, Master } = serverMessage
+        const { Master, Servers } = serverMessage
+
+        if (Servers) {
+          setClusterServers(Servers)
+        }
 
         if (
           BananaBread == null ||
@@ -991,6 +999,11 @@ function App() {
     setBrowsing(false)
   }, [])
 
+  const handleJoinServer = React.useCallback((serverName: string) => {
+    window.location.hash = `#/server/${serverName}`
+    setBrowsing(false)
+  }, [])
+
   if (browsing) {
     return (
       <BrowseContainer>
@@ -998,9 +1011,11 @@ function App() {
           maps={browseEntries}
           loading={catalogLoading}
           onPlay={handlePlay}
+          onJoinServer={handleJoinServer}
           onClose={() => setBrowsing(false)}
           isInGame={state.type === GameStateType.Ready}
           initialView={state.type === GameStateType.Ready ? 'pause' : 'browse'}
+          servers={clusterServers}
         />
       </BrowseContainer>
     )

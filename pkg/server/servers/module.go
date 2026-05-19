@@ -83,6 +83,36 @@ func (manager *ServerManager) ReceiveKicks() <-chan ClientKick {
 	return manager.kicks
 }
 
+type ServerSummary struct {
+	Name           string
+	Map            string
+	Mode           string
+	CurrentPlayers int
+	MaxPlayers     int
+}
+
+func (manager *ServerManager) ListServers() []ServerSummary {
+	manager.Mutex.Lock()
+	defer manager.Mutex.Unlock()
+
+	var result []ServerSummary
+	for _, s := range manager.Servers {
+		info := s.GetServerInfo()
+		modeName := ""
+		if int(info.GameMode) < len(C.MODE_NAMES) {
+			modeName = C.MODE_NAMES[info.GameMode]
+		}
+		result = append(result, ServerSummary{
+			Name:           s.Alias,
+			Map:            info.Map,
+			Mode:           modeName,
+			CurrentPlayers: int(info.NumClients),
+			MaxPlayers:     int(info.MaxClients),
+		})
+	}
+	return result
+}
+
 func (manager *ServerManager) GetServerInfo() *ServerInfo {
 	info := ServerInfo{}
 

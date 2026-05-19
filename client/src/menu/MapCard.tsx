@@ -135,6 +135,13 @@ export default function MapCard({ map, onOpen, onPlay }: Props) {
         <MapThumb imageUrl={map.imageUrl} name={map.name} />
         <Scrim />
         {year && <YearBadge>{year}</YearBadge>}
+        {map.modes && map.modes.length > 0 && (
+          <Modes>
+            {map.modes.slice(0, 2).map(m => (
+              <ModePill key={m} mode={m} />
+            ))}
+          </Modes>
+        )}
         <PlayBtn
           className="map-card-play"
           onClick={e => {

@@ -4,6 +4,9 @@ export type MapEntry = {
   description?: string
   imageUrl?: string
   gifUrl?: string
+  imageUrls?: string[]
+  modes?: string[]
+  players?: string
 }
 
 export type Catalog = {

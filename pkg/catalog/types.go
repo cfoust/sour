@@ -1,11 +1,14 @@
 package catalog
 
 type MapEntry struct {
-	Author      string `json:"author,omitempty"`
-	Date        string `json:"date,omitempty"`
-	Description string `json:"description,omitempty"`
-	Image       string `json:"image,omitempty"`
-	Gif         string `json:"gif,omitempty"`
+	Author      string   `json:"author,omitempty"`
+	Date        string   `json:"date,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Image       string   `json:"image,omitempty"`
+	Gif         string   `json:"gif,omitempty"`
+	Images      []string `json:"images,omitempty"`
+	Modes       []string `json:"modes,omitempty"`
+	Players     string   `json:"players,omitempty"`
 }
 
 type ModEntry struct {
@@ -21,11 +24,14 @@ type Catalog struct {
 
 // ResolvedMapEntry has image/gif hashes replaced with full URLs.
 type ResolvedMapEntry struct {
-	Author      string `json:"author,omitempty"`
-	Date        string `json:"date,omitempty"`
-	Description string `json:"description,omitempty"`
-	ImageURL    string `json:"imageUrl,omitempty"`
-	GifURL      string `json:"gifUrl,omitempty"`
+	Author      string   `json:"author,omitempty"`
+	Date        string   `json:"date,omitempty"`
+	Description string   `json:"description,omitempty"`
+	ImageURL    string   `json:"imageUrl,omitempty"`
+	GifURL      string   `json:"gifUrl,omitempty"`
+	ImageURLs   []string `json:"imageUrls,omitempty"`
+	Modes       []string `json:"modes,omitempty"`
+	Players     string   `json:"players,omitempty"`
 }
 
 // ResolvedModEntry has image hash replaced with a full URL.
