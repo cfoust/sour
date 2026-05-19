@@ -160,7 +160,7 @@ export default function AuthorScreen({ authorName, allMaps, onBack, onOpenMap, o
   return (
     <Wrap>
       <BackBar onClick={onBack}>
-        <Icon name="arrow-l" size={11} /> Back to archive
+        <Icon name="arrow-l" size={11} /> Back to maps
       </BackBar>
 
       <Hero>
@@ -176,7 +176,7 @@ export default function AuthorScreen({ authorName, allMaps, onBack, onOpenMap, o
           <Stats>
             <StatBlock>
               <StatValue>{works.length}</StatValue>
-              <StatLabel>Maps in archive</StatLabel>
+              <StatLabel>Maps</StatLabel>
             </StatBlock>
           </Stats>
         </TextBlock>

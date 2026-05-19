@@ -202,7 +202,7 @@ const BottomTab = styled.button<{ $active?: boolean }>`
 `
 
 const TABS: { id: MenuTab; name: string }[] = [
-  { id: 'browse', name: 'Archive' },
+  { id: 'browse', name: 'Maps' },
   { id: 'home', name: 'Home' },
   { id: 'servers', name: 'Servers' },
   { id: 'settings', name: 'Settings' },
@@ -261,7 +261,7 @@ export default function MobileBrowse({
       </TabBar>
 
       <Hero>
-        <Eyebrow>The Archive</Eyebrow>
+        <Eyebrow>Maps</Eyebrow>
         <MobileH1>{maps.length.toLocaleString()} <Marker>maps</Marker></MobileH1>
         <MobileMeta>{authors} authors · {mapsWithScreenshots.toLocaleString()} with screenshots</MobileMeta>
       </Hero>

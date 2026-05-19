@@ -112,7 +112,7 @@ export default function HomeScreen({ maps, servers, onOpenMap, onPlayMap, onSeeA
         ) : (
           <EmptyState>
             <EmptyTitle>No servers running</EmptyTitle>
-            Browse the archive to find maps and start playing.
+            Browse maps to find something and start playing.
           </EmptyState>
         )}
       </Stack>
@@ -121,7 +121,7 @@ export default function HomeScreen({ maps, servers, onOpenMap, onPlayMap, onSeeA
       <SectionHeadWrap>
         <div>
           <SectionTitle>Popular maps</SectionTitle>
-          <SectionMeta>From the archive.</SectionMeta>
+          <SectionMeta>Most played, all time.</SectionMeta>
         </div>
         <SectionLink onClick={onSeeAll}>
           See all {maps.length.toLocaleString()} →

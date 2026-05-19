@@ -174,7 +174,7 @@ type Props = {
 
 const TABS: TabDef[] = [
   { id: 'home', name: 'Home' },
-  { id: 'browse', name: 'Archive' },
+  { id: 'browse', name: 'Maps' },
   { id: 'mods', name: 'Mods' },
   { id: 'servers', name: 'Servers' },
   { id: 'settings', name: 'Settings' },

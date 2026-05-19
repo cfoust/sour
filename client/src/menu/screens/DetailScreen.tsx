@@ -327,7 +327,7 @@ export default function DetailScreen({ map, allMaps, onBack, onPlay, onOpenAutho
   return (
     <Wrap>
       <BackBar onClick={onBack}>
-        <Icon name="arrow-l" size={11} /> Back to archive
+        <Icon name="arrow-l" size={11} /> Back to maps
       </BackBar>
 
       <HeroImg>

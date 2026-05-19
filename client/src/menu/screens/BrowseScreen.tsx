@@ -186,7 +186,7 @@ export default function BrowseScreen({ maps, searchQuery, onOpenMap, onPlayMap }
       <Main>
         <Subhead>
           <div>
-            <Title>The <Marker>Archive</Marker></Title>
+            <Title>All <Marker>Maps</Marker></Title>
             <MetaStrip>
               <span>{results.length.toLocaleString()} maps</span>
               <span>{authors} authors</span>

@@ -50,7 +50,7 @@ type Props = {
 }
 
 export default function Menu({ maps, loading, onPlay, onJoinServer, onClose, isInGame, initialView, servers = [] }: Props) {
-  const { view, activeTab, switchTab, openDetail, openAuthor, goBack } = useMenuNav('browse')
+  const { view, activeTab, switchTab, openDetail, openAuthor, goBack } = useMenuNav('home')
   const [searchQuery, setSearchQuery] = React.useState('')
   const [showPause, setShowPause] = React.useState(initialView === 'pause')
 

@@ -160,7 +160,7 @@ export default function PauseScreen({ mapName, onResume, onDisconnect, onBrowse,
         <ArchiveLink onClick={onBrowse}>
           <ArchiveLeft>
             <ArchiveLinkLabel>
-              Archive{mapCount ? ` · ${mapCount.toLocaleString()} maps` : ''}
+              Maps{mapCount ? ` · ${mapCount.toLocaleString()}` : ''}
             </ArchiveLinkLabel>
             <ArchiveLinkTitle>Browse while you wait</ArchiveLinkTitle>
           </ArchiveLeft>
