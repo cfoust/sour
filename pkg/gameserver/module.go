@@ -323,8 +323,8 @@ func (s *Server) ConfirmSpawn(client *Client, lifeSequence, _weapon int32) {
 		EntityState: client.ToWire(),
 	})
 
-	if clock, competitive := s.GameMode.(game.Competitive); competitive {
-		clock.Spawned(&client.Player)
+	if notifier, ok := s.State.Clock.(game.SpawnNotifier); ok {
+		notifier.Spawned(&client.Player)
 	}
 }
 

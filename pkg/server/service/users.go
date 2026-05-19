@@ -360,7 +360,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 
 	oldServer := u.GetServer()
 	if oldServer != nil {
-		oldServer.Leave(uint32(u.Id))
+		oldServer.LeaveClient(uint32(u.Id))
 		u.ServerSession.Cancel()
 
 		// Remove all the other clients from this client's perspective
@@ -392,9 +392,10 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 	u.ServerSession = utils.NewSession(u.Session.Ctx())
 	u.Mutex.Unlock()
 
-	connected := make(chan bool, 1)
-
-	serverClient, serverConnected := server.Connect(uint32(u.Id))
+	// Connect the client to the server. This sends ServerInfo immediately.
+	// The actual join happens when the client sends N_CONNECT, which is
+	// processed in the next Step() call.
+	serverClient := server.ConnectClient(uint32(u.Id))
 	u.ServerClient = serverClient
 
 	serverName := server.Reference()
@@ -403,47 +404,58 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 	}
 	u.Connection.Connect(serverName, server.Hidden, shouldCopy)
 
-	// Give the client one second to connect.
-	go func() {
-		connectCtx, cancel := context.WithTimeout(u.ServerSession.Ctx(), time.Second*1)
-		defer cancel()
+	connected := make(chan bool, 1)
+	go u.pollJoin(server, serverClient, connected)
+	return connected, nil
+}
 
+// pollJoin polls for the client's Joined status, which becomes true after
+// the server processes N_CONNECT in a Step() call.
+func (u *User) pollJoin(server *servers.GameServer, serverClient *gameserver.Client, connected chan<- bool) {
+	connectCtx, cancel := context.WithTimeout(u.ServerSession.Ctx(), time.Second*1)
+	defer cancel()
+
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
 		select {
-		case <-serverConnected:
-			u.Mutex.Lock()
-			u.Status = UserStatusConnected
-			u.Mutex.Unlock()
+		case <-ticker.C:
+			if serverClient != nil && serverClient.Joined {
+				u.Mutex.Lock()
+				u.Status = UserStatusConnected
+				u.Mutex.Unlock()
 
-			u.o.Mutex.Lock()
-			users, ok := u.o.Servers[server]
-			newUsers := make([]*User, 0)
-			if ok {
-				for _, otherUser := range users {
-					if u == otherUser {
-						continue
+				u.o.Mutex.Lock()
+				users, ok := u.o.Servers[server]
+				newUsers := make([]*User, 0)
+				if ok {
+					for _, otherUser := range users {
+						if u == otherUser {
+							continue
+						}
+						newUsers = append(newUsers, otherUser)
 					}
-
-					newUsers = append(newUsers, otherUser)
 				}
-			}
-			newUsers = append(newUsers, u)
-			u.o.Servers[u.Server] = newUsers
-			u.o.Mutex.Unlock()
+				newUsers = append(newUsers, u)
+				u.o.Servers[u.Server] = newUsers
+				u.o.Mutex.Unlock()
 
-			connected <- true
-			u.serverConnections <- ConnectionEvent{
-				Server: server,
+				connected <- true
+				u.serverConnections <- ConnectionEvent{
+					Server: server,
+				}
+				return
 			}
-
 		case <-u.Session.Ctx().Done():
 			connected <- false
+			return
 		case <-connectCtx.Done():
 			u.RestoreMessages()
 			connected <- false
+			return
 		}
-	}()
-
-	return connected, nil
+	}
 }
 
 // Mark the client's status as disconnected and cancel its session context.
@@ -451,7 +463,7 @@ func (u *User) ConnectToServer(server *servers.GameServer, target string, should
 func (u *User) DisconnectFromServer() error {
 	server := u.GetServer()
 	if server != nil {
-		server.Leave(uint32(u.Id))
+		server.LeaveClient(uint32(u.Id))
 	}
 
 	u.Mutex.Lock()

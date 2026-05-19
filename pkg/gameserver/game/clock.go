@@ -146,8 +146,14 @@ func (c *endlessClock) CleanUp() {
 	c.modeTimers.CleanUp()
 }
 
+// Competitive is a Clock that waits for all players to spawn.
 type Competitive interface {
 	Clock
+	Spawned(*Player)
+}
+
+// SpawnNotifier is checked by ConfirmSpawn to notify the clock system.
+type SpawnNotifier interface {
 	Spawned(*Player)
 }
 

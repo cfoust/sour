@@ -4,48 +4,35 @@ import (
 	"fmt"
 	"log"
 	"testing"
-	"time"
 
-	"github.com/cfoust/sour/pkg/gameserver/protocol/nmc"
+	"github.com/cfoust/sour/pkg/game/protocol"
 )
 
-var (
-	_ Server = &mockServer{}
-	//_ Player = &mockPlayer{}
-)
+var _ Server = &mockServer{}
 
-type mockServer struct{}
+type mockServer struct {
+	clock int64
+}
 
-func (s *mockServer) GameDuration() time.Duration { return 10 * time.Minute }
-
-func (s *mockServer) Broadcast(nmc.ID, ...interface{}) {}
-
-func (s *mockServer) Intermission() {}
-
-func (s *mockServer) ForEachPlayer(func(*Player)) {}
-
-func (s *mockServer) UniqueName(p *Player) string { return fmt.Sprintf("%v", p) }
-
-func (s *mockServer) NumberOfPlayers() int { return 5 }
+func (s *mockServer) GameDuration() int64                    { return 600000 }
+func (s *mockServer) GameClock() int64                       { return s.clock }
+func (s *mockServer) Broadcast(messages ...protocol.Message) {}
+func (s *mockServer) Message(message string)                 {}
+func (s *mockServer) Intermission()                          {}
+func (s *mockServer) ForEachPlayer(func(*Player))            {}
+func (s *mockServer) UniqueName(p *Player) string            { return fmt.Sprintf("%v", p) }
+func (s *mockServer) NumberOfPlayers() int                   { return 5 }
 
 func TestCompetitiveMode(t *testing.T) {
 	s := &mockServer{}
 
-	timing := NewCompetitiveClock(s)
-
-	var mode Mode = NewEfficCTF(s, true, timing)
+	var mode Mode = NewEfficCTF(s, true)
 
 	log.Printf("%T", mode)
 
 	teamed, ok := mode.(TeamMode)
 	if !ok {
 		t.Error("effic ctf is not a team mode")
-		return
-	}
-
-	_, ok = mode.(Clock)
-	if !ok {
-		t.Error("effic ctf is not a timed mode")
 		return
 	}
 
