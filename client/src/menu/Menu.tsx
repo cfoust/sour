@@ -36,6 +36,22 @@ const Placeholder = styled.div`
   color: ${t.mute};
 `
 
+const PausedOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  color: ${t.bone};
+  font-family: ${t.fontUi};
+  font-size: 14.5px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  backdrop-filter: blur(6px) saturate(0.9);
+  -webkit-backdrop-filter: blur(6px) saturate(0.9);
+  background: rgba(0, 0, 0, 0.35);
+`
+
 import type { ClusterServerInfo } from '../protocol'
 
 type Props = {
@@ -47,14 +63,31 @@ type Props = {
   isInGame: boolean
   initialView?: 'pause' | 'browse'
   servers?: ClusterServerInfo[]
+  currentMap?: string
+  currentServer?: string
+  playerName?: string
+  playerModel?: string
+  onNameChange?: (name: string) => void
+  onModelChange?: (model: string) => void
 }
 
-export default function Menu({ maps, loading, onPlay, onJoinServer, onClose, isInGame, initialView, servers = [] }: Props) {
+function execCommand(cmd: string) {
+  try {
+    if (typeof BananaBread !== 'undefined' && BananaBread.execute) {
+      BananaBread.execute(cmd)
+    }
+  } catch (e) {}
+}
+
+export default function Menu({
+  maps, loading, onPlay, onJoinServer, onClose, isInGame, initialView,
+  servers = [], currentMap, currentServer, playerName, playerModel,
+  onNameChange, onModelChange
+}: Props) {
   const { view, activeTab, switchTab, openDetail, openAuthor, goBack } = useMenuNav('home')
   const [searchQuery, setSearchQuery] = React.useState('')
   const [showPause, setShowPause] = React.useState(initialView === 'pause')
 
-  // If entering in-game, show pause overlay
   React.useEffect(() => {
     if (initialView === 'pause') {
       setShowPause(true)
@@ -69,6 +102,15 @@ export default function Menu({ maps, loading, onPlay, onJoinServer, onClose, isI
     openDetail(map.name)
   }, [openDetail])
 
+  const handleTab = React.useCallback((tab: MenuTab) => {
+    if (tab === 'game') {
+      setShowPause(true)
+    } else {
+      setShowPause(false)
+      switchTab(tab)
+    }
+  }, [switchTab])
+
   // Loading state
   if (loading) {
     return (
@@ -78,65 +120,79 @@ export default function Menu({ maps, loading, onPlay, onJoinServer, onClose, isI
     )
   }
 
-  // Pause overlay (in-game)
+  // Build pause action callbacks
+  const pauseActions = {
+    onResume: onClose,
+    onDisconnect: () => {
+      execCommand('disconnect')
+      onClose()
+    },
+    onVoteMap: () => {
+      onClose()
+      setTimeout(() => execCommand('showgui gamemode'), 50)
+    },
+    onSwitchTeam: () => {
+      execCommand('if (strcmp (getteam) "good") [team evil] [team good]')
+      onClose()
+    },
+    onToggleSpectator: () => {
+      execCommand('spectator (! (isspectator (getclientnum)))')
+      onClose()
+    },
+    onMaster: () => {
+      onClose()
+      setTimeout(() => execCommand('showgui master'), 50)
+    },
+  }
+
+  // Determine the overlay component
+  const Overlay = isInGame ? PausedOverlay : MenuOverlay
+
+  // Pause overlay (in-game, Game tab active)
   if (showPause && isInGame) {
     return (
-      <MenuOverlay style={{
-        background: 'linear-gradient(180deg, rgba(20,17,13,0.55) 0%, rgba(20,17,13,0.75) 100%)',
-      }}>
+      <Overlay>
         <TopBar
-          active={activeTab}
-          onTab={(tab) => {
-            setShowPause(false)
-            switchTab(tab)
-          }}
+          active={'game'}
+          onTab={handleTab}
           isInGame
           mapCount={maps.length}
           searchQuery={searchQuery}
           onSearch={setSearchQuery}
+          playerName={playerName}
+          playerModel={playerModel}
+          onNameChange={onNameChange}
+          onModelChange={onModelChange}
         />
         <PauseScreen
-          onResume={onClose}
-          onDisconnect={() => {
-            // Try to execute disconnect command if available
-            try {
-              if (typeof BananaBread !== 'undefined' && BananaBread.execute) {
-                BananaBread.execute('disconnect')
-              }
-            } catch (e) {}
-            onClose()
-          }}
-          onBrowse={() => {
-            setShowPause(false)
-            switchTab('browse')
-          }}
-          mapCount={maps.length}
+          mapName={currentMap}
+          serverName={currentServer}
+          {...pauseActions}
         />
-      </MenuOverlay>
+      </Overlay>
     )
   }
 
   // Mobile layout
   if (BROWSER.isMobile) {
-    // Mobile detail
     if (view.screen === 'detail') {
       const map = maps.find(m => m.name === view.mapId)
       if (map) {
         return (
-          <MenuOverlay>
+          <Overlay>
             <MobileDetail
               map={map}
               onBack={goBack}
               onPlay={handlePlay}
               onOpenAuthor={openAuthor}
             />
-          </MenuOverlay>
+          </Overlay>
         )
       }
     }
 
     return (
-      <MenuOverlay>
+      <Overlay>
         <MobileBrowse
           maps={maps}
           activeTab={activeTab}
@@ -146,7 +202,7 @@ export default function Menu({ maps, loading, onPlay, onJoinServer, onClose, isI
           searchQuery={searchQuery}
           onSearch={setSearchQuery}
         />
-      </MenuOverlay>
+      </Overlay>
     )
   }
 
@@ -180,7 +236,6 @@ export default function Menu({ maps, loading, onPlay, onJoinServer, onClose, isI
       )
     }
 
-    // Tab screens
     switch (activeTab) {
       case 'home':
         return (
@@ -214,16 +269,20 @@ export default function Menu({ maps, loading, onPlay, onJoinServer, onClose, isI
   }
 
   return (
-    <MenuOverlay>
+    <Overlay>
       <TopBar
         active={activeTab}
-        onTab={switchTab}
+        onTab={handleTab}
         isInGame={isInGame}
         mapCount={maps.length}
         searchQuery={searchQuery}
         onSearch={setSearchQuery}
+        playerName={playerName}
+        playerModel={playerModel}
+        onNameChange={onNameChange}
+        onModelChange={onModelChange}
       />
       {renderScreen()}
-    </MenuOverlay>
+    </Overlay>
   )
 }

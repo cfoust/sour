@@ -1,9 +1,9 @@
 import * as React from 'react'
 import styled from '@emotion/styled'
-import { css } from '@emotion/react'
+import { css, keyframes } from '@emotion/react'
 import { t } from './theme'
 import Icon from './Icon'
-import { Mono } from './styled'
+import PlayerChip from './PlayerChip'
 
 const Header = styled.header`
   display: flex;
@@ -55,7 +55,12 @@ const Tabs = styled.nav`
   flex: 1 1 auto;
 `
 
-const Tab = styled.button<{ $active?: boolean }>`
+const gamePulseKf = keyframes`
+  0%   { box-shadow: 0 0 0 0 rgba(255, 214, 10, 0.85); }
+  100% { box-shadow: 0 0 0 10px rgba(255, 214, 10, 0); }
+`
+
+const Tab = styled.button<{ $active?: boolean; $game?: boolean }>`
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -73,11 +78,41 @@ const Tab = styled.button<{ $active?: boolean }>`
 
   &:hover { color: ${t.bone}; background: rgba(40, 28, 8, 0.04); }
 
-  ${p => p.$active && css`
+  ${p => p.$active && !p.$game && css`
     color: ${t.bone};
     background: ${t.accent};
     box-shadow: 0 3px 0 ${t.accent3};
     &:hover { background: ${t.accent}; }
+  `}
+
+  ${p => p.$game && css`
+    background: ${t.bone};
+    color: #f7eecf;
+    box-shadow: 0 3px 0 #000;
+    &:hover { background: #1a130a; color: #fff; }
+  `}
+
+  ${p => p.$game && p.$active && css`
+    background: ${t.accent};
+    color: ${t.bone};
+    box-shadow: 0 3px 0 ${t.accent3};
+    &:hover { background: ${t.accent}; }
+  `}
+`
+
+const GamePulse = styled.span<{ $active?: boolean }>`
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: ${t.accent};
+  box-shadow: 0 0 0 0 ${t.accent};
+  animation: ${gamePulseKf} 1.4s ease-out infinite;
+  margin-right: -2px;
+  flex: 0 0 auto;
+
+  ${p => p.$active && css`
+    background: ${t.bone};
+    animation: none;
   `}
 `
 
@@ -94,25 +129,6 @@ const Right = styled.div`
   align-items: center;
   gap: 10px;
   margin-left: auto;
-`
-
-const InGameBadge = styled.span`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: ${t.fontMono};
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: ${t.accent2};
-`
-
-const InGameDot = styled.span`
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: ${t.accent};
-  box-shadow: 0 0 8px ${t.accent};
 `
 
 const SearchWrap = styled.div`
@@ -155,12 +171,13 @@ const Kbd = styled.span`
   border-radius: 5px;
 `
 
-export type MenuTab = 'home' | 'browse' | 'mods' | 'servers' | 'settings'
+export type MenuTab = 'home' | 'browse' | 'mods' | 'servers' | 'settings' | 'game'
 
 type TabDef = {
   id: MenuTab
   name: string
   count?: string
+  game?: boolean
 }
 
 type Props = {
@@ -170,9 +187,13 @@ type Props = {
   mapCount?: number
   searchQuery?: string
   onSearch?: (query: string) => void
+  playerName?: string
+  playerModel?: string
+  onNameChange?: (name: string) => void
+  onModelChange?: (model: string) => void
 }
 
-const TABS: TabDef[] = [
+const BASE_TABS: TabDef[] = [
   { id: 'home', name: 'Home' },
   { id: 'browse', name: 'Maps' },
   { id: 'mods', name: 'Mods' },
@@ -180,7 +201,10 @@ const TABS: TabDef[] = [
   { id: 'settings', name: 'Settings' },
 ]
 
-export default function TopBar({ active, onTab, isInGame, mapCount, searchQuery, onSearch }: Props) {
+export default function TopBar({
+  active, onTab, isInGame, mapCount, searchQuery, onSearch,
+  playerName, playerModel, onNameChange, onModelChange
+}: Props) {
   const searchRef = React.useRef<HTMLInputElement>(null)
 
   React.useEffect(() => {
@@ -194,19 +218,32 @@ export default function TopBar({ active, onTab, isInGame, mapCount, searchQuery,
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
+  const tabs: TabDef[] = React.useMemo(() => {
+    if (isInGame) {
+      return [{ id: 'game' as MenuTab, name: 'Game', game: true }, ...BASE_TABS]
+    }
+    return BASE_TABS
+  }, [isInGame])
+
   return (
     <Header>
       <Brand>
         <BrandName>Sour</BrandName>
       </Brand>
       <Tabs>
-        {TABS.map(tab => {
+        {tabs.map(tab => {
           const isActive = active === tab.id
           const count = tab.id === 'browse' && mapCount
             ? mapCount.toLocaleString()
             : tab.count
           return (
-            <Tab key={tab.id} $active={isActive} onClick={() => onTab(tab.id)}>
+            <Tab
+              key={tab.id}
+              $active={isActive}
+              $game={tab.game}
+              onClick={() => onTab(tab.id)}
+            >
+              {tab.game && <GamePulse $active={isActive} />}
               {tab.name}
               {count && <TabCount $active={isActive}>{count}</TabCount>}
             </Tab>
@@ -214,22 +251,24 @@ export default function TopBar({ active, onTab, isInGame, mapCount, searchQuery,
         })}
       </Tabs>
       <Right>
-        {isInGame && (
-          <InGameBadge>
-            <InGameDot />
-            in game
-          </InGameBadge>
+        {active === 'browse' && (
+          <SearchWrap>
+            <Icon name="search" size={12} />
+            <SearchInput
+              ref={searchRef}
+              placeholder={`Search ${mapCount ? mapCount.toLocaleString() + ' ' : ''}maps, authors…`}
+              value={searchQuery || ''}
+              onChange={e => onSearch?.(e.target.value)}
+            />
+            <Kbd>⌘K</Kbd>
+          </SearchWrap>
         )}
-        <SearchWrap>
-          <Icon name="search" size={12} />
-          <SearchInput
-            ref={searchRef}
-            placeholder={`Search ${mapCount ? mapCount.toLocaleString() + ' ' : ''}maps, authors…`}
-            value={searchQuery || ''}
-            onChange={e => onSearch?.(e.target.value)}
-          />
-          <Kbd>⌘K</Kbd>
-        </SearchWrap>
+        <PlayerChip
+          name={playerName || 'unnamed'}
+          model={playerModel || 'ogro'}
+          onNameChange={onNameChange}
+          onModelChange={onModelChange}
+        />
       </Right>
     </Header>
   )

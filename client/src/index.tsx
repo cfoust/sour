@@ -7,15 +7,11 @@ import * as React from 'react'
 import * as R from 'ramda'
 import ReactDOM from 'react-dom'
 import {
-  Center,
   ChakraProvider,
-  Button,
   extendTheme,
   Flex,
-  Box,
   VStack,
   Heading,
-  Spacer,
 } from '@chakra-ui/react'
 
 import type { ThemeConfig } from '@chakra-ui/react'
@@ -30,7 +26,7 @@ import type {
 } from './protocol'
 import { GameStateType, WeaponType } from './types'
 import { MessageType, ENetEventType } from './protocol'
-import StatusOverlay from './Loading'
+import LoadingScreen from './menu/screens/LoadingScreen'
 import NAMES from './names'
 import useAssets, { getInstalledMods, mountFile } from './assets/hook'
 import useAuth, {
@@ -202,6 +198,18 @@ function App() {
   const [clusterServers, setClusterServers] = React.useState<
     import('./protocol').ClusterServerInfo[]
   >([])
+
+  // Track browsing state for Module.toggleMenu closure
+  const browsingRef = React.useRef(browsing)
+  browsingRef.current = browsing
+
+  // Track current game context for pause screen
+  const [currentMap, setCurrentMap] = React.useState('')
+  const [currentServer, setCurrentServer] = React.useState('')
+
+  // Player profile state
+  const [playerName, setPlayerName] = React.useState('unnamed')
+  const [playerModel, setPlayerModel] = React.useState('ogro')
 
   const [state, setState] = React.useState<GameState>({
     type: GameStateType.PageLoading,
@@ -377,6 +385,7 @@ function App() {
       if (text === 'setting name to: unnamed') {
         const name = NAMES[Math.floor(Math.random() * NAMES.length)]
         BananaBread.execute(`name ${name}`)
+        setPlayerName(name)
       }
 
       if (text.startsWith('main loop blocker')) {
@@ -488,6 +497,9 @@ function App() {
     ]
     `
     BananaBread.execute(menu)
+    // Override escape key: close any open CubeScript GUI first,
+    // only open React menu if nothing else was open
+    BananaBread.execute(`togglemainmenu = [|| (cleartexgui) [cleargui 1] [js "Module.toggleMenu && Module.toggleMenu()"]]`)
   }, [authState, state])
 
   React.useEffect(() => {
@@ -568,6 +580,9 @@ function App() {
     let loadingWorld = false
 
     Module.showBrowse = () => setBrowsing(true)
+    Module.toggleMenu = () => {
+      setBrowsing(!browsingRef.current)
+    }
     Module.running = false
     Module.postLoadWorld = function () {
       loadingWorld = false
@@ -725,10 +740,12 @@ function App() {
     Module.onConnect = () => {}
     Module.onDisconnect = () => {
       remoteConnected = false
+      setCurrentServer('')
       clearURLState()
     }
 
     Module.loadedMap = (name: string) => {
+      setCurrentMap(name)
       if (remoteConnected) return
       pushURLState(`#/map/${name}`)
     }
@@ -894,6 +911,7 @@ function App() {
       if (serverMessage.Op === MessageType.ServerConnected) {
         remoteConnected = true
         const { Server, Internal, Owned } = serverMessage
+        setCurrentServer(Server)
         if (Internal) {
           clearURLState()
         } else {
@@ -995,6 +1013,7 @@ function App() {
   }, [])
 
   const handlePlay = React.useCallback((mapName: string) => {
+    setCurrentMap(mapName)
     window.location.hash = `#/map/${mapName}`
     setBrowsing(false)
   }, [])
@@ -1004,22 +1023,23 @@ function App() {
     setBrowsing(false)
   }, [])
 
-  if (browsing) {
-    return (
-      <BrowseContainer>
-        <Menu
-          maps={browseEntries}
-          loading={catalogLoading}
-          onPlay={handlePlay}
-          onJoinServer={handleJoinServer}
-          onClose={() => setBrowsing(false)}
-          isInGame={state.type === GameStateType.Ready}
-          initialView={state.type === GameStateType.Ready ? 'pause' : 'browse'}
-          servers={clusterServers}
-        />
-      </BrowseContainer>
-    )
-  }
+  const handleNameChange = React.useCallback((name: string) => {
+    setPlayerName(name)
+    if (typeof BananaBread !== 'undefined' && BananaBread.execute) {
+      BananaBread.execute(`name ${name}`)
+    }
+  }, [])
+
+  const handleModelChange = React.useCallback((model: string) => {
+    setPlayerModel(model)
+    if (typeof BananaBread !== 'undefined' && BananaBread.execute) {
+      const MODEL_INDEX: Record<string, number> = {
+        mrfixit: 0, snoutx10k: 1, ogro: 2, inky: 3, captaincannon: 4,
+      }
+      const index = MODEL_INDEX[model] ?? 2
+      BananaBread.execute(`playermodel ${index}`)
+    }
+  }, [])
 
   return (
     <OuterContainer ref={containerRef}>
@@ -1048,12 +1068,34 @@ function App() {
           />
         )}
       </GameContainer>
-      {state.type !== GameStateType.Ready && (
+      {state.type !== GameStateType.Ready && !browsing && (
         <LoadingContainer>
-          <Box w="100%" h="100%">
-            <StatusOverlay state={state} />
-          </Box>
+          <LoadingScreen
+            state={state}
+            mapName={currentMap}
+            mapEntry={currentMap ? browseEntries.find(m => m.name === currentMap) : undefined}
+          />
         </LoadingContainer>
+      )}
+      {browsing && (
+        <BrowseContainer>
+          <Menu
+            maps={browseEntries}
+            loading={catalogLoading}
+            onPlay={handlePlay}
+            onJoinServer={handleJoinServer}
+            onClose={() => setBrowsing(false)}
+            isInGame={state.type === GameStateType.Ready}
+            initialView={state.type === GameStateType.Ready ? 'pause' : 'browse'}
+            servers={clusterServers}
+            currentMap={currentMap}
+            currentServer={currentServer}
+            playerName={playerName}
+            playerModel={playerModel}
+            onNameChange={handleNameChange}
+            onModelChange={handleModelChange}
+          />
+        </BrowseContainer>
       )}
       <FileDropper>
         <DropTarget>
