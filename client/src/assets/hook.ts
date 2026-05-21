@@ -596,12 +596,6 @@ export default function useAssets(
     let mapLayer: Maybe<Layer> = null
 
     const loadMapData = async (map: string) => {
-      // TODO this is just for loading uploaded maps and it's broken, why?
-      //if (fileExists(`/packages/base/${map}.ogz`)) {
-      //BananaBread.loadWorld(map)
-      //return
-      //}
-
       setLoading(true)
       if (loadingMap === map) return
       loadingMap = map

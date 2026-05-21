@@ -88,9 +88,8 @@ func serveCommand(configs []string) error {
 	// Collect all asset roots to serve to the client.
 	// Each root gets an /assets/N/ HTTP endpoint.
 	type servedRoot struct {
-		packaged  *assets.PackagedRoot
-		fsDir     string // non-empty for filesystem-backed roots
-		indexName string // filename of the index (e.g. ".index.source")
+		fsDir     string
+		indexName string
 	}
 	var servedRoots []servedRoot
 	{
@@ -120,7 +119,6 @@ func serveCommand(configs []string) error {
 			source := packaged.Source()
 			idx := len(servedRoots)
 			servedRoots = append(servedRoots, servedRoot{
-				packaged:  packaged,
 				fsDir:     filepath.Dir(source),
 				indexName: filepath.Base(source),
 			})
@@ -171,27 +169,46 @@ func serveCommand(configs []string) error {
 		}
 	}
 
-	// Build maps from raw directories (in memory)
-	var mapDirBuilder *packager.MemPackager
+	// Build maps from raw directories to disk
 	if len(serverConfig.MapDirs) > 0 {
-		var err error
-		mapDirBuilder, err = packager.BuildMapDirs(ctx, serverConfig.MapDirs, serverConfig.Assets...)
-		if err != nil {
-			log.Warn().Err(err).Msg("failed to build map dirs")
-		} else if len(mapDirBuilder.Maps) > 0 {
+		outdir, buildErr := packager.BuildMapDirsToDisk(ctx, serverConfig.MapDirs, serverConfig.Assets...)
+		if buildErr != nil {
+			log.Warn().Err(buildErr).Msg("failed to build map dirs")
+		} else if outdir != "" {
+			indexPath := filepath.Join(outdir, ".index.source")
+			serverConfig.Assets = append(serverConfig.Assets, "fs:"+indexPath)
+
+			idx := len(servedRoots)
+			servedRoots = append(servedRoots, servedRoot{
+				fsDir:     outdir,
+				indexName: ".index.source",
+			})
+			config.Client.Assets = append(
+				config.Client.Assets,
+				fmt.Sprintf("#origin/assets/%d/.index.source", idx),
+			)
+
 			// Add built maps to catalog
-			if mergedCatalog == nil {
-				mergedCatalog = &catalog.ResolvedCatalog{
-					Maps: make(map[string]catalog.ResolvedMapEntry),
+			catalogPath := filepath.Join(outdir, "catalog", "catalog.json")
+			if cat, err := catalog.LoadCatalog(catalogPath); err == nil {
+				catalogDir := filepath.Join(outdir, "catalog")
+				catalogFSDirs = append(catalogFSDirs, catalogDir)
+				if mergedCatalog == nil {
+					mergedCatalog = catalog.MergeCatalogs([]catalog.Source{{
+						Catalog: cat,
+						BaseURL: fmt.Sprintf("/catalog/%d", len(catalogFSDirs)-1),
+					}})
+					config.Client.Catalog = "#origin/catalog.json"
+				} else {
+					for name, entry := range cat.Maps {
+						mergedCatalog.Maps[name] = catalog.ResolvedMapEntry{
+							Author:      entry.Author,
+							Date:        entry.Date,
+							Description: entry.Description,
+						}
+					}
 				}
-				config.Client.Catalog = "#origin/catalog.json"
 			}
-			for _, m := range mapDirBuilder.Maps {
-				mergedCatalog.Maps[m.Name] = catalog.ResolvedMapEntry{
-					Description: m.Description,
-				}
-			}
-			log.Info().Msgf("built %d maps from directories in memory", len(mapDirBuilder.Maps))
 		}
 	}
 
@@ -203,31 +220,6 @@ func serveCommand(configs []string) error {
 	)
 	if err != nil {
 		log.Fatal().Err(err).Msg("asset fetcher failed to initialize")
-	}
-
-	// Add in-memory built maps to the asset fetcher
-	if mapDirBuilder != nil && len(mapDirBuilder.Maps) > 0 {
-		memReader, readerErr := packager.NewMemReader(mapDirBuilder)
-		if readerErr != nil {
-			log.Warn().Err(readerErr).Msg("failed to create in-memory reader")
-		} else {
-			memRoot, err := assets.NewPackagedRoot(ctx, memReader, "", false)
-			if err != nil {
-				log.Warn().Err(err).Msg("failed to create in-memory asset root")
-			} else {
-				assetFetcher.AddRoot(memRoot)
-
-				idx := len(servedRoots)
-				servedRoots = append(servedRoots, servedRoot{
-					packaged:  memRoot,
-					indexName: ".index.source",
-				})
-				config.Client.Assets = append(
-					config.Client.Assets,
-					fmt.Sprintf("#origin/assets/%d/.index.source", idx),
-				)
-			}
-		}
 	}
 
 	maps := assetFetcher.GetMaps("")
@@ -400,36 +392,11 @@ func serveCommand(configs []string) error {
 
 		for i, sr := range servedRoots {
 			prefix := fmt.Sprintf("/assets/%d/", i)
-
-			if sr.fsDir != "" {
-				// Filesystem-backed root: serve files directly
-				log.Info().Msgf("serving: %s -> %s", sr.fsDir, prefix)
-				handler := http.FileServer(http.Dir(sr.fsDir))
-				handler = http.StripPrefix(prefix, handler)
-				handler = SkipIndex(handler)
-				mux.Handle(prefix, handler)
-			} else {
-				// In-memory root: serve via PackageReader
-				log.Info().Msgf("serving in-memory assets -> %s", prefix)
-				root := sr.packaged
-				reader := root.Reader()
-				mux.HandleFunc(prefix, func(w http.ResponseWriter, r *http.Request) {
-					key := strings.TrimPrefix(r.URL.Path, prefix)
-					var data []byte
-					var err error
-					if key == sr.indexName {
-						data, err = reader.Index(r.Context())
-					} else {
-						data, err = reader.Read(r.Context(), key)
-					}
-					if err != nil {
-						http.NotFound(w, r)
-						return
-					}
-					w.Header().Set("Content-Type", "application/octet-stream")
-					w.Write(data)
-				})
-			}
+			log.Info().Msgf("serving: %s -> %s", sr.fsDir, prefix)
+			handler := http.FileServer(http.Dir(sr.fsDir))
+			handler = http.StripPrefix(prefix, handler)
+			handler = SkipIndex(handler)
+			mux.Handle(prefix, handler)
 		}
 
 		address := serverConfig.Ingress.Web.Address

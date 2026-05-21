@@ -131,7 +131,7 @@ const DELAY_AFTER_LOAD: CubeMessageType[] = [
 ]
 
 const SERVER_URL_REGEX = /#\/server\/([\w.]+)\/?(\d+)?/
-const MAP_URL_REGEX = /#\/map\/(\w+)/
+const MAP_URL_REGEX = /#\/map\/([\w-]+)/
 const DEMO_URL_REGEX = /#\/demo\/(\w+)/
 
 const BrowseContainer = styled.div`
@@ -1040,7 +1040,10 @@ function App() {
     setCurrentMap(mapName)
     window.location.hash = `#/map/${mapName}`
     setBrowsing(false)
-    if (typeof BananaBread !== 'undefined' && BananaBread.execute) {
+    // Only execute map command if the game is already running.
+    // Otherwise, onGameReady will read the hash and load the map
+    // after indices and mods are initialized.
+    if (Module.running && typeof BananaBread !== 'undefined' && BananaBread.execute) {
       BananaBread.execute(`map ${mapName}`)
     }
   }, [])
