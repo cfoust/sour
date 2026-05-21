@@ -19,7 +19,7 @@ func MapToGo(parent worldio.Cube) *Cube {
 	children := make([]*Cube, 0)
 	for i := 0; i < CUBE_FACTOR; i++ {
 		cube := Cube{}
-		member := worldio.CubeArray_getitem(parent, i)
+		member := worldio.CubeArray_getitem(parent, int64(i))
 
 		if member.GetChildren().Swigcptr() != 0 {
 			cube.Children = MapToGo(member.GetChildren()).Children
@@ -28,7 +28,7 @@ func MapToGo(parent worldio.Cube) *Cube {
 		if member.GetExt().Swigcptr() != 0 {
 			ext := member.GetExt()
 			for j := 0; j < 6; j++ {
-				surface := worldio.SurfaceInfoArray_getitem(ext.GetSurfaces(), j)
+				surface := worldio.SurfaceInfoArray_getitem(ext.GetSurfaces(), int64(j))
 				cube.SurfaceInfo[j].Lmid[0] = worldio.UcharArray_getitem(surface.GetLmid(), 0)
 				cube.SurfaceInfo[j].Lmid[1] = worldio.UcharArray_getitem(surface.GetLmid(), 1)
 				cube.SurfaceInfo[j].Verts = surface.GetVerts()
@@ -38,13 +38,13 @@ func MapToGo(parent worldio.Cube) *Cube {
 
 		// edges
 		for j := 0; j < 12; j++ {
-			value := worldio.UcharArray_getitem(member.GetEdges(), j)
+			value := worldio.UcharArray_getitem(member.GetEdges(), int64(j))
 			cube.Edges[j] = value
 		}
 
 		// texture
 		for j := 0; j < 6; j++ {
-			value := worldio.Uint16Array_getitem(member.GetTexture(), j)
+			value := worldio.Uint16Array_getitem(member.GetTexture(), int64(j))
 			cube.Texture[j] = value
 		}
 
