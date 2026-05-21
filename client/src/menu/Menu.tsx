@@ -125,7 +125,7 @@ export default function Menu({
     onResume: onClose,
     onDisconnect: () => {
       execCommand('disconnect')
-      onClose()
+      // Module.onDisconnect will set browsing=true and clear game state
     },
     onVoteMap: () => {
       onClose()

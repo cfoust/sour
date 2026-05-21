@@ -265,6 +265,8 @@ export default function PlayerChip({ name, model, onNameChange, onModelChange }:
   }
 
   const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    // Prevent game engine from consuming keypresses while typing
+    e.stopPropagation()
     if (e.key === 'Enter') {
       handleNameBlur()
       ;(e.target as HTMLInputElement).blur()
@@ -302,6 +304,9 @@ export default function PlayerChip({ name, model, onNameChange, onModelChange }:
                 onChange={e => setLocalName(e.target.value)}
                 onBlur={handleNameBlur}
                 onKeyDown={handleNameKeyDown}
+                onKeyUp={e => e.stopPropagation()}
+                onKeyPress={e => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
               />
               <CharCount>{localName.length} / 16</CharCount>
             </PopInputWrap>

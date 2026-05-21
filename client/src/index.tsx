@@ -207,9 +207,13 @@ function App() {
   const [currentMap, setCurrentMap] = React.useState('')
   const [currentServer, setCurrentServer] = React.useState('')
 
-  // Player profile state
-  const [playerName, setPlayerName] = React.useState('unnamed')
-  const [playerModel, setPlayerModel] = React.useState('ogro')
+  // Player profile state — persisted to localStorage
+  const [playerName, setPlayerName] = React.useState(
+    () => localStorage.getItem('sour_playerName') || 'unnamed'
+  )
+  const [playerModel, setPlayerModel] = React.useState(
+    () => localStorage.getItem('sour_playerModel') || 'ogro'
+  )
 
   const [state, setState] = React.useState<GameState>({
     type: GameStateType.PageLoading,
@@ -381,11 +385,15 @@ function App() {
         })
       }
 
-      // Randomly assign a new name if the user joins without one
+      // Assign a name if the user joins without one
       if (text === 'setting name to: unnamed') {
-        const name = NAMES[Math.floor(Math.random() * NAMES.length)]
+        const saved = localStorage.getItem('sour_playerName')
+        const name = saved && saved !== 'unnamed'
+          ? saved
+          : NAMES[Math.floor(Math.random() * NAMES.length)]
         BananaBread.execute(`name ${name}`)
         setPlayerName(name)
+        localStorage.setItem('sour_playerName', name)
       }
 
       if (text.startsWith('main loop blocker')) {
@@ -648,6 +656,20 @@ function App() {
 
       Module.running = true
       setResolution(null, null)
+
+      // Apply saved player profile
+      const savedName = localStorage.getItem('sour_playerName')
+      if (savedName && savedName !== 'unnamed') {
+        BananaBread.execute(`name ${savedName}`)
+      }
+      const savedModel = localStorage.getItem('sour_playerModel')
+      if (savedModel) {
+        const idx: Record<string, number> = {
+          mrfixit: 0, snoutx10k: 1, ogro: 2, inky: 3, captaincannon: 4,
+        }
+        BananaBread.execute(`playermodel ${idx[savedModel] ?? 2}`)
+      }
+
       setState({
         type: GameStateType.Ready,
       })
@@ -741,7 +763,9 @@ function App() {
     Module.onDisconnect = () => {
       remoteConnected = false
       setCurrentServer('')
+      setCurrentMap('')
       clearURLState()
+      setBrowsing(true)
     }
 
     Module.loadedMap = (name: string) => {
@@ -1016,15 +1040,22 @@ function App() {
     setCurrentMap(mapName)
     window.location.hash = `#/map/${mapName}`
     setBrowsing(false)
+    if (typeof BananaBread !== 'undefined' && BananaBread.execute) {
+      BananaBread.execute(`map ${mapName}`)
+    }
   }, [])
 
   const handleJoinServer = React.useCallback((serverName: string) => {
     window.location.hash = `#/server/${serverName}`
     setBrowsing(false)
+    if (typeof BananaBread !== 'undefined' && BananaBread.execute) {
+      BananaBread.execute(`join ${serverName}`)
+    }
   }, [])
 
   const handleNameChange = React.useCallback((name: string) => {
     setPlayerName(name)
+    localStorage.setItem('sour_playerName', name)
     if (typeof BananaBread !== 'undefined' && BananaBread.execute) {
       BananaBread.execute(`name ${name}`)
     }
@@ -1032,6 +1063,7 @@ function App() {
 
   const handleModelChange = React.useCallback((model: string) => {
     setPlayerModel(model)
+    localStorage.setItem('sour_playerModel', model)
     if (typeof BananaBread !== 'undefined' && BananaBread.execute) {
       const MODEL_INDEX: Record<string, number> = {
         mrfixit: 0, snoutx10k: 1, ogro: 2, inky: 3, captaincannon: 4,
@@ -1085,8 +1117,8 @@ function App() {
             onPlay={handlePlay}
             onJoinServer={handleJoinServer}
             onClose={() => setBrowsing(false)}
-            isInGame={state.type === GameStateType.Ready}
-            initialView={state.type === GameStateType.Ready ? 'pause' : 'browse'}
+            isInGame={state.type === GameStateType.Ready && (currentMap !== '' || currentServer !== '')}
+            initialView={state.type === GameStateType.Ready && (currentMap !== '' || currentServer !== '') ? 'pause' : 'browse'}
             servers={clusterServers}
             currentMap={currentMap}
             currentServer={currentServer}
