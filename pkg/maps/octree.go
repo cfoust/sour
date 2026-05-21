@@ -211,7 +211,11 @@ func loadCube(rd *reader, c *Cube, size int) error {
 		rd.read(c.Edges[:])
 
 	default:
-		return fmt.Errorf("invalid octsav type: %d", octsav&0x7)
+		pos := 0
+		if br, ok := rd.r.(*byteReader); ok {
+			pos = br.pos
+		}
+		return fmt.Errorf("invalid octsav type: %d (raw byte: 0x%02x, pos: %d)", octsav&0x7, octsav, pos)
 	}
 
 	// Read textures
@@ -296,69 +300,71 @@ func loadCube(rd *reader, c *Cube, size int) error {
 		}
 		if octsav&0x20 != 0 {
 			surfmask := rd.getchar()
-			totalverts := rd.getchar()
-			if totalverts > 0 {
-				// We need to store surface info
-				for i := 0; i < 6; i++ {
-					if surfmask&(1<<uint(i)) != 0 {
-						// Read surfaceinfo (4 bytes)
-						var surf SurfaceInfo
-						binary.Read(rd.r, binary.LittleEndian, &surf)
-						c.SurfaceInfo[i] = surf
+			_ = rd.getchar() // totalverts (we don't need to allocate ext)
 
-						vertmask := surf.Verts
-						numverts := surf.TotalVerts()
-						if numverts == 0 {
-							continue
-						}
+			for i := 0; i < 6; i++ {
+				if surfmask&(1<<uint(i)) == 0 {
+					continue
+				}
 
-						layerverts := int(surf.NumVerts & MAXFACEVERTS)
+				// Read surfaceinfo (4 bytes)
+				var surf SurfaceInfo
+				binary.Read(rd.r, binary.LittleEndian, &surf)
+				c.SurfaceInfo[i] = surf
 
-						hasxyz := vertmask&0x04 != 0
-						hasuv := vertmask&0x40 != 0
-						hasnorm := vertmask&0x80 != 0
+				vertmask := int(surf.Verts)
+				numverts := int(surf.TotalVerts())
+				if numverts == 0 {
+					surf.Verts = 0
+					c.SurfaceInfo[i] = surf
+					continue
+				}
 
-						if layerverts == 4 {
-							if hasxyz && vertmask&0x01 != 0 {
-								rd.skip(8) // 4 uint16s
-								hasxyz = false
-							}
-							if hasuv && vertmask&0x02 != 0 {
-								rd.skip(8) // 4 uint16s
-								if surf.NumVerts&LAYER_DUP != 0 {
-									rd.skip(8) // 4 more uint16s
-								}
-								hasuv = false
-							}
-						}
-						if hasnorm && vertmask&0x08 != 0 {
-							rd.skip(2) // 1 uint16
-							hasnorm = false
-						}
-						if hasxyz || hasuv || hasnorm {
-							bytesPerVert := 0
-							if hasxyz {
-								bytesPerVert += 4 // 2 uint16s
-							}
-							if hasuv {
-								bytesPerVert += 4 // 2 uint16s
-							}
-							if hasnorm {
-								bytesPerVert += 2 // 1 uint16
-							}
-							rd.skip(bytesPerVert * layerverts)
-						}
+				layerverts := int(surf.NumVerts & MAXFACEVERTS)
+
+				hasxyz := vertmask&0x04 != 0
+				hasuv := vertmask&0x40 != 0
+				hasnorm := vertmask&0x80 != 0
+
+				if layerverts == 4 {
+					if hasxyz && vertmask&0x01 != 0 {
+						rd.skip(8) // 4 uint16: c1, r1, c2, r2
+						hasxyz = false
+					}
+					if hasuv && vertmask&0x02 != 0 {
+						rd.skip(8) // 4 uint16: v0.u, v0.v, v2.u, v2.v
 						if surf.NumVerts&LAYER_DUP != 0 {
-							dupBytes := 0
-							if hasuv {
-								dupBytes += 4 // 2 uint16s per vert
-							}
-							rd.skip(dupBytes * layerverts)
+							rd.skip(8) // 4 more uint16: b0.u, b0.v, b2.u, b2.v
 						}
-
-						_ = numverts
+						hasuv = false
 					}
 				}
+				if hasnorm && vertmask&0x08 != 0 {
+					rd.skip(2) // 1 uint16: shared norm
+					hasnorm = false
+				}
+				if hasxyz || hasuv || hasnorm {
+					for k := 0; k < layerverts; k++ {
+						if hasxyz {
+							rd.skip(4) // 2 uint16: vc, vr
+						}
+						if hasuv {
+							rd.skip(4) // 2 uint16: u, v
+						}
+						if hasnorm {
+							rd.skip(2) // 1 uint16: norm
+						}
+					}
+				}
+				if surf.NumVerts&LAYER_DUP != 0 {
+					for k := 0; k < layerverts; k++ {
+						if hasuv {
+							rd.skip(4) // 2 uint16: u, v
+						}
+					}
+				}
+
+				_ = numverts
 			}
 		}
 	}

@@ -33,7 +33,7 @@ func DumpMap(ctx context.Context, roots []assets.Root, ref *min.Reference, index
 
 	_map, err := maps.FromGZ(data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("FromGZ(%s, %d bytes): %w", ref.Path, len(data), err)
 	}
 
 	processor := min.NewProcessor(roots, _map.VSlots)
