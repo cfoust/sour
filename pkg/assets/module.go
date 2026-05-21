@@ -46,6 +46,11 @@ func NewAssetFetcher(ctx context.Context, cache Store, roots []string, onlyMaps 
 	}, nil
 }
 
+// AddRoot adds an additional PackagedRoot to the fetcher.
+func (m *AssetFetcher) AddRoot(root *PackagedRoot) {
+	m.roots = append(m.roots, root)
+}
+
 func (m *AssetFetcher) getAsset(ctx context.Context, id string) ([]byte, error) {
 	for _, root := range m.roots {
 		data, err := root.ReadAsset(ctx, id)
@@ -191,7 +196,7 @@ func (m *AssetFetcher) GetMaps(skipRoot string) []SlimMap {
 
 	skippedMaps := make(map[string]struct{})
 	for _, root := range m.roots {
-		if root.source != skipRoot {
+		if skipRoot == "" || root.source != skipRoot {
 			continue
 		}
 		for _, gameMap := range root.maps {

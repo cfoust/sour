@@ -90,6 +90,9 @@ type ServerSettings struct {
 	ServerInfo        ServerServerInfo
 	Assets            []string
 	Catalogs          []string
+	// Directories containing raw game files (packages/base/*.ogz etc).
+	// On startup, maps in these directories are built in memory and served.
+	MapDirs           []string
 	Presets           []Preset
 	Spaces            []PresetSpace
 	Matchmaking       MatchmakingSettings

@@ -217,3 +217,43 @@ func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
 }
+
+// encodeSourBundle produces the raw bytes of a .sour file from its components.
+func encodeSourBundle(directories [][]interface{}, metadata sourMetadata, dataChunks [][]byte) ([]byte, error) {
+	dirJSON, err := json.Marshal(directories)
+	if err != nil {
+		return nil, err
+	}
+
+	metaJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate total size
+	totalData := 0
+	for _, chunk := range dataChunks {
+		totalData += len(chunk)
+	}
+	total := 4 + len(dirJSON) + 4 + len(metaJSON) + totalData
+
+	buf := make([]byte, 0, total)
+
+	// Directory JSON length + data
+	lenBuf := make([]byte, 4)
+	binary.BigEndian.PutUint32(lenBuf, uint32(len(dirJSON)))
+	buf = append(buf, lenBuf...)
+	buf = append(buf, dirJSON...)
+
+	// Metadata JSON length + data
+	binary.BigEndian.PutUint32(lenBuf, uint32(len(metaJSON)))
+	buf = append(buf, lenBuf...)
+	buf = append(buf, metaJSON...)
+
+	// Raw data
+	for _, chunk := range dataChunks {
+		buf = append(buf, chunk...)
+	}
+
+	return buf, nil
+}

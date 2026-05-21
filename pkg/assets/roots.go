@@ -48,7 +48,8 @@ func (f FSRoot) Reference(ctx context.Context, path string) (string, error) {
 	return fmt.Sprintf("fs:%s", f.getPath(path)), nil
 }
 
-type packageReader interface {
+// PackageReader provides access to a CBOR index and its associated assets.
+type PackageReader interface {
 	Index(ctx context.Context) ([]byte, error)
 	Read(ctx context.Context, id string) ([]byte, error)
 }
@@ -60,7 +61,7 @@ type remoteReader struct {
 	shouldCache bool
 }
 
-var _ packageReader = (*remoteReader)(nil)
+var _ PackageReader = (*remoteReader)(nil)
 
 func (r *remoteReader) Index(ctx context.Context) ([]byte, error) {
 	urlHash := fmt.Sprintf("%x", sha256.Sum256([]byte(r.indexURL)))
@@ -133,7 +134,7 @@ type fsReader struct {
 	assetPath string
 }
 
-var _ packageReader = (*fsReader)(nil)
+var _ PackageReader = (*fsReader)(nil)
 
 func (f *fsReader) Index(ctx context.Context) ([]byte, error) {
 	return os.ReadFile(f.indexPath)
@@ -146,7 +147,7 @@ func (f *fsReader) Read(ctx context.Context, id string) ([]byte, error) {
 type PackagedRoot struct {
 	source string
 
-	reader packageReader
+	reader PackageReader
 
 	// A path inside of the virtual FS to treat as the "root".
 	base string
@@ -172,7 +173,7 @@ type PackagedRoot struct {
 
 func NewPackagedRoot(
 	ctx context.Context,
-	reader packageReader,
+	reader PackageReader,
 	base string,
 	skip bool,
 ) (*PackagedRoot, error) {
@@ -226,7 +227,7 @@ func NewPackagedRoot(
 		fs[path] = ref.Id
 	}
 
-	maps := make([]SlimMap, len(index.Maps))
+	maps := make([]SlimMap, 0, len(index.Maps))
 	for _, map_ := range index.Maps {
 		hasCFG := false
 
@@ -260,6 +261,10 @@ func NewPackagedRoot(
 	root.FS = fs
 
 	return &root, nil
+}
+
+func (f *PackagedRoot) Reader() PackageReader {
+	return f.reader
 }
 
 func (f *PackagedRoot) Source() string {

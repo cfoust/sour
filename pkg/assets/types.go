@@ -60,6 +60,19 @@ type Index struct {
 	Mods     []Mod        `cbor:"mods"`
 }
 
+func NewIndex() Index {
+	return Index{
+		Assets:   []string{},
+		Refs:     []IndexAsset{},
+		Textures: []Asset{},
+		Sounds:   []Asset{},
+		Bundles:  []Bundle{},
+		Maps:     []GameMap{},
+		Models:   []Model{},
+		Mods:     []Mod{},
+	}
+}
+
 type AssetSource struct {
 	Index *Index
 	Base  string

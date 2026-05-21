@@ -30,8 +30,14 @@ type Packager struct {
 // New creates a new Packager writing to outdir.
 func New(outdir string) *Packager {
 	return &Packager{
-		Outdir: outdir,
-		Assets: make(map[string]struct{}),
+		Outdir:   outdir,
+		Assets:   make(map[string]struct{}),
+		Refs:     []assets.Asset{},
+		Bundles:  []assets.Bundle{},
+		Maps:     []assets.GameMap{},
+		Models:   []assets.Model{},
+		Mods:     []assets.Mod{},
+		Textures: []assets.Asset{},
 	}
 }
 
@@ -406,15 +412,14 @@ func (p *Packager) DumpIndex(prefix string) error {
 		refs = append(refs, replaceAsset(ref))
 	}
 
-	index := assets.Index{
-		Assets:   assetList,
-		Textures: p.Textures,
-		Refs:     refs,
-		Bundles:  p.Bundles,
-		Models:   p.Models,
-		Maps:     p.Maps,
-		Mods:     p.Mods,
-	}
+	index := assets.NewIndex()
+	index.Assets = assetList
+	index.Textures = p.Textures
+	index.Refs = refs
+	index.Bundles = p.Bundles
+	index.Models = p.Models
+	index.Maps = p.Maps
+	index.Mods = p.Mods
 
 	data, err := cbor.Marshal(index)
 	if err != nil {

@@ -148,6 +148,11 @@ assetStores: [...#AssetStore] | *[{
 	// specify complete URLs.
 	assets: [...string]
 
+	// Directories containing raw game files (e.g. a Sauerbraten installation's
+	// root, or a folder with packages/base/*.ogz). On startup, maps are built
+	// in memory and served to clients without writing to disk.
+	mapDirs: [...string] | *[]
+
 	// Catalog sources for map/mod metadata (author, date, description, screenshots).
 	// Same format as assets: fs: prefix for local, HTTP URLs for remote.
 	catalogs: [...string] | *[]
