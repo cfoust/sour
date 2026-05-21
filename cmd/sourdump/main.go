@@ -2,602 +2,191 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime/pprof"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/cfoust/sour/pkg/assets"
-	"github.com/cfoust/sour/pkg/game/constants"
-	V "github.com/cfoust/sour/pkg/game/variables"
-	"github.com/cfoust/sour/pkg/maps"
-	"github.com/cfoust/sour/pkg/min"
+	"github.com/cfoust/sour/pkg/assets/dump"
 
+	"github.com/alecthomas/kong"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
-var ctx = context.Background()
+var CLI struct {
+	Root  []string `help:"Asset source roots." name:"root" short:"r"`
+	Cache string   `help:"Cache directory." default:"cache/"`
+	CPU   string   `help:"Write CPU profile to file." name:"cpu" optional:""`
 
-func DumpMap(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.Mapping, error) {
-	extension := filepath.Ext(ref.Path)
-
-	if extension != ".ogz" {
-		return nil, fmt.Errorf("map must end in .ogz")
-	}
-
-	data, err := ref.ReadFile(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	_map, err := maps.FromGZ(data)
-
-	if err != nil {
-		return nil, err
-	}
-
-	processor := min.NewProcessor(roots, _map.VSlots)
-
-	references := make([]min.Mapping, 0)
-
-	var addFile func(ref *min.Reference)
-	addFile = func(ref *min.Reference) {
-		references = append(references, min.Mapping{
-			From: ref,
-			To:   ref.Path,
-		})
-	}
-
-	// Map files can be mapped into packages/base/
-	addMapFile := func(ref *min.Reference) {
-		if !ref.Exists(ctx) {
-			return
-		}
-
-		reference := min.Mapping{}
-		reference.From = ref
-		reference.To = fmt.Sprintf("packages/base/%s", filepath.Base(ref.Path))
-		references = append(references, reference)
-	}
-
-	addMapFile(ref)
-
-	// Some variables contain textures
-	if skybox, ok := _map.Vars["skybox"]; ok {
-		value := string(skybox.(V.StringVariable))
-		for _, path := range processor.FindCubemap(ctx, min.NormalizeTexture(value)) {
-			addFile(path)
-		}
-	}
-
-	if cloudlayer, ok := _map.Vars["cloudlayer"]; ok {
-		value := string(cloudlayer.(V.StringVariable))
-		resolved := processor.FindTexture(ctx, min.NormalizeTexture(value))
-
-		if resolved != nil {
-			addFile(resolved)
-		}
-	}
-
-	if cloudbox, ok := _map.Vars["cloudbox"]; ok {
-		value := string(cloudbox.(V.StringVariable))
-		for _, path := range processor.FindCubemap(ctx, min.NormalizeTexture(value)) {
-			addFile(path)
-		}
-	}
-
-	modelRefs := make(map[int16]int)
-	for _, entity := range _map.Entities {
-		if entity.Type != maps.ET_MAPMODEL {
-			continue
-		}
-
-		modelRefs[entity.Attr2] += 1
-	}
-
-	// Always load the default map settings
-	defaultPath := processor.SearchFile(ctx, "data/default_map_settings.cfg")
-
-	if defaultPath == nil {
-		log.Fatal().Msg("Root with data/default_map_settings.cfg not provided")
-	}
-
-	err = processor.ProcessFile(ctx, defaultPath)
-	if err != nil {
-		log.Fatal().Err(err)
-	}
-
-	cfg := min.ReplaceExtension(ref, "cfg")
-	if cfg.Exists(ctx) {
-		err = processor.ProcessFile(ctx, cfg)
-		if err != nil {
-			log.Fatal().Err(err)
-		}
-
-		addMapFile(cfg)
-	}
-
-	for _, extension := range []string{"png", "jpg"} {
-		shotName := min.ReplaceExtension(ref, extension)
-		addMapFile(shotName)
-	}
-
-	for _, slot := range processor.Materials {
-		for _, path := range slot.Sts {
-			texture := processor.SearchFile(ctx, path.Name)
-			if texture != nil {
-				addFile(texture)
-			}
-		}
-	}
-
-	for _, file := range processor.Files {
-		addFile(file)
-	}
-
-	for _, sound := range processor.Sounds {
-		addFile(sound)
-	}
-
-	for i, model := range processor.Models {
-		if _, ok := modelRefs[int16(i)]; ok {
-			name := model.Name
-			if name == "" {
-				continue
-			}
-			err := processor.ProcessModel(ctx, name)
-			if err != nil {
-				log.Fatal().Err(err).Msgf("Failed to process model %s", name)
-				continue
-			}
-
-			for _, path := range processor.ModelFiles {
-				addFile(path)
-			}
-		}
-	}
-
-	textureRefs := min.GetChildTextures(_map.C, processor.VSlots)
-
-	for i, slot := range processor.Slots {
-		if _, ok := textureRefs[int32(i)]; ok {
-			for _, path := range slot.Sts {
-				texture := processor.SearchFile(ctx, min.NormalizeTexture(path.Name))
-				if texture == nil {
-					log.Warn().Msgf("unable to find texture %s", path.Name)
-					continue
-				}
-				addFile(texture)
-			}
-		}
-	}
-
-	if len(indexPath) > 0 {
-		err = processor.SaveTextureIndex(indexPath)
-		log.Fatal().Err(err)
-	}
-
-	return references, nil
+	Dump     DumpCmd     `cmd:"" help:"Dump asset dependencies."`
+	Download DownloadCmd `cmd:"" help:"Download assets from remote sources."`
+	List     ListCmd     `cmd:"" help:"List root files."`
+	Query    QueryCmd    `cmd:"" help:"Query file resolution."`
+	Hash     HashCmd     `cmd:"" help:"Hash assets."`
+	Modes    ModesCmd    `cmd:"" help:"Derive game modes from map."`
+	Base     BaseCmd     `cmd:"" help:"Build base game assets."`
+	Quad     QuadCmd     `cmd:"" help:"Build Quadropolis assets."`
+	Catalog  CatalogCmd  `cmd:"" help:"Generate catalog files."`
+	Index    IndexCmd    `cmd:"" help:"Dump .index.source to JSON."`
 }
 
-// DeriveGameModes analyzes map entities to determine supported game modes.
-func DeriveGameModes(path string) ([]string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	_map, err := maps.FromGZ(data)
-	if err != nil {
-		return nil, err
-	}
-
-	hasTeamSpawns := false
-	hasFlags := false
-	hasBases := false
-
-	team0 := false
-	team1 := false
-
-	for _, ent := range _map.Entities {
-		switch constants.EntityType(ent.Type) {
-		case constants.EntityTypePlayerStart:
-			if ent.Attr2 == 0 {
-				team0 = true
-			} else if ent.Attr2 == 1 {
-				team1 = true
-			}
-		case constants.EntityTypeFlag:
-			hasFlags = true
-		case constants.EntityTypeBase:
-			hasBases = true
-		}
-	}
-
-	hasTeamSpawns = team0 && team1
-
-	modes := []string{"ffa"}
-	if hasTeamSpawns || hasFlags || hasBases {
-		modes = append(modes, "tdm")
-	}
-	if hasFlags {
-		modes = append(modes, "ctf")
-	}
-	if hasBases {
-		modes = append(modes, "capture")
-	}
-
-	return modes, nil
+// Globals holds shared state from top-level flags.
+type Globals struct {
+	Roots []assets.Root
+	Cache assets.Store
+	Ctx   context.Context
 }
 
-const MODEL_DIR = "packages/models"
+func loadGlobals() (*Globals, error) {
+	ctx := context.Background()
+	cache := assets.FSStore(CLI.Cache)
+	os.MkdirAll(CLI.Cache, 0755)
 
-func DumpModel(roots []assets.Root, name string) ([]min.Mapping, error) {
-	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
-
-	err := processor.ProcessModel(ctx, name)
-	modelFiles := processor.ModelFiles
-	if err != nil || modelFiles == nil {
-		return nil, fmt.Errorf("Error processing model")
-	}
-
-	references := make([]min.Mapping, 0)
-
-	var addFile func(ref *min.Reference)
-	addFile = func(ref *min.Reference) {
-		references = append(references, min.Mapping{
-			From: ref,
-			To:   ref.Path,
-		})
-	}
-
-	for _, file := range modelFiles {
-		addFile(file)
-	}
-
-	return references, nil
-}
-
-func DumpCFG(roots []assets.Root, ref *min.Reference, indexPath string) ([]min.Mapping, error) {
-	extension := filepath.Ext(ref.Path)
-
-	if extension != ".cfg" {
-		return nil, fmt.Errorf("cfg must end in .cfg")
-	}
-
-	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
-
-	err := processor.ProcessFile(ctx, ref)
+	roots, err := assets.LoadRoots(ctx, cache, CLI.Root, false)
 	if err != nil {
-		return nil, fmt.Errorf("error processing file")
+		return nil, fmt.Errorf("failed to load roots: %w", err)
 	}
 
-	references := make([]min.Mapping, 0)
-
-	var addFile func(ref *min.Reference)
-	addFile = func(ref *min.Reference) {
-		references = append(references, min.Mapping{
-			From: ref,
-			To:   ref.Path,
-		})
-	}
-
-	addFile(ref)
-
-	for _, slot := range processor.Materials {
-		for _, path := range slot.Sts {
-			texture := processor.SearchFile(ctx, path.Name)
-			if texture != nil {
-				addFile(texture)
-			}
-		}
-	}
-
-	for _, file := range processor.Files {
-		addFile(file)
-	}
-
-	for _, sound := range processor.Sounds {
-		addFile(sound)
-	}
-
-	for _, model := range processor.Models {
-		name := model.Name
-		err := processor.ProcessModel(ctx, name)
-		if err != nil {
-			log.Fatal().Err(err).Msgf("Failed to process model %s", name)
-			continue
-		}
-
-		for _, path := range processor.ModelFiles {
-			addFile(path)
-		}
-	}
-
-	for _, slot := range processor.Slots {
-		for _, path := range slot.Sts {
-			texture := processor.SearchFile(ctx, path.Name)
-			if texture != nil {
-				addFile(texture)
-			}
-		}
-	}
-
-	if len(indexPath) > 0 {
-		err = processor.SaveTextureIndex(indexPath)
-		log.Fatal().Err(err)
-	}
-
-	return references, nil
-}
-
-func resolveTarget(roots []assets.Root, target string) (*min.Reference, error) {
-	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
-
-	// Base case is a file on the FS, does not need to be in root
-	if assets.FileExists(target) {
-		return &min.Reference{
-			Path: target,
-			Root: nil,
-		}, nil
-	}
-
-	// Just try the file
-	ref := processor.SearchFile(ctx, target)
-	if ref != nil {
-		return ref, nil
-	}
-
-	// Or a file in a source
-	parts := strings.Split(target, ":")
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid target reference, must be index:path")
-	}
-
-	index, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return nil, err
-	}
-
-	if index < 0 || index >= len(roots) {
-		return nil, fmt.Errorf("index not a root")
-	}
-
-	return &min.Reference{
-		Path: parts[1],
-		Root: roots[index],
+	return &Globals{
+		Roots: roots,
+		Cache: cache,
+		Ctx:   ctx,
 	}, nil
 }
 
-func Dump(cache assets.Store, roots []assets.Root, type_ string, indexPath string, target string) {
-	var err error
-	var references []min.Mapping
-
-	if type_ == "model" {
-		references, err = DumpModel(roots, target)
-	} else {
-		reference, err := resolveTarget(roots, target)
-		if err != nil {
-			log.Fatal().Err(err).Msg("could not resolve target")
-		}
-
-		switch type_ {
-		case "map":
-			references, err = DumpMap(roots, reference, indexPath)
-		case "cfg":
-			references, err = DumpCFG(roots, reference, indexPath)
-		default:
-			log.Fatal().Msgf("invalid type %s", type_)
-		}
-	}
-
-	if err != nil || references == nil {
-		log.Fatal().Err(err).Msg("could not parse file")
-	}
-
-	references = min.CrunchReferences(references)
-
-	for _, path := range references {
-		// TODO segfault?
-		resolved, err := path.From.Resolve(ctx)
-		if err != nil {
-			log.Fatal().Err(err).Msgf("could not resolve asset %s", path.From.String())
-			return
-		}
-		fmt.Printf("%s->%s\n", resolved, path.To)
-	}
+// DumpCmd dumps asset dependencies for a map, model, or cfg.
+type DumpCmd struct {
+	Type  string `help:"Asset type: map, model, cfg." default:"map" name:"type"`
+	Index string `help:"Save texture index to file." optional:""`
+	Target string `arg:"" help:"Target file or reference."`
 }
 
-func Download(ctx context.Context, cache assets.Store, roots []assets.Root, outDir string, targets []string) {
-	outCache := assets.FSStore(outDir)
-
-	for _, target := range targets {
-		found := false
-
-		for _, root := range roots {
-			remoteRoot, ok := root.(*assets.PackagedRoot)
-			if !ok {
-				continue
-			}
-
-			data, err := remoteRoot.ReadAsset(ctx, target)
-			if err == assets.Missing {
-				continue
-			}
-			if err != nil {
-				log.Fatal().Err(err).Msgf("could not resolve asset %s", target)
-			}
-
-			err = outCache.Set(ctx, target, data)
-			if err != nil {
-				log.Fatal().Err(err).Msgf("could not save asset %s", target)
-			}
-
-			found = true
-		}
-
-		if !found {
-			log.Fatal().Msgf("could not find asset '%s'", target)
-		}
+func (cmd *DumpCmd) Run() error {
+	g, err := loadGlobals()
+	if err != nil {
+		return err
 	}
+	return dump.Dump(g.Ctx, g.Roots, cmd.Type, cmd.Index, cmd.Target)
 }
 
-func List(cache assets.Store, roots []assets.Root) {
-	for _, root := range roots {
-		remoteRoot, ok := root.(*assets.PackagedRoot)
-		if !ok {
-			continue
-		}
-
-		for file := range remoteRoot.FS {
-			fmt.Printf("%s\n", file)
-		}
-	}
+// DownloadCmd downloads assets from remote sources.
+type DownloadCmd struct {
+	Outdir  string   `help:"Output directory." default:"output/" name:"outdir"`
+	Targets []string `arg:"" help:"Asset IDs to download."`
 }
 
-func Query(cache assets.Store, roots []assets.Root, targets []string) {
-	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
-
-	for _, target := range targets {
-		ref := processor.SearchFile(ctx, target)
-
-		to := "nil"
-		if ref != nil {
-			resolved, err := ref.Resolve(ctx)
-			if err != nil {
-				log.Fatal().Err(err).Msgf("could not resolve asset %s", target)
-			}
-			to = resolved
-		}
-
-		fmt.Printf("%s->%s\n", target, to)
+func (cmd *DownloadCmd) Run() error {
+	g, err := loadGlobals()
+	if err != nil {
+		return err
 	}
+	return dump.Download(g.Ctx, g.Roots, cmd.Outdir, cmd.Targets)
 }
 
-func Hash(cache assets.Store, roots []assets.Root, targets []string) {
-	processor := min.NewProcessor(roots, make([]*maps.VSlot, 0))
-	hash := sha256.New()
+// ListCmd lists all files from roots.
+type ListCmd struct{}
 
-	for _, target := range targets {
-		ref := processor.SearchFile(ctx, target)
-		// We ignore missing assets when hashing
-		if ref == nil {
-			continue
-		}
-
-		data, err := ref.ReadFile(ctx)
-		if err != nil {
-			log.Fatal().Err(err).Msgf("could not read asset %s", target)
-		}
-
-		hash.Write(data)
+func (cmd *ListCmd) Run() error {
+	g, err := loadGlobals()
+	if err != nil {
+		return err
 	}
+	for _, file := range dump.List(g.Roots) {
+		fmt.Println(file)
+	}
+	return nil
+}
 
-	fmt.Printf("%x", hash.Sum(nil))
+// QueryCmd queries file resolution.
+type QueryCmd struct {
+	Targets []string `arg:"" help:"Paths to query."`
+}
+
+func (cmd *QueryCmd) Run() error {
+	g, err := loadGlobals()
+	if err != nil {
+		return err
+	}
+	results, err := dump.Query(g.Ctx, g.Roots, cmd.Targets)
+	if err != nil {
+		return err
+	}
+	for _, r := range results {
+		fmt.Printf("%s->%s\n", r.Target, r.Resolved)
+	}
+	return nil
+}
+
+// HashCmd computes a hash of assets.
+type HashCmd struct {
+	Targets []string `arg:"" help:"Paths to hash."`
+}
+
+func (cmd *HashCmd) Run() error {
+	g, err := loadGlobals()
+	if err != nil {
+		return err
+	}
+	hash, err := dump.Hash(g.Ctx, g.Roots, cmd.Targets)
+	if err != nil {
+		return err
+	}
+	fmt.Print(hash)
+	return nil
+}
+
+// ModesCmd derives game modes from a map.
+type ModesCmd struct {
+	File string `arg:"" help:"Path to .ogz file."`
+}
+
+func (cmd *ModesCmd) Run() error {
+	modes, err := dump.DeriveGameModes(cmd.File)
+	if err != nil {
+		return err
+	}
+	out, _ := json.Marshal(modes)
+	fmt.Println(string(out))
+	return nil
+}
+
+// IndexCmd dumps a CBOR .index.source to JSON.
+type IndexCmd struct {
+	File string `arg:"" help:"Path to .index.source file."`
+}
+
+func (cmd *IndexCmd) Run() error {
+	return dumpIndexToJSON(cmd.File)
 }
 
 func main() {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
 
-	var roots min.RootFlags
+	ctx := kong.Parse(&CLI,
+		kong.Name("sourdump"),
+		kong.Description("Asset pipeline tool for Sour"),
+		kong.UsageOnError(),
+		kong.ConfigureHelp(kong.HelpOptions{
+			Compact: true,
+			Summary: true,
+		}),
+	)
 
-	flag.Var(&roots, "root", "Specify a source for assets. Roots are searched in order of appearance.")
-	cpuProfile := flag.String("cpu", "", "Write cpu profile to `file`.")
-	cacheDir := flag.String("cache", "cache/", "The directory in which to cache assets from remote sources.")
-
-	dumpCmd := flag.NewFlagSet("dump", flag.ExitOnError)
-	parseType := dumpCmd.String("type", "map", "The type of the asset to parse, one of 'map', 'model', 'cfg'.")
-	indexPath := dumpCmd.String("index", "", "Where to save the index of all texture calls.")
-	flag.Parse()
-
-	downloadCmd := flag.NewFlagSet("download", flag.ExitOnError)
-	outDir := downloadCmd.String("outdir", "output/", "The directory in which to save the assets.")
-
-	modesCmd := flag.NewFlagSet("modes", flag.ExitOnError)
-
-	listCmd := flag.NewFlagSet("list", flag.ExitOnError)
-	queryCmd := flag.NewFlagSet("query", flag.ExitOnError)
-	hashCmd := flag.NewFlagSet("hash", flag.ExitOnError)
-
-	if *cpuProfile != "" {
-		f, err := os.Create(*cpuProfile)
+	if CLI.CPU != "" {
+		f, err := os.Create(CLI.CPU)
 		if err != nil {
 			log.Fatal().Err(err).Msg("could not create CPU profile")
 		}
-		defer f.Close() // error handling omitted for example
+		defer f.Close()
 		if err := pprof.StartCPUProfile(f); err != nil {
 			log.Fatal().Err(err).Msg("could not start CPU profile")
 		}
 		defer pprof.StopCPUProfile()
 	}
 
-	args := flag.Args()
-
-	if len(args) == 0 {
-		log.Fatal().Msg("You must provide at least one argument.")
-	}
-
-	cache := assets.FSStore(*cacheDir)
-	ctx := context.Background()
-	assetRoots, err := assets.LoadRoots(ctx, cache, roots, false)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to load roots")
-	}
-
-	switch args[0] {
-	case "dump":
-		dumpCmd.Parse(args[1:])
-		args := dumpCmd.Args()
-		if len(args) != 1 {
-			log.Fatal().Msg("You must provide only a single argument.")
-		}
-		Dump(cache, assetRoots, *parseType, *indexPath, args[0])
-	case "download":
-		downloadCmd.Parse(args[1:])
-		args := downloadCmd.Args()
-		if len(args) == 0 {
-			log.Fatal().Msg("You must provide at least one asset.")
-		}
-		Download(ctx, cache, assetRoots, *outDir, args)
-	case "list":
-		listCmd.Parse(args[1:])
-		args := listCmd.Args()
-		if len(args) != 0 {
-			log.Fatal().Msg("`list` takes no arguments.")
-		}
-		List(cache, assetRoots)
-	case "query":
-		queryCmd.Parse(args[1:])
-		args := queryCmd.Args()
-		if len(args) == 0 {
-			log.Fatal().Msg("You must provide at least one path to query.")
-		}
-		Query(cache, assetRoots, args)
-	case "modes":
-		modesCmd.Parse(args[1:])
-		args := modesCmd.Args()
-		if len(args) != 1 {
-			log.Fatal().Msg("You must provide a single .ogz file path.")
-		}
-		modes, err := DeriveGameModes(args[0])
-		if err != nil {
-			log.Fatal().Err(err).Msg("could not derive game modes")
-		}
-		out, _ := json.Marshal(modes)
-		fmt.Println(string(out))
-	case "hash":
-		hashCmd.Parse(args[1:])
-		args := hashCmd.Args()
-		if len(args) == 0 {
-			log.Fatal().Msg("You must provide at least one path to hash.")
-		}
-		Hash(cache, assetRoots, args)
-	}
+	err := ctx.Run()
+	ctx.FatalIfErrorf(err)
 }

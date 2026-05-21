@@ -13,20 +13,20 @@ type Asset struct {
 }
 
 type Mod struct {
-	Id          string
-	Name        string
-	Image       string
-	Description string
+	Id          string `cbor:"id"`
+	Name        string `cbor:"name"`
+	Image       string `cbor:"image"`
+	Description string `cbor:"description"`
 }
 
 type GameMap struct {
-	Id          string
-	Name        string
-	Ogz         string
-	Bundle      string
-	Assets      []Asset
-	Image       string
-	Description string
+	Id          string  `cbor:"id"`
+	Name        string  `cbor:"name"`
+	Ogz         string  `cbor:"ogz"`
+	Bundle      string  `cbor:"bundle"`
+	Assets      []Asset `cbor:"assets"`
+	Image       string  `cbor:"image"`
+	Description string  `cbor:"description"`
 }
 
 type SlimMap struct {
@@ -38,26 +38,26 @@ type SlimMap struct {
 }
 
 type Bundle struct {
-	Id      string
-	Desktop bool
-	Web     bool
-	Assets  []Asset
+	Id      string  `cbor:"id"`
+	Desktop bool    `cbor:"desktop"`
+	Web     bool    `cbor:"web"`
+	Assets  []Asset `cbor:"assets"`
 }
 
 type Model struct {
-	Id   string
-	Name string
+	Id   string `cbor:"id"`
+	Name string `cbor:"name"`
 }
 
 type Index struct {
-	Assets   []string
-	Refs     []IndexAsset
-	Textures []Asset
-	Sounds   []Asset
-	Bundles  []Bundle
-	Maps     []GameMap
-	Models   []Model
-	Mods     []Mod
+	Assets   []string     `cbor:"assets"`
+	Refs     []IndexAsset `cbor:"refs"`
+	Textures []Asset      `cbor:"textures"`
+	Sounds   []Asset      `cbor:"sounds"`
+	Bundles  []Bundle     `cbor:"bundles"`
+	Maps     []GameMap    `cbor:"maps"`
+	Models   []Model      `cbor:"models"`
+	Mods     []Mod        `cbor:"mods"`
 }
 
 type AssetSource struct {

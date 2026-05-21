@@ -12,9 +12,9 @@ rm -r output
 
 short=$(git rev-parse --short HEAD)
 
-python3 base.py \
+./sourdump base \
   --prefix $short \
-  --root https://static.sourga.me/blobs/6481/.index.source \
+  --game-root https://static.sourga.me/blobs/6481/.index.source \
   --models \
   --textures
 

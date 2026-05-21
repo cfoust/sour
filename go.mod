@@ -1,6 +1,6 @@
 module github.com/cfoust/sour
 
-go 1.22.0
+go 1.25.0
 
 require (
 	cuelang.org/go v0.10.1 // indirect
@@ -30,6 +30,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/net v0.30.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect
 	golang.org/x/text v0.19.0 // indirect
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
