@@ -3,17 +3,12 @@ package maps
 import (
 	_ "embed"
 	"encoding/binary"
-	"fmt"
-	"unsafe"
 
 	C "github.com/cfoust/sour/pkg/game/constants"
 	V "github.com/cfoust/sour/pkg/game/variables"
-	"github.com/cfoust/sour/pkg/maps/worldio"
 
 	"github.com/rs/zerolog/log"
 )
-
-type CCube worldio.Cube
 
 type Header struct {
 	Version    int32
@@ -242,13 +237,13 @@ func (c *Cube) Count() uint {
 
 func NewCubes(face uint32, mat uint16) *Cube {
 	cubes := make([]*Cube, CUBE_FACTOR)
-	for i, _ := range cubes {
+	for i := range cubes {
 		cube := Cube{
 			Children: make([]*Cube, 0),
 		}
 		cube.SetFaces(face)
-		for i, _ := range cube.Texture {
-			cube.Texture[i] = DEFAULT_GEOM
+		for j := range cube.Texture {
+			cube.Texture[j] = DEFAULT_GEOM
 		}
 		cube.Material = mat
 		cubes[i] = &cube
@@ -389,41 +384,10 @@ type GameMap struct {
 	Vars      V.Variables
 	WorldRoot *Cube
 	VSlots    []*VSlot
-	C         worldio.MapState
-}
-
-func (m *GameMap) Destroy() {
-	worldio.M.Lock()
-	worldio.Free_state(m.C)
-	worldio.M.Unlock()
-}
-
-// This is generated using:
-// sourdump -type cfg -index default.textures data/default_map_settings.cfg
-// (that is not the full command, you should be able to infer it though)
-//
-//go:embed default.textures
-var DEFAULT_MAP_SLOTS []byte
-
-func LoadDefaultSlots(map_ *GameMap) error {
-	worldio.M.Lock()
-	loadOk := worldio.Load_texture_index(
-		uintptr(unsafe.Pointer(&(DEFAULT_MAP_SLOTS)[0])),
-		int64(len(DEFAULT_MAP_SLOTS)),
-		map_.C,
-	)
-	worldio.M.Unlock()
-	if !loadOk {
-		return fmt.Errorf("failed to load texture index")
-	}
-
-	return nil
+	World     *WorldState
 }
 
 func NewMap() (*GameMap, error) {
-	worldio.M.Lock()
-	c := worldio.Empty_world(12)
-	worldio.M.Unlock()
 	map_ := GameMap{
 		Header: Header{
 			Version:    C.MAP_VERSION,
@@ -435,11 +399,6 @@ func NewMap() (*GameMap, error) {
 		WorldRoot: EmptyMap(1024),
 		Vars:      make(map[string]V.Variable),
 		VSlots:    make([]*VSlot, 0),
-		C:         c,
-	}
-
-	if err := LoadDefaultSlots(&map_); err != nil {
-		return nil, err
 	}
 
 	return &map_, nil

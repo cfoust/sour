@@ -3,125 +3,14 @@ package maps
 import (
 	"bytes"
 	"compress/gzip"
-	"fmt"
 	"io"
 	"os"
-	"unsafe"
 
 	gIO "github.com/cfoust/sour/pkg/game/io"
 	V "github.com/cfoust/sour/pkg/game/variables"
-	"github.com/cfoust/sour/pkg/maps/worldio"
 
 	"github.com/rs/zerolog/log"
 )
-
-func MapToGo(parent worldio.Cube) *Cube {
-	children := make([]*Cube, 0)
-	for i := 0; i < CUBE_FACTOR; i++ {
-		cube := Cube{}
-		member := worldio.CubeArray_getitem(parent, i)
-
-		if member.GetChildren().Swigcptr() != 0 {
-			cube.Children = MapToGo(member.GetChildren()).Children
-		}
-
-		if member.GetExt().Swigcptr() != 0 {
-			ext := member.GetExt()
-			for j := 0; j < 6; j++ {
-				surface := worldio.SurfaceInfoArray_getitem(ext.GetSurfaces(), j)
-				cube.SurfaceInfo[j].Lmid[0] = worldio.UcharArray_getitem(surface.GetLmid(), 0)
-				cube.SurfaceInfo[j].Lmid[1] = worldio.UcharArray_getitem(surface.GetLmid(), 1)
-				cube.SurfaceInfo[j].Verts = surface.GetVerts()
-				cube.SurfaceInfo[j].NumVerts = surface.GetNumverts()
-			}
-		}
-
-		// edges
-		for j := 0; j < 12; j++ {
-			value := worldio.UcharArray_getitem(member.GetEdges(), j)
-			cube.Edges[j] = value
-		}
-
-		// texture
-		for j := 0; j < 6; j++ {
-			value := worldio.Uint16Array_getitem(member.GetTexture(), j)
-			cube.Texture[j] = value
-		}
-
-		cube.Material = member.GetMaterial()
-		cube.Merged = member.GetMerged()
-		cube.Escaped = member.GetEscaped()
-		children = append(children, &cube)
-	}
-
-	cube := Cube{
-		Children: children,
-	}
-
-	return &cube
-}
-
-func VSlotsToGo(state worldio.MapState) []*VSlot {
-	vslots := make([]*VSlot, 0)
-
-	refs := make(map[uintptr]*VSlot)
-
-	for i := 0; i < worldio.Getnumvslots(state); i++ {
-		vslot := VSlot{}
-		slot := worldio.Getvslotindex(state, i)
-		vslot.Index = int32(slot.GetIndex())
-		vslot.Changed = int32(slot.GetChanged())
-		vslot.Layer = int32(slot.GetLayer())
-		vslot.Linked = slot.GetLinked()
-		vslot.Scale = float32(slot.GetScale())
-		vslot.Rotation = int32(slot.GetRotation())
-		vslot.AlphaFront = float32(slot.GetAlphafront())
-		vslot.AlphaBack = float32(slot.GetAlphaback())
-
-		// TODO Params, Offset, Scroll, ColorScale, GlowColor
-
-		refs[slot.Swigcptr()] = &vslot
-
-		vslots = append(vslots, &vslot)
-	}
-
-	// Second pass, link up next pointers
-	for i := 0; i < worldio.Getnumvslots(state); i++ {
-		vslot := vslots[i]
-		slot := worldio.Getvslotindex(state, i)
-
-		ptr := slot.GetNext().Swigcptr()
-		if ptr == 0 {
-			continue
-		}
-
-		next, ok := refs[ptr]
-		if !ok || next == nil {
-			continue
-		}
-
-		vslot.Next = next
-	}
-
-	return vslots
-}
-
-func LoadPartial(p *gIO.Buffer, header Header) (worldio.MapState, error) {
-	state := worldio.Partial_load_world(
-		uintptr(unsafe.Pointer(&(*p)[0])),
-		int64(len(*p)),
-		int(header.NumVSlots),
-		int(header.WorldSize),
-		int(header.Version),
-		int(header.LightMaps),
-		int(header.NumPVs),
-		int(header.BlendMap),
-	)
-	if state.Swigcptr() == 0 {
-		return nil, fmt.Errorf("failed to load cubes")
-	}
-	return state, nil
-}
 
 func decode(data []byte, skipCubes bool) (*GameMap, error) {
 	p := gIO.Buffer(data)
@@ -235,9 +124,9 @@ func decode(data []byte, skipCubes bool) (*GameMap, error) {
 		}
 
 		if !InsideWorld(header.WorldSize, entity.Position) {
-			log.Printf("Entity outside of world")
-			log.Printf("entity type %d", entity.Type)
-			log.Printf("entity pos x=%f,y=%f,z=%f", entity.Position.X, entity.Position.Y, entity.Position.Z)
+			log.Debug().Msgf("Entity outside of world")
+			log.Debug().Msgf("entity type %d", entity.Type)
+			log.Debug().Msgf("entity pos x=%f,y=%f,z=%f", entity.Position.X, entity.Position.Y, entity.Position.Z)
 		}
 
 		if header.Version <= 14 && entity.Type == ET_MAPMODEL {
@@ -245,7 +134,7 @@ func decode(data []byte, skipCubes bool) (*GameMap, error) {
 			entity.Attr3 = 0
 
 			if entity.Attr4 > 0 {
-				log.Printf("warning: mapmodel ent (index %d) uses texture slot %d", i, entity.Attr4)
+				log.Debug().Msgf("warning: mapmodel ent (index %d) uses texture slot %d", i, entity.Attr4)
 			}
 
 			entity.Attr4 = 0
@@ -260,15 +149,24 @@ func decode(data []byte, skipCubes bool) (*GameMap, error) {
 		return &gameMap, nil
 	}
 
-	state, err := LoadPartial(&p, gameMap.Header)
+	// Load world data using pure Go loader
+	remaining := []byte(p)
+	state, err := LoadWorld(
+		remaining,
+		int(mapHeader.NumVSlots),
+		int(mapHeader.WorldSize),
+		mapHeader.Version,
+		int(mapHeader.LightMaps),
+		int(mapHeader.NumPVs),
+		int(mapHeader.BlendMap),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	gameMap.VSlots = VSlotsToGo(state)
-	// TODO wow, guess we don't need this anymore
-	//gameMap.WorldRoot = MapToGo(state.GetRoot())
-	gameMap.C = state
+	gameMap.VSlots = state.VSlots
+	gameMap.WorldRoot = state.Root
+	gameMap.World = state
 
 	return &gameMap, nil
 }
