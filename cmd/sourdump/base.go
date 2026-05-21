@@ -215,7 +215,7 @@ func (cmd *BaseCmd) Run() error {
 				_, err := sub.BuildMap(gctx, params, mapFile, base, desc, "")
 				if err != nil {
 					log.Warn().Err(err).Msgf("failed to build map %s", mapFile)
-					return nil // Don't fail the whole batch
+					return nil
 				}
 
 				mu.Lock()

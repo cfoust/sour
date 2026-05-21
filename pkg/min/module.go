@@ -11,7 +11,7 @@ import (
 	"github.com/repeale/fp-go/option"
 
 	"github.com/cfoust/sour/pkg/assets"
-	"github.com/cfoust/sour/pkg/cs"
+	"github.com/cfoust/sour/pkg/cscript"
 	"github.com/cfoust/sour/pkg/game/io"
 	"github.com/cfoust/sour/pkg/maps"
 )
@@ -304,7 +304,7 @@ type Processor struct {
 	processingModel bool
 	ModelFiles      []*Reference
 
-	cfgVM *cs.VM
+	cfgVM *cscript.VM
 }
 
 func NewProcessor(roots []assets.Root, slots []*maps.VSlot) *Processor {
@@ -324,7 +324,7 @@ func NewProcessor(roots []assets.Root, slots []*maps.VSlot) *Processor {
 
 	processor.Files = make([]*Reference, 0)
 
-	vm := cs.NewVM()
+	vm := cscript.NewVM()
 	processor.cfgVM = vm
 	processor.setupVM()
 
