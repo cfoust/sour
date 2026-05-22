@@ -27,10 +27,11 @@ var CLI struct {
 	Query    QueryCmd    `cmd:"" help:"Query file resolution."`
 	Hash     HashCmd     `cmd:"" help:"Hash assets."`
 	Modes    ModesCmd    `cmd:"" help:"Derive game modes from map."`
-	Base     BaseCmd     `cmd:"" help:"Build base game assets."`
 	Quad     QuadCmd     `cmd:"" help:"Build Quadropolis assets."`
 	Catalog  CatalogCmd  `cmd:"" help:"Generate catalog files."`
-	Index    IndexCmd    `cmd:"" help:"Dump .index.source to JSON."`
+	DumpIndex DumpIndexCmd `cmd:"" help:"Dump .index.source to JSON." name:"dump-index"`
+	Index     IndexRootCmd `cmd:"" help:"Index a directory into a raw .index.source."`
+	Bundle    BundleCmd    `cmd:"" help:"Build assets from a YAML manifest."`
 }
 
 // Globals holds shared state from top-level flags.
@@ -153,12 +154,12 @@ func (cmd *ModesCmd) Run() error {
 	return nil
 }
 
-// IndexCmd dumps a CBOR .index.source to JSON.
-type IndexCmd struct {
+// DumpIndexCmd dumps a CBOR .index.source to JSON.
+type DumpIndexCmd struct {
 	File string `arg:"" help:"Path to .index.source file."`
 }
 
-func (cmd *IndexCmd) Run() error {
+func (cmd *DumpIndexCmd) Run() error {
 	return dumpIndexToJSON(cmd.File)
 }
 

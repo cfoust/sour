@@ -1,0 +1,190 @@
+roots:
+  - assets/sour
+
+output: output/
+download: true
+web: true
+desktop: false
+
+mods:
+  - name: base
+    description: "Everything the base game needs."
+    files:
+      include:
+        - auth.cfg
+        - autoexec.cfg
+        - config.cfg
+        - data/background.png
+        - data/background_decal.png
+        - data/background_detail.png
+        - data/blendbrush.cfg
+        - data/crosshair.png
+        - data/default_map_models.cfg
+        - data/default_map_settings.cfg
+        - data/defaults.cfg
+        - data/font.cfg
+        - data/game_fps.cfg
+        - data/glsl.cfg
+        - data/guicursor.png
+        - data/guioverlay.png
+        - data/guiskin.png
+        - data/guislider.png
+        - data/heightmap.cfg
+        - data/hit.png
+        - data/keymap.cfg
+        - data/loading_bar.png
+        - data/loading_frame.png
+        - data/logo.png
+        - data/logo_1024.png
+        - data/mapshot_frame.png
+        - data/menus.cfg
+        - data/sounds.cfg
+        - data/stdedit.cfg
+        - data/stdlib.cfg
+        - init.cfg
+        - once.cfg
+        - packages/aftas/package.cfg
+        - packages/blendbrush/*.png
+        - packages/blikjebier/akaritori/package2.cfg
+        - packages/blikjebier/concrete/package.cfg
+        - packages/blikjebier/metal/package.cfg
+        - packages/caustics/*.png
+        - packages/dg/mad065.jpg
+        - packages/dg/mad067.jpg
+        - packages/dg/mur013.jpg
+        - packages/dg/mur073.jpg
+        - packages/dg/muv204.jpg
+        - packages/dg/package.cfg
+        - packages/dg/package2.cfg
+        - packages/dg/trail.jpg
+        - packages/egyptsoc/package.cfg
+        - packages/egyptsoc/package2.cfg
+        - packages/fanatic/1.ogg
+        - packages/fanatic/4.ogg
+        - packages/fonts/default.cfg
+        - packages/fonts/default*.png
+        - packages/g_pack/package.cfg
+        - packages/g_pack/package2.cfg
+        - packages/gibbie/package.cfg
+        - packages/golgotha/water2.jpg
+        - packages/gor/package.cfg
+        - packages/hud/*.png
+        - packages/hud/license.txt
+        - packages/icons/*.jpg
+        - packages/icons/*.png
+        - packages/icons/readme.txt
+        - packages/ik2k/ik_sky_day_back.jpg
+        - packages/ik2k/package.cfg
+        - packages/ikbase/package.cfg
+        - packages/jf1/package.cfg
+        - packages/loopix/package.cfg
+        - packages/lunaran/package.cfg
+        - packages/mitaman/package.cfg
+        - packages/noctua/package.cfg
+        - packages/painkillah/package.cfg
+        - packages/particles/*.png
+        - packages/particles/*.jpg
+        - packages/particles/license.txt
+        - packages/payne/Box12b.jpg
+        - packages/payne/package.cfg
+        - packages/philipk/package.cfg
+        - packages/rorschach/*.jpg
+        - packages/rorschach/package2.cfg
+        - packages/skyboxes/morning_*.jpg
+        - packages/skyboxes/remus/readme.txt
+        - packages/skyboxes/remus/sky01_*.jpg
+        - packages/socksky/desert_*.jpg
+        - packages/socksky/mars_*.jpg
+        - packages/sounds/aard/*
+        - packages/sounds/blindabuser/*
+        - packages/sounds/ctf/*
+        - packages/sounds/free/*
+        - packages/sounds/kaiser/fx/hum7.wav
+        - packages/sounds/nieb/jumppad*
+        - packages/sounds/q009/*
+        - packages/sounds/soundsnap/*
+        - packages/subverse/metal_scratch_tile.jpg
+        - packages/subverse/package.cfg
+        - packages/tech1soc/032-10b.jpg
+        - packages/tech1soc/032-15a.jpg
+        - packages/tech1soc/package.cfg
+        - packages/tech1soc/zdet_trim2a.jpg
+        - packages/textures/default.png
+        - packages/textures/fatum/package.cfg
+        - packages/textures/grass_ik.png
+        - packages/textures/medieval_soc/package.cfg
+        - packages/textures/nieb/*/package.cfg
+        - packages/textures/nieb/package.cfg
+        - packages/textures/notexture.png
+        - packages/textures/downloading.png
+        - packages/textures/philipk/pk02/package.cfg
+        - packages/textures/swatllama/package.cfg
+        - packages/textures/terrain_soc/package.cfg
+        - packages/textures/water*.jpg
+        - packages/textures/yves_allaire/ex/package.cfg
+        - packages/than_ind/package.cfg
+        - packages/tomek/package.cfg
+        - packages/trak5/package.cfg
+        - server-init.cfg
+        - servers.cfg
+        - timidity.cfg
+
+  - name: fps
+    description: "All of the base game FPS models."
+    models:
+      include:
+        # Item and game models
+        - ammo/*
+        - armor/*
+        - boost
+        - carrot
+        - checkpoint
+        - health
+        - quad
+        - teleporter
+        - flags/*
+        - base/*
+        - skull/*
+        # Player models and their variants
+        - mrfixit
+        - mrfixit/*
+        - snoutx10k
+        - snoutx10k/*
+        - ogro2
+        - ogro2/*
+        - inky
+        - inky/*
+        - captaincannon
+        - captaincannon/*
+
+models:
+  include: "*"
+  exclude:
+    # Already included in fps mod
+    - ammo/*
+    - armor/*
+    - boost
+    - carrot
+    - checkpoint
+    - health
+    - quad
+    - teleporter
+    - flags/*
+    - base/*
+    - skull/*
+    - mrfixit
+    - mrfixit/*
+    - snoutx10k
+    - snoutx10k/*
+    - ogro2
+    - ogro2/*
+    - inky
+    - inky/*
+    - captaincannon
+    - captaincannon/*
+
+textures:
+  include: "*"
+
+maps:
+  include: "*"

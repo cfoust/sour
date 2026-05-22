@@ -1,0 +1,8 @@
+roots:
+  - assets/sour
+
+output: output/mobile/
+compress: true
+
+textures:
+  include: "*"
