@@ -32,7 +32,3 @@ test:
 # Type-check client
 check-client:
     cd client && bunx tsc --noEmit
-
-# Derive game modes from a map file
-modes file:
-    go run ./cmd/sourdump modes {{file}}

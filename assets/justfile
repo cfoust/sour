@@ -1,5 +1,6 @@
 sauerbraten_dir := "input/roots/sauerbraten"
 quadropolis_dir := "input/quadropolis"
+sour := "go run ../cmd/sour assets"
 
 # Download Sauerbraten game data from SVN at a specific revision
 download-sauerbraten rev="6481":
@@ -36,19 +37,19 @@ download-quadropolis:
 
 # Index the raw Sauerbraten checkout into a content-addressed root
 index:
-    go run ../cmd/sourdump index {{sauerbraten_dir}} --outdir output/raw --copy
+    {{sour}} index {{sauerbraten_dir}} --outdir output/raw --copy
 
 # Build base game assets
 build *args:
-    go run ../cmd/sourdump bundle manifests/base.yaml --extra-root {{sauerbraten_dir}} {{args}}
+    {{sour}} bundle manifests/base.yaml --extra-root {{sauerbraten_dir}} {{args}}
 
 # Build using remote raw index (for CI, no local checkout needed)
 build-ci *args:
-    go run ../cmd/sourdump bundle manifests/base.yaml --extra-root https://static.sourga.me/blobs/6481/.index.source {{args}}
+    {{sour}} bundle manifests/base.yaml --extra-root https://static.sourga.me/blobs/6481/.index.source {{args}}
 
 # Build compressed mobile textures
 build-mobile:
-    go run ../cmd/sourdump bundle manifests/base-mobile.yaml --extra-root {{sauerbraten_dir}}
+    {{sour}} bundle manifests/base-mobile.yaml --extra-root {{sauerbraten_dir}}
 
 # Clean all build outputs
 clean:

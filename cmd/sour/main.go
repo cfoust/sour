@@ -7,6 +7,7 @@ import (
 	"runtime/trace"
 	"time"
 
+	"github.com/cfoust/sour/cmd/sour/assets"
 	"github.com/cfoust/sour/pkg/config"
 	"github.com/cfoust/sour/pkg/version"
 
@@ -29,6 +30,8 @@ var CLI struct {
 
 	Config struct {
 	} `cmd:"" help:"Write Sour's default configuration to standard output."`
+
+	Assets assets.Cmd `cmd:"" help:"Asset pipeline: build, index, and inspect game assets."`
 }
 
 func writeError(err error) {
@@ -146,5 +149,10 @@ func main() {
 		}
 	case "config":
 		os.Stdout.Write(config.DEFAULT)
+	default:
+		err := ctx.Run()
+		if err != nil {
+			writeError(err)
+		}
 	}
 }

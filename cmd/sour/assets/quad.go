@@ -1,4 +1,4 @@
-package main
+package assets
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cfoust/sour/pkg/assets"
+	pkgassets "github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/assets/packager"
 
 	"github.com/rs/zerolog/log"
@@ -210,8 +210,8 @@ func buildQuadNode(
 		_ = fileContents
 
 		fileRootStrings := append(roots, fileRoot)
-		cache := assets.FSStore("cache/")
-		fileAssetRoots, err := assets.LoadRoots(ctx, cache, fileRootStrings, false)
+		cache := pkgassets.FSStore("cache/")
+		fileAssetRoots, err := pkgassets.LoadRoots(ctx, cache, fileRootStrings, false)
 		if err != nil {
 			log.Warn().Err(err).Msgf("failed to load roots for node %d file %d", node.ID, i)
 			continue
@@ -312,7 +312,7 @@ func buildQuadNode(
 	}, nil
 }
 
-func (cmd *QuadCmd) Run() error {
+func (cmd *QuadCmd) Run(parent *Cmd) error {
 	ctx := context.Background()
 
 	os.MkdirAll(cmd.Outdir, 0755)
@@ -324,10 +324,10 @@ func (cmd *QuadCmd) Run() error {
 		quadRoot,
 	}
 
-	cache := assets.FSStore(CLI.Cache)
-	os.MkdirAll(CLI.Cache, 0755)
+	cache := pkgassets.FSStore(parent.Cache)
+	os.MkdirAll(parent.Cache, 0755)
 
-	assetRoots, err := assets.LoadRoots(ctx, cache, roots, false)
+	assetRoots, err := pkgassets.LoadRoots(ctx, cache, roots, false)
 	if err != nil {
 		return fmt.Errorf("failed to load roots: %w", err)
 	}

@@ -1,4 +1,4 @@
-package main
+package assets
 
 import (
 	"encoding/json"
