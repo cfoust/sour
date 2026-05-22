@@ -43,6 +43,9 @@ index:
 build *args:
     {{sour}} bundle manifests/base.yaml --extra-root {{sauerbraten_dir}} {{args}}
 
+build-all:
+    {{sour}} bundle manifests/base.yaml --extra-root {{sauerbraten_dir}} --maps "*"
+
 # Build using remote raw index (for CI, no local checkout needed)
 build-ci *args:
     {{sour}} bundle manifests/base.yaml --extra-root https://static.sourga.me/blobs/6481/.index.source {{args}}

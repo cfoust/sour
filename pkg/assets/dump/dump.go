@@ -157,9 +157,10 @@ func DumpMap(ctx context.Context, roots []assets.Root, ref *min.Reference, index
 	for i, slot := range processor.Slots {
 		if _, ok := textureRefs[int32(i)]; ok {
 			for _, path := range slot.Sts {
-				texture := processor.SearchFile(ctx, min.NormalizeTexture(path.Name))
+				normalized := min.NormalizeTexture(path.Name)
+				texture := processor.SearchFile(ctx, normalized)
 				if texture == nil {
-					log.Warn().Msgf("unable to find texture %s", path.Name)
+					log.Warn().Msgf("unable to find texture %s", normalized)
 					continue
 				}
 				addFile(texture)

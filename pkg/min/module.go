@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/repeale/fp-go/option"
 
@@ -333,6 +334,8 @@ func NewProcessor(roots []assets.Root, slots []*maps.VSlot) *Processor {
 
 // Search for a file in the roots, one at a time
 func (processor *Processor) SearchFile(ctx context.Context, path string) *Reference {
+	// Normalize Windows-style backslashes from map cfgs
+	path = strings.ReplaceAll(path, "\\", "/")
 	for _, root := range processor.Roots {
 		unprefixed := NewReference(root, path)
 		prefixed := NewReference(root, filepath.Join("packages", path))
