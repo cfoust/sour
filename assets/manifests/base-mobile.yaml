@@ -1,4 +1,5 @@
 roots:
+  - input/roots/sauerbraten
   - input/roots/sour
 
 output: output/base-mobile/

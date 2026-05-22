@@ -41,18 +41,18 @@ index:
 
 # Build base game assets
 build *args:
-    {{sour}} bundle manifests/base.yaml --extra-root {{sauerbraten_dir}} {{args}}
+    {{sour}} bundle manifests/base.yaml {{args}}
 
 build-all:
-    {{sour}} bundle manifests/base.yaml --extra-root {{sauerbraten_dir}} --maps "*"
+    {{sour}} bundle manifests/base.yaml --maps "*"
 
 # Build using remote raw index (for CI, no local checkout needed)
 build-ci *args:
-    {{sour}} bundle manifests/base.yaml --extra-root https://static.sourga.me/blobs/6481/.index.source {{args}}
+    {{sour}} bundle manifests/base-ci.yaml {{args}}
 
 # Build compressed mobile textures
 build-mobile:
-    {{sour}} bundle manifests/base-mobile.yaml --extra-root {{sauerbraten_dir}}
+    {{sour}} bundle manifests/base-mobile.yaml
 
 # Clean all build outputs
 clean:

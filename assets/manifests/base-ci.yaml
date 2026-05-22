@@ -1,9 +1,9 @@
 roots:
-  - input/roots/sauerbraten
+  - https://static.sourga.me/blobs/6481/.index.source
   - input/roots/sour
 
 output: output/base/
-download: false
+download: true
 web: true
 desktop: false
 

@@ -84,10 +84,20 @@ func LoadManifest(path string) (*Manifest, error) {
 	return &m, nil
 }
 
-// MergeRoots prepends CLI roots to the manifest's roots.
+// MergeRoots prepends CLI roots to the manifest's roots, skipping duplicates.
 func (m *Manifest) MergeRoots(cliRoots []string) {
-	if len(cliRoots) > 0 {
-		m.Roots = append(cliRoots, m.Roots...)
+	if len(cliRoots) == 0 {
+		return
+	}
+	seen := make(map[string]bool)
+	for _, r := range m.Roots {
+		seen[r] = true
+	}
+	for _, r := range cliRoots {
+		if !seen[r] {
+			m.Roots = append([]string{r}, m.Roots...)
+			seen[r] = true
+		}
 	}
 }
 
