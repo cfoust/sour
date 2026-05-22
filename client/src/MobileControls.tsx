@@ -14,13 +14,13 @@ import {
 
 import nipplejs from 'nipplejs'
 
-import SAW_ICON from 'url:./static/saw.png'
-import SHOTGUN_ICON from 'url:./static/shotgun.png'
-import CHAINGUN_ICON from 'url:./static/machinegun.png'
-import ROCKET_ICON from 'url:./static/rocket.png'
-import RIFLE_ICON from 'url:./static/rifle.png'
-import GRENADE_ICON from 'url:./static/grenade.png'
-import PISTOL_ICON from 'url:./static/pistol.png'
+import SAW_ICON from './static/saw.png'
+import SHOTGUN_ICON from './static/shotgun.png'
+import CHAINGUN_ICON from './static/machinegun.png'
+import ROCKET_ICON from './static/rocket.png'
+import RIFLE_ICON from './static/rifle.png'
+import GRENADE_ICON from './static/grenade.png'
+import PISTOL_ICON from './static/pistol.png'
 
 import type { PlayerState } from './types'
 

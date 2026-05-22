@@ -1,4 +1,4 @@
 dist
 node_modules
-.parcel-cache
-index.js*
+.vite
+public/game

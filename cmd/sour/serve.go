@@ -336,33 +336,9 @@ func serveCommand(configs []string) error {
 		return err
 	}
 
-	var siteHandler http.Handler
-	if CLI.Serve.Dev {
-		// Serve from the on-disk site directory so Parcel watch changes
-		// are picked up without rebuilding the Go binary.
-		siteDir := filepath.Join("pkg", "server", "static", "site")
-		siteHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Intercept index.js to prepend config injection
-			if r.URL.Path == "/index.js" {
-				body, err := os.ReadFile(filepath.Join(siteDir, "index.js"))
-				if err != nil {
-					http.Error(w, "index.js not found — run 'yarn serve' in client/", http.StatusNotFound)
-					return
-				}
-				w.Header().Set("Content-Type", "application/javascript")
-				fmt.Fprintf(w, "const INJECTED_SOUR_CONFIG = %s;\n", string(clientConfig))
-				w.Write(body)
-				return
-			}
-			http.FileServer(http.Dir(siteDir)).ServeHTTP(w, r)
-		})
-		log.Info().Msgf("dev mode: serving client from %s", siteDir)
-	} else {
-		var err error
-		siteHandler, err = static.Site(string(clientConfig))
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to load site data")
-		}
+	siteHandler, err := static.Site()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to load site data")
 	}
 
 	errc := make(chan error, 1)
@@ -371,6 +347,11 @@ func serveCommand(configs []string) error {
 		mux.Handle("/", siteHandler)
 		mux.Handle("/ws/", wsIngress)
 		mux.Handle("/api/", cluster)
+		mux.HandleFunc("/api/client-config.js", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/javascript")
+			w.Header().Set("Cache-Control", "no-store")
+			fmt.Fprintf(w, "const INJECTED_SOUR_CONFIG = %s;\n", string(clientConfig))
+		})
 
 		// Serve the merged catalog JSON
 		if mergedCatalogJSON != nil {

@@ -76,7 +76,9 @@ function execCommand(cmd: string) {
     if (typeof BananaBread !== 'undefined' && BananaBread.execute) {
       BananaBread.execute(cmd)
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('[execCommand] error executing:', cmd, e)
+  }
 }
 
 export default function Menu({
@@ -89,9 +91,7 @@ export default function Menu({
   const [showPause, setShowPause] = React.useState(initialView === 'pause')
 
   React.useEffect(() => {
-    if (initialView === 'pause') {
-      setShowPause(true)
-    }
+    setShowPause(initialView === 'pause')
   }, [initialView])
 
   const handlePlay = React.useCallback((name: string) => {
@@ -124,8 +124,9 @@ export default function Menu({
   const pauseActions = {
     onResume: onClose,
     onDisconnect: () => {
+      execCommand('localdisconnect')
       execCommand('disconnect')
-      // Module.onDisconnect will set browsing=true and clear game state
+      // Module.onLocalDisconnect/onDisconnect will set browsing=true and clear game state
     },
     onVoteMap: () => {
       onClose()

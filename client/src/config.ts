@@ -52,20 +52,7 @@ function getInjected(): Maybe<Configuration> {
   }
 }
 
-function init() {
-  const config = getInjected()
-  if (config != null) {
-    CONFIG = config
-  } else {
-    const configStr = process.env.SOUR_CONFIG
-    if (configStr == null) {
-      new Error('no configuration provided')
-      return
-    }
-
-    CONFIG = JSON.parse(configStr)
-  }
-
+function applyConfig() {
   CONFIG.assets = R.chain((v): string[] => {
     if (v.startsWith('mobile:')) {
       return BROWSER.isMobile ? [fillAssetHost(v.slice(7))] : []
@@ -82,4 +69,37 @@ function init() {
   CONFIG.proxy = fillHost(CONFIG.proxy)
 }
 
-init()
+// true if config was available synchronously (script tag loaded before module)
+export let configAvailable = false
+
+const config = getInjected()
+if (config != null) {
+  CONFIG = config
+  applyConfig()
+  configAvailable = true
+}
+
+// Fallback for dev: fetch config from Go server if script tag failed.
+// Only used when configAvailable is false.
+export async function waitForConfig(): Promise<void> {
+  if (configAvailable) return
+
+  for (let i = 0; i < 30; i++) {
+    try {
+      const resp = await fetch('/api/client-config.js')
+      if (resp.ok) {
+        const text = await resp.text()
+        const fn = new Function(text + '; return INJECTED_SOUR_CONFIG;')
+        CONFIG = fn()
+        applyConfig()
+        configAvailable = true
+        return
+      }
+    } catch (_) {
+      // Server not ready yet
+    }
+    await new Promise((r) => setTimeout(r, 1000))
+  }
+
+  console.error('no configuration provided — could not reach server')
+}

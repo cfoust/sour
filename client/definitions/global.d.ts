@@ -1,9 +1,5 @@
 declare module 'cbor-js'
 
-declare module 'url:*' {
-  export default string
-}
-
 type PreloadFile = {
   filename: string
   start: number

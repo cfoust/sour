@@ -24,7 +24,6 @@ var CLI struct {
 	Serve struct {
 		Address string   `optional:"" name:"address" help:"IP address the HTTP server will listen on." default:""`
 		Port    int      `optional:"" name:"port" help:"TCP port the HTTP server will listen on. This overrides the value set in any configurations." default:"-1"`
-		Dev     bool     `optional:"" name:"dev" help:"Proxy the web client to Parcel's dev server (yarn serve) instead of using embedded files."`
 		Configs []string `arg:"" optional:"" name:"configs" help:"Configuration files for the server." type:"file"`
 	} `cmd:"" default:"withargs" help:"Start the sour server."`
 

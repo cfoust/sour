@@ -54,7 +54,7 @@ export default function Browse({ maps, loading, onPlay }: BrowseProps) {
     >
       <Flex direction="column" maxW="1200px" mx="auto">
         <Heading size="lg" mb={4}>
-          Maps
+          Maps2lkjlj
         </Heading>
 
         <Flex mb={4} gap={3}>

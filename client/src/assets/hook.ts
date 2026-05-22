@@ -487,7 +487,6 @@ export default function useAssets(
 
   React.useEffect(() => {
     const worker = new Worker(
-      // @ts-ignore
       new URL('./worker.ts', import.meta.url),
       { type: 'module' }
     )

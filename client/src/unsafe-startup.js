@@ -111,6 +111,13 @@ export default function start() {
     },
     preRun: [],
     postRun: [],
+    print: function (text) {
+      if (text.startsWith('main loop blocker')) return
+      // Module._printHook is set by React to handle game state transitions.
+      // It runs first; if it returns true, we skip the default console.log.
+      if (Module._printHook && Module._printHook(text)) return
+      console.log(text)
+    },
     printErr: function (text) {
       if (
         // These two happen a lot while playing and they don't mean anything.

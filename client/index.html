@@ -3,10 +3,6 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <!--<meta-->
-      <!--name="viewport"-->
-      <!--content="initial-scale=1;"-->
-    <!--/>-->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -21,14 +17,7 @@
 
     <meta property="og:title" content="Sour" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="http://play.sqweebloid.com" />
     <meta property="og:description" content="Sauerbraten for the web." />
-
-    <!--TODO-->
-    <!--<meta property="og:image" content="image.png" />-->
-    <!--<link rel="icon" href="/favicon.ico" />-->
-    <!--<link rel="icon" href="/favicon.svg" type="image/svg+xml" />-->
-    <!--<link rel="apple-touch-icon" href="/apple-touch-icon.png" />-->
   </head>
 
   <body
@@ -53,7 +42,8 @@
         WASM_PROMISE_RESOLVE = resolve;
       })
     </script>
-    <script src="/index.js"></script>
+    <script src="/api/client-config.js"></script>
+    <script type="module" src="/src/index.tsx"></script>
 
     <script async src="/game/api.js"></script>
     <script async type="text/javascript" src="/game/sauerbraten.js"></script>

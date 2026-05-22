@@ -5,7 +5,7 @@ import start from './unsafe-startup'
 import CBOR from 'cbor-js'
 import * as React from 'react'
 import * as R from 'ramda'
-import ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import {
   ChakraProvider,
   extendTheme,
@@ -40,7 +40,7 @@ import MobileControls from './MobileControls'
 import FileDropper from './FileDropper'
 
 import type { PromiseSet } from './utils'
-import { CONFIG } from './config'
+import { CONFIG, configAvailable, waitForConfig } from './config'
 import { breakPromise, BROWSER } from './utils'
 import * as log from './logging'
 
@@ -119,7 +119,7 @@ const pushURLState = (url: string) => {
 
 const clearURLState = () => pushURLState('/')
 
-export type CommandRequest = {
+type CommandRequest = {
   id: number
   promiseSet: PromiseSet<string>
 }
@@ -378,7 +378,7 @@ function App() {
       )
     }
 
-    Module.print = (text) => {
+    Module._printHook = (text) => {
       if (text === 'init: sdl') {
         setState({
           type: GameStateType.Running,
@@ -396,11 +396,7 @@ function App() {
         localStorage.setItem('sour_playerName', name)
       }
 
-      if (text.startsWith('main loop blocker')) {
-        return
-      }
-
-      console.log(text)
+      return false
     }
   }, [])
 
@@ -1145,9 +1141,19 @@ function App() {
   )
 }
 
-ReactDOM.render(
-  <ChakraProvider theme={theme}>
-    <App />
-  </ChakraProvider>,
-  document.getElementById('root')
-)
+function Root() {
+  const [ready, setReady] = React.useState(configAvailable)
+  React.useEffect(() => {
+    if (!configAvailable) {
+      waitForConfig().then(() => setReady(true))
+    }
+  }, [])
+  if (!ready) return null
+  return (
+    <ChakraProvider theme={theme}>
+      <App />
+    </ChakraProvider>
+  )
+}
+
+createRoot(document.getElementById('root')!).render(<Root />)
