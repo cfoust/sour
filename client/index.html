@@ -37,13 +37,28 @@
       Module.preRun = []
       Module.noInitialRun = true
       Module.postRun = []
+      // Must be set here because sauerbraten.js (async) captures
+      // Module.print into a local `out` var at load time, before
+      // the module script runs.
+      Module.print = function(text) {
+        if (text.startsWith('main loop blocker')) return
+        if (Module._printHook) Module._printHook(text)
+        console.log(text)
+      }
+      Module.printErr = function(text) {
+        if (
+          text.startsWith('Cannot find preloaded audio') ||
+          text.startsWith("Couldn't find file for:")
+        ) return
+        console.error(text)
+      }
       var WASM_PROMISE_RESOLVE = null
       var WASM_PROMISE = new Promise((resolve, reject) => {
         WASM_PROMISE_RESOLVE = resolve;
       })
     </script>
     <script src="/api/client-config.js"></script>
-    <script type="module" src="/src/index.tsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
 
     <script async src="/game/api.js"></script>
     <script async type="text/javascript" src="/game/sauerbraten.js"></script>

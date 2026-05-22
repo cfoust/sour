@@ -1,20 +1,13 @@
-import './fonts/fonts.css'
 import styled from '@emotion/styled'
 import { useResizeDetector } from 'react-resize-detector'
-import start from './unsafe-startup'
 import CBOR from 'cbor-js'
 import * as React from 'react'
 import * as R from 'ramda'
-import { createRoot } from 'react-dom/client'
 import {
-  ChakraProvider,
-  extendTheme,
   Flex,
   VStack,
   Heading,
 } from '@chakra-ui/react'
-
-import type { ThemeConfig } from '@chakra-ui/react'
 
 import type { GameState, PlayerState } from './types'
 import type {
@@ -40,7 +33,7 @@ import MobileControls from './MobileControls'
 import FileDropper from './FileDropper'
 
 import type { PromiseSet } from './utils'
-import { CONFIG, configAvailable, waitForConfig } from './config'
+import { CONFIG } from './config'
 import { breakPromise, BROWSER } from './utils'
 import * as log from './logging'
 
@@ -49,23 +42,6 @@ import { LoadRequestType } from './assets/types'
 import Menu from './menu/Menu'
 import { useCatalog } from './catalog/hook'
 import type { BrowseMapEntry, Catalog } from './catalog/types'
-
-start()
-
-const colors = {
-  brand: {
-    900: '#1a365d',
-    800: '#153e75',
-    700: '#2a69ac',
-  },
-}
-
-const config: ThemeConfig = {
-  initialColorMode: 'dark',
-  useSystemColorMode: false,
-}
-
-const theme = extendTheme({ colors, config })
 
 const OuterContainer = styled.div`
   touch-action: none;
@@ -184,7 +160,7 @@ async function playDemoURL(url: string, reference: string) {
   }
 }
 
-function App() {
+export default function App() {
   const hasCatalog = CONFIG.catalog !== ''
   const [browsing, setBrowsing] = React.useState(
     hasCatalog && !hasDirectNavHash()
@@ -1141,19 +1117,3 @@ function App() {
   )
 }
 
-function Root() {
-  const [ready, setReady] = React.useState(configAvailable)
-  React.useEffect(() => {
-    if (!configAvailable) {
-      waitForConfig().then(() => setReady(true))
-    }
-  }, [])
-  if (!ready) return null
-  return (
-    <ChakraProvider theme={theme}>
-      <App />
-    </ChakraProvider>
-  )
-}
-
-createRoot(document.getElementById('root')!).render(<Root />)

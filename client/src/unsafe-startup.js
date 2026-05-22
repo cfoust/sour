@@ -111,22 +111,6 @@ export default function start() {
     },
     preRun: [],
     postRun: [],
-    print: function (text) {
-      if (text.startsWith('main loop blocker')) return
-      // Module._printHook is set by React to handle game state transitions.
-      // It runs first; if it returns true, we skip the default console.log.
-      if (Module._printHook && Module._printHook(text)) return
-      console.log(text)
-    },
-    printErr: function (text) {
-      if (
-        // These two happen a lot while playing and they don't mean anything.
-        text.startsWith('Cannot find preloaded audio') ||
-        text.startsWith("Couldn't find file for:")
-      )
-        return
-      console.error(text)
-    },
     setStatus: function (text) {
       if (
         text.startsWith('Preparing...') ||
