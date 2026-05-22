@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-go tool wgo run ./cmd/sour serve test-config.yaml 2>&1 | sed 's/^/[go] /' &
+go tool wgo run ./cmd/sour serve pkg/config/dev.yaml 2>&1 | sed 's/^/[go] /' &
 SERVER_PID=$!
 
 echo "Waiting for Go server on :1337..."

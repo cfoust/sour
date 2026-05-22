@@ -1,7 +1,10 @@
 # This configuration can be used for local development.
 server:
   assets:
+    - "fs:assets/output/raw/.index.source"
     - "fs:assets/output/base/.index.source"
+  catalogs:
+    - "fs:assets/output/base/catalog/catalog.json"
   presets:
     - name: "ffa-duel"
       virtual: true
@@ -46,7 +49,7 @@ server:
           enabled: true
           server: true
     web:
-      port: 29999
+      port: 1337
 
   matchmaking:
     duel:

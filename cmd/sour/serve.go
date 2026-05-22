@@ -72,8 +72,8 @@ func serveCommand(configs []string) error {
 	// Also check the current directory for built assets
 	if current, err := os.Getwd(); err == nil {
 		for _, dir := range []string{
-			filepath.Join(current, "assets", "output", "base"),
 			filepath.Join(current, "assets"),
+			current,
 		} {
 			source := filepath.Join(dir, ".index.source")
 			if _, err := os.Stat(source); err == nil {

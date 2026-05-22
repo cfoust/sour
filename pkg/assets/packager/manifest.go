@@ -144,37 +144,62 @@ func EnumerateMapNames(files []string) []string {
 }
 
 // EnumerateModelNames extracts model names from root file paths.
-// e.g., "packages/models/mrfixit/blue/tris.md5" → "mrfixit/blue"
+// A model directory is identified by either:
+// 1. Having a cfg file (md5.cfg, md3.cfg, etc.) — a root model
+// 2. Being a subdirectory of a model that contains textures — a skin variant
+//    (e.g., armor/green has skin.jpg but no cfg, inherits armor/md3.cfg)
 func EnumerateModelNames(files []string) []string {
-	modelTypes := []string{".md2", ".md3", ".md5", ".obj", ".smd", ".iqm"}
+	cfgNames := map[string]bool{
+		"md2.cfg": true, "md3.cfg": true, "md5.cfg": true,
+		"obj.cfg": true, "smd.cfg": true, "iqm.cfg": true,
+	}
 
-	seen := make(map[string]bool)
-	var names []string
+	// First pass: find all directories with model cfgs
+	modelRoots := make(map[string]bool)
+	// Track all directories that contain any file under packages/models/
+	dirsWithFiles := make(map[string]bool)
+
 	for _, f := range files {
 		if !strings.HasPrefix(f, "packages/models/") {
 			continue
 		}
 
-		isModel := false
-		for _, ext := range modelTypes {
-			if strings.HasSuffix(f, ext+".cfg") || strings.HasSuffix(f, "tris"+ext) {
-				isModel = true
-				break
-			}
-		}
-		if !isModel {
-			continue
-		}
-
-		// Extract model name: everything between "packages/models/" and the filename
 		rel := f[len("packages/models/"):]
-		name := filepath.Dir(rel)
-		if seen[name] {
-			continue
+		dir := filepath.Dir(rel)
+		dirsWithFiles[dir] = true
+
+		if cfgNames[filepath.Base(f)] {
+			modelRoots[dir] = true
 		}
+	}
+
+	seen := make(map[string]bool)
+	var names []string
+
+	// Add all model roots
+	for name := range modelRoots {
 		seen[name] = true
 		names = append(names, name)
 	}
+
+	// Second pass: find variant directories (subdirs of model roots
+	// that have files but no cfg of their own)
+	for dir := range dirsWithFiles {
+		if seen[dir] {
+			continue
+		}
+		// Walk up to see if a parent is a model root
+		parent := dir
+		for parent != "." && parent != "" {
+			parent = filepath.Dir(parent)
+			if modelRoots[parent] {
+				seen[dir] = true
+				names = append(names, dir)
+				break
+			}
+		}
+	}
+
 	return names
 }
 

@@ -187,4 +187,7 @@ textures:
   include: "*"
 
 maps:
-  include: "*"
+  include:
+    - complex
+    - dust2
+    - turbine
