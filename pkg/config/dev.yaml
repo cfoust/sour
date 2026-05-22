@@ -1,7 +1,7 @@
 # This configuration can be used for local development.
 server:
   assets:
-    - "fs:./assets/dist/.index.source"
+    - "fs:assets/output/base/.index.source"
   presets:
     - name: "ffa-duel"
       virtual: true

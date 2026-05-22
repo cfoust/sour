@@ -1,0 +1,55 @@
+sauerbraten_dir := "input/roots/sauerbraten"
+quadropolis_dir := "input/quadropolis"
+
+# Download Sauerbraten game data from SVN at a specific revision
+download-sauerbraten rev="6481":
+    #!/usr/bin/env bash
+    set -e
+    dest="{{sauerbraten_dir}}"
+    if [ -d "$dest/packages" ]; then
+      echo "Sauerbraten data already exists at $dest"
+      echo "Remove it first if you want to re-download."
+      exit 0
+    fi
+    echo "Downloading Sauerbraten r{{rev}} data..."
+    mkdir -p "$dest"
+    svn export -r {{rev}} https://svn.code.sf.net/p/sauerbraten/code/sauerbraten/data "$dest/data"
+    svn export -r {{rev}} https://svn.code.sf.net/p/sauerbraten/code/sauerbraten/packages "$dest/packages"
+    echo "Done. Sauerbraten r{{rev}} data in $dest"
+
+# Download the Quadropolis archive
+download-quadropolis:
+    #!/usr/bin/env bash
+    set -e
+    dest="{{quadropolis_dir}}"
+    if [ -d "$dest" ] && [ -f "$dest/nodes.json" ]; then
+      echo "Quadropolis data already exists at $dest"
+      echo "Remove it first if you want to re-download."
+      exit 0
+    fi
+    mkdir -p "$dest"
+    echo "Downloading Quadropolis archive..."
+    curl -L -o /tmp/quadropolis.tar.gz "https://static.sourga.me/archives/06-01-23-quadropolis.tar.gz"
+    tar xf /tmp/quadropolis.tar.gz -C "$dest"
+    rm /tmp/quadropolis.tar.gz
+    echo "Done. Quadropolis data in $dest"
+
+# Index the raw Sauerbraten checkout into a content-addressed root
+index:
+    go run ../cmd/sourdump index {{sauerbraten_dir}} --outdir output/raw --copy
+
+# Build base game assets
+build *args:
+    go run ../cmd/sourdump bundle manifests/base.yaml --extra-root {{sauerbraten_dir}} {{args}}
+
+# Build using remote raw index (for CI, no local checkout needed)
+build-ci *args:
+    go run ../cmd/sourdump bundle manifests/base.yaml --extra-root https://static.sourga.me/blobs/6481/.index.source {{args}}
+
+# Build compressed mobile textures
+build-mobile:
+    go run ../cmd/sourdump bundle manifests/base-mobile.yaml --extra-root {{sauerbraten_dir}}
+
+# Clean all build outputs
+clean:
+    rm -rf output

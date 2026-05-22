@@ -1,7 +1,7 @@
 roots:
-  - assets/sour
+  - input/roots/sour
 
-output: output/mobile/
+output: output/base-mobile/
 compress: true
 
 textures:

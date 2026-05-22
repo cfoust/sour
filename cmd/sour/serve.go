@@ -69,19 +69,20 @@ func serveCommand(configs []string) error {
 		}
 	}
 
-	// Also check the current directory
+	// Also check the current directory for built assets
 	if current, err := os.Getwd(); err == nil {
-		source := filepath.Join(
-			current,
-			"assets",
-			".index.source",
-		)
-
-		if _, err := os.Stat(source); err == nil {
-			serverConfig.Assets = append(
-				serverConfig.Assets,
-				"fs:"+source,
-			)
+		for _, dir := range []string{
+			filepath.Join(current, "assets", "output", "base"),
+			filepath.Join(current, "assets"),
+		} {
+			source := filepath.Join(dir, ".index.source")
+			if _, err := os.Stat(source); err == nil {
+				serverConfig.Assets = append(
+					serverConfig.Assets,
+					"fs:"+source,
+				)
+				break
+			}
 		}
 	}
 

@@ -1,9 +1,6 @@
-working/**
 output/**
-roots/**
-__pycache__
-/sourdump
-quadropolis
-*.tar.gz
+input/roots/sauerbraten/**
+input/quadropolis
 cache/**
-/dist
+/sourdump
+*.tar.gz

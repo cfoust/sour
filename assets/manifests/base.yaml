@@ -1,7 +1,7 @@
 roots:
-  - assets/sour
+  - input/roots/sour
 
-output: output/
+output: output/base/
 download: true
 web: true
 desktop: false
