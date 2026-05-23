@@ -213,6 +213,7 @@ const (
 type Cube struct {
 	Children    []*Cube
 	SurfaceInfo [6]SurfaceInfo
+	VertData    [6][]byte // raw per-vertex data for each face
 	Edges       [12]byte
 	Texture     [6]uint16
 	Material    uint16
