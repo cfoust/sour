@@ -19,9 +19,25 @@
     #sidebar {
       width: 200px;
       background: #0f1729;
-      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
       border-right: 1px solid #2a2a4a;
       flex-shrink: 0;
+    }
+    #search {
+      width: 100%;
+      padding: 10px 16px;
+      background: #1a2540;
+      border: none;
+      border-bottom: 1px solid #2a2a4a;
+      color: #eee;
+      font-size: 14px;
+      outline: none;
+    }
+    #search::placeholder { color: #556; }
+    #map-list {
+      overflow-y: auto;
+      flex: 1;
     }
     .map-item {
       padding: 10px 16px;

@@ -1,13 +1,6 @@
 import { decodePreview, type PreviewData } from "./decoder";
 import { createScene } from "./scene";
 
-const MAPS = [
-  "complex", "dust2", "turbine",
-  "akaritori", "alithia", "arabic", "caribbean", "castle_trap", "curvedm",
-  "duel8", "fc5", "flagstone", "hog2", "justice", "lost",
-  "neondevastation", "neonpanic", "ot", "reissen", "ruby", "suburb",
-];
-
 const cache = new Map<string, PreviewData>();
 let currentScene: ReturnType<typeof createScene> | null = null;
 let activeMap = "";
@@ -25,12 +18,10 @@ async function selectMap(name: string) {
   if (name === activeMap) return;
   activeMap = name;
 
-  // Update sidebar selection
   document.querySelectorAll(".map-item").forEach((el) => {
     el.classList.toggle("active", el.getAttribute("data-map") === name);
   });
 
-  // Dispose old scene
   if (currentScene) {
     currentScene.dispose();
     currentScene = null;
@@ -49,7 +40,8 @@ async function selectMap(name: string) {
     canvas.height = size;
 
     currentScene = createScene(canvas, data, size, size);
-    stats.textContent = `${data.numVoxels.toLocaleString()} voxels, ${data.gridSize}\u00B3 grid`;
+    const kb = Math.round(((await fetch(`/${name}.svox`)).headers.get("content-length") as any) / 1024);
+    stats.textContent = `${data.numVoxels.toLocaleString()} voxels | ${kb} KB`;
 
     slider.value = "100";
     slider.oninput = () => {
@@ -61,27 +53,57 @@ async function selectMap(name: string) {
   }
 }
 
-// Build UI
-const app = document.getElementById("app")!;
-app.innerHTML = `
-  <nav id="sidebar"></nav>
-  <main id="main">
-    <canvas id="viewer"></canvas>
-    <div id="hud">
-      <span id="stats"></span>
-      <input type="range" id="clip-slider" min="0" max="100" value="100" />
-    </div>
-  </main>
-`;
-
-const sidebar = document.getElementById("sidebar")!;
-for (const name of MAPS) {
-  const item = document.createElement("div");
-  item.className = "map-item";
-  item.setAttribute("data-map", name);
-  item.textContent = name;
-  item.onclick = () => selectMap(name);
-  sidebar.appendChild(item);
+// Discover all .svox files
+async function discoverMaps(): Promise<string[]> {
+  const resp = await fetch("/maps.json");
+  if (resp.ok) {
+    return await resp.json();
+  }
+  // Fallback: try a known set
+  return ["complex", "dust2", "turbine"];
 }
 
-selectMap(MAPS[0]);
+async function init() {
+  const app = document.getElementById("app")!;
+  app.innerHTML = `
+    <nav id="sidebar">
+      <input type="text" id="search" placeholder="Search maps..." />
+      <div id="map-list"></div>
+    </nav>
+    <main id="main">
+      <canvas id="viewer"></canvas>
+      <div id="hud">
+        <span id="stats"></span>
+        <input type="range" id="clip-slider" min="0" max="100" value="100" />
+      </div>
+    </main>
+  `;
+
+  const maps = await discoverMaps();
+  const mapList = document.getElementById("map-list")!;
+  const search = document.getElementById("search") as HTMLInputElement;
+
+  function renderList(filter: string) {
+    mapList.innerHTML = "";
+    const filtered = filter
+      ? maps.filter((m) => m.toLowerCase().includes(filter.toLowerCase()))
+      : maps;
+    for (const name of filtered) {
+      const item = document.createElement("div");
+      item.className = "map-item" + (name === activeMap ? " active" : "");
+      item.setAttribute("data-map", name);
+      item.textContent = name;
+      item.onclick = () => selectMap(name);
+      mapList.appendChild(item);
+    }
+  }
+
+  search.oninput = () => renderList(search.value);
+  renderList("");
+
+  if (maps.length > 0) {
+    selectMap(maps[0]);
+  }
+}
+
+init();
