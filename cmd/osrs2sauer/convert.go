@@ -8,37 +8,35 @@ import (
 )
 
 // Conversion parameters
+//
+// Scale derivation:
+//   - Sauer player height ≈ 14 units
+//   - OSRS player height ≈ 1 tile = 128 game units
+//   - So 1 tile must ≈ 14 Sauer units → cubesPerTile = 16 (closest power of 2)
+//   - Model scale: 1 OSRS unit = cubesPerTile/128 Sauer units = 0.125
+//   - Height scale: same ratio, heightScale = 128/cubesPerTile = 8
+//
+// Verification with a Door model (240 raw units tall):
+//   OBJ height = 240 * 0.125 = 30 units. Door/player = 30/14 = 2.1x ✓ (OSRS: ~2x)
+// Verification with a Tree model (520 raw units tall):
+//   OBJ height = 520 * 0.125 = 65 units. Tree/player = 65/14 = 4.6x ✓ (OSRS: ~4x)
 const (
-	// Each OSRS tile maps to cubesPerTile^2 Sauer cubes in X/Y
-	cubesPerTile = 4
-
-	// OSRS region is 64x64 tiles per chunk; we use one chunk
+	cubesPerTile  = 16
 	tilesPerChunk = 64
+	worldSize     = 2048
 
-	// World size: 64 tiles * 4 cubes/tile = 256 cubes of terrain.
-	// Use 512 to leave room for sky and walls.
-	worldSize = 512
+	terrainCubes  = tilesPerChunk * cubesPerTile  // 1024
+	terrainOffset = (worldSize - terrainCubes) / 2 // 512
 
-	// Terrain occupies this range in X/Y
-	terrainCubes  = tilesPerChunk * cubesPerTile // 256
-	terrainOffset = (worldSize - terrainCubes) / 2 // center terrain = 128
+	terrainBaseZ = 512
+	// Same conversion as models: 1 OSRS game unit = cubesPerTile/128 Sauer units.
+	// heightScale = 128/cubesPerTile: dividing OSRS height by this gives cubes.
+	heightScale = 128 / cubesPerTile // 8
 
-	// Height scaling: OSRS heights range roughly -480 to 0.
-	// We want gentle terrain, not spikes. Divide by a larger number.
-	// With heightScale=8, a -480 height becomes 60 cube units of elevation.
-	terrainBaseZ = 64            // base ground level
-	heightScale  = 8             // divisor for OSRS heights → cube units
-
-	// Wall height in cubes
-	wallHeight = 16
-
-	// Wall thickness in cubes
+	wallHeight    = cubesPerTile * 2
 	wallThickness = 1
 
-	// Model scale: OSRS model units to Sauer world units.
-	// 1 OSRS tile = 128 game units = cubesPerTile Sauer cubes.
-	// So 1 OSRS unit = cubesPerTile / 128 Sauer units.
-	modelScale = float64(cubesPerTile) / 128.0 // 0.03125
+	modelScaleValue = float64(cubesPerTile) / 128.0 // 0.125
 )
 
 // OSRS object types
@@ -88,10 +86,8 @@ func convertRegion(
 
 	m.WorldRoot = root
 
-	// Add walls from OSRS wall objects
-	if objDefs != nil {
-		addWalls(root, objects, objDefs, heightGrid)
-	}
+	// Walls are rendered as mapmodel entities alongside decorations,
+	// since OSRS walls are 3D models, not axis-aligned cube geometry.
 
 	// Set water material on appropriate cubes
 	addWater(root, region, heightGrid)
@@ -117,7 +113,7 @@ func convertRegion(
 	})
 
 	// Add decorative objects as mapmodels
-	modelIDs := addDecorations(m, objects, objDefs, heightGrid)
+	modelIDs := addDecorations(m, region, objects, objDefs, heightGrid)
 
 	return m, modelIDs, nil
 }
@@ -519,20 +515,23 @@ func isEmptyCube(c *maps.Cube) bool {
 
 // addDecorations converts OSRS game objects to Sauerbraten mapmodel entities.
 // Returns the set of OSRS model IDs that need to be exported.
-func addDecorations(m *maps.GameMap, objects []osrs.PlacedObject, objDefs *osrs.ObjectDefs, heightGrid [][]int) map[int]int {
+func addDecorations(m *maps.GameMap, region *osrs.Region, objects []osrs.PlacedObject, objDefs *osrs.ObjectDefs, heightGrid [][]int) map[int]int {
 	// First pass: collect unique object IDs and assign mapmodel indices
 	// mapmodel indices start at 0 and are registered in the map cfg
 	objectToMapmodel := make(map[int]int) // OSRS object ID → mapmodel index
 	var objectOrder []int
 
 	for _, obj := range objects {
-		if obj.Type != objGameObject && obj.Type != objGameObject2 {
+		// Skip ground decorations (type 22) — too small to matter
+		if obj.Type == objGroundDecor {
 			continue
 		}
+		// Skip wall decorations (type 3) — minor detail
+		if obj.Type == objWallDecoration {
+			continue
+		}
+
 		def := objDefs.Get(obj.ID)
-		if def.SizeX > 5 || def.SizeY > 5 {
-			continue
-		}
 		if len(def.ModelIDs) == 0 {
 			continue
 		}
@@ -553,8 +552,11 @@ func addDecorations(m *maps.GameMap, objects []osrs.PlacedObject, objDefs *osrs.
 	}
 
 	// Second pass: place entities
+	// In OSRS, ALL objects are placed at tile center: (xLoc*128+64, yLoc*128+64)
+	// For multi-tile objects: (xLoc*128 + 64*sizeX, yLoc*128 + 64*sizeY)
+	// The model geometry itself determines coverage. Rotation is applied to the model.
 	for _, obj := range objects {
-		if obj.Type != objGameObject && obj.Type != objGameObject2 {
+		if obj.Type == objGroundDecor || obj.Type == objWallDecoration {
 			continue
 		}
 		mmIdx, ok := objectToMapmodel[obj.ID]
@@ -562,14 +564,56 @@ func addDecorations(m *maps.GameMap, objects []osrs.PlacedObject, objDefs *osrs.
 			continue
 		}
 
-		wx := float32(obj.LocalX*cubesPerTile + terrainOffset + cubesPerTile/2)
-		wy := float32(obj.LocalY*cubesPerTile + terrainOffset + cubesPerTile/2)
-		wz := float32(getTerrainZ(heightGrid, int(wx), int(wy)))
+		def := objDefs.Get(obj.ID)
+		sizeX := def.SizeX
+		sizeY := def.SizeY
+		if obj.Rotation == 1 || obj.Rotation == 3 {
+			sizeX, sizeY = sizeY, sizeX
+		}
+
+		// Match OSRS: xPos = xLoc*128 + 64*sizeX, yPos = yLoc*128 + 64*sizeY
+		// Convert to Sauer: multiply by cubesPerTile/128 and add terrainOffset
+		osrsX := float64(obj.LocalX*128 + 64*sizeX)
+		osrsY := float64(obj.LocalY*128 + 64*sizeY)
+		wx := float32(osrsX*float64(cubesPerTile)/128.0) + float32(terrainOffset)
+		wy := float32(osrsY*float64(cubesPerTile)/128.0) + float32(terrainOffset)
+
+		// Height: average of tile corner heights (matches OSRS renderObject)
+		tx := obj.LocalX
+		ty := obj.LocalY
+		if tx < 0 || tx >= 64 || ty < 0 || ty >= 64 {
+			continue
+		}
+		editX := tx + (sizeX >> 1)
+		editY := ty + (sizeY >> 1)
+		editX2 := tx + ((1 + sizeX) >> 1)
+		editY2 := ty + ((1 + sizeY) >> 1)
+		if editX > 64 { editX = 64 }
+		if editY > 64 { editY = 64 }
+		if editX2 > 64 { editX2 = 64 }
+		if editY2 > 64 { editY2 = 64 }
+
+		h00 := region.Heights[0][editX][editY]
+		h10 := region.Heights[0][editX2][editY]
+		h01 := region.Heights[0][editX][editY2]
+		h11 := region.Heights[0][editX2][editY2]
+		meanH := (h00 + h10 + h01 + h11) / 4
+		wz := float32(terrainBaseZ + (-meanH)/heightScale)
+
+		// OSRS rotation: 0=no rotation. Each step is 90° CW viewed from above.
+		// OSRS rotate90Degrees: (x,z) → (z,-x)
+		// After Sauer OBJ remap: OBJ(x,y,z) → Sauer(z,-x,y)
+		// With our OBJ output (osrsX, -osrsY, -osrsZ):
+		//   Sauer = (-osrsZ, -osrsX, -osrsY) = (-osrsZ, -osrsX, height)
+		// OSRS j1=0 (north-facing) in Sauer space points toward -Z...
+		// Sauer yaw 0 = east (+X). yaw 90 = north (+Y).
+		// Empirically: OSRS j1=0 → Sauer yaw 0, j1=1 → yaw 270, etc.
+		yaw := int16((360 - obj.Rotation*90) % 360)
 
 		m.Entities = append(m.Entities, maps.Entity{
 			Position: maps.Vector{X: wx, Y: wy, Z: wz},
 			Type:     C.EntityType(maps.ET_MAPMODEL),
-			Attr1:    int16(obj.Rotation * 90),
+			Attr1:    yaw,
 			Attr2:    int16(mmIdx),
 		})
 	}

@@ -372,8 +372,26 @@ func exportModels(c *osrs.Cache, modelsDir string, modelIDs map[int]int, objDefs
 			continue
 		}
 
+		// Sanity check: skip models with absurd vertex ranges (decode errors)
+		maxCoord := 0
+		for i := range model.VertexX {
+			for _, v := range []int{model.VertexX[i], model.VertexY[i], model.VertexZ[i]} {
+				if v < 0 {
+					v = -v
+				}
+				if v > maxCoord {
+					maxCoord = v
+				}
+			}
+		}
+		if maxCoord > 10000 {
+			log.Warn().Msgf("skipping model %d: vertex range too large (%d)", cacheID, maxCoord)
+			lines = append(lines, "mmodel osrs/placeholder")
+			continue
+		}
+
 		// Export as OBJ with UV-mapped color atlas
-		objContent, _ := model.ToOBJ(modelName, modelScale)
+		objContent, _ := model.ToOBJ(modelName, modelScaleValue)
 		os.WriteFile(filepath.Join(modelDir, "tris.obj"), []byte(objContent), 0644)
 
 		// Generate color atlas texture
@@ -389,7 +407,9 @@ func exportModels(c *osrs.Cache, modelsDir string, modelIDs map[int]int, objDefs
 		// mdlscale is percentage: 100 = 1x. Our vertices are in Sauer world units
 		// already (modelScale converts OSRS units to cubes). But models are still
 		// small, so scale up to be visible and proportional.
-		objCfg := "objload tris.obj\nobjskin * skin.png\nmdlscale 400\nmdlambient 80\n"
+		// modelScaleValue = cubesPerTile/128. OBJ vertices are in Sauer world units.
+		// mdlscale 100 = 1x scale. Models and terrain use the same conversion.
+		objCfg := "objload tris.obj\nobjskin * skin.png\nmdlscale 100\nmdlambient 80\nmdlshadow 1\n"
 		os.WriteFile(filepath.Join(modelDir, "obj.cfg"), []byte(objCfg), 0644)
 
 		lines = append(lines, fmt.Sprintf("mmodel %s", modelName))

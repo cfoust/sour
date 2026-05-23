@@ -9,13 +9,14 @@ import (
 
 // Model holds decoded OSRS 3D model data.
 type Model struct {
-	VertexX []int
-	VertexY []int
-	VertexZ []int
-	FaceA   []int // triangle vertex indices
-	FaceB   []int
-	FaceC   []int
-	Colors  []int16 // packed HSL16 per triangle
+	VertexX    []int
+	VertexY    []int
+	VertexZ    []int
+	FaceA      []int   // triangle vertex indices
+	FaceB      []int
+	FaceC      []int
+	Colors     []int16 // packed HSL16 per triangle
+	TextureIDs []int16 // texture ID per face (-1 = no texture, use color)
 }
 
 // DecodeModel decodes an OSRS model from raw cache data (old format only for now).
@@ -53,24 +54,29 @@ func decodeModelOld(data []byte) (*Model, error) {
 		return nil, fmt.Errorf("empty model: %d vertices, %d triangles", vertexCount, triangleCount)
 	}
 
-	// Calculate section offsets
+	// Calculate section offsets (matches Java decodeOld exactly)
 	pos := 0
 	vertexFlagOff := pos
 	pos += vertexCount
 	faceCompressOff := pos
 	pos += triangleCount
+	// facePriority
 	if priorityOpcode == 255 {
 		pos += triangleCount
 	}
+	// tSkin
 	if tSkinOpcode == 1 {
 		pos += triangleCount
 	}
+	renderTypeOff := pos
 	if renderTypeOpcode == 1 {
 		pos += triangleCount
 	}
+	// vSkin
 	if vSkinOpcode == 1 {
 		pos += vertexCount
 	}
+	// alpha
 	if alphaOpcode == 1 {
 		pos += triangleCount
 	}
@@ -85,16 +91,21 @@ func decodeModelOld(data []byte) (*Model, error) {
 	vertexYOff := pos
 	pos += vertexYSize
 	vertexZOff := pos
-	// pos += vertexZSize
 
 	m := &Model{
-		VertexX: make([]int, vertexCount),
-		VertexY: make([]int, vertexCount),
-		VertexZ: make([]int, vertexCount),
-		FaceA:   make([]int, triangleCount),
-		FaceB:   make([]int, triangleCount),
-		FaceC:   make([]int, triangleCount),
-		Colors:  make([]int16, triangleCount),
+		VertexX:    make([]int, vertexCount),
+		VertexY:    make([]int, vertexCount),
+		VertexZ:    make([]int, vertexCount),
+		FaceA:      make([]int, triangleCount),
+		FaceB:      make([]int, triangleCount),
+		FaceC:      make([]int, triangleCount),
+		Colors:     make([]int16, triangleCount),
+		TextureIDs: make([]int16, triangleCount),
+	}
+
+	// Initialize texture IDs to -1 (no texture)
+	for i := range m.TextureIDs {
+		m.TextureIDs[i] = -1
 	}
 
 	// Read vertices (delta-encoded with smart compression)
@@ -128,12 +139,24 @@ func decodeModelOld(data []byte) (*Model, error) {
 		m.VertexZ[i] = sz
 	}
 
-	// Read colors
+	// Read colors and texture info
 	colorBuf := NewBuffer(data)
 	colorBuf.SetPosition(colorOff)
+	var rtBuf *Buffer
+	if renderTypeOpcode == 1 {
+		rtBuf = NewBuffer(data)
+		rtBuf.SetPosition(renderTypeOff)
+	}
 	for i := 0; i < triangleCount; i++ {
 		c, _ := colorBuf.ReadUShort()
 		m.Colors[i] = int16(c)
+		if rtBuf != nil {
+			flag, _ := rtBuf.ReadUnsignedByte()
+			if flag&0x2 != 0 {
+				m.TextureIDs[i] = m.Colors[i]
+				m.Colors[i] = 127
+			}
+		}
 	}
 
 	// Read face indices (compressed triangle strip)
@@ -423,13 +446,15 @@ func (m *Model) ToOBJ(name string, scale float64) (string, string) {
 	// Build OBJ with UVs
 	obj := fmt.Sprintf("# OSRS model %s\n\n", name)
 
-	// Vertices: OSRS has Y-up (negative = higher), standard OBJ is Y-up.
-	// Sauer's OBJ loader does its own remap: OBJ(x,y,z) → Sauer(z,-x,y).
-	// So just output standard Y-up OBJ coordinates.
+	// OSRS coords: X=east, Y=height(neg=up), Z=south
+	// OBJ convention: Y=up
+	// Sauer OBJ loader remaps: OBJ(x,y,z) → Sauer(z,-x,y)
+	// So: OBJ-X → Sauer-(-Y), OBJ-Y → Sauer-Z(up), OBJ-Z → Sauer-X
+	// We output standard OBJ Y-up. Don't swap axes — let entity yaw handle rotation.
 	for i := 0; i < len(m.VertexX); i++ {
 		x := float64(m.VertexX[i]) * scale
 		y := float64(-m.VertexY[i]) * scale // negate: OSRS Y is inverted
-		z := float64(m.VertexZ[i]) * scale
+		z := float64(-m.VertexZ[i]) * scale // negate Z to fix handedness
 		obj += fmt.Sprintf("v %f %f %f\n", x, y, z)
 	}
 
@@ -446,7 +471,9 @@ func (m *Model) ToOBJ(name string, scale float64) (string, string) {
 
 	obj += "\n"
 
-	// Faces with UV indices (all 3 verts of a face share the same UV)
+	// Faces with UV indices — ABC order.
+	// The Z negation in vertex output flips handedness, which combined with
+	// Sauer's OBJ remap (which also flips) gives correct front-face winding.
 	for i := 0; i < len(m.FaceA); i++ {
 		uvIdx := i + 1 // 1-based
 		obj += fmt.Sprintf("f %d/%d %d/%d %d/%d\n",
