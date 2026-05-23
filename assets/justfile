@@ -55,13 +55,17 @@ build-ci *args:
 build-mobile:
     {{sour}} bundle manifests/base-mobile.yaml
 
+# Index the Quadropolis archives into a content-addressed root
+index-quadropolis:
+    {{quadropolis}} index
+
 # Build Quadropolis assets
 build-quadropolis *args:
     {{quadropolis}} build {{args}}
 
-# Generate Quadropolis catalog
-catalog-quadropolis *args:
-    {{quadropolis}} catalog {{args}}
+# Generate Quadropolis catalog from build output
+catalog-quadropolis:
+    {{quadropolis}} catalog
 
 # Clean all build outputs
 clean:

@@ -1,13 +1,19 @@
 package main
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,6 +23,7 @@ import (
 	"github.com/cfoust/sour/pkg/assets/packager"
 
 	"github.com/alecthomas/kong"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/mattn/go-isatty"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -28,8 +35,260 @@ var CLI struct {
 	Debug bool   `help:"Whether to enable debug logging."`
 	Cache string `help:"Cache directory." default:"cache/"`
 
+	Index   IndexCmd   `cmd:"" help:"Build a raw index from Quadropolis archives."`
 	Build   BuildCmd   `cmd:"" help:"Build Quadropolis assets."`
 	Catalog CatalogCmd `cmd:"" help:"Generate Quadropolis catalog from nodes.json."`
+}
+
+// IndexCmd builds a raw .index.source from Quadropolis archives.
+type IndexCmd struct {
+	Input  string `help:"Input directory containing nodes.json and db/." default:"input/quadropolis"`
+	Outdir string `help:"Output directory." default:"output/quad-raw"`
+	Prefix string `help:"Prefix for .index.source filename." default:""`
+}
+
+func (cmd *IndexCmd) Run() error {
+	nodesPath := filepath.Join(cmd.Input, "nodes.json")
+	nodesData, err := os.ReadFile(nodesPath)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", nodesPath, err)
+	}
+
+	var nodes []quadNode
+	if err := json.Unmarshal(nodesData, &nodes); err != nil {
+		return fmt.Errorf("parsing nodes.json: %w", err)
+	}
+
+	dbDir := filepath.Join(cmd.Input, "db")
+	os.MkdirAll(cmd.Outdir, 0755)
+
+	interactive := isatty.IsTerminal(os.Stderr.Fd()) || isatty.IsCygwinTerminal(os.Stderr.Fd())
+
+	var bar *progressbar.ProgressBar
+	if interactive {
+		bar = progressbar.NewOptions(len(nodes),
+			progressbar.OptionSetWriter(os.Stderr),
+			progressbar.OptionSetDescription("Indexing nodes"),
+			progressbar.OptionShowCount(),
+			progressbar.OptionShowIts(),
+			progressbar.OptionSetItsString("nodes"),
+			progressbar.OptionThrottle(100*time.Millisecond),
+			progressbar.OptionOnCompletion(func() { fmt.Fprintln(os.Stderr) }),
+		)
+	}
+
+	assetSet := make(map[string]struct{})
+	var refs []pkgassets.Asset
+
+	for _, node := range nodes {
+		nodePrefix := strconv.Itoa(node.ID)
+
+		for i, file := range node.Files {
+			fileName := file.Name
+			fileHash := file.Hash
+			filePath := path.Join(nodePrefix, strconv.Itoa(i))
+
+			if fileName == "" {
+				continue
+			}
+
+			dbFile := filepath.Join(dbDir, fileHash)
+			if _, err := os.Stat(dbFile); err != nil {
+				continue
+			}
+
+			if file.Contents == nil {
+				// Non-archive: hash and reference directly
+				hash, err := packager.HashFile(dbFile)
+				if err != nil {
+					log.Warn().Err(err).Msgf("failed to hash %s", dbFile)
+					continue
+				}
+				assetSet[hash] = struct{}{}
+				refs = append(refs, pkgassets.Asset{
+					Path: path.Join(filePath, fileName),
+					Id:   hash,
+				})
+				dest := filepath.Join(cmd.Outdir, hash)
+				if _, err := os.Stat(dest); os.IsNotExist(err) {
+					copyFileSimple(dbFile, dest)
+				}
+				continue
+			}
+
+			// Extract archive to temp dir
+			tmpdir, err := os.MkdirTemp("", "quad-index-*")
+			if err != nil {
+				continue
+			}
+
+			extracted := false
+			nameLower := strings.ToLower(fileName)
+			switch {
+			case strings.HasSuffix(nameLower, ".zip"):
+				extracted = extractZip(dbFile, tmpdir)
+			case strings.HasSuffix(nameLower, ".tar.gz") || strings.HasSuffix(nameLower, ".tgz"):
+				extracted = extractTarGz(dbFile, tmpdir)
+			case strings.HasSuffix(nameLower, ".rar"):
+				extracted = extractRar(dbFile, tmpdir)
+			default:
+				log.Warn().Msgf("unhandled archive type: %s", fileName)
+			}
+
+			if extracted {
+				filepath.Walk(tmpdir, func(p string, info os.FileInfo, err error) error {
+					if err != nil || info.IsDir() {
+						return err
+					}
+					rel, err := filepath.Rel(tmpdir, p)
+					if err != nil {
+						return nil
+					}
+					rel = strings.ReplaceAll(rel, string(os.PathSeparator), "/")
+
+					hash, err := packager.HashFile(p)
+					if err != nil {
+						return nil
+					}
+					assetSet[hash] = struct{}{}
+					refs = append(refs, pkgassets.Asset{
+						Path: path.Join(filePath, rel),
+						Id:   hash,
+					})
+					dest := filepath.Join(cmd.Outdir, hash)
+					if _, err := os.Stat(dest); os.IsNotExist(err) {
+						copyFileSimple(p, dest)
+					}
+					return nil
+				})
+			}
+
+			os.RemoveAll(tmpdir)
+		}
+
+		if bar != nil {
+			bar.Add(1)
+		}
+	}
+
+	if bar != nil {
+		bar.Finish()
+	}
+
+	// Build index
+	assetList := make([]string, 0, len(assetSet))
+	for id := range assetSet {
+		assetList = append(assetList, id)
+	}
+	sort.Strings(assetList)
+
+	lookup := make(map[string]int)
+	for i, id := range assetList {
+		lookup[id] = i
+	}
+
+	indexRefs := make([]pkgassets.IndexAsset, 0, len(refs))
+	for _, ref := range refs {
+		indexRefs = append(indexRefs, pkgassets.IndexAsset{Id: lookup[ref.Id], Path: ref.Path})
+	}
+
+	index := pkgassets.NewIndex()
+	index.Assets = assetList
+	index.Refs = indexRefs
+
+	data, err := cbor.Marshal(index)
+	if err != nil {
+		return fmt.Errorf("marshaling index: %w", err)
+	}
+
+	indexFile := fmt.Sprintf("%s.index.source", cmd.Prefix)
+	outPath := filepath.Join(cmd.Outdir, indexFile)
+	if err := os.WriteFile(outPath, data, 0644); err != nil {
+		return err
+	}
+
+	log.Info().Msgf("indexed %d files (%d unique hashes) to %s", len(refs), len(assetList), outPath)
+	return nil
+}
+
+func copyFileSimple(src, dst string) {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return
+	}
+	os.WriteFile(dst, data, 0644)
+}
+
+func extractZip(archivePath, destDir string) bool {
+	r, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return false
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		if f.FileInfo().IsDir() {
+			continue
+		}
+		target := filepath.Join(destDir, f.Name)
+		os.MkdirAll(filepath.Dir(target), 0755)
+
+		rc, err := f.Open()
+		if err != nil {
+			continue
+		}
+		out, err := os.Create(target)
+		if err != nil {
+			rc.Close()
+			continue
+		}
+		io.Copy(out, rc)
+		out.Close()
+		rc.Close()
+	}
+	return true
+}
+
+func extractTarGz(archivePath, destDir string) bool {
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return false
+	}
+	defer gz.Close()
+
+	tr := tar.NewReader(gz)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			break
+		}
+		if hdr.Typeflag != tar.TypeReg {
+			continue
+		}
+		target := filepath.Join(destDir, hdr.Name)
+		os.MkdirAll(filepath.Dir(target), 0755)
+		out, err := os.Create(target)
+		if err != nil {
+			continue
+		}
+		io.Copy(out, tr)
+		out.Close()
+	}
+	return true
+}
+
+func extractRar(archivePath, destDir string) bool {
+	// Shell out to unrar since Go doesn't have a good native rar library
+	cmd := exec.Command("unrar", "x", "-y", archivePath, destDir+"/")
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	return cmd.Run() == nil
 }
 
 // BuildCmd builds Quadropolis assets.
@@ -378,7 +637,7 @@ func (cmd *BuildCmd) Run() error {
 
 	os.MkdirAll(cmd.Outdir, 0755)
 
-	quadRoot := "https://static.sourga.me/quadropolis/4412/.index.source"
+	quadRoot := "fs:output/quad-raw/.index.source"
 	roots := []string{
 		"input/roots/sour",
 		"fs:output/raw/.index.source",
@@ -528,16 +787,16 @@ func (cmd *BuildCmd) Run() error {
 
 // CatalogCmd generates a catalog.json from Quadropolis metadata.
 type CatalogCmd struct {
-	Nodes   string `help:"Path to nodes.json." required:""`
-	DB      string `help:"Path to quadropolis db/ directory." required:""`
-	NodeMap string `help:"Path to node_map.json." required:"" name:"node-map"`
-	Outdir  string `help:"Output directory." default:"catalogs/quadropolis"`
+	Input   string `help:"Input directory containing nodes.json and db/." default:"input/quadropolis"`
+	NodeMap string `help:"Path to node_map.json." default:"output/quad/node_map.json" name:"node-map"`
+	Outdir  string `help:"Output directory." default:"output/quad/catalog"`
 }
 
 func (cmd *CatalogCmd) Run() error {
-	nodesData, err := os.ReadFile(cmd.Nodes)
+	nodesPath := filepath.Join(cmd.Input, "nodes.json")
+	nodesData, err := os.ReadFile(nodesPath)
 	if err != nil {
-		return fmt.Errorf("reading nodes.json: %w", err)
+		return fmt.Errorf("reading %s: %w", nodesPath, err)
 	}
 
 	var nodes []quadNode
@@ -547,7 +806,7 @@ func (cmd *CatalogCmd) Run() error {
 
 	nodeMapData, err := os.ReadFile(cmd.NodeMap)
 	if err != nil {
-		return fmt.Errorf("reading node_map.json: %w", err)
+		return fmt.Errorf("reading %s: %w", cmd.NodeMap, err)
 	}
 
 	// node_map.json maps string node IDs to list of map names
@@ -562,6 +821,7 @@ func (cmd *CatalogCmd) Run() error {
 		nodesByID[node.ID] = node
 	}
 
+	dbDir := filepath.Join(cmd.Input, "db")
 	os.MkdirAll(cmd.Outdir, 0755)
 
 	catalogMaps := make(map[string]interface{})
@@ -591,7 +851,7 @@ func (cmd *CatalogCmd) Run() error {
 				continue
 			}
 
-			src := filepath.Join(cmd.DB, file.Hash)
+			src := filepath.Join(dbDir, file.Hash)
 			if _, err := os.Stat(src); err != nil {
 				continue
 			}
