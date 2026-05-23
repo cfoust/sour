@@ -407,53 +407,59 @@ func decodeModelNew(data []byte) (*Model, error) {
 }
 
 // HSL16ToRGB converts OSRS packed HSL16 color to RGB.
-// HSL16 format: (hue/4 << 10) | (sat/32 << 7) | (lum/2)
+// Matches JagexColor.HSLtoRGB from the RuneLite model exporter.
+// HSL16 format: (hue & 63) << 10 | (sat & 7) << 7 | (lum & 127)
 func HSL16ToRGB(hsl16 int16) color.RGBA {
-	h := float64((hsl16>>10)&0x3F) / 64.0
-	s := float64((hsl16>>7)&0x07) / 8.0
-	l := float64(hsl16&0x7F) / 128.0
+	const (
+		hueOffset = 0.5 / 64.0
+		satOffset = 0.5 / 8.0
+		brightness = 0.9 // BRIGHTNESS_MIN
+	)
 
-	var r, g, b float64
-	if s == 0 {
-		r, g, b = l, l, l
-	} else {
-		var q float64
-		if l < 0.5 {
-			q = l * (1 + s)
-		} else {
-			q = l + s - l*s
-		}
-		p := 2*l - q
-		r = hueToRGB(p, q, h+1.0/3.0)
-		g = hueToRGB(p, q, h)
-		b = hueToRGB(p, q, h-1.0/3.0)
+	hue := float64((hsl16>>10)&0x3F)/64.0 + hueOffset
+	sat := float64((hsl16>>7)&0x07)/8.0 + satOffset
+	lum := float64(hsl16&0x7F) / 128.0
+
+	// Standard HSL→RGB using chroma method
+	chroma := (1.0 - math.Abs(2.0*lum-1.0)) * sat
+	x := chroma * (1.0 - math.Abs(math.Mod(hue*6.0, 2.0)-1.0))
+	lightness := lum - chroma/2.0
+
+	r, g, b := lightness, lightness, lightness
+	switch int(hue * 6.0) {
+	case 0:
+		r += chroma
+		g += x
+	case 1:
+		g += chroma
+		r += x
+	case 2:
+		g += chroma
+		b += x
+	case 3:
+		b += chroma
+		g += x
+	case 4:
+		b += chroma
+		r += x
+	default:
+		r += chroma
+		b += x
 	}
 
-	return color.RGBA{
-		R: uint8(math.Min(255, r*256)),
-		G: uint8(math.Min(255, g*256)),
-		B: uint8(math.Min(255, b*256)),
-		A: 255,
-	}
-}
+	// Apply brightness adjustment (gamma correction)
+	r = math.Pow(r, brightness)
+	g = math.Pow(g, brightness)
+	b = math.Pow(b, brightness)
 
-func hueToRGB(p, q, t float64) float64 {
-	if t < 0 {
-		t++
-	}
-	if t > 1 {
-		t--
-	}
-	if 6*t < 1 {
-		return p + (q-p)*6*t
-	}
-	if 2*t < 1 {
-		return q
-	}
-	if 3*t < 2 {
-		return p + (q-p)*(2.0/3.0-t)*6
-	}
-	return p
+	ri := int(r * 256.0)
+	gi := int(g * 256.0)
+	bi := int(b * 256.0)
+	if ri > 255 { ri = 255 }
+	if gi > 255 { gi = 255 }
+	if bi > 255 { bi = 255 }
+
+	return color.RGBA{R: uint8(ri), G: uint8(gi), B: uint8(bi), A: 255}
 }
 
 // DominantTexture returns the most common texture ID across faces, or -1 if no faces are textured.
@@ -545,7 +551,7 @@ func (m *Model) AverageColor() color.RGBA {
 func (m *Model) ToOBJ(name string, scale float64) (string, string) {
 	obj := fmt.Sprintf("# OSRS model %s\n\n", name)
 
-	// Vertices: OSRS Y-up (neg=up), standard OBJ Y-up
+	// Negate Y only (OSRS Y is inverted: negative = up)
 	for i := 0; i < len(m.VertexX); i++ {
 		x := float64(m.VertexX[i]) * scale
 		y := float64(-m.VertexY[i]) * scale
@@ -554,48 +560,38 @@ func (m *Model) ToOBJ(name string, scale float64) (string, string) {
 	}
 	obj += "\n"
 
-	// UV coordinates: 3 per face (one per vertex of each triangle)
-	// For textured faces: compute UVs from texture triangle projection
-	// For colored faces: map to color pixel in composite texture
+	// Compute texture UVs using the exact OSRS algorithm
+	uvs := m.computeTextureUVs()
+
+	// Write UV coordinates
+	hasComposite := m.DominantTexture() >= 0
 	for i := 0; i < len(m.FaceA); i++ {
-		va, vb, vc := m.FaceA[i], m.FaceB[i], m.FaceC[i]
-
-		hasTexture := m.TextureIDs[i] >= 0 && m.DominantTexture() >= 0
-
-		if hasTexture {
-			// Textured face: compute UVs from texture triangle
-			// UVs map to left half of composite (0.0 - 0.5 in U)
-			ta, tb, tc := va, vb, vc
-			if m.TexCoords != nil && m.TexCoords[i] != -1 && m.TexTriA != nil {
-				coord := int(m.TexCoords[i]) & 0xff
-				if coord < len(m.TexTriA) {
-					ta = int(m.TexTriA[coord])
-					tb = int(m.TexTriB[coord])
-					tc = int(m.TexTriC[coord])
-				}
-			}
-			uA, vA := m.computeTexUV(va, ta, tb, tc)
-			uB, vB := m.computeTexUV(vb, ta, tb, tc)
-			uC, vC := m.computeTexUV(vc, ta, tb, tc)
-			// Scale to left half (0-0.5 in U)
+		idx := i * 6
+		if m.TextureIDs[i] >= 0 && hasComposite {
+			// Textured face: UVs map to left half of composite (0.0 - 0.5 in U)
 			obj += fmt.Sprintf("vt %f %f\nvt %f %f\nvt %f %f\n",
-				uA*0.5, vA, uB*0.5, vB, uC*0.5, vC)
+				float64(uvs[idx])*0.5, float64(uvs[idx+1]),
+				float64(uvs[idx+2])*0.5, float64(uvs[idx+3]),
+				float64(uvs[idx+4])*0.5, float64(uvs[idx+5]))
+		} else if m.TextureIDs[i] >= 0 {
+			// Textured face, no composite: full texture
+			obj += fmt.Sprintf("vt %f %f\nvt %f %f\nvt %f %f\n",
+				float64(uvs[idx]), float64(uvs[idx+1]),
+				float64(uvs[idx+2]), float64(uvs[idx+3]),
+				float64(uvs[idx+4]), float64(uvs[idx+5]))
+		} else if hasComposite {
+			// Colored face in composite: right half
+			obj += "vt 0.75 0.5\nvt 0.75 0.5\nvt 0.75 0.5\n"
 		} else {
-			// Colored face: UV points to right half of composite (0.5-1.0 in U)
-			// or full texture for color-only models
-			if m.DominantTexture() >= 0 {
-				// Composite: right half
-				obj += "vt 0.75 0.5\nvt 0.75 0.5\nvt 0.75 0.5\n"
-			} else {
-				// Color-only: center of texture
-				obj += "vt 0.5 0.5\nvt 0.5 0.5\nvt 0.5 0.5\n"
-			}
+			// Color-only model: center
+			obj += "vt 0.5 0.5\nvt 0.5 0.5\nvt 0.5 0.5\n"
 		}
 	}
 	obj += "\n"
 
-	// Faces: CBA winding (Sauer OBJ remap flips handedness)
-	// Each face has 3 dedicated UV indices (3*i+1, 3*i+2, 3*i+3)
+	// Faces: CBA order in OBJ file.
+	// Sauer's OBJ loader stores face "f A B C" as triangle (C,B,A) — reversing winding.
+	// So we output CBA to get ABC in the engine.
 	for i := 0; i < len(m.FaceA); i++ {
 		uvBase := i*3 + 1 // 1-based
 		obj += fmt.Sprintf("f %d/%d %d/%d %d/%d\n",
@@ -607,45 +603,103 @@ func (m *Model) ToOBJ(name string, scale float64) (string, string) {
 	return obj, ""
 }
 
-// computeTexUV projects vertex v onto the texture triangle (ta, tb, tc)
-// and returns (u, v) texture coordinates.
-// Uses full 3D barycentric coordinates to handle arbitrary triangle orientations.
-func (m *Model) computeTexUV(v, ta, tb, tc int) (float64, float64) {
-	if ta < 0 || ta >= len(m.VertexX) || tb < 0 || tb >= len(m.VertexX) ||
-		tc < 0 || tc >= len(m.VertexX) || v < 0 || v >= len(m.VertexX) {
-		return 0, 0
+// computeTextureUVs computes UV coordinates for all faces at once.
+// Ports the exact algorithm from the Kotlin exporter's ModelDefinition.computeTextureUVCoordinates().
+func (m *Model) computeTextureUVs() []float32 {
+	uv := make([]float32, 6*len(m.FaceA))
+	for face := 0; face < len(m.FaceA); face++ {
+		if m.TextureIDs[face] < 0 {
+			continue
+		}
+
+		idx := face * 6
+		texCoord := int8(-1)
+		if m.TexCoords != nil {
+			texCoord = m.TexCoords[face]
+		}
+
+		if texCoord == -1 {
+			// Default UVs when no texture coordinate mapping
+			uv[idx] = 0.0
+			uv[idx+1] = 1.0
+			uv[idx+2] = 1.0
+			uv[idx+3] = 1.0
+			uv[idx+4] = 0.0
+			uv[idx+5] = 0.0
+			continue
+		}
+
+		tc := int(texCoord) & 0xFF
+		if m.TexTriA == nil || tc >= len(m.TexTriA) {
+			continue
+		}
+
+		// Texture triangle vertices
+		t1 := int(m.TexTriA[tc])
+		t2 := int(m.TexTriB[tc])
+		t3 := int(m.TexTriC[tc])
+		if t1 < 0 || t1 >= len(m.VertexX) || t2 < 0 || t2 >= len(m.VertexX) || t3 < 0 || t3 >= len(m.VertexX) {
+			continue
+		}
+
+		// Triangle origin (vertex 1 of texture triangle)
+		triX := float32(m.VertexX[t1])
+		triY := float32(m.VertexY[t1])
+		triZ := float32(m.VertexZ[t1])
+
+		// Edge vectors from vertex 1 to 2 and 1 to 3
+		e1x := float32(m.VertexX[t2]) - triX
+		e1y := float32(m.VertexY[t2]) - triY
+		e1z := float32(m.VertexZ[t2]) - triZ
+		e2x := float32(m.VertexX[t3]) - triX
+		e2y := float32(m.VertexY[t3]) - triY
+		e2z := float32(m.VertexZ[t3]) - triZ
+
+		// Face vertex positions relative to triangle origin
+		f1x := float32(m.VertexX[m.FaceA[face]]) - triX
+		f1y := float32(m.VertexY[m.FaceA[face]]) - triY
+		f1z := float32(m.VertexZ[m.FaceA[face]]) - triZ
+		f2x := float32(m.VertexX[m.FaceB[face]]) - triX
+		f2y := float32(m.VertexY[m.FaceB[face]]) - triY
+		f2z := float32(m.VertexZ[m.FaceB[face]]) - triZ
+		f3x := float32(m.VertexX[m.FaceC[face]]) - triX
+		f3y := float32(m.VertexY[m.FaceC[face]]) - triY
+		f3z := float32(m.VertexZ[m.FaceC[face]]) - triZ
+
+		// Cross product: normal = e1 × e2
+		nx := e1y*e2z - e1z*e2y
+		ny := e1z*e2x - e1x*e2z
+		nz := e1x*e2y - e1y*e2x
+
+		// Compute U basis vector: e2 × normal
+		ux := e2y*nz - e2z*ny
+		uy := e2z*nx - e2x*nz
+		uz := e2x*ny - e2y*nx
+		denom := ux*e1x + uy*e1y + uz*e1z
+		if denom == 0 {
+			continue
+		}
+		invDenom := 1.0 / float32(denom)
+
+		uv[idx] = (ux*f1x + uy*f1y + uz*f1z) * invDenom
+		uv[idx+2] = (ux*f2x + uy*f2y + uz*f2z) * invDenom
+		uv[idx+4] = (ux*f3x + uy*f3y + uz*f3z) * invDenom
+
+		// Compute V basis vector: e1 × normal (note different order)
+		vx := e1y*nz - e1z*ny
+		vy := e1z*nx - e1x*nz
+		vz := e1x*ny - e1y*nx
+		denom2 := vx*e2x + vy*e2y + vz*e2z
+		if denom2 == 0 {
+			continue
+		}
+		invDenom2 := 1.0 / float32(denom2)
+
+		uv[idx+1] = (vx*f1x + vy*f1y + vz*f1z) * invDenom2
+		uv[idx+3] = (vx*f2x + vy*f2y + vz*f2z) * invDenom2
+		uv[idx+5] = (vx*f3x + vy*f3y + vz*f3z) * invDenom2
 	}
-
-	// Texture triangle in 3D space
-	ax, ay, az := float64(m.VertexX[ta]), float64(m.VertexY[ta]), float64(m.VertexZ[ta])
-	bx, by, bz := float64(m.VertexX[tb]), float64(m.VertexY[tb]), float64(m.VertexZ[tb])
-	cx, cy, cz := float64(m.VertexX[tc]), float64(m.VertexY[tc]), float64(m.VertexZ[tc])
-
-	// Point to project
-	px, py, pz := float64(m.VertexX[v]), float64(m.VertexY[v]), float64(m.VertexZ[v])
-
-	// Edge vectors
-	e1x, e1y, e1z := bx-ax, by-ay, bz-az
-	e2x, e2y, e2z := cx-ax, cy-ay, cz-az
-	epx, epy, epz := px-ax, py-ay, pz-az
-
-	// Dot products for barycentric
-	d11 := e1x*e1x + e1y*e1y + e1z*e1z
-	d12 := e1x*e2x + e1y*e2y + e1z*e2z
-	d22 := e2x*e2x + e2y*e2y + e2z*e2z
-	dp1 := epx*e1x + epy*e1y + epz*e1z
-	dp2 := epx*e2x + epy*e2y + epz*e2z
-
-	denom := d11*d22 - d12*d12
-	if denom == 0 {
-		return 0, 0
-	}
-
-	// Barycentric coordinates (u for edge AB, w for edge AC)
-	u := (d22*dp1 - d12*dp2) / denom
-	w := (d11*dp2 - d12*dp1) / denom
-
-	return u, w
+	return uv
 }
 
 // CompositeSkin generates a composite skin texture for the model.
