@@ -5,18 +5,12 @@ import (
 	"fmt"
 	"path/filepath"
 
+	C "github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/maps"
 	"github.com/cfoust/sour/pkg/min"
 
 	"github.com/rs/zerolog/log"
-)
-
-const (
-	// Try depth 6 first, fall back to 5 if too many voxels.
-	maxDepthCeiling  = 6
-	maxDepthFloor    = 5
-	maxVoxelCount    = 60000
 )
 
 // Generate creates a .svox preview from a map file.
@@ -55,30 +49,25 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 
 	// Collect used VSlot indices from octree.
 	usedVSlots := CollectUsedVSlots(gameMap.WorldRoot)
-	log.Debug().Msgf("preview: %d unique VSlot indices used", len(usedVSlots))
 
 	// Sample texture colors and build palette.
 	palette, paletteMap := BuildPalette(ctx, processor, usedVSlots)
-	log.Debug().Msgf("preview: palette has %d entries", len(palette))
 
-	// Extract voxels with adaptive depth: try highest first, step down if too large.
 	worldSize := int(gameMap.Header.WorldSize)
-	maxDepth := maxDepthCeiling
-	voxels := ExtractVoxels(gameMap.WorldRoot, worldSize, maxDepth, paletteMap)
 
-	for len(voxels) > maxVoxelCount && maxDepth > maxDepthFloor {
-		log.Debug().Msgf("preview: %d voxels at depth %d, reducing to depth %d", len(voxels), maxDepth, maxDepth-1)
-		maxDepth--
-		voxels = ExtractVoxels(gameMap.WorldRoot, worldSize, maxDepth, paletteMap)
-	}
+	// Extract gameplay entity world positions for adaptive depth.
+	entityPositions := extractEntityPositions(gameMap.Entities)
+	log.Debug().Msgf("preview: %d entity positions for adaptive detail", len(entityPositions))
 
-	log.Debug().Msgf("preview: %d voxels at depth %d", len(voxels), maxDepth)
+	// Extract voxels with adaptive depth around entities.
+	voxels := ExtractVoxelsAdaptive(gameMap.WorldRoot, worldSize, entityPositions, paletteMap)
+	log.Debug().Msgf("preview: %d voxels (adaptive, %d³ coord grid)", len(voxels), 1<<coordDepth)
 
 	// Compute ambient occlusion.
-	gridSize := 1 << maxDepth
+	gridSize := 1 << coordDepth
 	ComputeAO(voxels, gridSize)
 
-	// Extract entities.
+	// Extract entities (quantized to grid).
 	entities := ExtractEntities(gameMap.Entities, gameMap.Header.WorldSize, uint16(gridSize))
 
 	// Extract skybox and lighting colors.
@@ -86,7 +75,7 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 	ambient, sunlight := ExtractLightingColors(gameMap.Vars)
 
 	preview := &MapPreview{
-		MaxDepth:   uint8(maxDepth),
+		MaxDepth:   coordDepth,
 		GridSize:   uint16(gridSize),
 		WorldSize:  uint32(worldSize),
 		Palette:    palette,
@@ -99,4 +88,36 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 	}
 
 	return Encode(preview)
+}
+
+// extractEntityPositions returns world-space positions of gameplay-relevant
+// entities (the same types used for preview entities).
+func extractEntityPositions(entities []maps.Entity) []worldPos {
+	var positions []worldPos
+	for _, e := range entities {
+		switch e.Type {
+		case C.EntityTypePlayerStart,
+			C.EntityTypeFlag,
+			C.EntityTypeBase,
+			C.EntityTypeTeleport,
+			C.EntityTypeJumpPad,
+			C.EntityTypeHealth,
+			C.EntityTypeBoost,
+			C.EntityTypeGreenArmour,
+			C.EntityTypeYellowArmour,
+			C.EntityTypeShells,
+			C.EntityTypeBullets,
+			C.EntityTypeRockets,
+			C.EntityTypeRounds,
+			C.EntityTypeGrenades,
+			C.EntityTypeCartridges,
+			C.EntityTypeQuad:
+			positions = append(positions, worldPos{
+				X: e.Position.X,
+				Y: e.Position.Y,
+				Z: e.Position.Z,
+			})
+		}
+	}
+	return positions
 }

@@ -4,16 +4,16 @@ export type PreviewData = {
   worldSize: number;
   palette: Uint8Array; // flat RGB, length = numPalette * 3
   numVoxels: number;
-  voxelX: Uint8Array;
-  voxelY: Uint8Array;
-  voxelZ: Uint8Array;
+  voxelX: Uint16Array;
+  voxelY: Uint16Array;
+  voxelZ: Uint16Array;
   voxelColor: Uint8Array;
   voxelFlags: Uint8Array;
   voxelAO: Uint8Array;
   numEntities: number;
-  entityX: Uint8Array;
-  entityY: Uint8Array;
-  entityZ: Uint8Array;
+  entityX: Uint16Array;
+  entityY: Uint16Array;
+  entityZ: Uint16Array;
   entityType: Uint8Array;
   skyTop: [number, number, number];
   skyHorizon: [number, number, number];
@@ -36,8 +36,8 @@ export function decodePreview(buffer: ArrayBuffer): PreviewData {
   }
 
   const version = bytes[4];
-  if (version !== 1) {
-    throw new Error(`Unsupported SVOX version: ${version}`);
+  if (version !== 2) {
+    throw new Error(`Unsupported SVOX version: ${version} (expected 2)`);
   }
 
   const maxDepth = bytes[5];
@@ -59,36 +59,36 @@ export function decodePreview(buffer: ArrayBuffer): PreviewData {
   palette.set(bytes.subarray(off, off + numPalette * 3));
   off += numPalette * 3;
 
-  // Voxels (SoA for better cache usage in rendering)
-  const voxelX = new Uint8Array(numVoxels);
-  const voxelY = new Uint8Array(numVoxels);
-  const voxelZ = new Uint8Array(numVoxels);
+  // Voxels: X(u16) Y(u16) Z(u16) PaletteIndex(u8) Flags(u8) AO(u8) = 9 bytes
+  const voxelX = new Uint16Array(numVoxels);
+  const voxelY = new Uint16Array(numVoxels);
+  const voxelZ = new Uint16Array(numVoxels);
   const voxelColor = new Uint8Array(numVoxels);
   const voxelFlags = new Uint8Array(numVoxels);
   const voxelAO = new Uint8Array(numVoxels);
 
   for (let i = 0; i < numVoxels; i++) {
-    voxelX[i] = bytes[off];
-    voxelY[i] = bytes[off + 1];
-    voxelZ[i] = bytes[off + 2];
-    voxelColor[i] = bytes[off + 3];
-    voxelFlags[i] = bytes[off + 4];
-    voxelAO[i] = bytes[off + 5];
-    off += 6;
+    voxelX[i] = view.getUint16(off, true);
+    voxelY[i] = view.getUint16(off + 2, true);
+    voxelZ[i] = view.getUint16(off + 4, true);
+    voxelColor[i] = bytes[off + 6];
+    voxelFlags[i] = bytes[off + 7];
+    voxelAO[i] = bytes[off + 8];
+    off += 9;
   }
 
-  // Entities
-  const entityX = new Uint8Array(numEntities);
-  const entityY = new Uint8Array(numEntities);
-  const entityZ = new Uint8Array(numEntities);
+  // Entities: X(u16) Y(u16) Z(u16) Type(u8) = 7 bytes
+  const entityX = new Uint16Array(numEntities);
+  const entityY = new Uint16Array(numEntities);
+  const entityZ = new Uint16Array(numEntities);
   const entityType = new Uint8Array(numEntities);
 
   for (let i = 0; i < numEntities; i++) {
-    entityX[i] = bytes[off];
-    entityY[i] = bytes[off + 1];
-    entityZ[i] = bytes[off + 2];
-    entityType[i] = bytes[off + 3];
-    off += 4;
+    entityX[i] = view.getUint16(off, true);
+    entityY[i] = view.getUint16(off + 2, true);
+    entityZ[i] = view.getUint16(off + 4, true);
+    entityType[i] = bytes[off + 6];
+    off += 7;
   }
 
   return {

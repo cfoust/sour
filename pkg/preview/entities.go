@@ -35,9 +35,9 @@ func ExtractEntities(entities []maps.Entity, worldSize int32, gridSize uint16) [
 		}
 
 		// Quantize position from world space to grid space.
-		gx := uint8(clampInt(int(e.Position.X*float32(gridSize)/float32(worldSize)), 0, int(gridSize)-1))
-		gy := uint8(clampInt(int(e.Position.Y*float32(gridSize)/float32(worldSize)), 0, int(gridSize)-1))
-		gz := uint8(clampInt(int(e.Position.Z*float32(gridSize)/float32(worldSize)), 0, int(gridSize)-1))
+		gx := uint16(clampInt(int(e.Position.X*float32(gridSize)/float32(worldSize)), 0, int(gridSize)-1))
+		gy := uint16(clampInt(int(e.Position.Y*float32(gridSize)/float32(worldSize)), 0, int(gridSize)-1))
+		gz := uint16(clampInt(int(e.Position.Z*float32(gridSize)/float32(worldSize)), 0, int(gridSize)-1))
 
 		result = append(result, PreviewEntity{
 			X:    gx,

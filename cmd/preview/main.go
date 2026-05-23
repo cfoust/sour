@@ -26,6 +26,11 @@ func main() {
 		return
 	}
 
+	if len(os.Args) >= 2 && os.Args[1] == "stats" {
+		octreeStats()
+		return
+	}
+
 	if len(os.Args) < 4 {
 		fmt.Fprintf(os.Stderr, "Usage: preview <outdir> <root1> [root2...] -- <map1.ogz> [map2.ogz...]\n")
 		fmt.Fprintf(os.Stderr, "       preview bench <root1> [root2...] -- <map1.ogz> [map2.ogz...]\n")
@@ -167,4 +172,36 @@ func padLeft(s string, width int) string {
 		s = " " + s
 	}
 	return s
+}
+
+func octreeStats() {
+	args := os.Args[2:]
+	dashIdx := findDash(args)
+	if dashIdx < 0 {
+		fmt.Fprintf(os.Stderr, "Error: separate roots and maps with --\n")
+		os.Exit(1)
+	}
+	roots := makeRoots(args[:dashIdx])
+	mapFiles := args[dashIdx+1:]
+	ctx := context.Background()
+
+	for _, mapFile := range mapFiles {
+		mapData := readFromRoots(ctx, roots, mapFile)
+		if mapData == nil {
+			continue
+		}
+		name := strings.TrimSuffix(filepath.Base(mapFile), filepath.Ext(mapFile))
+		gameMap, err := maps.FromGZ(mapData)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			continue
+		}
+		stats := preview.CollectOctreeStats(gameMap.WorldRoot, int(gameMap.Header.WorldSize))
+		fmt.Printf("\n%s (worldSize=%d, maxOctreeDepth=%d):\n", name, gameMap.Header.WorldSize, stats.MaxDepth)
+		fmt.Printf("  %-8s %10s %10s %10s\n", "Depth", "CubeSize", "Solid", "Empty")
+		for d := 1; d <= stats.MaxDepth; d++ {
+			cubeSize := int(gameMap.Header.WorldSize) >> d
+			fmt.Printf("  %-8d %10d %10d %10d\n", d, cubeSize, stats.LeafCounts[d], stats.EmptyCounts[d])
+		}
+	}
 }

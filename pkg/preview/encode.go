@@ -7,24 +7,24 @@ import (
 
 var magic = [4]byte{'S', 'V', 'O', 'X'}
 
-const headerSize = 32
+const (
+	headerSize    = 32
+	voxelBytes    = 9 // X(2) + Y(2) + Z(2) + PaletteIndex(1) + Flags(1) + AO(1)
+	entityBytes   = 7 // X(2) + Y(2) + Z(2) + Type(1)
+)
 
-// Encode serializes a MapPreview to the .svox binary format.
+// Encode serializes a MapPreview to the .svox binary format (version 2).
 func Encode(p *MapPreview) ([]byte, error) {
 	numPalette := len(p.Palette)
 	numVoxels := len(p.Voxels)
 	numEntities := len(p.Entities)
 
-	if numPalette > 65535 || numVoxels > 4294967295 || numEntities > 65535 {
-		return nil, fmt.Errorf("preview data exceeds format limits")
-	}
-
-	size := headerSize + numPalette*3 + numVoxels*6 + numEntities*4
+	size := headerSize + numPalette*3 + numVoxels*voxelBytes + numEntities*entityBytes
 	buf := make([]byte, size)
 
 	// Header
 	copy(buf[0:4], magic[:])
-	buf[4] = 1 // version
+	buf[4] = 2 // version 2: uint16 coordinates
 	buf[5] = p.MaxDepth
 	binary.LittleEndian.PutUint16(buf[6:8], p.GridSize)
 	binary.LittleEndian.PutUint32(buf[8:12], p.WorldSize)
@@ -48,24 +48,24 @@ func Encode(p *MapPreview) ([]byte, error) {
 		off += 3
 	}
 
-	// Voxels
+	// Voxels: X(u16) Y(u16) Z(u16) PaletteIndex(u8) Flags(u8) AO(u8)
 	for _, v := range p.Voxels {
-		buf[off] = v.X
-		buf[off+1] = v.Y
-		buf[off+2] = v.Z
-		buf[off+3] = v.PaletteIndex
-		buf[off+4] = v.Flags
-		buf[off+5] = v.AO
-		off += 6
+		binary.LittleEndian.PutUint16(buf[off:], v.X)
+		binary.LittleEndian.PutUint16(buf[off+2:], v.Y)
+		binary.LittleEndian.PutUint16(buf[off+4:], v.Z)
+		buf[off+6] = v.PaletteIndex
+		buf[off+7] = v.Flags
+		buf[off+8] = v.AO
+		off += voxelBytes
 	}
 
-	// Entities
+	// Entities: X(u16) Y(u16) Z(u16) Type(u8)
 	for _, e := range p.Entities {
-		buf[off] = e.X
-		buf[off+1] = e.Y
-		buf[off+2] = e.Z
-		buf[off+3] = byte(e.Type)
-		off += 4
+		binary.LittleEndian.PutUint16(buf[off:], e.X)
+		binary.LittleEndian.PutUint16(buf[off+2:], e.Y)
+		binary.LittleEndian.PutUint16(buf[off+4:], e.Z)
+		buf[off+6] = byte(e.Type)
+		off += entityBytes
 	}
 
 	return buf, nil
@@ -79,8 +79,10 @@ func Decode(data []byte) (*MapPreview, error) {
 	if data[0] != 'S' || data[1] != 'V' || data[2] != 'O' || data[3] != 'X' {
 		return nil, fmt.Errorf("invalid magic bytes")
 	}
-	if data[4] != 1 {
-		return nil, fmt.Errorf("unsupported version: %d", data[4])
+
+	version := data[4]
+	if version != 2 {
+		return nil, fmt.Errorf("unsupported version: %d", version)
 	}
 
 	p := &MapPreview{}
@@ -97,44 +99,41 @@ func Decode(data []byte) (*MapPreview, error) {
 	copy(p.Ambient[:], data[26:29])
 	copy(p.Sunlight[:], data[29:32])
 
-	expected := headerSize + numPalette*3 + numVoxels*6 + numEntities*4
+	expected := headerSize + numPalette*3 + numVoxels*voxelBytes + numEntities*entityBytes
 	if len(data) < expected {
 		return nil, fmt.Errorf("data too short: need %d, got %d", expected, len(data))
 	}
 
 	off := headerSize
 
-	// Palette
 	p.Palette = make([][3]uint8, numPalette)
 	for i := range p.Palette {
 		p.Palette[i] = [3]uint8{data[off], data[off+1], data[off+2]}
 		off += 3
 	}
 
-	// Voxels
 	p.Voxels = make([]Voxel, numVoxels)
 	for i := range p.Voxels {
 		p.Voxels[i] = Voxel{
-			X:            data[off],
-			Y:            data[off+1],
-			Z:            data[off+2],
-			PaletteIndex: data[off+3],
-			Flags:        data[off+4],
-			AO:           data[off+5],
+			X:            binary.LittleEndian.Uint16(data[off:]),
+			Y:            binary.LittleEndian.Uint16(data[off+2:]),
+			Z:            binary.LittleEndian.Uint16(data[off+4:]),
+			PaletteIndex: data[off+6],
+			Flags:        data[off+7],
+			AO:           data[off+8],
 		}
-		off += 6
+		off += voxelBytes
 	}
 
-	// Entities
 	p.Entities = make([]PreviewEntity, numEntities)
 	for i := range p.Entities {
 		p.Entities[i] = PreviewEntity{
-			X:    data[off],
-			Y:    data[off+1],
-			Z:    data[off+2],
-			Type: PreviewEntityType(data[off+3]),
+			X:    binary.LittleEndian.Uint16(data[off:]),
+			Y:    binary.LittleEndian.Uint16(data[off+2:]),
+			Z:    binary.LittleEndian.Uint16(data[off+4:]),
+			Type: PreviewEntityType(data[off+6]),
 		}
-		off += 4
+		off += entityBytes
 	}
 
 	return p, nil

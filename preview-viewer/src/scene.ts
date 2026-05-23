@@ -15,6 +15,11 @@ const ENTITY_COLORS: Record<number, number> = {
   8: 0xff00ff, // Quad - purple
 };
 
+// Extract voxel size from flags bits 5-7: size = 1 << ((flags >> 5) & 7)
+function voxelSize(flags: number): number {
+  return 1 << ((flags >> 5) & 7);
+}
+
 export function createScene(
   canvas: HTMLCanvasElement,
   data: PreviewData,
@@ -33,48 +38,32 @@ export function createScene(
   const scene = new THREE.Scene();
 
   // Sky gradient background
-  const topColor = new THREE.Color(
+  scene.background = new THREE.Color(
     data.skyTop[0] / 255,
     data.skyTop[1] / 255,
     data.skyTop[2] / 255
   );
-  const bottomColor = new THREE.Color(
-    data.skyHorizon[0] / 255,
-    data.skyHorizon[1] / 255,
-    data.skyHorizon[2] / 255
-  );
-  scene.background = topColor;
 
   // Camera
   const gridSize = data.gridSize;
   const center = gridSize / 2;
-  const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 500);
-  camera.position.set(center + gridSize, center + gridSize * 0.6, center + gridSize);
+  const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, gridSize * 10);
+  camera.position.set(
+    center + gridSize * 0.9,
+    center + gridSize * 0.5,
+    center + gridSize * 0.9
+  );
   camera.lookAt(center, center * 0.3, center);
 
-  // Lighting
-  const ambientLight = new THREE.AmbientLight(
-    new THREE.Color(
-      data.ambient[0] / 255,
-      data.ambient[1] / 255,
-      data.ambient[2] / 255
-    ),
-    0.6
-  );
+  // Lighting — bright enough to show texture colors clearly
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
   scene.add(ambientLight);
 
-  const sunLight = new THREE.DirectionalLight(
-    new THREE.Color(
-      data.sunlight[0] / 255,
-      data.sunlight[1] / 255,
-      data.sunlight[2] / 255
-    ),
-    1.2
-  );
+  const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
   sunLight.position.set(gridSize * 1.5, gridSize * 2, gridSize * 0.5);
   scene.add(sunLight);
 
-  const fillLight = new THREE.DirectionalLight(0x4466aa, 0.3);
+  const fillLight = new THREE.DirectionalLight(0x8899bb, 0.3);
   fillLight.position.set(-gridSize, gridSize * 0.5, -gridSize);
   scene.add(fillLight);
 
@@ -96,15 +85,25 @@ export function createScene(
   const colors = new Float32Array(numVoxels * 3);
 
   for (let i = 0; i < numVoxels; i++) {
-    // Position: Sauerbraten uses (x, z, y) -> Three.js (x, y, z)
-    // Map Y (up in Sauer) to Y (up in Three.js)
-    dummy.position.set(data.voxelX[i], data.voxelZ[i], data.voxelY[i]);
+    const size = voxelSize(data.voxelFlags[i]);
+    const halfSize = (size - 1) * 0.5;
+
+    // Position: corner + half-size offset to center the scaled cube
+    // Sauerbraten (x, y, z) → Three.js (x, z, y)
+    dummy.position.set(
+      data.voxelX[i] + halfSize,
+      data.voxelZ[i] + halfSize,
+      data.voxelY[i] + halfSize
+    );
+    dummy.scale.set(size, size, size);
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
 
-    // Color from palette with AO
+    // Color from palette with subtle AO
     const palIdx = data.voxelColor[i] * 3;
-    const ao = data.voxelAO[i] / 255;
+    // AO: soften the effect so colors stay visible
+    // ao=0 → 0.4 brightness, ao=255 → 1.0 brightness
+    const ao = 0.4 + 0.6 * (data.voxelAO[i] / 255);
     colors[i * 3] = (data.palette[palIdx] / 255) * ao;
     colors[i * 3 + 1] = (data.palette[palIdx + 1] / 255) * ao;
     colors[i * 3 + 2] = (data.palette[palIdx + 2] / 255) * ao;
@@ -117,9 +116,9 @@ export function createScene(
   );
   scene.add(mesh);
 
-  // Entity markers
+  // Entity markers — scale with grid
   if (data.numEntities > 0) {
-    const sphereGeo = new THREE.SphereGeometry(0.5, 6, 6);
+    const sphereGeo = new THREE.SphereGeometry(1.2, 8, 8);
     const entityMat = new THREE.MeshBasicMaterial({
       clippingPlanes: [clipPlane],
     });
@@ -141,13 +140,13 @@ export function createScene(
   controls.autoRotate = true;
   controls.autoRotateSpeed = 1.5;
   controls.minDistance = 5;
-  controls.maxDistance = gridSize * 3;
+  controls.maxDistance = gridSize * 4;
   controls.update();
 
   // Animation loop
   let animationId: number;
   let lastTime = 0;
-  const frameInterval = 1000 / 30; // 30fps cap
+  const frameInterval = 1000 / 30;
 
   function animate(time: number) {
     animationId = requestAnimationFrame(animate);
@@ -164,7 +163,6 @@ export function createScene(
 
   return {
     setClipHeight(normalized: number) {
-      // normalized 0-1, where 1 = show all, 0 = show nothing
       clipPlane.constant = normalized * gridSize;
     },
     dispose() {
