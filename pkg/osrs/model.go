@@ -562,9 +562,29 @@ func (m *Model) ToOBJ(name string, scale float64) (string, string) {
 
 	// Compute texture UVs using the exact OSRS algorithm
 	uvs := m.computeTextureUVs()
+	hasComposite := m.DominantTexture() >= 0
+
+	// For color-only models, build a face-color → UV map matching CompositeSkin layout
+	type rgbaKey struct{ r, g, b uint8 }
+	colorToIdx := make(map[rgbaKey]int)
+	var colorCount int
+	colorCols := 1
+
+	if !hasComposite {
+		for i := range m.Colors {
+			c := HSL16ToRGB(m.Colors[i])
+			k := rgbaKey{c.R, c.G, c.B}
+			if _, ok := colorToIdx[k]; !ok {
+				colorToIdx[k] = colorCount
+				colorCount++
+			}
+		}
+		for colorCols*colorCols < colorCount {
+			colorCols++
+		}
+	}
 
 	// Write UV coordinates
-	hasComposite := m.DominantTexture() >= 0
 	for i := 0; i < len(m.FaceA); i++ {
 		idx := i * 6
 		if m.TextureIDs[i] >= 0 && hasComposite {
@@ -574,17 +594,23 @@ func (m *Model) ToOBJ(name string, scale float64) (string, string) {
 				float64(uvs[idx+2])*0.5, float64(uvs[idx+3]),
 				float64(uvs[idx+4])*0.5, float64(uvs[idx+5]))
 		} else if m.TextureIDs[i] >= 0 {
-			// Textured face, no composite: full texture
+			// Textured face, no composite: use computed UVs over full texture
 			obj += fmt.Sprintf("vt %f %f\nvt %f %f\nvt %f %f\n",
 				float64(uvs[idx]), float64(uvs[idx+1]),
 				float64(uvs[idx+2]), float64(uvs[idx+3]),
 				float64(uvs[idx+4]), float64(uvs[idx+5]))
 		} else if hasComposite {
-			// Colored face in composite: right half
+			// Colored face in composite: right half, solid fill
 			obj += "vt 0.75 0.5\nvt 0.75 0.5\nvt 0.75 0.5\n"
 		} else {
-			// Color-only model: center
-			obj += "vt 0.5 0.5\nvt 0.5 0.5\nvt 0.5 0.5\n"
+			// Color-only: point to the correct color patch
+			c := HSL16ToRGB(m.Colors[i])
+			k := rgbaKey{c.R, c.G, c.B}
+			ci := colorToIdx[k]
+			patchW := 1.0 / float64(colorCols)
+			cx := float64(ci%colorCols)*patchW + patchW/2
+			cy := float64(ci/colorCols)*patchW + patchW/2
+			obj += fmt.Sprintf("vt %f %f\nvt %f %f\nvt %f %f\n", cx, cy, cx, cy, cx, cy)
 		}
 	}
 	obj += "\n"
@@ -703,72 +729,127 @@ func (m *Model) computeTextureUVs() []float32 {
 }
 
 // CompositeSkin generates a composite skin texture for the model.
-// Layout: left half = OSRS texture (if any), right half = color palette.
-// If textures is nil or the model has no textured faces, uses color-only.
+// Layout: left half = OSRS texture (if any), right half = vertex color fill.
+// For faces with color 127 (textured marker), uses average texture color.
 func (m *Model) CompositeSkin(textures []*image.RGBA) *image.RGBA {
-	// Collect unique colors for non-textured faces
-	colorSet := make(map[int16]int)
-	var colorList []int16
-	for i, c := range m.Colors {
-		if m.TextureIDs[i] >= 0 {
-			continue // textured face, skip
-		}
-		if _, ok := colorSet[c]; !ok {
-			colorSet[c] = len(colorList)
-			colorList = append(colorList, c)
-		}
-	}
-	if len(colorList) == 0 {
-		colorList = []int16{0}
-		colorSet[0] = 0
-	}
-
-	// Determine if we have an OSRS texture
 	texID := m.DominantTexture()
 	hasOSRSTex := texID >= 0 && textures != nil && texID < len(textures) && textures[texID] != nil
 
-	if !hasOSRSTex {
-		// Color-only: 128x128 texture filled with color patches
-		img := image.NewRGBA(image.Rect(0, 0, 128, 128))
-		patchSize := 128 / len(colorList)
-		if patchSize < 1 {
-			patchSize = 1
+	// Compute average color for each referenced texture (for vertex color fallback)
+	texAvgColor := make(map[int16]color.RGBA)
+	if textures != nil {
+		for _, tid := range m.TextureIDs {
+			if tid < 0 || int(tid) >= len(textures) || textures[tid] == nil {
+				continue
+			}
+			if _, ok := texAvgColor[tid]; ok {
+				continue
+			}
+			tex := textures[tid]
+			var r, g, b, n int
+			for y := 0; y < tex.Bounds().Dy(); y++ {
+				for x := 0; x < tex.Bounds().Dx(); x++ {
+					c := tex.At(x, y)
+					ri, gi, bi, _ := c.RGBA()
+					if ri == 0 && gi == 0 && bi == 0 {
+						continue // skip transparent
+					}
+					r += int(ri >> 8)
+					g += int(gi >> 8)
+					b += int(bi >> 8)
+					n++
+				}
+			}
+			if n > 0 {
+				texAvgColor[tid] = color.RGBA{uint8(r / n), uint8(g / n), uint8(b / n), 255}
+			}
 		}
+	}
+
+	// Build the vertex color for each face, substituting texture average for color 127
+	faceColor := func(i int) color.RGBA {
+		c := m.Colors[i]
+		if c == 127 && m.TextureIDs[i] >= 0 {
+			if avg, ok := texAvgColor[m.TextureIDs[i]]; ok {
+				return avg
+			}
+		}
+		return HSL16ToRGB(c)
+	}
+
+	if !hasOSRSTex {
+		// Color-only: collect unique face colors, lay them out in a grid
+		colorSet := make(map[color.RGBA]bool)
+		var colorList []color.RGBA
+		for i := range m.Colors {
+			c := faceColor(i)
+			if !colorSet[c] {
+				colorSet[c] = true
+				colorList = append(colorList, c)
+			}
+		}
+		if len(colorList) == 0 {
+			colorList = []color.RGBA{{128, 128, 128, 255}}
+		}
+		// Grid layout in a 128x128 texture
+		cols := 1
+		for cols*cols < len(colorList) {
+			cols++
+		}
+		patchW := 128 / cols
+		if patchW < 1 {
+			patchW = 1
+		}
+		img := image.NewRGBA(image.Rect(0, 0, 128, 128))
+		// Fill with first color
+		for y := 0; y < 128; y++ {
+			for x := 0; x < 128; x++ {
+				img.Set(x, y, colorList[0])
+			}
+		}
+		// Paint each color patch
 		for i, c := range colorList {
-			col := HSL16ToRGB(c)
-			startX := (i * patchSize) % 128
-			for y := 0; y < 128; y++ {
-				for x := startX; x < startX+patchSize && x < 128; x++ {
-					img.Set(x, y, col)
+			cx := (i % cols) * patchW
+			cy := (i / cols) * patchW
+			for y := cy; y < cy+patchW && y < 128; y++ {
+				for x := cx; x < cx+patchW && x < 128; x++ {
+					img.Set(x, y, c)
 				}
 			}
 		}
 		return img
 	}
 
-	// Composite: 256x128. Left 128x128 = OSRS texture, right 128x128 = color palette
+	// Composite: 256x128. Left = OSRS texture, right = average vertex color
 	osrsTex := textures[texID]
 	img := image.NewRGBA(image.Rect(0, 0, 256, 128))
 
-	// Copy OSRS texture to left half
+	// Left half: OSRS texture
 	for y := 0; y < 128; y++ {
 		for x := 0; x < 128; x++ {
 			img.Set(x, y, osrsTex.At(x, y))
 		}
 	}
 
-	// Fill right half with color patches
-	patchSize := 128 / len(colorList)
-	if patchSize < 1 {
-		patchSize = 1
+	// Right half: average vertex color of non-textured faces
+	var r, g, b, n int
+	for i := range m.Colors {
+		if m.TextureIDs[i] >= 0 {
+			continue
+		}
+		c := faceColor(i)
+		r += int(c.R)
+		g += int(c.G)
+		b += int(c.B)
+		n++
 	}
-	for i, c := range colorList {
-		col := HSL16ToRGB(c)
-		startX := 128 + (i*patchSize)%128
-		for y := 0; y < 128; y++ {
-			for x := startX; x < startX+patchSize && x < 256; x++ {
-				img.Set(x, y, col)
-			}
+	if n == 0 {
+		n = 1
+	}
+	avg := color.RGBA{uint8(r / n), uint8(g / n), uint8(b / n), 255}
+	for y := 0; y < 128; y++ {
+		for x := 128; x < 256; x++ {
+			img.Set(x, y, avg)
 		}
 	}
 
