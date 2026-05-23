@@ -353,9 +353,13 @@ func exportModels(c *osrs.Cache, modelsDir string, keys []modelKey, objDefs *osr
 		}
 
 		// Apply ObjectDefinition transforms matching Java ObjectDefinition.model():
-		// 1. rotate90Degrees() called orientation times
-		// 2. scale(scaleX, scaleZ, scaleY)
-		// 3. translate(translateX, translateY, translateZ)
+		// 1. invert() if ObjectDef.inverted is true
+		// 2. rotate90Degrees() called orientation times
+		// 3. scale(scaleX, scaleZ, scaleY)
+		// 4. translate(translateX, translateY, translateZ)
+		if def.Inverted {
+			model.Invert()
+		}
 		for r := 0; r < key.rotation; r++ {
 			model.Rotate90()
 		}
@@ -382,26 +386,13 @@ func exportModels(c *osrs.Cache, modelsDir string, keys []modelKey, objDefs *osr
 		objContent, _ := model.ToOBJ(modelName, modelScaleValue)
 		os.WriteFile(filepath.Join(modelDir, "tris.obj"), []byte(objContent), 0644)
 
-		// Determine skin texture: use actual OSRS texture if model has one
-		skinName := "skin.png"
-		dominantTexID := model.DominantTexture()
-		if dominantTexID >= 0 && textures != nil && dominantTexID < len(textures) && textures[dominantTexID] != nil {
-			// Use the actual OSRS texture
-			skinPath := filepath.Join(modelDir, skinName)
-			af, err := os.Create(skinPath)
-			if err == nil {
-				png.Encode(af, textures[dominantTexID])
-				af.Close()
-			}
-		} else {
-			// Fall back to color atlas
-			atlas := model.ColorAtlas()
-			skinPath := filepath.Join(modelDir, skinName)
-			af, err := os.Create(skinPath)
-			if err == nil {
-				png.Encode(af, atlas)
-				af.Close()
-			}
+		// Generate composite skin: OSRS texture + vertex colors
+		skin := model.CompositeSkin(textures)
+		skinPath := filepath.Join(modelDir, "skin.png")
+		af, err := os.Create(skinPath)
+		if err == nil {
+			png.Encode(af, skin)
+			af.Close()
 		}
 
 		objCfg := "objload tris.obj\nobjskin * skin.png\nmdlscale 400\nmdlambient 80\nmdlshadow 1\n"

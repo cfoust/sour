@@ -11,6 +11,7 @@ type ObjectDef struct {
 	Solid      bool
 	Walkable   bool
 	Occludes   bool
+	Inverted   bool
 	ModelIDs   []int
 	ScaleX     int // default 128 = 1x
 	ScaleY     int
@@ -151,7 +152,9 @@ func decodeObjectDef(buf *Buffer, def *ObjectDef) {
 				buf.ReadUShort()
 				buf.ReadUShort()
 			}
-		case opcode == 62, opcode == 64:
+		case opcode == 62:
+			def.Inverted = true
+		case opcode == 64:
 			// flags
 		case opcode == 65:
 			def.ScaleX, _ = buf.ReadUShort()

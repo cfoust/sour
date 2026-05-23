@@ -607,13 +607,13 @@ func addDecorations(m *maps.GameMap, region *osrs.Region, objects []osrs.PlacedO
 		meanH := (h00 + h10 + h01 + h11) / 4
 		wz := float32(terrainBaseZ + (-meanH)/heightScale)
 
-		// Rotation is baked into model vertices. But Sauer's OBJ loader
+		// Rotation is baked into model vertices. Sauer's OBJ loader
 		// remaps (x,y,z)→(z,-x,y) which introduces a 90° rotation.
-		// Compensate with yaw=270.
+		// Compensate with yaw=90.
 		m.Entities = append(m.Entities, maps.Entity{
 			Position: maps.Vector{X: wx, Y: wy, Z: wz},
 			Type:     C.EntityType(maps.ET_MAPMODEL),
-			Attr1:    270,
+			Attr1:    90,
 			Attr2:    int16(mmIdx),
 		})
 	}

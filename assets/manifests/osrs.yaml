@@ -1,0 +1,26 @@
+roots:
+  - input/roots/sauerbraten
+  - input/roots/osrs
+
+skip: input/roots/sauerbraten
+output: output/osrs/
+download: false
+web: true
+desktop: false
+
+mods:
+  - name: osrs
+    description: "OSRS map textures and models."
+    files:
+      include:
+        - packages/osrs/*
+        - packages/base/osrs_*.cfg
+
+models:
+  include: "osrs_*"
+
+textures:
+  include: "*"
+
+maps:
+  include: "osrs_*"
