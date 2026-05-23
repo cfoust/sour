@@ -170,6 +170,12 @@ func (cmd *ConvertCmd) Run() error {
 
 	log.Info().Msgf("region %d,%d: terrain loaded, %d objects", cmd.RegionX, cmd.RegionY, len(objects))
 
+	// Load OSRS model textures
+	osrsTextures, texErr := osrs.LoadTextures(c)
+	if texErr != nil {
+		log.Warn().Err(texErr).Msg("failed to load OSRS textures, models will use color atlas only")
+	}
+
 	gameMap, modelKeys, _, err := convertRegion(region, floorDefs, objDefs, objects)
 	if err != nil {
 		return fmt.Errorf("converting region: %w", err)
@@ -191,7 +197,8 @@ func (cmd *ConvertCmd) Run() error {
 	}
 
 	// Export OSRS models as OBJ files for each unique (object, rotation) pair
-	mapmodelLines := exportModels(c, modelsDir, modelKeys, objDefs)
+	mapmodelLines := exportModels(c, modelsDir, modelKeys, objDefs, osrsTextures)
+	_ = osrsTextures
 
 	// Write texture PNGs
 	writeTexturePNGs(osrsDir, floorDefs)
@@ -316,7 +323,7 @@ func loadFloorDefs(c *osrs.Cache) (*osrs.FloorDefs, error) {
 
 // exportModels exports OSRS models as OBJ files and returns mapmodel cfg lines.
 // modelIDs maps cache model ID → mapmodel index.
-func exportModels(c *osrs.Cache, modelsDir string, keys []modelKey, objDefs *osrs.ObjectDefs) []string {
+func exportModels(c *osrs.Cache, modelsDir string, keys []modelKey, objDefs *osrs.ObjectDefs, textures []*image.RGBA) []string {
 	lines := make([]string, 0, len(keys))
 
 	for _, key := range keys {
@@ -375,12 +382,26 @@ func exportModels(c *osrs.Cache, modelsDir string, keys []modelKey, objDefs *osr
 		objContent, _ := model.ToOBJ(modelName, modelScaleValue)
 		os.WriteFile(filepath.Join(modelDir, "tris.obj"), []byte(objContent), 0644)
 
-		atlas := model.ColorAtlas()
-		atlasPath := filepath.Join(modelDir, "skin.png")
-		af, err := os.Create(atlasPath)
-		if err == nil {
-			png.Encode(af, atlas)
-			af.Close()
+		// Determine skin texture: use actual OSRS texture if model has one
+		skinName := "skin.png"
+		dominantTexID := model.DominantTexture()
+		if dominantTexID >= 0 && textures != nil && dominantTexID < len(textures) && textures[dominantTexID] != nil {
+			// Use the actual OSRS texture
+			skinPath := filepath.Join(modelDir, skinName)
+			af, err := os.Create(skinPath)
+			if err == nil {
+				png.Encode(af, textures[dominantTexID])
+				af.Close()
+			}
+		} else {
+			// Fall back to color atlas
+			atlas := model.ColorAtlas()
+			skinPath := filepath.Join(modelDir, skinName)
+			af, err := os.Create(skinPath)
+			if err == nil {
+				png.Encode(af, atlas)
+				af.Close()
+			}
 		}
 
 		objCfg := "objload tris.obj\nobjskin * skin.png\nmdlscale 400\nmdlambient 80\nmdlshadow 1\n"

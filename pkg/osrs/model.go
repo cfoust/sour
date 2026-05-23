@@ -17,6 +17,13 @@ type Model struct {
 	FaceC      []int
 	Colors     []int16 // packed HSL16 per triangle
 	TextureIDs []int16 // texture ID per face (-1 = no texture, use color)
+
+	// Texture coordinate triangles: 3 vertex indices defining UV space
+	TexTriA []int16
+	TexTriB []int16
+	TexTriC []int16
+	// Per-face index into TexTri arrays (-1 = use face's own vertices)
+	TexCoords []int8
 }
 
 // DecodeModel decodes an OSRS model from raw cache data (old format only for now).
@@ -101,11 +108,18 @@ func decodeModelOld(data []byte) (*Model, error) {
 		FaceC:      make([]int, triangleCount),
 		Colors:     make([]int16, triangleCount),
 		TextureIDs: make([]int16, triangleCount),
+		TexCoords:  make([]int8, triangleCount),
+	}
+	if texTriCount > 0 {
+		m.TexTriA = make([]int16, texTriCount)
+		m.TexTriB = make([]int16, texTriCount)
+		m.TexTriC = make([]int16, texTriCount)
 	}
 
-	// Initialize texture IDs to -1 (no texture)
+	// Initialize
 	for i := range m.TextureIDs {
 		m.TextureIDs[i] = -1
+		m.TexCoords[i] = -1
 	}
 
 	// Read vertices (delta-encoded with smart compression)
@@ -152,7 +166,11 @@ func decodeModelOld(data []byte) (*Model, error) {
 		m.Colors[i] = int16(c)
 		if rtBuf != nil {
 			flag, _ := rtBuf.ReadUnsignedByte()
+			if flag&0x1 == 1 {
+				// flat shading flag
+			}
 			if flag&0x2 != 0 {
+				m.TexCoords[i] = int8(flag >> 2)
 				m.TextureIDs[i] = m.Colors[i]
 				m.Colors[i] = 127
 			}
@@ -198,6 +216,35 @@ func decodeModelOld(data []byte) (*Model, error) {
 		m.FaceA[i] = a
 		m.FaceB[i] = b
 		m.FaceC[i] = c
+	}
+
+	// Read texture triangles
+	if texTriCount > 0 {
+		texBuf := NewBuffer(data)
+		texBuf.SetPosition(colorOff + triangleCount*2) // textureOffset
+		for i := 0; i < texTriCount; i++ {
+			ta, _ := texBuf.ReadUShort()
+			tb, _ := texBuf.ReadUShort()
+			tc, _ := texBuf.ReadUShort()
+			m.TexTriA[i] = int16(ta)
+			m.TexTriB[i] = int16(tb)
+			m.TexTriC[i] = int16(tc)
+		}
+	}
+
+	// Post-process: if textureCoordinates match face vertices, clear them
+	// (matching Java logic at line 656-671)
+	for i := 0; i < triangleCount; i++ {
+		if m.TexCoords[i] != -1 && m.TexTriA != nil {
+			coord := int(m.TexCoords[i]) & 0xff
+			if coord < len(m.TexTriA) {
+				if int(m.TexTriA[coord]) == m.FaceA[i] &&
+					int(m.TexTriB[coord]) == m.FaceB[i] &&
+					int(m.TexTriC[coord]) == m.FaceC[i] {
+					m.TexCoords[i] = -1
+				}
+			}
+		}
 	}
 
 	return m, nil
@@ -261,13 +308,19 @@ func decodeModelNew(data []byte) (*Model, error) {
 	vertexZOff := pos
 
 	m := &Model{
-		VertexX: make([]int, vertexCount),
-		VertexY: make([]int, vertexCount),
-		VertexZ: make([]int, vertexCount),
-		FaceA:   make([]int, triangleCount),
-		FaceB:   make([]int, triangleCount),
-		FaceC:   make([]int, triangleCount),
-		Colors:  make([]int16, triangleCount),
+		VertexX:    make([]int, vertexCount),
+		VertexY:    make([]int, vertexCount),
+		VertexZ:    make([]int, vertexCount),
+		FaceA:      make([]int, triangleCount),
+		FaceB:      make([]int, triangleCount),
+		FaceC:      make([]int, triangleCount),
+		Colors:     make([]int16, triangleCount),
+		TextureIDs: make([]int16, triangleCount),
+		TexCoords:  make([]int8, triangleCount),
+	}
+	for i := range m.TextureIDs {
+		m.TextureIDs[i] = -1
+		m.TexCoords[i] = -1
 	}
 
 	// Read vertices
@@ -403,6 +456,28 @@ func hueToRGB(p, q, t float64) float64 {
 	return p
 }
 
+// DominantTexture returns the most common texture ID across faces, or -1 if no faces are textured.
+func (m *Model) DominantTexture() int {
+	counts := make(map[int16]int)
+	for _, t := range m.TextureIDs {
+		if t >= 0 {
+			counts[t]++
+		}
+	}
+	if len(counts) == 0 {
+		return -1
+	}
+	bestID := int16(-1)
+	bestCount := 0
+	for id, c := range counts {
+		if c > bestCount {
+			bestID = id
+			bestCount = c
+		}
+	}
+	return int(bestID)
+}
+
 // Rotate90 rotates the model 90 degrees clockwise (viewed from above).
 // Matches OSRS Model.rotate90Degrees(): (x,z) → (z,-x)
 func (m *Model) Rotate90() {
@@ -454,74 +529,94 @@ func (m *Model) AverageColor() color.RGBA {
 	}
 }
 
-// ToOBJ exports the model as a Wavefront OBJ with UV coordinates mapped to a
-// color atlas texture. Returns the OBJ content string.
-// The atlas is a 1-pixel-tall image where each pixel is a unique face color.
+// ToOBJ exports the model as a Wavefront OBJ with per-vertex UV coordinates.
+// Returns the OBJ content string (second return is unused).
 func (m *Model) ToOBJ(name string, scale float64) (string, string) {
-	// Collect unique colors and assign atlas positions
-	colorSet := make(map[int16]int)
-	var colorList []int16
-	for _, c := range m.Colors {
-		if _, ok := colorSet[c]; !ok {
-			colorSet[c] = len(colorList)
-			colorList = append(colorList, c)
-		}
-	}
-
-	n := len(colorList)
-	if n == 0 {
-		n = 1
-	}
-	atlasSide := 1
-	for atlasSide*atlasSide < n {
-		atlasSide *= 2
-	}
-	if atlasSide < 4 {
-		atlasSide = 4
-	}
-
-	// Build OBJ with UVs
 	obj := fmt.Sprintf("# OSRS model %s\n\n", name)
 
-	// OSRS coords: X=east, Y=height(neg=up), Z=south
-	// OBJ convention: Y=up
-	// Sauer OBJ loader remaps: OBJ(x,y,z) → Sauer(z,-x,y)
-	// So: OBJ-X → Sauer-(-Y), OBJ-Y → Sauer-Z(up), OBJ-Z → Sauer-X
-	// We output standard OBJ Y-up. Don't swap axes — let entity yaw handle rotation.
+	// Vertices: OSRS Y-up (neg=up), standard OBJ Y-up
 	for i := 0; i < len(m.VertexX); i++ {
 		x := float64(m.VertexX[i]) * scale
-		y := float64(-m.VertexY[i]) * scale // negate: OSRS Y is inverted
-		z := float64(-m.VertexZ[i]) * scale // negate Z to fix handedness
+		y := float64(-m.VertexY[i]) * scale
+		z := float64(m.VertexZ[i]) * scale
 		obj += fmt.Sprintf("v %f %f %f\n", x, y, z)
 	}
-
 	obj += "\n"
 
-	// UV coordinates: one per face, pointing to the color's pixel in the grid atlas
+	// UV coordinates: 3 per face (one per vertex of each triangle)
+	// For textured faces: compute UVs from texture triangle projection
+	// For colored faces: map to color pixel in composite texture
 	for i := 0; i < len(m.FaceA); i++ {
-		colIdx := colorSet[m.Colors[i]]
-		cx := colIdx % atlasSide
-		cy := colIdx / atlasSide
-		u := (float64(cx) + 0.5) / float64(atlasSide)
-		v := 1.0 - (float64(cy)+0.5)/float64(atlasSide) // flip V for OBJ convention
-		obj += fmt.Sprintf("vt %f %f\n", u, v)
+		va, vb, vc := m.FaceA[i], m.FaceB[i], m.FaceC[i]
+
+		if m.TextureIDs[i] >= 0 {
+			// Textured face: compute UVs from texture triangle
+			ta, tb, tc := va, vb, vc // default: face IS the texture triangle
+			if m.TexCoords[i] != -1 && m.TexTriA != nil {
+				coord := int(m.TexCoords[i]) & 0xff
+				if coord < len(m.TexTriA) {
+					ta = int(m.TexTriA[coord])
+					tb = int(m.TexTriB[coord])
+					tc = int(m.TexTriC[coord])
+				}
+			}
+			// Compute barycentric UVs by projecting face vertices onto texture triangle
+			uA, vA := m.computeTexUV(va, ta, tb, tc)
+			uB, vB := m.computeTexUV(vb, ta, tb, tc)
+			uC, vC := m.computeTexUV(vc, ta, tb, tc)
+			obj += fmt.Sprintf("vt %f %f\nvt %f %f\nvt %f %f\n", uA, vA, uB, vB, uC, vC)
+		} else {
+			// Colored face: all 3 verts get the same UV pointing to the color pixel
+			obj += "vt 0.5 0.5\nvt 0.5 0.5\nvt 0.5 0.5\n"
+		}
 	}
-
 	obj += "\n"
 
-	// Faces with UV indices — ABC order.
-	// The Z negation in vertex output flips handedness, which combined with
-	// Sauer's OBJ remap (which also flips) gives correct front-face winding.
+	// Faces: CBA winding (Sauer OBJ remap flips handedness)
+	// Each face has 3 dedicated UV indices (3*i+1, 3*i+2, 3*i+3)
 	for i := 0; i < len(m.FaceA); i++ {
-		uvIdx := i + 1 // 1-based
+		uvBase := i*3 + 1 // 1-based
 		obj += fmt.Sprintf("f %d/%d %d/%d %d/%d\n",
-			m.FaceA[i]+1, uvIdx,
-			m.FaceB[i]+1, uvIdx,
-			m.FaceC[i]+1, uvIdx)
+			m.FaceC[i]+1, uvBase+2,
+			m.FaceB[i]+1, uvBase+1,
+			m.FaceA[i]+1, uvBase)
 	}
 
-	// We don't use MTL anymore — colors come from the atlas texture
 	return obj, ""
+}
+
+// computeTexUV projects vertex v onto the texture triangle (ta, tb, tc)
+// and returns (u, v) texture coordinates.
+func (m *Model) computeTexUV(v, ta, tb, tc int) (float64, float64) {
+	if ta < 0 || ta >= len(m.VertexX) || tb < 0 || tb >= len(m.VertexX) || tc < 0 || tc >= len(m.VertexX) {
+		return 0, 0
+	}
+	if v < 0 || v >= len(m.VertexX) {
+		return 0, 0
+	}
+
+	// Texture triangle vertices (in OSRS XZ plane — horizontal)
+	ax, az := float64(m.VertexX[ta]), float64(m.VertexZ[ta])
+	bx, bz := float64(m.VertexX[tb]), float64(m.VertexZ[tb])
+	cx, cz := float64(m.VertexX[tc]), float64(m.VertexZ[tc])
+
+	// Point to project
+	px, pz := float64(m.VertexX[v]), float64(m.VertexZ[v])
+
+	// Barycentric coordinates
+	denom := (bz-cz)*(ax-cx) + (cx-bx)*(az-cz)
+	if denom == 0 {
+		return 0, 0
+	}
+	u := ((bz-cz)*(px-cx) + (cx-bx)*(pz-cz)) / denom
+	w := ((cz-az)*(px-cx) + (ax-cx)*(pz-cz)) / denom
+	// v = 1 - u - w (but for UV we use u and w directly)
+
+	// Map barycentric to UV: vertex A=(0,0), B=(1,0), C=(0,1)
+	texU := u
+	texV := w
+
+	return texU, texV
 }
 
 // ColorAtlas generates a color atlas image for the model.
@@ -553,6 +648,14 @@ func (m *Model) ColorAtlas() *image.RGBA {
 	}
 
 	img := image.NewRGBA(image.Rect(0, 0, side, side))
+	// Fill with first color as default (avoids white for unmapped regions)
+	defaultColor := HSL16ToRGB(colorList[0])
+	for y := 0; y < side; y++ {
+		for x := 0; x < side; x++ {
+			img.Set(x, y, defaultColor)
+		}
+	}
+	// Paint each unique color
 	for i, c := range colorList {
 		x := i % side
 		y := i / side
