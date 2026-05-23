@@ -1,7 +1,6 @@
 package cscript
 
 import (
-	"fmt"
 	"math"
 	"strings"
 )
@@ -692,11 +691,8 @@ func (vm *VM) builtinFormat(args []Node) Value {
 }
 
 func (vm *VM) builtinEcho(args []Node) Value {
-	var parts []string
-	for _, a := range args {
-		parts = append(parts, vm.evalNode(a).GetStr())
-	}
-	fmt.Println(strings.Join(parts, " "))
+	// echo is a no-op during asset processing; map cfgs use it for
+	// descriptions and other text that isn't relevant here.
 	return NullVal()
 }
 

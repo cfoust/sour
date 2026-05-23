@@ -17,8 +17,10 @@ import (
 	"github.com/cfoust/sour/pkg/assets/packager"
 
 	"github.com/alecthomas/kong"
+	"github.com/mattn/go-isatty"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/schollz/progressbar/v3"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -447,6 +449,24 @@ func (cmd *BuildCmd) Run() error {
 	}
 	defer failures.Close()
 
+	interactive := isatty.IsTerminal(os.Stderr.Fd()) || isatty.IsCygwinTerminal(os.Stderr.Fd())
+
+	var bar *progressbar.ProgressBar
+	if interactive {
+		// Suppress warnings during interactive mode so they don't
+		// corrupt the progress bar. Errors still show.
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+		bar = progressbar.NewOptions(len(nodes),
+			progressbar.OptionSetWriter(os.Stderr),
+			progressbar.OptionSetDescription("Building nodes"),
+			progressbar.OptionShowCount(),
+			progressbar.OptionShowIts(),
+			progressbar.OptionSetItsString("nodes"),
+			progressbar.OptionThrottle(100*time.Millisecond),
+			progressbar.OptionOnCompletion(func() { fmt.Fprintln(os.Stderr) }),
+		)
+	}
+
 	nodeMap := make(map[int][]string)
 	var mu sync.Mutex
 
@@ -459,6 +479,9 @@ func (cmd *BuildCmd) Run() error {
 			result, err := buildQuadNode(gctx, params, cmd.Outdir, node, quadRoot, roots)
 			if err != nil {
 				log.Warn().Err(err).Msgf("failed to build node %d", node.ID)
+				if bar != nil {
+					bar.Add(1)
+				}
 				return nil
 			}
 
@@ -471,12 +494,20 @@ func (cmd *BuildCmd) Run() error {
 				failures.WriteString(f + "\n")
 			}
 			mu.Unlock()
+
+			if bar != nil {
+				bar.Add(1)
+			}
 			return nil
 		})
 	}
 
 	if err := g.Wait(); err != nil {
 		return err
+	}
+
+	if bar != nil {
+		bar.Finish()
 	}
 
 	log.Info().Msgf("built %d mods and %d maps", len(p.Mods), len(p.Maps))
