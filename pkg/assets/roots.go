@@ -222,7 +222,7 @@ func NewPackagedRoot(
 			if !strings.HasPrefix(path, base) {
 				continue
 			}
-			path = path[len(base):]
+			path = strings.TrimPrefix(path[len(base):], "/")
 		}
 		fs[path] = ref.Id
 	}

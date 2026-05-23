@@ -1,6 +1,7 @@
 sauerbraten_dir := "input/roots/sauerbraten"
 quadropolis_dir := "input/quadropolis"
 sour := "go run ../cmd/sour assets"
+quadropolis := "go run ../cmd/quadropolis"
 
 # Download Sauerbraten game data from SVN at a specific revision
 download-sauerbraten rev="6481":
@@ -53,6 +54,14 @@ build-ci *args:
 # Build compressed mobile textures
 build-mobile:
     {{sour}} bundle manifests/base-mobile.yaml
+
+# Build Quadropolis assets
+build-quadropolis *args:
+    {{quadropolis}} build {{args}}
+
+# Generate Quadropolis catalog
+catalog-quadropolis *args:
+    {{quadropolis}} catalog {{args}}
 
 # Clean all build outputs
 clean:

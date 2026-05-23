@@ -16,7 +16,6 @@ type Cmd struct {
 	Bundle BundleCmd `cmd:"" help:"Build assets from a YAML manifest."`
 	Index  IndexCmd  `cmd:"" help:"Index a directory into a raw .index.source."`
 	Info   InfoCmd   `cmd:"" help:"Inspect assets, roots, and indexes."`
-	Quad   QuadCmd   `cmd:"" help:"Build Quadropolis assets."`
 }
 
 func (cmd *Cmd) LoadRoots() (context.Context, []pkgassets.Root, pkgassets.Store, error) {

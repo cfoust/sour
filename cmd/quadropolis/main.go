@@ -1,4 +1,4 @@
-package assets
+package main
 
 import (
 	"context"
@@ -11,20 +11,32 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	pkgassets "github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/assets/packager"
 
+	"github.com/alecthomas/kong"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )
 
-// QuadCmd builds Quadropolis assets.
-type QuadCmd struct {
+var CLI struct {
+	Debug bool   `help:"Whether to enable debug logging."`
+	Cache string `help:"Cache directory." default:"cache/"`
+
+	Build   BuildCmd   `cmd:"" help:"Build Quadropolis assets."`
+	Catalog CatalogCmd `cmd:"" help:"Generate Quadropolis catalog from nodes.json."`
+}
+
+// BuildCmd builds Quadropolis assets.
+type BuildCmd struct {
+	Input  string   `help:"Input directory containing nodes.json." default:"input/quadropolis"`
 	Dry    bool     `help:"Dry run, just print what would be built."`
 	Prefix string   `help:"Index file prefix." default:""`
 	Outdir string   `help:"Output directory." default:"output/quad" env:"ASSET_OUTPUT_DIR"`
-	Nodes  []string `arg:"" optional:"" help:"Specific node IDs to build."`
+	Nodes  []string `arg:"" optional:"" help:"Node IDs or ranges (e.g. 100 200-300)."`
 }
 
 type quadFile struct {
@@ -312,20 +324,67 @@ func buildQuadNode(
 	}, nil
 }
 
-func (cmd *QuadCmd) Run(parent *Cmd) error {
+// parseNodeFilter parses node ID specs (individual IDs and ranges like "100-200")
+// and returns a filter function. Returns nil if no specs provided.
+func parseNodeFilter(specs []string) (func(int) bool, error) {
+	if len(specs) == 0 {
+		return nil, nil
+	}
+
+	type idRange struct{ lo, hi int }
+	var ids map[int]bool
+	var ranges []idRange
+
+	for _, spec := range specs {
+		if parts := strings.SplitN(spec, "-", 2); len(parts) == 2 {
+			lo, err := strconv.Atoi(parts[0])
+			if err != nil {
+				return nil, fmt.Errorf("invalid range: %s", spec)
+			}
+			hi, err := strconv.Atoi(parts[1])
+			if err != nil {
+				return nil, fmt.Errorf("invalid range: %s", spec)
+			}
+			ranges = append(ranges, idRange{lo, hi})
+		} else {
+			id, err := strconv.Atoi(spec)
+			if err != nil {
+				return nil, fmt.Errorf("invalid node ID: %s", spec)
+			}
+			if ids == nil {
+				ids = make(map[int]bool)
+			}
+			ids[id] = true
+		}
+	}
+
+	return func(id int) bool {
+		if ids[id] {
+			return true
+		}
+		for _, r := range ranges {
+			if id >= r.lo && id <= r.hi {
+				return true
+			}
+		}
+		return false
+	}, nil
+}
+
+func (cmd *BuildCmd) Run() error {
 	ctx := context.Background()
 
 	os.MkdirAll(cmd.Outdir, 0755)
 
 	quadRoot := "https://static.sourga.me/quadropolis/4412/.index.source"
 	roots := []string{
-		"sour",
-		"https://static.sourga.me/blobs/6481/.index.source",
+		"input/roots/sour",
+		"fs:output/raw/.index.source",
 		quadRoot,
 	}
 
-	cache := pkgassets.FSStore(parent.Cache)
-	os.MkdirAll(parent.Cache, 0755)
+	cache := pkgassets.FSStore(CLI.Cache)
+	os.MkdirAll(CLI.Cache, 0755)
 
 	assetRoots, err := pkgassets.LoadRoots(ctx, cache, roots, false)
 	if err != nil {
@@ -343,9 +402,10 @@ func (cmd *QuadCmd) Run(parent *Cmd) error {
 	}
 
 	// Load nodes.json
-	nodesData, err := os.ReadFile("nodes.json")
+	nodesPath := filepath.Join(cmd.Input, "nodes.json")
+	nodesData, err := os.ReadFile(nodesPath)
 	if err != nil {
-		return fmt.Errorf("reading nodes.json: %w", err)
+		return fmt.Errorf("reading %s: %w", nodesPath, err)
 	}
 
 	var allNodes []quadNode
@@ -353,23 +413,16 @@ func (cmd *QuadCmd) Run(parent *Cmd) error {
 		return fmt.Errorf("parsing nodes.json: %w", err)
 	}
 
-	// Filter by target node IDs if specified
-	var targetIDs map[int]bool
-	if len(cmd.Nodes) > 0 {
-		targetIDs = make(map[int]bool)
-		for _, n := range cmd.Nodes {
-			id, err := strconv.Atoi(n)
-			if err != nil {
-				return fmt.Errorf("invalid node ID: %s", n)
-			}
-			targetIDs[id] = true
-		}
+	// Filter by target node IDs or ranges if specified
+	nodeFilter, err := parseNodeFilter(cmd.Nodes)
+	if err != nil {
+		return err
 	}
 
 	var nodes []quadNode
 	for i := len(allNodes) - 1; i >= 0; i-- {
 		node := allNodes[i]
-		if targetIDs != nil && !targetIDs[node.ID] {
+		if nodeFilter != nil && !nodeFilter(node.ID) {
 			continue
 		}
 		nodes = append(nodes, node)
@@ -440,4 +493,169 @@ func (cmd *QuadCmd) Run(parent *Cmd) error {
 	log.Info().Msgf("wrote node_map.json with %d nodes", len(nodeMap))
 
 	return p.DumpIndex(cmd.Prefix)
+}
+
+// CatalogCmd generates a catalog.json from Quadropolis metadata.
+type CatalogCmd struct {
+	Nodes   string `help:"Path to nodes.json." required:""`
+	DB      string `help:"Path to quadropolis db/ directory." required:""`
+	NodeMap string `help:"Path to node_map.json." required:"" name:"node-map"`
+	Outdir  string `help:"Output directory." default:"catalogs/quadropolis"`
+}
+
+func (cmd *CatalogCmd) Run() error {
+	nodesData, err := os.ReadFile(cmd.Nodes)
+	if err != nil {
+		return fmt.Errorf("reading nodes.json: %w", err)
+	}
+
+	var nodes []quadNode
+	if err := json.Unmarshal(nodesData, &nodes); err != nil {
+		return fmt.Errorf("parsing nodes.json: %w", err)
+	}
+
+	nodeMapData, err := os.ReadFile(cmd.NodeMap)
+	if err != nil {
+		return fmt.Errorf("reading node_map.json: %w", err)
+	}
+
+	// node_map.json maps string node IDs to list of map names
+	var nodeMapRaw map[string][]string
+	if err := json.Unmarshal(nodeMapData, &nodeMapRaw); err != nil {
+		return fmt.Errorf("parsing node_map.json: %w", err)
+	}
+
+	// Build node lookup by ID
+	nodesByID := make(map[int]quadNode)
+	for _, node := range nodes {
+		nodesByID[node.ID] = node
+	}
+
+	os.MkdirAll(cmd.Outdir, 0755)
+
+	catalogMaps := make(map[string]interface{})
+
+	for nodeIDStr, mapNames := range nodeMapRaw {
+		nodeID, err := strconv.Atoi(nodeIDStr)
+		if err != nil {
+			continue
+		}
+
+		node, ok := nodesByID[nodeID]
+		if !ok {
+			continue
+		}
+
+		author, date := parseAuthorDate(node.Author)
+		description := parseDescription(node.Content)
+
+		// Find and copy screenshot
+		var image string
+		for _, file := range node.Files {
+			name := file.Name
+			if name == "" {
+				continue
+			}
+			if !strings.HasSuffix(strings.ToLower(name), ".jpg") && !strings.HasSuffix(strings.ToLower(name), ".png") {
+				continue
+			}
+
+			src := filepath.Join(cmd.DB, file.Hash)
+			if _, err := os.Stat(src); err != nil {
+				continue
+			}
+
+			ext := filepath.Ext(name)
+			destName := file.Hash + ext
+			dest := filepath.Join(cmd.Outdir, destName)
+			if _, err := os.Stat(dest); os.IsNotExist(err) {
+				data, err := os.ReadFile(src)
+				if err != nil {
+					continue
+				}
+				os.WriteFile(dest, data, 0644)
+			}
+			image = destName
+			break
+		}
+
+		for _, mapName := range mapNames {
+			entry := make(map[string]interface{})
+			if author != "" {
+				entry["author"] = author
+			}
+			if date != "" {
+				entry["date"] = date
+			}
+			if description != "" {
+				entry["description"] = description
+			}
+			if image != "" {
+				entry["image"] = image
+			}
+			catalogMaps[mapName] = entry
+		}
+	}
+
+	catalog := map[string]interface{}{"maps": catalogMaps}
+	catalogJSON, err := json.MarshalIndent(catalog, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	outPath := filepath.Join(cmd.Outdir, "catalog.json")
+	if err := os.WriteFile(outPath, catalogJSON, 0644); err != nil {
+		return err
+	}
+
+	log.Info().Msgf("wrote %d map entries to %s", len(catalogMaps), outPath)
+	return nil
+}
+
+// parseAuthorDate splits "Author | YYYY-MM-DD HH:MM" into (author, date).
+func parseAuthorDate(field string) (string, string) {
+	parts := strings.SplitN(field, " | ", 2)
+	if len(parts) == 2 {
+		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+	}
+	return strings.TrimSpace(field), ""
+}
+
+// parseDescription extracts description from node content, skipping pipe-delimited metadata.
+func parseDescription(content string) string {
+	lines := strings.Split(strings.TrimSpace(content), "\n")
+	if len(lines) == 0 {
+		return ""
+	}
+
+	// If first line looks like pipe-delimited metadata, skip it
+	if strings.Contains(lines[0], "|") {
+		lines = lines[1:]
+	}
+
+	return strings.TrimSpace(strings.Join(lines, "\n"))
+}
+
+func main() {
+	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
+	log.Logger = log.Output(consoleWriter)
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+
+	ctx := kong.Parse(&CLI,
+		kong.Name("quadropolis"),
+		kong.Description("Build and catalog Quadropolis game assets."),
+		kong.UsageOnError(),
+		kong.ConfigureHelp(kong.HelpOptions{
+			Compact: true,
+			Summary: true,
+		}))
+
+	if CLI.Debug {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	}
+
+	if err := ctx.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
 }
