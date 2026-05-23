@@ -44,7 +44,7 @@ export function createScene(
     data.skyTop[2] / 255
   );
 
-  // Focus point and orbit distance from file
+  // Focus point and camera placement from file
   // Sauer (X, Y, Z) → Three.js (X, Z, Y)
   const gridSize = data.gridSize;
   const focusX = data.focusX;
@@ -52,12 +52,20 @@ export function createScene(
   const focusZ = data.focusY; // Sauer Y → Three Z
   const orbitRadius = data.focusRadius;
 
-  // Camera
+  // Camera position from baked yaw/pitch
+  // Yaw/pitch were computed in Sauer coords (X right, Y forward, Z up)
+  // Convert to Three.js (X right, Y up, Z forward)
+  const yawRad = (data.cameraYaw * Math.PI) / 180;
+  const pitchRad = (data.cameraPitch * Math.PI) / 180;
+  const camOffX = Math.cos(pitchRad) * Math.cos(yawRad) * orbitRadius;
+  const camOffSauerY = Math.cos(pitchRad) * Math.sin(yawRad) * orbitRadius;
+  const camOffSauerZ = Math.sin(pitchRad) * orbitRadius;
+
   const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, gridSize * 10);
   camera.position.set(
-    focusX + orbitRadius * 0.8,
-    focusY + orbitRadius * 0.5,
-    focusZ + orbitRadius * 0.8
+    focusX + camOffX,
+    focusY + camOffSauerZ,   // Sauer Z → Three Y
+    focusZ + camOffSauerY    // Sauer Y → Three Z
   );
 
   // Lighting — bright enough to show texture colors clearly

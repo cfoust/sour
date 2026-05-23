@@ -65,7 +65,7 @@ func walkCubeUniform(c *maps.Cube, ox, oy, oz, depth, maxDepth int, paletteMap m
 	}
 
 	// At maxDepth with children, or a leaf — walk to actual leaves.
-	emitLeaves(c, ox, oy, oz, depth, maxDepth, paletteMap, voxels)
+	emitLeaves(c, ox, oy, oz, depth, maxDepth, maxDepth, paletteMap, voxels)
 }
 
 // ExtractVoxelsAdaptive walks the octree with variable depth based on
@@ -165,14 +165,15 @@ func walkCubeAdaptive(c *maps.Cube, ox, oy, oz, depth int, p *adaptiveParams, vo
 
 	// Reached target depth or leaf — walk to actual leaves to preserve
 	// the octree's own spatial structure (rooms, passages, etc).
-	emitLeaves(c, ox, oy, oz, depth, coordDepth, p.paletteMap, voxels)
+	emitLeaves(c, ox, oy, oz, depth, targetDepth, coordDepth, p.paletteMap, voxels)
 }
 
 // emitLeaves recursively walks a cube's descendants and emits a voxel for
 // each non-empty leaf. Intermediate nodes are never merged into single
 // solid blocks — this preserves empty spaces (rooms, corridors).
+// targetDepth is the detail level the adaptive system chose for this region.
 // Stops at maxCoordDepth to avoid sub-grid detail.
-func emitLeaves(c *maps.Cube, ox, oy, oz, depth, maxCoordDepth int, paletteMap map[uint16]uint8, voxels *[]Voxel) {
+func emitLeaves(c *maps.Cube, ox, oy, oz, depth, targetDepth, maxCoordDepth int, paletteMap map[uint16]uint8, voxels *[]Voxel) {
 	if c == nil {
 		return
 	}
@@ -189,21 +190,28 @@ func emitLeaves(c *maps.Cube, ox, oy, oz, depth, maxCoordDepth int, paletteMap m
 			nx := ox + (i&1)*half
 			ny := oy + ((i>>1)&1)*half
 			nz := oz + ((i>>2)&1)*half
-			emitLeaves(child, nx, ny, nz, depth+1, maxCoordDepth, paletteMap, voxels)
+			emitLeaves(child, nx, ny, nz, depth+1, targetDepth, maxCoordDepth, paletteMap, voxels)
 		}
 		return
 	}
 
-	// Leaf node, or at coordinate limit with children below.
-	if len(c.Children) == 0 && c.IsEmpty() {
+	// Leaf node
+	if len(c.Children) == 0 {
+		if c.IsEmpty() {
+			return
+		}
+		// Deformed cube: subdivide with volume intersection test
+		if isCubeActuallyDeformed(c) {
+			emitDeformedCube(c, ox, oy, oz, depth, targetDepth, maxCoordDepth, paletteMap, voxels)
+			return
+		}
+		emitVoxel(c, ox, oy, oz, depth, maxCoordDepth, paletteMap, voxels)
 		return
 	}
 
 	// At coordinate limit with children: check if region has any solids.
-	if len(c.Children) > 0 {
-		if isRegionEmpty(c) {
-			return
-		}
+	if isRegionEmpty(c) {
+		return
 	}
 
 	flags := classifyCubeOrRegion(c, paletteMap)
@@ -215,6 +223,27 @@ func emitLeaves(c *maps.Cube, ox, oy, oz, depth, maxCoordDepth int, paletteMap m
 	}
 	flags |= byte(sizeLog2 << FlagSizeShift)
 
+	*voxels = append(*voxels, Voxel{
+		X:            uint16(ox),
+		Y:            uint16(oy),
+		Z:            uint16(oz),
+		PaletteIndex: palIdx,
+		Flags:        flags,
+	})
+}
+
+// emitVoxel emits a single voxel for an entirely solid leaf cube.
+func emitVoxel(c *maps.Cube, ox, oy, oz, depth, maxCoordDepth int, paletteMap map[uint16]uint8, voxels *[]Voxel) {
+	if c.IsEmpty() {
+		return
+	}
+	flags := classifyCube(c)
+	palIdx := dominantPaletteIndex(c, paletteMap)
+	sizeLog2 := maxCoordDepth - depth
+	if sizeLog2 < 0 {
+		sizeLog2 = 0
+	}
+	flags |= byte(sizeLog2 << FlagSizeShift)
 	*voxels = append(*voxels, Voxel{
 		X:            uint16(ox),
 		Y:            uint16(oy),

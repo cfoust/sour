@@ -65,9 +65,12 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 	voxels := ExtractVoxelsAdaptive(gameMap.WorldRoot, worldSize, entityPositions, paletteMap)
 	log.Debug().Msgf("preview: %d voxels (adaptive, %d³ coord grid)", len(voxels), 1<<coordDepth)
 
-	// Compute ambient occlusion.
+	// Build occupancy grid (shared by AO and camera angle computation).
 	gridSize := 1 << coordDepth
-	ComputeAO(voxels, gridSize)
+	occGrid := BuildOccupancyGrid(voxels, gridSize)
+
+	// Compute ambient occlusion.
+	ComputeAO(voxels, occGrid)
 
 	// Extract entities (quantized to grid).
 	entities := ExtractEntities(gameMap.Entities, gameMap.Header.WorldSize, uint16(gridSize))
@@ -76,8 +79,13 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 	skyTop, skyHorizon := ExtractSkyboxColors(ctx, processor, gameMap.Vars)
 	ambient, sunlight := ExtractLightingColors(gameMap.Vars)
 
-	// Compute focus point and radius from entity positions.
+	// Compute focus point, radius, and best camera angle.
 	focusX, focusY, focusZ, focusRadius := computeFocus(entityPositions, worldSize, gridSize)
+	cameraYaw, cameraPitch := FindBestCameraAngle(
+		occGrid,
+		float64(focusX), float64(focusY), float64(focusZ),
+		float64(focusRadius),
+	)
 
 	preview := &MapPreview{
 		MaxDepth:    coordDepth,
@@ -94,6 +102,8 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 		FocusY:      focusY,
 		FocusZ:      focusZ,
 		FocusRadius: focusRadius,
+		CameraYaw:   cameraYaw,
+		CameraPitch: cameraPitch,
 	}
 
 	return Encode(preview)

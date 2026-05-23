@@ -68,4 +68,6 @@ type MapPreview struct {
 	FocusY      uint16 // orbit target in grid coords (Sauer Y)
 	FocusZ      uint16 // orbit target in grid coords (Sauer Z)
 	FocusRadius uint16 // suggested orbit distance in grid units
+	CameraYaw   uint16 // initial yaw in tenths of degrees (0-3599)
+	CameraPitch uint16 // initial pitch in tenths of degrees (0-900)
 }

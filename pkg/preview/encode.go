@@ -8,7 +8,7 @@ import (
 var magic = [4]byte{'S', 'V', 'O', 'X'}
 
 const (
-	headerSize  = 40 // v3: added focus point + radius (8 bytes)
+	headerSize  = 44 // v3: focus point + radius + camera angle
 	voxelBytes  = 9  // X(2) + Y(2) + Z(2) + PaletteIndex(1) + Flags(1) + AO(1)
 	entityBytes = 7  // X(2) + Y(2) + Z(2) + Type(1)
 )
@@ -41,6 +41,8 @@ func Encode(p *MapPreview) ([]byte, error) {
 	binary.LittleEndian.PutUint16(buf[34:36], p.FocusY)
 	binary.LittleEndian.PutUint16(buf[36:38], p.FocusZ)
 	binary.LittleEndian.PutUint16(buf[38:40], p.FocusRadius)
+	binary.LittleEndian.PutUint16(buf[40:42], p.CameraYaw)
+	binary.LittleEndian.PutUint16(buf[42:44], p.CameraPitch)
 
 	off := headerSize
 
@@ -102,6 +104,8 @@ func Decode(data []byte) (*MapPreview, error) {
 	p.FocusY = binary.LittleEndian.Uint16(data[34:36])
 	p.FocusZ = binary.LittleEndian.Uint16(data[36:38])
 	p.FocusRadius = binary.LittleEndian.Uint16(data[38:40])
+	p.CameraYaw = binary.LittleEndian.Uint16(data[40:42])
+	p.CameraPitch = binary.LittleEndian.Uint16(data[42:44])
 
 	expected := headerSize + numPalette*3 + numVoxels*voxelBytes + numEntities*entityBytes
 	if len(data) < expected {

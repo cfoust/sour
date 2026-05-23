@@ -23,6 +23,8 @@ export type PreviewData = {
   focusY: number;
   focusZ: number;
   focusRadius: number;
+  cameraYaw: number;   // degrees
+  cameraPitch: number; // degrees
 };
 
 export function decodePreview(buffer: ArrayBuffer): PreviewData {
@@ -60,8 +62,10 @@ export function decodePreview(buffer: ArrayBuffer): PreviewData {
   const focusY = view.getUint16(34, true);
   const focusZ = view.getUint16(36, true);
   const focusRadius = view.getUint16(38, true);
+  const cameraYaw = view.getUint16(40, true) / 10;   // tenths → degrees
+  const cameraPitch = view.getUint16(42, true) / 10;  // tenths → degrees
 
-  let off = 40;
+  let off = 44;
 
   // Palette
   const palette = new Uint8Array(numPalette * 3);
@@ -125,5 +129,7 @@ export function decodePreview(buffer: ArrayBuffer): PreviewData {
     focusY,
     focusZ,
     focusRadius,
+    cameraYaw,
+    cameraPitch,
   };
 }

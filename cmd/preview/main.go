@@ -126,7 +126,8 @@ func benchDepths() {
 			worldSize := int(gameMap.Header.WorldSize)
 			voxels := preview.ExtractVoxels(gameMap.WorldRoot, worldSize, d, paletteMap)
 			gridSize := 1 << d
-			preview.ComputeAO(voxels, gridSize)
+			occGrid := preview.BuildOccupancyGrid(voxels, gridSize)
+			preview.ComputeAO(voxels, occGrid)
 			entities := preview.ExtractEntities(gameMap.Entities, gameMap.Header.WorldSize, uint16(gridSize))
 
 			// Estimate size: header(32) + palette(n*3) + voxels(n*6) + entities(n*4)
