@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/rs/zerolog/log"
 )
 
 type Root interface {
@@ -361,6 +362,12 @@ func LoadRoots(ctx context.Context, cache Store, targets []string, onlyMaps bool
 			absolute, err := filepath.Abs(target[3:])
 			if err != nil {
 				return nil, err
+			}
+
+			// Skip missing index files instead of failing
+			if _, err := os.Stat(absolute); os.IsNotExist(err) {
+				log.Warn().Msgf("skipping missing root: %s", target)
+				continue
 			}
 
 			reader := &fsReader{
