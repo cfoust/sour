@@ -233,6 +233,51 @@ func TestFloorDefs(t *testing.T) {
 	}
 }
 
+func TestObjectDefs(t *testing.T) {
+	skipIfNoCache(t)
+
+	c, err := OpenCache(testCacheDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+
+	data, err := c.ReadFile(0, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive, err := DecodeArchive(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	locDat, err := archive.ReadFile("loc.dat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	locIdx, err := archive.ReadFile("loc.idx")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defs, err := LoadObjectDefs(locDat, locIdx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("object definitions: %d", defs.Count())
+
+	// Print a few known objects
+	for _, id := range []int{0, 1, 2, 10, 100, 1000, 2000} {
+		if id >= defs.Count() {
+			continue
+		}
+		def := defs.Get(id)
+		t.Logf("  obj %d: name=%q size=%dx%d solid=%v walkable=%v",
+			id, def.Name, def.SizeX, def.SizeY, def.Solid, def.Walkable)
+	}
+}
+
 func TestRegionTerrain(t *testing.T) {
 	skipIfNoCache(t)
 

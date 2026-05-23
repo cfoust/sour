@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
 	"image"
 	"image/color"
@@ -116,10 +115,10 @@ func (cmd *TexturesCmd) Run() error {
 	return nil
 }
 
-// ConvertCmd converts an OSRS region to a Sauerbraten map.
+// ConvertCmd converts an OSRS region to a Sauerbraten root directory.
 type ConvertCmd struct {
 	Region int    `arg:"" help:"Region area ID to convert."`
-	Output string `help:"Output .ogz file path." default:"output/osrs.ogz"`
+	Outdir string `help:"Output root directory." default:"output/osrs"`
 }
 
 func (cmd *ConvertCmd) Run() error {
@@ -129,7 +128,12 @@ func (cmd *ConvertCmd) Run() error {
 	}
 	defer c.Close()
 
-	defs, err := loadFloorDefs(c)
+	floorDefs, err := loadFloorDefs(c)
+	if err != nil {
+		return err
+	}
+
+	objDefs, err := loadObjectDefs(c)
 	if err != nil {
 		return err
 	}
@@ -162,154 +166,35 @@ func (cmd *ConvertCmd) Run() error {
 
 	log.Info().Msgf("region %d: terrain loaded, %d objects", cmd.Region, len(objects))
 
-	// Convert to Sauerbraten map
-	gameMap, err := convertRegion(region, defs, objects)
+	gameMap, err := convertRegion(region, floorDefs, objDefs, objects)
 	if err != nil {
 		return fmt.Errorf("converting region: %w", err)
 	}
 
-	os.MkdirAll(filepath.Dir(cmd.Output), 0755)
-	if err := maps.ToFile(gameMap, cmd.Output); err != nil {
+	mapName := fmt.Sprintf("osrs_%d", cmd.Region)
+
+	// Create Sauerbraten root directory structure
+	baseDir := filepath.Join(cmd.Outdir, "packages", "base")
+	osrsDir := filepath.Join(cmd.Outdir, "packages", "osrs")
+	os.MkdirAll(baseDir, 0755)
+	os.MkdirAll(osrsDir, 0755)
+
+	// Write the .ogz map file
+	ogzPath := filepath.Join(baseDir, mapName+".ogz")
+	if err := maps.ToFile(gameMap, ogzPath); err != nil {
 		return fmt.Errorf("writing map: %w", err)
 	}
 
-	log.Info().Msgf("wrote %s", cmd.Output)
+	// Write the map .cfg that loads OSRS textures
+	cfgPath := filepath.Join(baseDir, mapName+".cfg")
+	cfgContent := fmt.Sprintf("// Auto-generated OSRS region %d\nexec packages/osrs/package.cfg\n", cmd.Region)
+	os.WriteFile(cfgPath, []byte(cfgContent), 0644)
+
+	// Write texture PNGs and package.cfg
+	writeTextures(osrsDir, floorDefs)
+
+	log.Info().Msgf("wrote %s (entities: %d, map: %s)", cmd.Outdir, len(gameMap.Entities), mapName)
 	return nil
-}
-
-// convertRegion converts OSRS terrain data to a Sauerbraten GameMap.
-func convertRegion(region *osrs.Region, defs *osrs.FloorDefs, objects []osrs.PlacedObject) (*maps.GameMap, error) {
-	// Scale: 1 OSRS tile = 2x2 Sauer cubes at gridpower 3
-	// 64 tiles * 2 = 128 cubes per axis → worldSize 256
-	const (
-		tilesPerChunk = 64
-		cubesPerTile  = 2
-		worldSize     = 256
-		cubeSize      = worldSize / (tilesPerChunk * cubesPerTile) // = 2, but in world units
-	)
-
-	m, err := maps.NewMap()
-	if err != nil {
-		return nil, err
-	}
-	m.Header.WorldSize = worldSize
-
-	// Build the octree: worldSize 256 = root has 8 children each of size 128
-	// We need to subdivide down to individual cubes
-	root := buildTerrainOctree(region, defs, worldSize)
-	m.WorldRoot = root
-
-	// Add a player spawn at the center
-	m.Entities = append(m.Entities, maps.Entity{
-		Position: maps.Vector{
-			X: float32(worldSize) / 2,
-			Y: float32(worldSize) / 2,
-			Z: float32(worldSize) / 2,
-		},
-		Type: maps.ET_PLAYERSTART,
-	})
-
-	// Add a sunlight
-	m.Entities = append(m.Entities, maps.Entity{
-		Position: maps.Vector{
-			X: float32(worldSize) / 2,
-			Y: float32(worldSize) / 2,
-			Z: float32(worldSize) - 10,
-		},
-		Type:  maps.ET_LIGHT,
-		Attr1: 200, // radius
-		Attr2: 200, // R
-		Attr3: 200, // G
-		Attr4: 200, // B
-	})
-
-	_ = objects // TODO: convert objects to cubes/entities
-
-	return m, nil
-}
-
-// buildTerrainOctree creates an octree from OSRS heightmap data.
-// The octree represents a worldSize^3 cube. We subdivide it recursively
-// and fill in terrain cubes based on the heightmap.
-func buildTerrainOctree(region *osrs.Region, defs *osrs.FloorDefs, worldSize int) *maps.Cube {
-	root := &maps.Cube{}
-	root.Children = make([]*maps.Cube, maps.CUBE_FACTOR)
-	halfSize := worldSize / 2
-
-	for i := 0; i < maps.CUBE_FACTOR; i++ {
-		// Octree child order: xyz bits (x=bit0, y=bit1, z=bit2)
-		ox := (i & 1) * halfSize
-		oy := ((i >> 1) & 1) * halfSize
-		oz := ((i >> 2) & 1) * halfSize
-		root.Children[i] = buildOctreeNode(region, defs, ox, oy, oz, halfSize)
-	}
-
-	return root
-}
-
-func buildOctreeNode(region *osrs.Region, defs *osrs.FloorDefs, ox, oy, oz, size int) *maps.Cube {
-	// At gridpower 0 (size=1), we're at a leaf cube
-	if size <= 1 {
-		return buildLeafCube(region, defs, ox, oy, oz)
-	}
-
-	// Check if this entire node is above or below the terrain
-	// and can be simplified to solid or empty
-	halfSize := size / 2
-
-	c := &maps.Cube{}
-	c.Children = make([]*maps.Cube, maps.CUBE_FACTOR)
-	for i := 0; i < maps.CUBE_FACTOR; i++ {
-		cx := ox + (i&1)*halfSize
-		cy := oy + ((i>>1)&1)*halfSize
-		cz := oz + ((i>>2)&1)*halfSize
-		c.Children[i] = buildOctreeNode(region, defs, cx, cy, cz, halfSize)
-	}
-
-	return c
-}
-
-func buildLeafCube(region *osrs.Region, defs *osrs.FloorDefs, x, y, z int) *maps.Cube {
-	c := &maps.Cube{}
-
-	// Map cube coordinates to OSRS tile coordinates
-	// 2 cubes per tile, 64 tiles = 128 cubes, worldSize=256
-	// But our grid is 128 cubes in x/y out of 256, so cubes 0-127 map to tiles 0-63
-	tileX := x / 2
-	tileY := y / 2
-
-	if tileX < 0 || tileX >= 64 || tileY < 0 || tileY >= 64 {
-		c.EmptyFaces()
-		return c
-	}
-
-	// Get terrain height (OSRS heights are negative, 0 = sea level)
-	// Convert to Sauer Z coordinates: higher Z = higher up
-	h := region.Heights[0][tileX][tileY]
-	// OSRS heights range roughly -720 to 0
-	// Map to Sauer Z range: we want terrain at roughly Z=64 to Z=192
-	// in a 256-unit world
-	terrainZ := 128 + h/4 // rough mapping
-
-	if z < terrainZ {
-		// Below terrain: solid
-		c.SolidFaces()
-
-		// Set texture based on underlay
-		texIdx := uint16(1) // default
-		underlayID := int(region.Underlays[0][tileX][tileY])
-		if underlayID > 0 && underlayID <= len(defs.Underlays) {
-			texIdx = uint16(underlayID) // will need proper slot mapping
-		}
-		for i := 0; i < 6; i++ {
-			c.Texture[i] = texIdx
-		}
-	} else {
-		// Above terrain: empty
-		c.EmptyFaces()
-	}
-
-	return c
 }
 
 // Helper functions
@@ -357,6 +242,30 @@ func loadCacheAndIndex() (*osrs.Cache, *osrs.MapIndex, error) {
 	return c, idx, nil
 }
 
+func loadObjectDefs(c *osrs.Cache) (*osrs.ObjectDefs, error) {
+	data, err := c.ReadFile(0, 2)
+	if err != nil {
+		return nil, fmt.Errorf("reading config archive: %w", err)
+	}
+
+	archive, err := osrs.DecodeArchive(data)
+	if err != nil {
+		return nil, fmt.Errorf("decoding config archive: %w", err)
+	}
+
+	locDat, err := archive.ReadFile("loc.dat")
+	if err != nil {
+		return nil, fmt.Errorf("reading loc.dat: %w", err)
+	}
+
+	locIdx, err := archive.ReadFile("loc.idx")
+	if err != nil {
+		return nil, fmt.Errorf("reading loc.idx: %w", err)
+	}
+
+	return osrs.LoadObjectDefs(locDat, locIdx)
+}
+
 func loadFloorDefs(c *osrs.Cache) (*osrs.FloorDefs, error) {
 	data, err := c.ReadFile(0, 2)
 	if err != nil {
@@ -374,6 +283,49 @@ func loadFloorDefs(c *osrs.Cache) (*osrs.FloorDefs, error) {
 	}
 
 	return osrs.LoadFloorDefs(floData)
+}
+
+func writeTextures(outdir string, defs *osrs.FloorDefs) {
+	os.MkdirAll(outdir, 0755)
+
+	for i, f := range defs.Underlays {
+		col := f.Color()
+		if col.R == 0 && col.G == 0 && col.B == 0 {
+			// Write a default gray for empty underlays
+			col = color.RGBA{R: 128, G: 128, B: 128, A: 255}
+		}
+		path := filepath.Join(outdir, fmt.Sprintf("underlay_%d.png", i))
+		writeSolidPNG(path, col, 64)
+	}
+
+	for i, f := range defs.Overlays {
+		col := f.Color()
+		if col.R == 0 && col.G == 0 && col.B == 0 && f.Texture < 0 {
+			col = color.RGBA{R: 96, G: 96, B: 96, A: 255}
+		}
+		path := filepath.Join(outdir, fmt.Sprintf("overlay_%d.png", i))
+		writeSolidPNG(path, col, 64)
+	}
+
+	// Write package.cfg
+	cfgPath := filepath.Join(outdir, "package.cfg")
+	f, err := os.Create(cfgPath)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	fmt.Fprintf(f, "// OSRS floor textures (auto-generated)\n")
+	// Slot 0 is reserved (default sky), slot 1 is default geom
+	// Underlays start at slot 2 (but we use their 1-based IDs directly)
+	for i := range defs.Underlays {
+		fmt.Fprintf(f, "setshader stdworld\n")
+		fmt.Fprintf(f, "texture 0 \"packages/osrs/underlay_%d.png\"\n", i)
+	}
+	for i := range defs.Overlays {
+		fmt.Fprintf(f, "setshader stdworld\n")
+		fmt.Fprintf(f, "texture 0 \"packages/osrs/overlay_%d.png\"\n", i)
+	}
 }
 
 func writeSolidPNG(path string, col color.RGBA, size int) error {
@@ -415,5 +367,3 @@ func main() {
 	}
 }
 
-// Ensure binary import is used (needed for Entity serialization)
-var _ = binary.LittleEndian
