@@ -170,7 +170,7 @@ func (cmd *ConvertCmd) Run() error {
 
 	log.Info().Msgf("region %d,%d: terrain loaded, %d objects", cmd.RegionX, cmd.RegionY, len(objects))
 
-	gameMap, modelIDs, err := convertRegion(region, floorDefs, objDefs, objects)
+	gameMap, modelKeys, _, err := convertRegion(region, floorDefs, objDefs, objects)
 	if err != nil {
 		return fmt.Errorf("converting region: %w", err)
 	}
@@ -190,8 +190,8 @@ func (cmd *ConvertCmd) Run() error {
 		return fmt.Errorf("writing map: %w", err)
 	}
 
-	// Export OSRS models as OBJ files for each unique object
-	mapmodelLines := exportModels(c, modelsDir, modelIDs, objDefs)
+	// Export OSRS models as OBJ files for each unique (object, rotation) pair
+	mapmodelLines := exportModels(c, modelsDir, modelKeys, objDefs)
 
 	// Write texture PNGs
 	writeTexturePNGs(osrsDir, floorDefs)
@@ -222,7 +222,7 @@ func (cmd *ConvertCmd) Run() error {
 	os.WriteFile(cfgPath, []byte(cfg), 0644)
 
 	log.Info().Msgf("wrote %s (entities: %d, models: %d, map: %s)",
-		cmd.Outdir, len(gameMap.Entities), len(modelIDs), mapName)
+		cmd.Outdir, len(gameMap.Entities), len(modelKeys), mapName)
 	return nil
 }
 
@@ -316,48 +316,21 @@ func loadFloorDefs(c *osrs.Cache) (*osrs.FloorDefs, error) {
 
 // exportModels exports OSRS models as OBJ files and returns mapmodel cfg lines.
 // modelIDs maps cache model ID → mapmodel index.
-func exportModels(c *osrs.Cache, modelsDir string, modelIDs map[int]int, objDefs *osrs.ObjectDefs) []string {
-	// Build reverse map: mapmodel index → cache model ID
-	indexToCache := make(map[int]int)
-	indexToObjID := make(map[int]int)
-	for cacheID, mmIdx := range modelIDs {
-		indexToCache[mmIdx] = cacheID
-	}
+func exportModels(c *osrs.Cache, modelsDir string, keys []modelKey, objDefs *osrs.ObjectDefs) []string {
+	lines := make([]string, 0, len(keys))
 
-	// Find OSRS object ID for each mapmodel (for naming)
-	for objID := 0; objID < objDefs.Count(); objID++ {
-		def := objDefs.Get(objID)
+	for _, key := range keys {
+		def := objDefs.Get(key.objID)
 		if len(def.ModelIDs) == 0 {
-			continue
-		}
-		if mmIdx, ok := modelIDs[def.ModelIDs[0]]; ok {
-			if _, exists := indexToObjID[mmIdx]; !exists {
-				indexToObjID[mmIdx] = objID
-			}
-		}
-	}
-
-	// Determine max index
-	maxIdx := 0
-	for _, idx := range modelIDs {
-		if idx > maxIdx {
-			maxIdx = idx
-		}
-	}
-
-	lines := make([]string, 0, maxIdx+1)
-	for i := 0; i <= maxIdx; i++ {
-		cacheID, ok := indexToCache[i]
-		if !ok {
 			lines = append(lines, "mmodel osrs/placeholder")
 			continue
 		}
 
-		modelName := fmt.Sprintf("osrs_%d", cacheID)
+		cacheID := def.ModelIDs[0]
+		modelName := fmt.Sprintf("osrs_%d_r%d", key.objID, key.rotation)
 		modelDir := filepath.Join(modelsDir, modelName)
 		os.MkdirAll(modelDir, 0755)
 
-		// Load and decode the model from cache
 		data, err := c.ReadFileGzip(1, cacheID)
 		if err != nil {
 			log.Warn().Err(err).Msgf("reading model %d", cacheID)
@@ -372,7 +345,16 @@ func exportModels(c *osrs.Cache, modelsDir string, modelIDs map[int]int, objDefs
 			continue
 		}
 
-		// Sanity check: skip models with absurd vertex ranges (decode errors)
+		// Apply ObjectDefinition transforms matching Java ObjectDefinition.model():
+		// 1. rotate90Degrees() called orientation times
+		// 2. scale(scaleX, scaleZ, scaleY)
+		// 3. translate(translateX, translateY, translateZ)
+		for r := 0; r < key.rotation; r++ {
+			model.Rotate90()
+		}
+		model.ApplyObjectDef(def)
+
+		// Sanity check
 		maxCoord := 0
 		for i := range model.VertexX {
 			for _, v := range []int{model.VertexX[i], model.VertexY[i], model.VertexZ[i]} {
@@ -385,16 +367,14 @@ func exportModels(c *osrs.Cache, modelsDir string, modelIDs map[int]int, objDefs
 			}
 		}
 		if maxCoord > 10000 {
-			log.Warn().Msgf("skipping model %d: vertex range too large (%d)", cacheID, maxCoord)
+			log.Warn().Msgf("skipping model %d_r%d: too large (%d)", key.objID, key.rotation, maxCoord)
 			lines = append(lines, "mmodel osrs/placeholder")
 			continue
 		}
 
-		// Export as OBJ with UV-mapped color atlas
 		objContent, _ := model.ToOBJ(modelName, modelScaleValue)
 		os.WriteFile(filepath.Join(modelDir, "tris.obj"), []byte(objContent), 0644)
 
-		// Generate color atlas texture
 		atlas := model.ColorAtlas()
 		atlasPath := filepath.Join(modelDir, "skin.png")
 		af, err := os.Create(atlasPath)
@@ -403,13 +383,7 @@ func exportModels(c *osrs.Cache, modelsDir string, modelIDs map[int]int, objDefs
 			af.Close()
 		}
 
-		// Write obj.cfg
-		// mdlscale is percentage: 100 = 1x. Our vertices are in Sauer world units
-		// already (modelScale converts OSRS units to cubes). But models are still
-		// small, so scale up to be visible and proportional.
-		// modelScaleValue = cubesPerTile/128. OBJ vertices are in Sauer world units.
-		// mdlscale 100 = 1x scale. Models and terrain use the same conversion.
-		objCfg := "objload tris.obj\nobjskin * skin.png\nmdlscale 100\nmdlambient 80\nmdlshadow 1\n"
+		objCfg := "objload tris.obj\nobjskin * skin.png\nmdlscale 400\nmdlambient 80\nmdlshadow 1\n"
 		os.WriteFile(filepath.Join(modelDir, "obj.cfg"), []byte(objCfg), 0644)
 
 		lines = append(lines, fmt.Sprintf("mmodel %s", modelName))

@@ -4,14 +4,20 @@ import "fmt"
 
 // ObjectDef describes an OSRS object's properties.
 type ObjectDef struct {
-	ID        int
-	Name      string
-	SizeX     int
-	SizeY     int
-	Solid     bool
-	Walkable  bool
-	Occludes  bool
-	ModelIDs  []int
+	ID         int
+	Name       string
+	SizeX      int
+	SizeY      int
+	Solid      bool
+	Walkable   bool
+	Occludes   bool
+	ModelIDs   []int
+	ScaleX     int // default 128 = 1x
+	ScaleY     int
+	ScaleZ     int
+	TranslateX int
+	TranslateY int
+	TranslateZ int
 }
 
 // ObjectDefs holds all object definitions loaded from the cache.
@@ -64,6 +70,9 @@ func (o *ObjectDefs) Get(id int) ObjectDef {
 	def.SizeY = 1
 	def.Solid = true
 	def.Walkable = true
+	def.ScaleX = 128
+	def.ScaleY = 128
+	def.ScaleZ = 128
 
 	buf := NewBuffer(o.data)
 	buf.SetPosition(o.indices[id])
@@ -144,14 +153,22 @@ func decodeObjectDef(buf *Buffer, def *ObjectDef) {
 			}
 		case opcode == 62, opcode == 64:
 			// flags
-		case opcode == 65, opcode == 66, opcode == 67:
-			buf.ReadUShort()
+		case opcode == 65:
+			def.ScaleX, _ = buf.ReadUShort()
+		case opcode == 66:
+			def.ScaleY, _ = buf.ReadUShort()
+		case opcode == 67:
+			def.ScaleZ, _ = buf.ReadUShort()
 		case opcode == 68:
 			buf.ReadUShort()
 		case opcode == 69:
 			buf.ReadUnsignedByte()
-		case opcode == 70, opcode == 71, opcode == 72:
-			buf.ReadUShort()
+		case opcode == 70:
+			def.TranslateX, _ = buf.ReadUShort()
+		case opcode == 71:
+			def.TranslateY, _ = buf.ReadUShort()
+		case opcode == 72:
+			def.TranslateZ, _ = buf.ReadUShort()
 		case opcode == 73, opcode == 74:
 			// flags
 		case opcode == 75:

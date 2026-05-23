@@ -63,10 +63,10 @@ func convertRegion(
 	defs *osrs.FloorDefs,
 	objDefs *osrs.ObjectDefs,
 	objects []osrs.PlacedObject,
-) (*maps.GameMap, map[int]int, error) {
+) (*maps.GameMap, []modelKey, map[modelKey]int, error) {
 	m, err := maps.NewMap()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	m.Header.WorldSize = worldSize
 
@@ -113,9 +113,9 @@ func convertRegion(
 	})
 
 	// Add decorative objects as mapmodels
-	modelIDs := addDecorations(m, region, objects, objDefs, heightGrid)
+	modelKeys, modelKeyMap := addDecorations(m, region, objects, objDefs, heightGrid)
 
-	return m, modelIDs, nil
+	return m, modelKeys, modelKeyMap, nil
 }
 
 // buildHeightGrid creates a cube-resolution height grid interpolated from OSRS tile heights.
@@ -515,51 +515,40 @@ func isEmptyCube(c *maps.Cube) bool {
 
 // addDecorations converts OSRS game objects to Sauerbraten mapmodel entities.
 // Returns the set of OSRS model IDs that need to be exported.
-func addDecorations(m *maps.GameMap, region *osrs.Region, objects []osrs.PlacedObject, objDefs *osrs.ObjectDefs, heightGrid [][]int) map[int]int {
-	// First pass: collect unique object IDs and assign mapmodel indices
-	// mapmodel indices start at 0 and are registered in the map cfg
-	objectToMapmodel := make(map[int]int) // OSRS object ID → mapmodel index
-	var objectOrder []int
+// modelKey identifies a unique (objectID, rotation) pair.
+type modelKey struct {
+	objID    int
+	rotation int
+}
 
-	for _, obj := range objects {
-		// Skip ground decorations (type 22) — too small to matter
-		if obj.Type == objGroundDecor {
-			continue
-		}
-		// Skip wall decorations (type 3) — minor detail
-		if obj.Type == objWallDecoration {
-			continue
-		}
+func addDecorations(m *maps.GameMap, region *osrs.Region, objects []osrs.PlacedObject, objDefs *osrs.ObjectDefs, heightGrid [][]int) ([]modelKey, map[modelKey]int) {
+	// Each unique (objectID, rotation) pair needs its own model export,
+	// because OSRS applies rotation to the model vertices directly.
+	keyToMapmodel := make(map[modelKey]int)
+	var keyOrder []modelKey
 
-		def := objDefs.Get(obj.ID)
-		if len(def.ModelIDs) == 0 {
-			continue
-		}
-		if _, ok := objectToMapmodel[obj.ID]; !ok {
-			objectToMapmodel[obj.ID] = len(objectOrder)
-			objectOrder = append(objectOrder, obj.ID)
-		}
-	}
-
-	// Collect the model cache IDs we need to export
-	// OSRS objects reference model IDs in the cache (index 1)
-	modelCacheIDs := make(map[int]int) // cache model ID → mapmodel index
-	for _, objID := range objectOrder {
-		def := objDefs.Get(objID)
-		if len(def.ModelIDs) > 0 {
-			modelCacheIDs[def.ModelIDs[0]] = objectToMapmodel[objID]
-		}
-	}
-
-	// Second pass: place entities
-	// In OSRS, ALL objects are placed at tile center: (xLoc*128+64, yLoc*128+64)
-	// For multi-tile objects: (xLoc*128 + 64*sizeX, yLoc*128 + 64*sizeY)
-	// The model geometry itself determines coverage. Rotation is applied to the model.
 	for _, obj := range objects {
 		if obj.Type == objGroundDecor || obj.Type == objWallDecoration {
 			continue
 		}
-		mmIdx, ok := objectToMapmodel[obj.ID]
+		def := objDefs.Get(obj.ID)
+		if len(def.ModelIDs) == 0 {
+			continue
+		}
+		key := modelKey{obj.ID, obj.Rotation}
+		if _, ok := keyToMapmodel[key]; !ok {
+			keyToMapmodel[key] = len(keyOrder)
+			keyOrder = append(keyOrder, key)
+		}
+	}
+
+	// Second pass: place entities
+	for _, obj := range objects {
+		if obj.Type == objGroundDecor || obj.Type == objWallDecoration {
+			continue
+		}
+		key := modelKey{obj.ID, obj.Rotation}
+		mmIdx, ok := keyToMapmodel[key]
 		if !ok {
 			continue
 		}
@@ -578,7 +567,14 @@ func addDecorations(m *maps.GameMap, region *osrs.Region, objects []osrs.PlacedO
 		wx := float32(osrsX*float64(cubesPerTile)/128.0) + float32(terrainOffset)
 		wy := float32(osrsY*float64(cubesPerTile)/128.0) + float32(terrainOffset)
 
-		// Height: average of tile corner heights (matches OSRS renderObject)
+		// Height: use the object's PLANE (0-3) for correct vertical placement.
+		// OSRS has 4 planes: 0=ground, 1=first floor, 2=second floor, 3=roof.
+		// Each plane has its own height map.
+		plane := obj.Plane
+		if plane < 0 || plane > 3 {
+			plane = 0
+		}
+
 		tx := obj.LocalX
 		ty := obj.LocalY
 		if tx < 0 || tx >= 64 || ty < 0 || ty >= 64 {
@@ -593,30 +589,33 @@ func addDecorations(m *maps.GameMap, region *osrs.Region, objects []osrs.PlacedO
 		if editX2 > 64 { editX2 = 64 }
 		if editY2 > 64 { editY2 = 64 }
 
-		h00 := region.Heights[0][editX][editY]
-		h10 := region.Heights[0][editX2][editY]
-		h01 := region.Heights[0][editX][editY2]
-		h11 := region.Heights[0][editX2][editY2]
+		// Check for bridge tiles: if plane 1 has BRIDGE flag, reduce plane by 1
+		actualPlane := plane
+		if plane > 0 && tx < 104 && ty < 104 {
+			if region.Flags[1][tx][ty]&2 == 2 {
+				actualPlane--
+			}
+		}
+		if actualPlane < 0 {
+			actualPlane = 0
+		}
+
+		h00 := region.Heights[actualPlane][editX][editY]
+		h10 := region.Heights[actualPlane][editX2][editY]
+		h01 := region.Heights[actualPlane][editX][editY2]
+		h11 := region.Heights[actualPlane][editX2][editY2]
 		meanH := (h00 + h10 + h01 + h11) / 4
 		wz := float32(terrainBaseZ + (-meanH)/heightScale)
 
-		// OSRS rotation: 0=no rotation. Each step is 90° CW viewed from above.
-		// OSRS rotate90Degrees: (x,z) → (z,-x)
-		// After Sauer OBJ remap: OBJ(x,y,z) → Sauer(z,-x,y)
-		// With our OBJ output (osrsX, -osrsY, -osrsZ):
-		//   Sauer = (-osrsZ, -osrsX, -osrsY) = (-osrsZ, -osrsX, height)
-		// OSRS j1=0 (north-facing) in Sauer space points toward -Z...
-		// Sauer yaw 0 = east (+X). yaw 90 = north (+Y).
-		// Empirically: OSRS j1=0 → Sauer yaw 0, j1=1 → yaw 270, etc.
-		yaw := int16((360 - obj.Rotation*90) % 360)
-
+		// Rotation is baked into the model vertices (matching OSRS),
+		// so entity yaw is 0.
 		m.Entities = append(m.Entities, maps.Entity{
 			Position: maps.Vector{X: wx, Y: wy, Z: wz},
 			Type:     C.EntityType(maps.ET_MAPMODEL),
-			Attr1:    yaw,
+			Attr1:    0,
 			Attr2:    int16(mmIdx),
 		})
 	}
 
-	return modelCacheIDs
+	return keyOrder, keyToMapmodel
 }

@@ -403,6 +403,36 @@ func hueToRGB(p, q, t float64) float64 {
 	return p
 }
 
+// Rotate90 rotates the model 90 degrees clockwise (viewed from above).
+// Matches OSRS Model.rotate90Degrees(): (x,z) → (z,-x)
+func (m *Model) Rotate90() {
+	for i := range m.VertexX {
+		x := m.VertexX[i]
+		m.VertexX[i] = m.VertexZ[i]
+		m.VertexZ[i] = -x
+	}
+}
+
+// ApplyObjectDef applies the ObjectDefinition's scale and translate to vertices.
+// Matches OSRS: scale(scaleX, scaleZ, scaleY) then translate(x, y, z).
+// Note the argument order swap: Java calls scale(scaleX, scaleZ, scaleY).
+func (m *Model) ApplyObjectDef(def ObjectDef) {
+	if def.ScaleX != 128 || def.ScaleY != 128 || def.ScaleZ != 128 {
+		for i := range m.VertexX {
+			m.VertexX[i] = (m.VertexX[i] * def.ScaleX) / 128
+			m.VertexY[i] = (m.VertexY[i] * def.ScaleY) / 128
+			m.VertexZ[i] = (m.VertexZ[i] * def.ScaleZ) / 128
+		}
+	}
+	if def.TranslateX != 0 || def.TranslateY != 0 || def.TranslateZ != 0 {
+		for i := range m.VertexX {
+			m.VertexX[i] += def.TranslateX
+			m.VertexY[i] += def.TranslateY
+			m.VertexZ[i] += def.TranslateZ
+		}
+	}
+}
+
 // AverageColor returns the average color across all faces.
 func (m *Model) AverageColor() color.RGBA {
 	if len(m.Colors) == 0 {
@@ -438,9 +468,16 @@ func (m *Model) ToOBJ(name string, scale float64) (string, string) {
 		}
 	}
 
-	atlasWidth := len(colorList)
-	if atlasWidth == 0 {
-		atlasWidth = 1
+	n := len(colorList)
+	if n == 0 {
+		n = 1
+	}
+	atlasSide := 1
+	for atlasSide*atlasSide < n {
+		atlasSide *= 2
+	}
+	if atlasSide < 4 {
+		atlasSide = 4
 	}
 
 	// Build OBJ with UVs
@@ -460,12 +497,13 @@ func (m *Model) ToOBJ(name string, scale float64) (string, string) {
 
 	obj += "\n"
 
-	// UV coordinates: one per face (3 verts share the same UV pointing to color pixel center)
+	// UV coordinates: one per face, pointing to the color's pixel in the grid atlas
 	for i := 0; i < len(m.FaceA); i++ {
 		colIdx := colorSet[m.Colors[i]]
-		// U = center of the pixel for this color
-		u := (float64(colIdx) + 0.5) / float64(atlasWidth)
-		v := 0.5
+		cx := colIdx % atlasSide
+		cy := colIdx / atlasSide
+		u := (float64(cx) + 0.5) / float64(atlasSide)
+		v := 1.0 - (float64(cy)+0.5)/float64(atlasSide) // flip V for OBJ convention
 		obj += fmt.Sprintf("vt %f %f\n", u, v)
 	}
 
@@ -498,15 +536,27 @@ func (m *Model) ColorAtlas() *image.RGBA {
 		}
 	}
 
-	width := len(colorList)
-	if width == 0 {
-		width = 1
+	n := len(colorList)
+	if n == 0 {
+		n = 1
 		colorList = []int16{0}
 	}
 
-	img := image.NewRGBA(image.Rect(0, 0, width, 1))
+	// Use a power-of-2 square texture (Sauer requires power-of-2)
+	// Lay colors out in a grid. Find smallest power-of-2 side that fits.
+	side := 1
+	for side*side < n {
+		side *= 2
+	}
+	if side < 4 {
+		side = 4 // minimum 4x4
+	}
+
+	img := image.NewRGBA(image.Rect(0, 0, side, side))
 	for i, c := range colorList {
-		img.Set(i, 0, HSL16ToRGB(c))
+		x := i % side
+		y := i / side
+		img.Set(x, y, HSL16ToRGB(c))
 	}
 
 	return img
