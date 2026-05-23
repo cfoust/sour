@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sour Map Preview Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a2e;
+      color: #eee;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    #app {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 24px;
+      justify-content: center;
+    }
+    .card {
+      position: relative;
+      background: #16213e;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+    .card canvas {
+      display: block;
+    }
+    .card .label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 8px 12px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.7));
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+    .card .controls {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .card .clip-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      writing-mode: vertical-lr;
+      direction: rtl;
+      width: 20px;
+      height: 120px;
+      background: transparent;
+      cursor: pointer;
+    }
+    .card .clip-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #00d4ff;
+      cursor: pointer;
+    }
+    .card .clip-slider::-webkit-slider-runnable-track {
+      width: 4px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 2px;
+    }
+    .stats {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      font-size: 11px;
+      opacity: 0.6;
+    }
+    h1 {
+      width: 100%;
+      text-align: center;
+      padding: 16px;
+      font-size: 20px;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h1>Sour Map Preview Viewer</h1>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

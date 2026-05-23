@@ -1,0 +1,20 @@
+{
+  "name": "preview-viewer",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/three": "^0.184.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "three": "^0.184.0",
+    "vite": "^8.0.14"
+  }
+}
