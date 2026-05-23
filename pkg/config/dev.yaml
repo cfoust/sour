@@ -5,9 +5,11 @@ server:
     - "fs:assets/output/base/.index.source"
     - "fs:assets/output/quad-raw/.index.source"
     - "fs:assets/output/quad/.index.source"
+    - "fs:assets/output/osrs/.index.source"
   catalogs:
     - "fs:assets/output/base/catalog/catalog.json"
-    - "fs:assets/output/quad/catalog/catalog.json"
+    #- "fs:assets/output/quad/catalog/catalog.json"
+    - "fs:assets/output/osrs/catalog/catalog.json"
   presets:
     - name: "ffa-duel"
       virtual: true

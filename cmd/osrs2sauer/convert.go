@@ -10,31 +10,35 @@ import (
 // Conversion parameters
 const (
 	// Each OSRS tile maps to cubesPerTile^2 Sauer cubes in X/Y
-	cubesPerTile = 2
+	cubesPerTile = 4
 
 	// OSRS region is 64x64 tiles per chunk; we use one chunk
 	tilesPerChunk = 64
 
-	// World size in cubes: 64 tiles * 2 cubes/tile = 128 cubes
-	// Nearest power of 2 >= 128 = 128. But Sauer worldSize must be a
-	// power of 2, and we need some headroom for walls + sky.
-	// 256 gives us 128 cubes of terrain centered in a 256-cube world.
+	// World size: 64 tiles * 4 cubes/tile = 256 cubes of terrain.
+	// Use 512 to leave room for sky and walls.
 	worldSize = 512
 
 	// Terrain occupies this range in X/Y
-	terrainCubes = tilesPerChunk * cubesPerTile // 128
-	terrainOffset = (worldSize - terrainCubes) / 2 // center terrain
+	terrainCubes  = tilesPerChunk * cubesPerTile // 256
+	terrainOffset = (worldSize - terrainCubes) / 2 // center terrain = 128
 
-	// Height scaling: OSRS heights are negative (0=sea level, -720=hilltop)
-	// We place the terrain surface at a base Z level and add height.
-	terrainBaseZ = worldSize / 4 // base at Z=128
-	heightScale  = 4             // divisor for OSRS heights → cube units
+	// Height scaling: OSRS heights range roughly -480 to 0.
+	// We want gentle terrain, not spikes. Divide by a larger number.
+	// With heightScale=8, a -480 height becomes 60 cube units of elevation.
+	terrainBaseZ = 64            // base ground level
+	heightScale  = 8             // divisor for OSRS heights → cube units
 
 	// Wall height in cubes
-	wallHeight = 8
+	wallHeight = 16
 
 	// Wall thickness in cubes
 	wallThickness = 1
+
+	// Model scale: OSRS model units to Sauer world units.
+	// 1 OSRS tile = 128 game units = cubesPerTile Sauer cubes.
+	// So 1 OSRS unit = cubesPerTile / 128 Sauer units.
+	modelScale = float64(cubesPerTile) / 128.0 // 0.03125
 )
 
 // OSRS object types
@@ -54,15 +58,17 @@ const (
 	objGroundDecor    = 22
 )
 
+// convertRegion returns (map, modelCacheIDs, error).
+// modelCacheIDs maps OSRS cache model IDs to mapmodel indices for export.
 func convertRegion(
 	region *osrs.Region,
 	defs *osrs.FloorDefs,
 	objDefs *osrs.ObjectDefs,
 	objects []osrs.PlacedObject,
-) (*maps.GameMap, error) {
+) (*maps.GameMap, map[int]int, error) {
 	m, err := maps.NewMap()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	m.Header.WorldSize = worldSize
 
@@ -111,9 +117,9 @@ func convertRegion(
 	})
 
 	// Add decorative objects as mapmodels
-	addDecorations(m, objects, objDefs, heightGrid)
+	modelIDs := addDecorations(m, objects, objDefs, heightGrid)
 
-	return m, nil
+	return m, modelIDs, nil
 }
 
 // buildHeightGrid creates a cube-resolution height grid interpolated from OSRS tile heights.
@@ -127,21 +133,44 @@ func buildHeightGrid(region *osrs.Region) [][]int {
 
 	for cx := 0; cx <= terrainCubes; cx++ {
 		for cy := 0; cy <= terrainCubes; cy++ {
-			// Map cube position to OSRS tile vertex position
-			// Each tile has cubesPerTile cubes, so cube cx maps to tile cx/cubesPerTile
-			tx := cx / cubesPerTile
-			ty := cy / cubesPerTile
-			if tx > 64 {
-				tx = 64
+			// Bilinear interpolation between OSRS tile vertices
+			// Each tile has cubesPerTile cubes, fractional position within tile
+			fx := float64(cx) / float64(cubesPerTile)
+			fy := float64(cy) / float64(cubesPerTile)
+
+			tx := int(fx)
+			ty := int(fy)
+			// Fractional position within the tile
+			dx := fx - float64(tx)
+			dy := fy - float64(ty)
+
+			if tx >= 64 {
+				tx = 63
+				dx = 1.0
 			}
-			if ty > 64 {
-				ty = 64
+			if ty >= 64 {
+				ty = 63
+				dy = 1.0
+			}
+			tx1 := tx + 1
+			ty1 := ty + 1
+			if tx1 > 64 {
+				tx1 = 64
+			}
+			if ty1 > 64 {
+				ty1 = 64
 			}
 
-			// OSRS heights are negative (higher terrain = more negative)
-			h := region.Heights[0][tx][ty]
+			// Bilinear interpolation of the 4 surrounding tile vertices
+			h00 := float64(region.Heights[0][tx][ty])
+			h10 := float64(region.Heights[0][tx1][ty])
+			h01 := float64(region.Heights[0][tx][ty1])
+			h11 := float64(region.Heights[0][tx1][ty1])
+
+			h := h00*(1-dx)*(1-dy) + h10*dx*(1-dy) + h01*(1-dx)*dy + h11*dx*dy
+
 			// Convert: negate, divide by scale, add base
-			z := terrainBaseZ + (-h)/heightScale
+			z := terrainBaseZ + int(-h)/heightScale
 			grid[cx][cy] = z
 		}
 	}
@@ -322,13 +351,15 @@ func getTextureForTile(region *osrs.Region, defs *osrs.FloorDefs, wx, wy int) ui
 	}
 
 	// Check overlay first (higher priority)
+	// Overlay IDs are 1-based in the region data.
+	// In the cfg after texturereset: slots 0..149 are underlays, 150..323 are overlays.
+	// So overlay ID n (1-based) → slot len(underlays) + (n-1)
 	overlayID := int(region.Overlays[0][tx][ty])
 	if overlayID > 0 && overlayID <= len(defs.Overlays) {
-		// Overlay texture slot = len(underlays) + overlayID
-		return uint16(len(defs.Underlays) + overlayID)
+		return uint16(len(defs.Underlays) + overlayID - 1)
 	}
 
-	// Use underlay
+	// Use underlay (1-based ID maps directly to slot index)
 	underlayID := int(region.Underlays[0][tx][ty])
 	if underlayID > 0 && underlayID <= len(defs.Underlays) {
 		return uint16(underlayID)
@@ -487,17 +518,47 @@ func isEmptyCube(c *maps.Cube) bool {
 }
 
 // addDecorations converts OSRS game objects to Sauerbraten mapmodel entities.
-func addDecorations(m *maps.GameMap, objects []osrs.PlacedObject, objDefs *osrs.ObjectDefs, heightGrid [][]int) {
+// Returns the set of OSRS model IDs that need to be exported.
+func addDecorations(m *maps.GameMap, objects []osrs.PlacedObject, objDefs *osrs.ObjectDefs, heightGrid [][]int) map[int]int {
+	// First pass: collect unique object IDs and assign mapmodel indices
+	// mapmodel indices start at 0 and are registered in the map cfg
+	objectToMapmodel := make(map[int]int) // OSRS object ID → mapmodel index
+	var objectOrder []int
+
 	for _, obj := range objects {
-		// Only convert general game objects, skip walls and ground decor
 		if obj.Type != objGameObject && obj.Type != objGameObject2 {
 			continue
 		}
-
 		def := objDefs.Get(obj.ID)
-
-		// Skip very large objects (likely buildings handled as geometry)
 		if def.SizeX > 5 || def.SizeY > 5 {
+			continue
+		}
+		if len(def.ModelIDs) == 0 {
+			continue
+		}
+		if _, ok := objectToMapmodel[obj.ID]; !ok {
+			objectToMapmodel[obj.ID] = len(objectOrder)
+			objectOrder = append(objectOrder, obj.ID)
+		}
+	}
+
+	// Collect the model cache IDs we need to export
+	// OSRS objects reference model IDs in the cache (index 1)
+	modelCacheIDs := make(map[int]int) // cache model ID → mapmodel index
+	for _, objID := range objectOrder {
+		def := objDefs.Get(objID)
+		if len(def.ModelIDs) > 0 {
+			modelCacheIDs[def.ModelIDs[0]] = objectToMapmodel[objID]
+		}
+	}
+
+	// Second pass: place entities
+	for _, obj := range objects {
+		if obj.Type != objGameObject && obj.Type != objGameObject2 {
+			continue
+		}
+		mmIdx, ok := objectToMapmodel[obj.ID]
+		if !ok {
 			continue
 		}
 
@@ -505,13 +566,13 @@ func addDecorations(m *maps.GameMap, objects []osrs.PlacedObject, objDefs *osrs.
 		wy := float32(obj.LocalY*cubesPerTile + terrainOffset + cubesPerTile/2)
 		wz := float32(getTerrainZ(heightGrid, int(wx), int(wy)))
 
-		// Use mapmodel entity — model index 0 as placeholder
-		// In a full implementation, we'd map OSRS object IDs to Sauer mapmodel indices
 		m.Entities = append(m.Entities, maps.Entity{
 			Position: maps.Vector{X: wx, Y: wy, Z: wz},
 			Type:     C.EntityType(maps.ET_MAPMODEL),
-			Attr1:    int16(obj.Rotation * 90), // yaw
-			Attr2:    0,                         // model index
+			Attr1:    int16(obj.Rotation * 90),
+			Attr2:    int16(mmIdx),
 		})
 	}
+
+	return modelCacheIDs
 }

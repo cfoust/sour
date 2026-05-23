@@ -67,6 +67,18 @@ build-quadropolis *args:
 catalog-quadropolis:
     {{quadropolis}} catalog
 
+# Convert an OSRS region into the input root (regionX regionY)
+osrs-convert regionX regionY:
+    go run ../cmd/osrs2sauer convert {{regionX}} {{regionY}}
+
+# List available OSRS regions
+osrs-regions:
+    go run ../cmd/osrs2sauer regions
+
+# Build OSRS assets
+build-osrs *args:
+    {{sour}} bundle manifests/osrs.yaml {{args}}
+
 # Clean all build outputs
 clean:
     rm -rf output

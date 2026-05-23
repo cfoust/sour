@@ -1,6 +1,7 @@
 package osrs
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
@@ -276,6 +277,39 @@ func TestObjectDefs(t *testing.T) {
 		t.Logf("  obj %d: name=%q size=%dx%d solid=%v walkable=%v",
 			id, def.Name, def.SizeX, def.SizeY, def.Solid, def.Walkable)
 	}
+}
+
+func TestModelDecode(t *testing.T) {
+	skipIfNoCache(t)
+
+	c, err := OpenCache(testCacheDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+
+	// Models are in index 1, gzip-compressed
+	decoded := 0
+	failed := 0
+	for id := 1; id < 100; id++ {
+		data, err := c.ReadFileGzip(1, id)
+		if err != nil {
+			continue
+		}
+		model, err := DecodeModel(data)
+		if err != nil {
+			failed++
+			continue
+		}
+		decoded++
+		if decoded <= 5 {
+			t.Logf("model %d: %d verts, %d tris", id, len(model.VertexX), len(model.FaceA))
+			// Test OBJ export
+			obj, mtl := model.ToOBJ(fmt.Sprintf("model_%d", id), 0.01)
+			t.Logf("  OBJ: %d bytes, MTL: %d bytes", len(obj), len(mtl))
+		}
+	}
+	t.Logf("decoded %d models, %d failed (out of first 100)", decoded, failed)
 }
 
 func TestRegionTerrain(t *testing.T) {

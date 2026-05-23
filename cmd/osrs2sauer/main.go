@@ -40,7 +40,10 @@ func (cmd *RegionsCmd) Run() error {
 	valid := 0
 	for _, r := range regions {
 		if r.TerrainFile > 0 && r.TerrainFile <= 3535 {
-			fmt.Printf("area %d: terrain=%d objects=%d\n", r.AreaID, r.TerrainFile, r.ObjectFile)
+			regionX := r.AreaID >> 8
+			regionY := r.AreaID & 0xFF
+			fmt.Printf("%d,%d (area %d): terrain=%d objects=%d\n",
+				regionX, regionY, r.AreaID, r.TerrainFile, r.ObjectFile)
 			valid++
 		}
 	}
@@ -117,8 +120,9 @@ func (cmd *TexturesCmd) Run() error {
 
 // ConvertCmd converts an OSRS region to a Sauerbraten root directory.
 type ConvertCmd struct {
-	Region int    `arg:"" help:"Region area ID to convert."`
-	Outdir string `help:"Output root directory." default:"output/osrs"`
+	RegionX int    `arg:"" help:"Region X coordinate (tile / 64)."`
+	RegionY int    `arg:"" help:"Region Y coordinate (tile / 64)."`
+	Outdir  string `help:"Output root directory." default:"input/roots/osrs"`
 }
 
 func (cmd *ConvertCmd) Run() error {
@@ -139,9 +143,9 @@ func (cmd *ConvertCmd) Run() error {
 	}
 
 	// Find region
-	terrainFile := idx.TerrainFileID(0, cmd.Region)
+	terrainFile := idx.TerrainFileID(cmd.RegionX, cmd.RegionY)
 	if terrainFile < 0 {
-		return fmt.Errorf("region %d not found in map index", cmd.Region)
+		return fmt.Errorf("region %d,%d not found in map index", cmd.RegionX, cmd.RegionY)
 	}
 
 	terrainData, err := c.ReadFileGzip(4, terrainFile)
@@ -155,7 +159,7 @@ func (cmd *ConvertCmd) Run() error {
 	}
 
 	// Load objects if available
-	objectFile := idx.ObjectFileID(0, cmd.Region)
+	objectFile := idx.ObjectFileID(cmd.RegionX, cmd.RegionY)
 	var objects []osrs.PlacedObject
 	if objectFile > 0 {
 		objData, err := c.ReadFileGzip(4, objectFile)
@@ -164,18 +168,19 @@ func (cmd *ConvertCmd) Run() error {
 		}
 	}
 
-	log.Info().Msgf("region %d: terrain loaded, %d objects", cmd.Region, len(objects))
+	log.Info().Msgf("region %d,%d: terrain loaded, %d objects", cmd.RegionX, cmd.RegionY, len(objects))
 
-	gameMap, err := convertRegion(region, floorDefs, objDefs, objects)
+	gameMap, modelIDs, err := convertRegion(region, floorDefs, objDefs, objects)
 	if err != nil {
 		return fmt.Errorf("converting region: %w", err)
 	}
 
-	mapName := fmt.Sprintf("osrs_%d", cmd.Region)
+	mapName := fmt.Sprintf("osrs_%d_%d", cmd.RegionX, cmd.RegionY)
 
 	// Create Sauerbraten root directory structure
 	baseDir := filepath.Join(cmd.Outdir, "packages", "base")
 	osrsDir := filepath.Join(cmd.Outdir, "packages", "osrs")
+	modelsDir := filepath.Join(cmd.Outdir, "packages", "models")
 	os.MkdirAll(baseDir, 0755)
 	os.MkdirAll(osrsDir, 0755)
 
@@ -185,15 +190,39 @@ func (cmd *ConvertCmd) Run() error {
 		return fmt.Errorf("writing map: %w", err)
 	}
 
-	// Write the map .cfg that loads OSRS textures
+	// Export OSRS models as OBJ files for each unique object
+	mapmodelLines := exportModels(c, modelsDir, modelIDs, objDefs)
+
+	// Write texture PNGs
+	writeTexturePNGs(osrsDir, floorDefs)
+
+	// Write the map .cfg with texture slots and mapmodel registrations
+	// Texture slots must match the indices used on cube faces.
+	// Slot 0 = sky (registered by engine), so our slots start at 1.
 	cfgPath := filepath.Join(baseDir, mapName+".cfg")
-	cfgContent := fmt.Sprintf("// Auto-generated OSRS region %d\nexec packages/osrs/package.cfg\n", cmd.Region)
-	os.WriteFile(cfgPath, []byte(cfgContent), 0644)
+	cfg := fmt.Sprintf("// Auto-generated OSRS region %d,%d\n\n", cmd.RegionX, cmd.RegionY)
+	cfg += "texturereset\nmapmodelreset\n\n"
 
-	// Write texture PNGs and package.cfg
-	writeTextures(osrsDir, floorDefs)
+	// Slot 0 after reset is the first texture registered.
+	// Sauer's texture command prepends "packages/" internally,
+	// so paths should be relative to packages/.
+	cfg += "// slot 0: default\nsetshader stdworld\ntexture 0 \"osrs/underlay_0.png\"\n\n"
 
-	log.Info().Msgf("wrote %s (entities: %d, map: %s)", cmd.Outdir, len(gameMap.Entities), mapName)
+	for i := 1; i < len(floorDefs.Underlays); i++ {
+		cfg += fmt.Sprintf("setshader stdworld\ntexture 0 \"osrs/underlay_%d.png\"\n", i)
+	}
+	for i := range floorDefs.Overlays {
+		cfg += fmt.Sprintf("setshader stdworld\ntexture 0 \"osrs/overlay_%d.png\"\n", i)
+	}
+	cfg += "\n"
+
+	for _, line := range mapmodelLines {
+		cfg += line + "\n"
+	}
+	os.WriteFile(cfgPath, []byte(cfg), 0644)
+
+	log.Info().Msgf("wrote %s (entities: %d, models: %d, map: %s)",
+		cmd.Outdir, len(gameMap.Entities), len(modelIDs), mapName)
 	return nil
 }
 
@@ -285,13 +314,96 @@ func loadFloorDefs(c *osrs.Cache) (*osrs.FloorDefs, error) {
 	return osrs.LoadFloorDefs(floData)
 }
 
-func writeTextures(outdir string, defs *osrs.FloorDefs) {
+// exportModels exports OSRS models as OBJ files and returns mapmodel cfg lines.
+// modelIDs maps cache model ID → mapmodel index.
+func exportModels(c *osrs.Cache, modelsDir string, modelIDs map[int]int, objDefs *osrs.ObjectDefs) []string {
+	// Build reverse map: mapmodel index → cache model ID
+	indexToCache := make(map[int]int)
+	indexToObjID := make(map[int]int)
+	for cacheID, mmIdx := range modelIDs {
+		indexToCache[mmIdx] = cacheID
+	}
+
+	// Find OSRS object ID for each mapmodel (for naming)
+	for objID := 0; objID < objDefs.Count(); objID++ {
+		def := objDefs.Get(objID)
+		if len(def.ModelIDs) == 0 {
+			continue
+		}
+		if mmIdx, ok := modelIDs[def.ModelIDs[0]]; ok {
+			if _, exists := indexToObjID[mmIdx]; !exists {
+				indexToObjID[mmIdx] = objID
+			}
+		}
+	}
+
+	// Determine max index
+	maxIdx := 0
+	for _, idx := range modelIDs {
+		if idx > maxIdx {
+			maxIdx = idx
+		}
+	}
+
+	lines := make([]string, 0, maxIdx+1)
+	for i := 0; i <= maxIdx; i++ {
+		cacheID, ok := indexToCache[i]
+		if !ok {
+			lines = append(lines, "mmodel osrs/placeholder")
+			continue
+		}
+
+		modelName := fmt.Sprintf("osrs_%d", cacheID)
+		modelDir := filepath.Join(modelsDir, modelName)
+		os.MkdirAll(modelDir, 0755)
+
+		// Load and decode the model from cache
+		data, err := c.ReadFileGzip(1, cacheID)
+		if err != nil {
+			log.Warn().Err(err).Msgf("reading model %d", cacheID)
+			lines = append(lines, "mmodel osrs/placeholder")
+			continue
+		}
+
+		model, err := osrs.DecodeModel(data)
+		if err != nil {
+			log.Warn().Err(err).Msgf("decoding model %d", cacheID)
+			lines = append(lines, "mmodel osrs/placeholder")
+			continue
+		}
+
+		// Export as OBJ with UV-mapped color atlas
+		objContent, _ := model.ToOBJ(modelName, modelScale)
+		os.WriteFile(filepath.Join(modelDir, "tris.obj"), []byte(objContent), 0644)
+
+		// Generate color atlas texture
+		atlas := model.ColorAtlas()
+		atlasPath := filepath.Join(modelDir, "skin.png")
+		af, err := os.Create(atlasPath)
+		if err == nil {
+			png.Encode(af, atlas)
+			af.Close()
+		}
+
+		// Write obj.cfg
+		// mdlscale is percentage: 100 = 1x. Our vertices are in Sauer world units
+		// already (modelScale converts OSRS units to cubes). But models are still
+		// small, so scale up to be visible and proportional.
+		objCfg := "objload tris.obj\nobjskin * skin.png\nmdlscale 400\nmdlambient 80\n"
+		os.WriteFile(filepath.Join(modelDir, "obj.cfg"), []byte(objCfg), 0644)
+
+		lines = append(lines, fmt.Sprintf("mmodel %s", modelName))
+	}
+
+	return lines
+}
+
+func writeTexturePNGs(outdir string, defs *osrs.FloorDefs) {
 	os.MkdirAll(outdir, 0755)
 
 	for i, f := range defs.Underlays {
 		col := f.Color()
 		if col.R == 0 && col.G == 0 && col.B == 0 {
-			// Write a default gray for empty underlays
 			col = color.RGBA{R: 128, G: 128, B: 128, A: 255}
 		}
 		path := filepath.Join(outdir, fmt.Sprintf("underlay_%d.png", i))
@@ -305,26 +417,6 @@ func writeTextures(outdir string, defs *osrs.FloorDefs) {
 		}
 		path := filepath.Join(outdir, fmt.Sprintf("overlay_%d.png", i))
 		writeSolidPNG(path, col, 64)
-	}
-
-	// Write package.cfg
-	cfgPath := filepath.Join(outdir, "package.cfg")
-	f, err := os.Create(cfgPath)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-
-	fmt.Fprintf(f, "// OSRS floor textures (auto-generated)\n")
-	// Slot 0 is reserved (default sky), slot 1 is default geom
-	// Underlays start at slot 2 (but we use their 1-based IDs directly)
-	for i := range defs.Underlays {
-		fmt.Fprintf(f, "setshader stdworld\n")
-		fmt.Fprintf(f, "texture 0 \"packages/osrs/underlay_%d.png\"\n", i)
-	}
-	for i := range defs.Overlays {
-		fmt.Fprintf(f, "setshader stdworld\n")
-		fmt.Fprintf(f, "texture 0 \"packages/osrs/overlay_%d.png\"\n", i)
 	}
 }
 

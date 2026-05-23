@@ -48,9 +48,10 @@ func LoadMapIndex(data []byte) (*MapIndex, error) {
 }
 
 // TerrainFileID returns the cache file ID for terrain data at the given region.
+// regionX and regionY are in region coordinates (tile / 64).
 // Returns -1 if not found.
 func (m *MapIndex) TerrainFileID(regionX, regionY int) int {
-	id := regionY
+	id := (regionX << 8) | regionY
 	for i, area := range m.areas {
 		if area == id {
 			if m.mapFiles[i] > 3535 {
@@ -63,9 +64,10 @@ func (m *MapIndex) TerrainFileID(regionX, regionY int) int {
 }
 
 // ObjectFileID returns the cache file ID for object/landscape data at the given region.
+// regionX and regionY are in region coordinates (tile / 64).
 // Returns -1 if not found.
 func (m *MapIndex) ObjectFileID(regionX, regionY int) int {
-	id := regionY
+	id := (regionX << 8) | regionY
 	for i, area := range m.areas {
 		if area == id {
 			if m.landscapes[i] > 3535 {
