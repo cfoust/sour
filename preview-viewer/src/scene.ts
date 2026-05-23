@@ -44,16 +44,21 @@ export function createScene(
     data.skyTop[2] / 255
   );
 
-  // Camera
+  // Focus point and orbit distance from file
+  // Sauer (X, Y, Z) → Three.js (X, Z, Y)
   const gridSize = data.gridSize;
-  const center = gridSize / 2;
+  const focusX = data.focusX;
+  const focusY = data.focusZ; // Sauer Z → Three Y
+  const focusZ = data.focusY; // Sauer Y → Three Z
+  const orbitRadius = data.focusRadius;
+
+  // Camera
   const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, gridSize * 10);
   camera.position.set(
-    center + gridSize * 0.9,
-    center + gridSize * 0.5,
-    center + gridSize * 0.9
+    focusX + orbitRadius * 0.8,
+    focusY + orbitRadius * 0.5,
+    focusZ + orbitRadius * 0.8
   );
-  camera.lookAt(center, center * 0.3, center);
 
   // Lighting — bright enough to show texture colors clearly
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
@@ -134,7 +139,7 @@ export function createScene(
 
   // OrbitControls
   const controls = new OrbitControls(camera, canvas);
-  controls.target.set(center, center * 0.3, center);
+  controls.target.set(focusX, focusY, focusZ);
   controls.enableDamping = true;
   controls.dampingFactor = 0.1;
   controls.autoRotate = true;

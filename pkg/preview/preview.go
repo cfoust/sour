@@ -3,7 +3,9 @@ package preview
 import (
 	"context"
 	"fmt"
+	"math"
 	"path/filepath"
+	"sort"
 
 	C "github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/assets"
@@ -74,20 +76,78 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 	skyTop, skyHorizon := ExtractSkyboxColors(ctx, processor, gameMap.Vars)
 	ambient, sunlight := ExtractLightingColors(gameMap.Vars)
 
+	// Compute focus point and radius from entity positions.
+	focusX, focusY, focusZ, focusRadius := computeFocus(entityPositions, worldSize, gridSize)
+
 	preview := &MapPreview{
-		MaxDepth:   coordDepth,
-		GridSize:   uint16(gridSize),
-		WorldSize:  uint32(worldSize),
-		Palette:    palette,
-		Voxels:     voxels,
-		Entities:   entities,
-		SkyTop:     skyTop,
-		SkyHorizon: skyHorizon,
-		Ambient:    ambient,
-		Sunlight:   sunlight,
+		MaxDepth:    coordDepth,
+		GridSize:    uint16(gridSize),
+		WorldSize:   uint32(worldSize),
+		Palette:     palette,
+		Voxels:      voxels,
+		Entities:    entities,
+		SkyTop:      skyTop,
+		SkyHorizon:  skyHorizon,
+		Ambient:     ambient,
+		Sunlight:    sunlight,
+		FocusX:      focusX,
+		FocusY:      focusY,
+		FocusZ:      focusZ,
+		FocusRadius: focusRadius,
 	}
 
 	return Encode(preview)
+}
+
+// computeFocus calculates the orbit target and suggested camera distance
+// from entity positions. Uses the centroid as focus and 90th percentile
+// distance as radius to exclude outliers.
+func computeFocus(positions []worldPos, worldSize, gridSize int) (uint16, uint16, uint16, uint16) {
+	gs := uint16(gridSize)
+	half := gs / 2
+
+	if len(positions) == 0 {
+		return half, half, half, gs
+	}
+
+	scale := float32(gridSize) / float32(worldSize)
+
+	// Centroid
+	var sx, sy, sz float32
+	for _, p := range positions {
+		sx += p.X
+		sy += p.Y
+		sz += p.Z
+	}
+	n := float32(len(positions))
+	cx, cy, cz := sx/n, sy/n, sz/n
+
+	// Distances from centroid
+	dists := make([]float64, len(positions))
+	for i, p := range positions {
+		dx := float64(p.X - cx)
+		dy := float64(p.Y - cy)
+		dz := float64(p.Z - cz)
+		dists[i] = math.Sqrt(dx*dx + dy*dy + dz*dz)
+	}
+	sort.Float64s(dists)
+
+	// 90th percentile distance
+	idx := int(float64(len(dists)) * 0.9)
+	if idx >= len(dists) {
+		idx = len(dists) - 1
+	}
+	radius := float32(dists[idx]) * scale * 1.5 // padding for a nice view
+	if radius < 32 {
+		radius = 32
+	}
+
+	fx := uint16(clampInt(int(cx*scale), 0, int(gs)-1))
+	fy := uint16(clampInt(int(cy*scale), 0, int(gs)-1))
+	fz := uint16(clampInt(int(cz*scale), 0, int(gs)-1))
+	fr := uint16(clampInt(int(radius), 1, int(gs)*2))
+
+	return fx, fy, fz, fr
 }
 
 // extractEntityPositions returns world-space positions of gameplay-relevant

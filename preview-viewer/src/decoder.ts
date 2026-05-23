@@ -19,6 +19,10 @@ export type PreviewData = {
   skyHorizon: [number, number, number];
   ambient: [number, number, number];
   sunlight: [number, number, number];
+  focusX: number;
+  focusY: number;
+  focusZ: number;
+  focusRadius: number;
 };
 
 export function decodePreview(buffer: ArrayBuffer): PreviewData {
@@ -36,8 +40,8 @@ export function decodePreview(buffer: ArrayBuffer): PreviewData {
   }
 
   const version = bytes[4];
-  if (version !== 2) {
-    throw new Error(`Unsupported SVOX version: ${version} (expected 2)`);
+  if (version !== 3) {
+    throw new Error(`Unsupported SVOX version: ${version} (expected 3)`);
   }
 
   const maxDepth = bytes[5];
@@ -52,7 +56,12 @@ export function decodePreview(buffer: ArrayBuffer): PreviewData {
   const ambient: [number, number, number] = [bytes[26], bytes[27], bytes[28]];
   const sunlight: [number, number, number] = [bytes[29], bytes[30], bytes[31]];
 
-  let off = 32;
+  const focusX = view.getUint16(32, true);
+  const focusY = view.getUint16(34, true);
+  const focusZ = view.getUint16(36, true);
+  const focusRadius = view.getUint16(38, true);
+
+  let off = 40;
 
   // Palette
   const palette = new Uint8Array(numPalette * 3);
@@ -112,5 +121,9 @@ export function decodePreview(buffer: ArrayBuffer): PreviewData {
     skyHorizon,
     ambient,
     sunlight,
+    focusX,
+    focusY,
+    focusZ,
+    focusRadius,
   };
 }

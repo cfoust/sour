@@ -54,14 +54,18 @@ type PreviewEntity struct {
 }
 
 type MapPreview struct {
-	MaxDepth   uint8
-	GridSize   uint16
-	WorldSize  uint32
-	Palette    [][3]uint8
-	Voxels     []Voxel
-	Entities   []PreviewEntity
-	SkyTop     [3]uint8
-	SkyHorizon [3]uint8
-	Ambient    [3]uint8
-	Sunlight   [3]uint8
+	MaxDepth    uint8
+	GridSize    uint16
+	WorldSize   uint32
+	Palette     [][3]uint8
+	Voxels      []Voxel
+	Entities    []PreviewEntity
+	SkyTop      [3]uint8
+	SkyHorizon  [3]uint8
+	Ambient     [3]uint8
+	Sunlight    [3]uint8
+	FocusX      uint16 // orbit target in grid coords (Sauer X)
+	FocusY      uint16 // orbit target in grid coords (Sauer Y)
+	FocusZ      uint16 // orbit target in grid coords (Sauer Z)
+	FocusRadius uint16 // suggested orbit distance in grid units
 }

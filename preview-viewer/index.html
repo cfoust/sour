@@ -6,6 +6,7 @@
   <title>Sour Map Preview Viewer</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
     body {
       background: #1a1a2e;
       color: #eee;
@@ -13,84 +14,62 @@
     }
     #app {
       display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      padding: 24px;
-      justify-content: center;
+      height: 100vh;
     }
-    .card {
-      position: relative;
-      background: #16213e;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    #sidebar {
+      width: 200px;
+      background: #0f1729;
+      overflow-y: auto;
+      border-right: 1px solid #2a2a4a;
+      flex-shrink: 0;
     }
-    .card canvas {
-      display: block;
-    }
-    .card .label {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      padding: 8px 12px;
-      background: linear-gradient(transparent, rgba(0,0,0,0.7));
+    .map-item {
+      padding: 10px 16px;
+      cursor: pointer;
       font-size: 14px;
-      font-weight: 600;
       text-transform: capitalize;
+      border-bottom: 1px solid #1a1a3a;
+      transition: background 0.15s;
     }
-    .card .controls {
-      position: absolute;
-      top: 8px;
-      right: 8px;
+    .map-item:hover { background: #1a2540; }
+    .map-item.active {
+      background: #1e3a5f;
+      color: #00d4ff;
+      font-weight: 600;
+    }
+    #main {
+      flex: 1;
       display: flex;
-      flex-direction: column;
-      gap: 4px;
+      align-items: center;
+      justify-content: center;
+      position: relative;
     }
-    .card .clip-slider {
-      -webkit-appearance: none;
-      appearance: none;
-      writing-mode: vertical-lr;
-      direction: rtl;
-      width: 20px;
-      height: 120px;
-      background: transparent;
-      cursor: pointer;
+    #viewer {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
     }
-    .card .clip-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: #00d4ff;
-      cursor: pointer;
-    }
-    .card .clip-slider::-webkit-slider-runnable-track {
-      width: 4px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 2px;
-    }
-    .stats {
+    #hud {
       position: absolute;
-      top: 8px;
-      left: 8px;
-      font-size: 11px;
-      opacity: 0.6;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: rgba(0,0,0,0.5);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 12px;
     }
-    h1 {
-      width: 100%;
-      text-align: center;
-      padding: 16px;
-      font-size: 20px;
-      color: #aaa;
+    #clip-slider {
+      width: 160px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <div id="app">
-    <h1>Sour Map Preview Viewer</h1>
-  </div>
+  <div id="app"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

@@ -8,12 +8,12 @@ import (
 var magic = [4]byte{'S', 'V', 'O', 'X'}
 
 const (
-	headerSize    = 32
-	voxelBytes    = 9 // X(2) + Y(2) + Z(2) + PaletteIndex(1) + Flags(1) + AO(1)
-	entityBytes   = 7 // X(2) + Y(2) + Z(2) + Type(1)
+	headerSize  = 40 // v3: added focus point + radius (8 bytes)
+	voxelBytes  = 9  // X(2) + Y(2) + Z(2) + PaletteIndex(1) + Flags(1) + AO(1)
+	entityBytes = 7  // X(2) + Y(2) + Z(2) + Type(1)
 )
 
-// Encode serializes a MapPreview to the .svox binary format (version 2).
+// Encode serializes a MapPreview to the .svox binary format (version 3).
 func Encode(p *MapPreview) ([]byte, error) {
 	numPalette := len(p.Palette)
 	numVoxels := len(p.Voxels)
@@ -24,7 +24,7 @@ func Encode(p *MapPreview) ([]byte, error) {
 
 	// Header
 	copy(buf[0:4], magic[:])
-	buf[4] = 2 // version 2: uint16 coordinates
+	buf[4] = 3 // version 3: focus point + radius
 	buf[5] = p.MaxDepth
 	binary.LittleEndian.PutUint16(buf[6:8], p.GridSize)
 	binary.LittleEndian.PutUint32(buf[8:12], p.WorldSize)
@@ -32,15 +32,18 @@ func Encode(p *MapPreview) ([]byte, error) {
 	binary.LittleEndian.PutUint32(buf[14:18], uint32(numVoxels))
 	binary.LittleEndian.PutUint16(buf[18:20], uint16(numEntities))
 
-	// Sky colors
 	copy(buf[20:23], p.SkyTop[:])
 	copy(buf[23:26], p.SkyHorizon[:])
 	copy(buf[26:29], p.Ambient[:])
 	copy(buf[29:32], p.Sunlight[:])
 
+	binary.LittleEndian.PutUint16(buf[32:34], p.FocusX)
+	binary.LittleEndian.PutUint16(buf[34:36], p.FocusY)
+	binary.LittleEndian.PutUint16(buf[36:38], p.FocusZ)
+	binary.LittleEndian.PutUint16(buf[38:40], p.FocusRadius)
+
 	off := headerSize
 
-	// Palette
 	for _, c := range p.Palette {
 		buf[off] = c[0]
 		buf[off+1] = c[1]
@@ -48,7 +51,6 @@ func Encode(p *MapPreview) ([]byte, error) {
 		off += 3
 	}
 
-	// Voxels: X(u16) Y(u16) Z(u16) PaletteIndex(u8) Flags(u8) AO(u8)
 	for _, v := range p.Voxels {
 		binary.LittleEndian.PutUint16(buf[off:], v.X)
 		binary.LittleEndian.PutUint16(buf[off+2:], v.Y)
@@ -59,7 +61,6 @@ func Encode(p *MapPreview) ([]byte, error) {
 		off += voxelBytes
 	}
 
-	// Entities: X(u16) Y(u16) Z(u16) Type(u8)
 	for _, e := range p.Entities {
 		binary.LittleEndian.PutUint16(buf[off:], e.X)
 		binary.LittleEndian.PutUint16(buf[off+2:], e.Y)
@@ -79,10 +80,8 @@ func Decode(data []byte) (*MapPreview, error) {
 	if data[0] != 'S' || data[1] != 'V' || data[2] != 'O' || data[3] != 'X' {
 		return nil, fmt.Errorf("invalid magic bytes")
 	}
-
-	version := data[4]
-	if version != 2 {
-		return nil, fmt.Errorf("unsupported version: %d", version)
+	if data[4] != 3 {
+		return nil, fmt.Errorf("unsupported version: %d", data[4])
 	}
 
 	p := &MapPreview{}
@@ -98,6 +97,11 @@ func Decode(data []byte) (*MapPreview, error) {
 	copy(p.SkyHorizon[:], data[23:26])
 	copy(p.Ambient[:], data[26:29])
 	copy(p.Sunlight[:], data[29:32])
+
+	p.FocusX = binary.LittleEndian.Uint16(data[32:34])
+	p.FocusY = binary.LittleEndian.Uint16(data[34:36])
+	p.FocusZ = binary.LittleEndian.Uint16(data[36:38])
+	p.FocusRadius = binary.LittleEndian.Uint16(data[38:40])
 
 	expected := headerSize + numPalette*3 + numVoxels*voxelBytes + numEntities*entityBytes
 	if len(data) < expected {

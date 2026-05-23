@@ -1,68 +1,87 @@
-import { decodePreview } from "./decoder";
+import { decodePreview, type PreviewData } from "./decoder";
 import { createScene } from "./scene";
 
-const MAPS = ["complex", "dust2", "turbine"];
-const CARD_SIZE = 480;
+const MAPS = [
+  "complex", "dust2", "turbine",
+  "akaritori", "alithia", "arabic", "caribbean", "castle_trap", "curvedm",
+  "duel8", "fc5", "flagstone", "hog2", "justice", "lost",
+  "neondevastation", "neonpanic", "ot", "reissen", "ruby", "suburb",
+];
 
-async function loadPreview(name: string) {
+const cache = new Map<string, PreviewData>();
+let currentScene: ReturnType<typeof createScene> | null = null;
+let activeMap = "";
+
+async function loadPreview(name: string): Promise<PreviewData> {
+  if (cache.has(name)) return cache.get(name)!;
   const response = await fetch(`/${name}.svox`);
-  if (!response.ok) {
-    throw new Error(`Failed to load ${name}.svox: ${response.statusText}`);
-  }
-  const buffer = await response.arrayBuffer();
-  return decodePreview(buffer);
+  if (!response.ok) throw new Error(`Failed to load ${name}.svox`);
+  const data = decodePreview(await response.arrayBuffer());
+  cache.set(name, data);
+  return data;
 }
 
-async function createCard(name: string) {
-  const app = document.getElementById("app")!;
+async function selectMap(name: string) {
+  if (name === activeMap) return;
+  activeMap = name;
 
-  const card = document.createElement("div");
-  card.className = "card";
+  // Update sidebar selection
+  document.querySelectorAll(".map-item").forEach((el) => {
+    el.classList.toggle("active", el.getAttribute("data-map") === name);
+  });
 
-  const canvas = document.createElement("canvas");
-  canvas.width = CARD_SIZE;
-  canvas.height = CARD_SIZE;
-  card.appendChild(canvas);
+  // Dispose old scene
+  if (currentScene) {
+    currentScene.dispose();
+    currentScene = null;
+  }
 
-  const label = document.createElement("div");
-  label.className = "label";
-  label.textContent = name;
-  card.appendChild(label);
-
-  const controlsDiv = document.createElement("div");
-  controlsDiv.className = "controls";
-
-  const slider = document.createElement("input");
-  slider.type = "range";
-  slider.className = "clip-slider";
-  slider.min = "0";
-  slider.max = "100";
-  slider.value = "100";
-  controlsDiv.appendChild(slider);
-  card.appendChild(controlsDiv);
-
-  app.appendChild(card);
+  const canvas = document.getElementById("viewer") as HTMLCanvasElement;
+  const stats = document.getElementById("stats")!;
+  const slider = document.getElementById("clip-slider") as HTMLInputElement;
+  stats.textContent = "Loading...";
 
   try {
     const data = await loadPreview(name);
+    const rect = canvas.parentElement!.getBoundingClientRect();
+    const size = Math.min(rect.width, rect.height);
+    canvas.width = size;
+    canvas.height = size;
 
-    const stats = document.createElement("div");
-    stats.className = "stats";
-    stats.textContent = `${data.numVoxels} voxels, ${data.gridSize}³ grid`;
-    card.appendChild(stats);
+    currentScene = createScene(canvas, data, size, size);
+    stats.textContent = `${data.numVoxels.toLocaleString()} voxels, ${data.gridSize}\u00B3 grid`;
 
-    const scene = createScene(canvas, data, CARD_SIZE, CARD_SIZE);
-
-    slider.addEventListener("input", () => {
-      scene.setClipHeight(parseInt(slider.value) / 100);
-    });
+    slider.value = "100";
+    slider.oninput = () => {
+      currentScene?.setClipHeight(parseInt(slider.value) / 100);
+    };
   } catch (e) {
-    console.error(`Failed to load ${name}:`, e);
-    label.textContent = `${name} (failed to load)`;
+    stats.textContent = `Failed to load ${name}`;
+    console.error(e);
   }
 }
 
-// Load all maps
+// Build UI
+const app = document.getElementById("app")!;
+app.innerHTML = `
+  <nav id="sidebar"></nav>
+  <main id="main">
+    <canvas id="viewer"></canvas>
+    <div id="hud">
+      <span id="stats"></span>
+      <input type="range" id="clip-slider" min="0" max="100" value="100" />
+    </div>
+  </main>
+`;
+
+const sidebar = document.getElementById("sidebar")!;
 for (const name of MAPS) {
-  createCard(name);
+  const item = document.createElement("div");
+  item.className = "map-item";
+  item.setAttribute("data-map", name);
+  item.textContent = name;
+  item.onclick = () => selectMap(name);
+  sidebar.appendChild(item);
 }
+
+selectMap(MAPS[0]);
