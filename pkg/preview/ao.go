@@ -5,9 +5,9 @@ import "math"
 // aoGridDepth is the resolution of the AO occupancy grid (128³ = ~2MB).
 const aoGridDepth = 7
 
-// fillGridDepth is the resolution for the flood fill grid (256³ = ~16MB).
-// Finer than AO so doorways and corridors aren't missed.
-const fillGridDepth = 8
+// fillGridDepth is the resolution for the flood fill grid (512³ = ~134MB).
+// Needs to be fine enough to detect thin clip barriers.
+const fillGridDepth = 9
 
 // OccupancyGrid is a 3D boolean grid used for AO and camera placement.
 type OccupancyGrid struct {

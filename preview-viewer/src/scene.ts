@@ -11,6 +11,13 @@ function voxelSize(flags: number): number {
   return 1 << ((flags >> 5) & 7);
 }
 
+// Simple deterministic hash for per-voxel variation
+function hash3(x: number, y: number, z: number): number {
+  let h = (x * 374761393 + y * 668265263 + z * 1274126177) | 0;
+  h = ((h ^ (h >> 13)) * 1031) | 0;
+  return ((h ^ (h >> 16)) & 0xffff) / 65535;
+}
+
 export function createScene(
   canvas: HTMLCanvasElement,
   data: PreviewData,
@@ -29,11 +36,10 @@ export function createScene(
 
   const gridSize = data.gridSize;
   const focusX = data.focusX;
-  const focusY = data.focusZ; // Sauer Z → Three Y
-  const focusZ = data.focusY; // Sauer Y → Three Z
+  const focusY = data.focusZ;
+  const focusZ = data.focusY;
   const orbitRadius = data.focusRadius;
 
-  // Camera from baked angle
   const yawRad = (data.cameraYaw * Math.PI) / 180;
   const pitchRad = (data.cameraPitch * Math.PI) / 180;
   const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, gridSize * 10);
@@ -43,17 +49,21 @@ export function createScene(
     focusZ + Math.cos(pitchRad) * Math.sin(yawRad) * orbitRadius
   );
 
-  // Lighting
-  scene.add(new THREE.AmbientLight(0xffffff, 0.85));
-  const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  // Lighting — hemisphere for natural sky/ground color variation
+  const hemiLight = new THREE.HemisphereLight(0x8899cc, 0x554433, 0.5);
+  scene.add(hemiLight);
+
+  // Strong directional sun for shadows and depth
+  const sunLight = new THREE.DirectionalLight(0xffeedd, 1.2);
   sunLight.position.set(gridSize * 1.5, gridSize * 2, gridSize * 0.5);
   scene.add(sunLight);
-  const fillLight = new THREE.DirectionalLight(0x8899bb, 0.3);
-  fillLight.position.set(-gridSize, gridSize * 0.5, -gridSize);
+
+  // Cool fill from the opposite side
+  const fillLight = new THREE.DirectionalLight(0x6688aa, 0.4);
+  fillLight.position.set(-gridSize, gridSize * 0.3, -gridSize);
   scene.add(fillLight);
 
-  // Flat clip plane — default from baked ClipY, adjustable via slider
-  // ClipY is in Sauer Z coords → Three Y
+  // Clip plane
   const defaultClip = data.clipY > 0 && data.clipY < gridSize ? data.clipY : gridSize;
   const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), defaultClip);
 
@@ -73,20 +83,29 @@ export function createScene(
   for (let i = 0; i < numVoxels; i++) {
     const size = voxelSize(data.voxelFlags[i]);
     const halfSize = (size - 1) * 0.5;
-    dummy.position.set(
-      data.voxelX[i] + halfSize,
-      data.voxelZ[i] + halfSize,
-      data.voxelY[i] + halfSize
-    );
+    const vx = data.voxelX[i];
+    const vy = data.voxelY[i];
+    const vz = data.voxelZ[i];
+
+    dummy.position.set(vx + halfSize, vz + halfSize, vy + halfSize);
     dummy.scale.set(size, size, size);
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
 
     const palIdx = data.voxelColor[i] * 3;
-    const ao = 0.4 + 0.6 * (data.voxelAO[i] / 255);
-    colors[i * 3] = (data.palette[palIdx] / 255) * ao;
-    colors[i * 3 + 1] = (data.palette[palIdx + 1] / 255) * ao;
-    colors[i * 3 + 2] = (data.palette[palIdx + 2] / 255) * ao;
+    const r = data.palette[palIdx] / 255;
+    const g = data.palette[palIdx + 1] / 255;
+    const b = data.palette[palIdx + 2] / 255;
+
+    // Stronger AO: floor at 0.2 for deeper crevice shadows
+    const ao = 0.2 + 0.8 * (data.voxelAO[i] / 255);
+
+    // Per-voxel brightness jitter: ±15% based on position hash
+    const jitter = 0.85 + 0.3 * hash3(vx, vy, vz);
+
+    colors[i * 3] = Math.min(r * ao * jitter, 1);
+    colors[i * 3 + 1] = Math.min(g * ao * jitter, 1);
+    colors[i * 3 + 2] = Math.min(b * ao * jitter, 1);
   }
 
   mesh.instanceMatrix.needsUpdate = true;
@@ -134,7 +153,6 @@ export function createScene(
 
   return {
     setClipHeight(normalized: number) {
-      // Slider 0-100 maps to 0 - gridSize
       clipPlane.constant = normalized * gridSize;
     },
     dispose() {
