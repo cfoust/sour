@@ -2,7 +2,7 @@ export type PreviewData = {
   maxDepth: number;
   gridSize: number;
   worldSize: number;
-  palette: Uint8Array; // flat RGB, length = numPalette * 3
+  palette: Uint8Array;
   numVoxels: number;
   voxelX: Uint16Array;
   voxelY: Uint16Array;
@@ -23,30 +23,20 @@ export type PreviewData = {
   focusY: number;
   focusZ: number;
   focusRadius: number;
-  cameraYaw: number;   // degrees
-  cameraPitch: number; // degrees
-  defaultClipY: number; // grid coordinate for default clip plane
-  cutawaySize: number;  // side length of cutaway heightmap (0 = none)
-  cutaway: Uint8Array;  // per-column max Y heightmap, cutawaySize × cutawaySize
+  cameraYaw: number;
+  cameraPitch: number;
+  clipY: number; // default clip plane in grid coords (0 = no clip)
 };
 
 export function decodePreview(buffer: ArrayBuffer): PreviewData {
   const view = new DataView(buffer);
   const bytes = new Uint8Array(buffer);
 
-  // Validate magic
-  if (
-    bytes[0] !== 0x53 || // S
-    bytes[1] !== 0x56 || // V
-    bytes[2] !== 0x4f || // O
-    bytes[3] !== 0x58    // X
-  ) {
+  if (bytes[0] !== 0x53 || bytes[1] !== 0x56 || bytes[2] !== 0x4f || bytes[3] !== 0x58) {
     throw new Error("Invalid SVOX magic bytes");
   }
-
-  const version = bytes[4];
-  if (version !== 4) {
-    throw new Error(`Unsupported SVOX version: ${version} (expected 4)`);
+  if (bytes[4] !== 5) {
+    throw new Error(`Unsupported SVOX version: ${bytes[4]} (expected 5)`);
   }
 
   const maxDepth = bytes[5];
@@ -67,17 +57,14 @@ export function decodePreview(buffer: ArrayBuffer): PreviewData {
   const focusRadius = view.getUint16(38, true);
   const cameraYaw = view.getUint16(40, true) / 10;
   const cameraPitch = view.getUint16(42, true) / 10;
-  const defaultClipY = view.getUint16(44, true);
-  const cutawaySize = bytes[46];
+  const clipY = view.getUint16(44, true);
 
   let off = 48;
 
-  // Palette
   const palette = new Uint8Array(numPalette * 3);
   palette.set(bytes.subarray(off, off + numPalette * 3));
   off += numPalette * 3;
 
-  // Voxels: X(u16) Y(u16) Z(u16) PaletteIndex(u8) Flags(u8) AO(u8) = 9 bytes
   const voxelX = new Uint16Array(numVoxels);
   const voxelY = new Uint16Array(numVoxels);
   const voxelZ = new Uint16Array(numVoxels);
@@ -95,7 +82,6 @@ export function decodePreview(buffer: ArrayBuffer): PreviewData {
     off += 9;
   }
 
-  // Entities: X(u16) Y(u16) Z(u16) Type(u8) = 7 bytes
   const entityX = new Uint16Array(numEntities);
   const entityY = new Uint16Array(numEntities);
   const entityZ = new Uint16Array(numEntities);
@@ -110,36 +96,11 @@ export function decodePreview(buffer: ArrayBuffer): PreviewData {
   }
 
   return {
-    maxDepth,
-    gridSize,
-    worldSize,
-    palette,
-    numVoxels,
-    voxelX,
-    voxelY,
-    voxelZ,
-    voxelColor,
-    voxelFlags,
-    voxelAO,
-    numEntities,
-    entityX,
-    entityY,
-    entityZ,
-    entityType,
-    skyTop,
-    skyHorizon,
-    ambient,
-    sunlight,
-    focusX,
-    focusY,
-    focusZ,
-    focusRadius,
-    cameraYaw,
-    cameraPitch,
-    defaultClipY,
-    cutawaySize,
-    cutaway: cutawaySize > 0
-      ? new Uint8Array(buffer, off, cutawaySize * cutawaySize)
-      : new Uint8Array(0),
+    maxDepth, gridSize, worldSize, palette,
+    numVoxels, voxelX, voxelY, voxelZ, voxelColor, voxelFlags, voxelAO,
+    numEntities, entityX, entityY, entityZ, entityType,
+    skyTop, skyHorizon, ambient, sunlight,
+    focusX, focusY, focusZ, focusRadius,
+    cameraYaw, cameraPitch, clipY,
   };
 }

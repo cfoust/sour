@@ -2,20 +2,11 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { PreviewData } from "./decoder";
 
-// Entity type colors
 const ENTITY_COLORS: Record<number, number> = {
-  0: 0x00ff00, // PlayerStart - green
-  1: 0xff0000, // Flag - red
-  2: 0xffff00, // Base - yellow
-  3: 0x00ffff, // Teleport - cyan
-  4: 0xff00ff, // JumpPad - magenta
-  5: 0xff6600, // Health - orange
-  6: 0x3366ff, // Armour - blue
-  7: 0xcccc00, // Ammo - gold
-  8: 0xff00ff, // Quad - purple
+  0: 0x00ff00, 1: 0xff0000, 2: 0xffff00, 3: 0x00ffff,
+  4: 0xff00ff, 5: 0xff6600, 6: 0x3366ff, 7: 0xcccc00, 8: 0xff00ff,
 };
 
-// Extract voxel size from flags bits 5-7: size = 1 << ((flags >> 5) & 7)
 function voxelSize(flags: number): number {
   return 1 << ((flags >> 5) & 7);
 }
@@ -26,87 +17,47 @@ export function createScene(
   width: number,
   height: number
 ) {
-  const renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: true,
-    alpha: true,
-  });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setSize(width, height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.localClippingEnabled = true;
 
   const scene = new THREE.Scene();
-
-  // Sky gradient background
   scene.background = new THREE.Color(
-    data.skyTop[0] / 255,
-    data.skyTop[1] / 255,
-    data.skyTop[2] / 255
+    data.skyTop[0] / 255, data.skyTop[1] / 255, data.skyTop[2] / 255
   );
 
-  // Focus point and camera placement from file
-  // Sauer (X, Y, Z) → Three.js (X, Z, Y)
   const gridSize = data.gridSize;
   const focusX = data.focusX;
   const focusY = data.focusZ; // Sauer Z → Three Y
   const focusZ = data.focusY; // Sauer Y → Three Z
   const orbitRadius = data.focusRadius;
 
-  // Camera position from baked yaw/pitch
-  // Yaw/pitch were computed in Sauer coords (X right, Y forward, Z up)
-  // Convert to Three.js (X right, Y up, Z forward)
+  // Camera from baked angle
   const yawRad = (data.cameraYaw * Math.PI) / 180;
   const pitchRad = (data.cameraPitch * Math.PI) / 180;
-  const camOffX = Math.cos(pitchRad) * Math.cos(yawRad) * orbitRadius;
-  const camOffSauerY = Math.cos(pitchRad) * Math.sin(yawRad) * orbitRadius;
-  const camOffSauerZ = Math.sin(pitchRad) * orbitRadius;
-
   const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, gridSize * 10);
   camera.position.set(
-    focusX + camOffX,
-    focusY + camOffSauerZ,   // Sauer Z → Three Y
-    focusZ + camOffSauerY    // Sauer Y → Three Z
+    focusX + Math.cos(pitchRad) * Math.cos(yawRad) * orbitRadius,
+    focusY + Math.sin(pitchRad) * orbitRadius,
+    focusZ + Math.cos(pitchRad) * Math.sin(yawRad) * orbitRadius
   );
 
-  // Lighting — bright enough to show texture colors clearly
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
-  scene.add(ambientLight);
-
+  // Lighting
+  scene.add(new THREE.AmbientLight(0xffffff, 0.85));
   const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
   sunLight.position.set(gridSize * 1.5, gridSize * 2, gridSize * 0.5);
   scene.add(sunLight);
-
   const fillLight = new THREE.DirectionalLight(0x8899bb, 0.3);
   fillLight.position.set(-gridSize, gridSize * 0.5, -gridSize);
   scene.add(fillLight);
 
-  // Per-column cutaway: determine which voxels to show.
-  // If a cutaway heightmap exists, filter voxels above the cutaway surface.
-  const hasCutaway = data.cutawaySize > 0;
-  const cutawayShift = Math.log2(gridSize / (data.cutawaySize || 1));
+  // Flat clip plane — default from baked ClipY, adjustable via slider
+  // ClipY is in Sauer Z coords → Three Y
+  const defaultClip = data.clipY > 0 && data.clipY < gridSize ? data.clipY : gridSize;
+  const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), defaultClip);
 
-  function isAboveCutaway(sauX: number, sauY: number, sauZ: number): boolean {
-    if (!hasCutaway) return false;
-    const cx = sauX >> cutawayShift;
-    const cy = sauY >> cutawayShift;
-    if (cx < 0 || cx >= data.cutawaySize || cy < 0 || cy >= data.cutawaySize)
-      return false;
-    const maxZ = data.cutaway[cy * data.cutawaySize + cx];
-    // Scale maxZ from AO grid to coord grid
-    return (sauZ >> cutawayShift) > maxZ;
-  }
-
-  // First pass: count visible voxels
-  let visibleCount = 0;
-  for (let i = 0; i < data.numVoxels; i++) {
-    if (!isAboveCutaway(data.voxelX[i], data.voxelY[i], data.voxelZ[i])) {
-      visibleCount++;
-    }
-  }
-
-  // Clipping plane for manual cross-section (slider)
-  const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), gridSize);
-
+  // Voxels
   const boxGeo = new THREE.BoxGeometry(1, 1, 1);
   const voxelMat = new THREE.MeshLambertMaterial({
     vertexColors: true,
@@ -114,60 +65,49 @@ export function createScene(
     clipShadows: true,
   });
 
-  const mesh = new THREE.InstancedMesh(boxGeo, voxelMat, visibleCount);
+  const numVoxels = data.numVoxels;
+  const mesh = new THREE.InstancedMesh(boxGeo, voxelMat, numVoxels);
   const dummy = new THREE.Object3D();
-  const colors = new Float32Array(visibleCount * 3);
+  const colors = new Float32Array(numVoxels * 3);
 
-  let idx = 0;
-  for (let i = 0; i < data.numVoxels; i++) {
-    if (isAboveCutaway(data.voxelX[i], data.voxelY[i], data.voxelZ[i])) {
-      continue;
-    }
-
+  for (let i = 0; i < numVoxels; i++) {
     const size = voxelSize(data.voxelFlags[i]);
     const halfSize = (size - 1) * 0.5;
-
     dummy.position.set(
       data.voxelX[i] + halfSize,
-      data.voxelZ[i] + halfSize, // Sauer Z → Three Y
-      data.voxelY[i] + halfSize  // Sauer Y → Three Z
+      data.voxelZ[i] + halfSize,
+      data.voxelY[i] + halfSize
     );
     dummy.scale.set(size, size, size);
     dummy.updateMatrix();
-    mesh.setMatrixAt(idx, dummy.matrix);
+    mesh.setMatrixAt(i, dummy.matrix);
 
     const palIdx = data.voxelColor[i] * 3;
     const ao = 0.4 + 0.6 * (data.voxelAO[i] / 255);
-    colors[idx * 3] = (data.palette[palIdx] / 255) * ao;
-    colors[idx * 3 + 1] = (data.palette[palIdx + 1] / 255) * ao;
-    colors[idx * 3 + 2] = (data.palette[palIdx + 2] / 255) * ao;
-    idx++;
+    colors[i * 3] = (data.palette[palIdx] / 255) * ao;
+    colors[i * 3 + 1] = (data.palette[palIdx + 1] / 255) * ao;
+    colors[i * 3 + 2] = (data.palette[palIdx + 2] / 255) * ao;
   }
 
   mesh.instanceMatrix.needsUpdate = true;
-  mesh.geometry.setAttribute(
-    "color",
-    new THREE.InstancedBufferAttribute(colors, 3)
-  );
+  mesh.geometry.setAttribute("color", new THREE.InstancedBufferAttribute(colors, 3));
   scene.add(mesh);
 
-  // Entity markers — scale with grid
+  // Entity markers
   if (data.numEntities > 0) {
     const sphereGeo = new THREE.SphereGeometry(1.2, 8, 8);
-    const entityMat = new THREE.MeshBasicMaterial({
-      clippingPlanes: [clipPlane],
-    });
-
     for (let i = 0; i < data.numEntities; i++) {
-      const mat = entityMat.clone();
-      mat.color.setHex(ENTITY_COLORS[data.entityType[i]] ?? 0xffffff);
+      const mat = new THREE.MeshBasicMaterial({
+        color: ENTITY_COLORS[data.entityType[i]] ?? 0xffffff,
+        clippingPlanes: [clipPlane],
+      });
       const sphere = new THREE.Mesh(sphereGeo, mat);
       sphere.position.set(data.entityX[i], data.entityZ[i], data.entityY[i]);
       scene.add(sphere);
     }
   }
 
-  // OrbitControls
+  // Controls
   const controls = new OrbitControls(camera, canvas);
   controls.target.set(focusX, focusY, focusZ);
   controls.enableDamping = true;
@@ -178,26 +118,23 @@ export function createScene(
   controls.maxDistance = gridSize * 4;
   controls.update();
 
-  // Animation loop
   let animationId: number;
   let lastTime = 0;
   const frameInterval = 1000 / 30;
 
   function animate(time: number) {
     animationId = requestAnimationFrame(animate);
-
     const delta = time - lastTime;
     if (delta < frameInterval) return;
     lastTime = time - (delta % frameInterval);
-
     controls.update();
     renderer.render(scene, camera);
   }
-
   animationId = requestAnimationFrame(animate);
 
   return {
     setClipHeight(normalized: number) {
+      // Slider 0-100 maps to 0 - gridSize
       clipPlane.constant = normalized * gridSize;
     },
     dispose() {

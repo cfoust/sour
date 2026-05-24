@@ -15,28 +15,19 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// Generate creates a .svox preview from a map file.
-// roots provides access to game data (textures, configs).
-// mapData is the raw .ogz (gzipped) content.
-// mapFile is the path to the .ogz within the roots (e.g. "packages/base/complex.ogz").
 func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile string) ([]byte, error) {
 	gameMap, err := maps.FromGZ(mapData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse map: %w", err)
 	}
 
-	// Set up the min.Processor to resolve textures.
 	processor := min.NewProcessor(roots, gameMap.VSlots)
-
-	// Process default map settings.
 	defaultPath := processor.SearchFile(ctx, "data/default_map_settings.cfg")
 	if defaultPath != nil {
 		if err := processor.ProcessFile(ctx, defaultPath); err != nil {
 			log.Warn().Err(err).Msg("preview: failed to process default_map_settings.cfg")
 		}
 	}
-
-	// Process the map's .cfg file.
 	ext := filepath.Ext(mapFile)
 	cfgPath := mapFile[:len(mapFile)-len(ext)] + ".cfg"
 	for _, root := range roots {
@@ -49,99 +40,177 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 		}
 	}
 
-	// Collect used VSlot indices from octree.
 	usedVSlots := CollectUsedVSlots(gameMap.WorldRoot)
-
-	// Sample texture colors and build palette.
 	palette, paletteMap := BuildPalette(ctx, processor, usedVSlots)
 
 	worldSize := int(gameMap.Header.WorldSize)
-
-	// Extract gameplay entity world positions for adaptive depth.
 	entityPositions := extractEntityPositions(gameMap.Entities)
-	log.Debug().Msgf("preview: %d entity positions for adaptive detail", len(entityPositions))
 
-	// Extract voxels with adaptive depth around entities.
 	voxels := ExtractVoxelsAdaptive(gameMap.WorldRoot, worldSize, entityPositions, paletteMap)
-	log.Debug().Msgf("preview: %d voxels (adaptive, %d³ coord grid)", len(voxels), 1<<coordDepth)
+	log.Debug().Msgf("preview: %d voxels", len(voxels))
 
-	// Build occupancy grid (shared by AO and camera angle computation).
 	gridSize := 1 << coordDepth
 	occGrid := BuildOccupancyGrid(voxels, gridSize)
-
-	// Compute ambient occlusion.
 	ComputeAO(voxels, occGrid)
 
-	// Extract entities (quantized to grid).
 	entities := ExtractEntities(gameMap.Entities, gameMap.Header.WorldSize, uint16(gridSize))
-
-	// Extract skybox and lighting colors.
 	skyTop, skyHorizon := ExtractSkyboxColors(ctx, processor, gameMap.Vars)
 	ambient, sunlight := ExtractLightingColors(gameMap.Vars)
 
-	// Compute focus point and radius from entity positions.
+	// 1. Focus on 90th percentile entity centroid
 	focusX, focusY, focusZ, focusRadius := computeFocus(entityPositions, worldSize, gridSize)
 
-	// Build finer grid for flood fill (256³) so doorways aren't missed.
+	// 2. Flood fill for reachable volume
 	fillGrid := BuildFillGrid(voxels, gridSize)
+	reachable, _ := ComputeReachableVolume(fillGrid, entityPositions, worldSize)
+	log.Debug().Msgf("preview: %d reachable cells (fill grid %d³)", len(reachable), fillGrid.Size)
 
-	// Compute reachable volume via physics-based flood fill.
-	reachable, clipZ := ComputeReachableVolume(fillGrid, entityPositions, worldSize)
-	log.Debug().Msgf("preview: %d reachable cells, clip Z=%d (fill grid %d³)", len(reachable), clipZ, fillGrid.Size)
-
-	// Build cutaway heightmap. Downsample to 128³ for storage (fits uint8).
-	cutawayMargin := 3
-	cutawayGridSize := 1 << aoGridDepth // 128
-	cutaway := BuildCutawayHeightmapDownsampled(reachable, fillGrid.Size, cutawayGridSize, cutawayMargin)
-	cutawaySize := uint8(cutawayGridSize)
-	defaultClipY := uint16(clipZ << fillGrid.Shift)
-
-	// Find best camera angle using reachable-volume-aware scoring.
-	cameraYaw, cameraPitch := FindBestCameraAngleReachable(
-		fillGrid, reachable, clipZ,
-		float64(focusX), float64(focusY), float64(focusZ),
-		float64(focusRadius),
+	// 3. Find optimal flat clip plane and camera angle
+	clipY, cameraYaw, cameraPitch := findOptimalView(
+		fillGrid, reachable, entityPositions, worldSize,
+		float64(focusX), float64(focusY), float64(focusZ), float64(focusRadius),
 	)
+	// Convert clipY from fill grid Z to coord grid Z
+	clipYCoord := uint16(clipY << fillGrid.Shift)
 
 	preview := &MapPreview{
-		MaxDepth:     coordDepth,
-		GridSize:     uint16(gridSize),
-		WorldSize:    uint32(worldSize),
-		Palette:      palette,
-		Voxels:       voxels,
-		Entities:     entities,
-		SkyTop:       skyTop,
-		SkyHorizon:   skyHorizon,
-		Ambient:      ambient,
-		Sunlight:     sunlight,
-		FocusX:       focusX,
-		FocusY:       focusY,
-		FocusZ:       focusZ,
-		FocusRadius:  focusRadius,
-		CameraYaw:    cameraYaw,
-		CameraPitch:  cameraPitch,
-		DefaultClipY: defaultClipY,
-		CutawaySize:  cutawaySize,
-		Cutaway:      cutaway,
+		MaxDepth:    coordDepth,
+		GridSize:    uint16(gridSize),
+		WorldSize:   uint32(worldSize),
+		Palette:     palette,
+		Voxels:      voxels,
+		Entities:    entities,
+		SkyTop:      skyTop,
+		SkyHorizon:  skyHorizon,
+		Ambient:     ambient,
+		Sunlight:    sunlight,
+		FocusX:      focusX,
+		FocusY:      focusY,
+		FocusZ:      focusZ,
+		FocusRadius: focusRadius,
+		CameraYaw:   cameraYaw,
+		CameraPitch: cameraPitch,
+		ClipY:       clipYCoord,
 	}
 
 	return Encode(preview)
 }
 
-// computeFocus calculates the orbit target and suggested camera distance
-// from entity positions. Uses the centroid as focus and 90th percentile
-// distance as radius to exclude outliers.
+// findOptimalView computes the best clip plane and camera angle.
+// If >50% of the play area is occluded from above, it searches for the
+// clip height that maximizes visible reachable cells. Otherwise no clip.
+func findOptimalView(
+	grid *OccupancyGrid,
+	reachable map[gridPos]bool,
+	entityPositions []worldPos,
+	worldSize int,
+	focusX, focusY, focusZ, focusRadius float64,
+) (clipZ int, yaw uint16, pitch uint16) {
+	gridMax := grid.Size
+	clipZ = gridMax // default: no clip
+
+	if len(reachable) == 0 {
+		yaw, pitch = findBestAngle(grid, reachable, gridMax, focusX, focusY, focusZ, focusRadius)
+		return
+	}
+
+	// Count how many reachable cells are occluded from directly above
+	occluded := 0
+	total := len(reachable)
+	for p := range reachable {
+		for z := p.Z + 1; z < gridMax; z++ {
+			if grid.Get(p.X, p.Y, z) {
+				occluded++
+				break
+			}
+		}
+	}
+
+	occlusionPct := float64(occluded) / float64(total)
+	log.Debug().Msgf("preview: %.0f%% of play area occluded from above", occlusionPct*100)
+
+	if occlusionPct > 0.5 {
+		// Search for the clip height that maximizes visible play area.
+		// Scan Z levels in discrete steps through the reachable range.
+		zMin, zMax := gridMax, 0
+		for p := range reachable {
+			if p.Z < zMin {
+				zMin = p.Z
+			}
+			if p.Z > zMax {
+				zMax = p.Z
+			}
+		}
+
+		bestVisible := 0
+		bestClip := gridMax
+
+		// Try each Z level from just above the play area down to mid-play area
+		for testZ := zMax + 3; testZ >= zMin; testZ-- {
+			visible := 0
+			for p := range reachable {
+				if p.Z > testZ {
+					continue // this reachable cell is above the clip
+				}
+				blocked := false
+				for z := p.Z + 1; z <= testZ; z++ {
+					if grid.Get(p.X, p.Y, z) {
+						blocked = true
+						break
+					}
+				}
+				if !blocked {
+					visible++
+				}
+			}
+			if visible > bestVisible {
+				bestVisible = visible
+				bestClip = testZ
+			}
+		}
+
+		clipZ = bestClip
+		log.Debug().Msgf("preview: optimal clip Z=%d reveals %d/%d reachable cells", clipZ, bestVisible, total)
+	}
+
+	yaw, pitch = findBestAngle(grid, reachable, clipZ, focusX, focusY, focusZ, focusRadius)
+	return
+}
+
+func findBestAngle(grid *OccupancyGrid, reachable map[gridPos]bool, clipZ int, focusX, focusY, focusZ, radius float64) (uint16, uint16) {
+	bestYaw, bestPitch := 0.0, 30.0
+	bestScore := math.MaxInt32
+
+	for yawDeg := 0.0; yawDeg < 360; yawDeg += 5 {
+		for _, pitchDeg := range []float64{20, 30, 40, 50} {
+			yawRad := yawDeg * math.Pi / 180
+			pitchRad := pitchDeg * math.Pi / 180
+
+			camX := focusX + math.Cos(pitchRad)*math.Cos(yawRad)*radius
+			camY := focusY + math.Cos(pitchRad)*math.Sin(yawRad)*radius
+			camZ := focusZ + math.Sin(pitchRad)*radius
+
+			score := ScoreCameraAngleWithReachable(grid, reachable, clipZ, camX, camY, camZ, focusX, focusY, focusZ)
+			if score < bestScore {
+				bestScore = score
+				bestYaw = yawDeg
+				bestPitch = pitchDeg
+			}
+		}
+	}
+
+	return uint16(bestYaw * 10), uint16(bestPitch * 10)
+}
+
 func computeFocus(positions []worldPos, worldSize, gridSize int) (uint16, uint16, uint16, uint16) {
 	gs := uint16(gridSize)
 	half := gs / 2
-
 	if len(positions) == 0 {
 		return half, half, half, gs
 	}
 
 	scale := float32(gridSize) / float32(worldSize)
 
-	// Centroid
 	var sx, sy, sz float32
 	for _, p := range positions {
 		sx += p.X
@@ -151,7 +220,6 @@ func computeFocus(positions []worldPos, worldSize, gridSize int) (uint16, uint16
 	n := float32(len(positions))
 	cx, cy, cz := sx/n, sy/n, sz/n
 
-	// Distances from centroid
 	dists := make([]float64, len(positions))
 	for i, p := range positions {
 		dx := float64(p.X - cx)
@@ -161,12 +229,12 @@ func computeFocus(positions []worldPos, worldSize, gridSize int) (uint16, uint16
 	}
 	sort.Float64s(dists)
 
-	// 90th percentile distance
+	// 90th percentile
 	idx := int(float64(len(dists)) * 0.9)
 	if idx >= len(dists) {
 		idx = len(dists) - 1
 	}
-	radius := float32(dists[idx]) * scale * 1.5 // padding for a nice view
+	radius := float32(dists[idx]) * scale * 1.4 // 40% margin
 	if radius < 32 {
 		radius = 32
 	}
@@ -179,8 +247,6 @@ func computeFocus(positions []worldPos, worldSize, gridSize int) (uint16, uint16
 	return fx, fy, fz, fr
 }
 
-// extractEntityPositions returns world-space positions of gameplay-relevant
-// entities (the same types used for preview entities).
 func extractEntityPositions(entities []maps.Entity) []worldPos {
 	var positions []worldPos
 	for _, e := range entities {
