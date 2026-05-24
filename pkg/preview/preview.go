@@ -47,7 +47,13 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 	entityPositions := extractEntityPositions(gameMap.Entities)
 
 	voxels := ExtractVoxelsAdaptive(gameMap.WorldRoot, worldSize, entityPositions, paletteMap)
-	log.Debug().Msgf("preview: %d voxels", len(voxels))
+
+	// Collect water volumes and append with a water palette entry
+	waterPalIdx := uint8(len(palette))
+	palette = append(palette, [3]uint8{30, 100, 200})
+	waterVoxels := CollectWaterVoxels(gameMap.WorldRoot, worldSize, waterPalIdx)
+	voxels = append(voxels, waterVoxels...)
+	log.Debug().Msgf("preview: %d voxels (%d water)", len(voxels), len(waterVoxels))
 
 	gridSize := 1 << coordDepth
 	occGrid := BuildOccupancyGrid(voxels, gridSize)

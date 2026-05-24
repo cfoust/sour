@@ -75,54 +75,88 @@ export function createScene(
     clipShadows: true,
   });
 
-  const numVoxels = data.numVoxels;
-  const mesh = new THREE.InstancedMesh(boxGeo, voxelMat, numVoxels);
-  const dummy = new THREE.Object3D();
-  const colors = new Float32Array(numVoxels * 3);
+  // Separate solid and water voxels
+  const FLAG_WATER_BITS = 0x04; // FlagWater = 1 << 2, occupies bits 2-4
+  let solidCount = 0;
+  let waterCount = 0;
+  for (let i = 0; i < data.numVoxels; i++) {
+    if ((data.voxelFlags[i] & 0x1c) === FLAG_WATER_BITS) {
+      waterCount++;
+    } else {
+      solidCount++;
+    }
+  }
 
-  for (let i = 0; i < numVoxels; i++) {
+  // Solid voxels
+  const mesh = new THREE.InstancedMesh(boxGeo, voxelMat, solidCount);
+  const dummy = new THREE.Object3D();
+  const colors = new Float32Array(solidCount * 3);
+
+  // Water voxels
+  const waterMat = new THREE.MeshLambertMaterial({
+    color: 0x2266cc,
+    transparent: true,
+    opacity: 0.45,
+    clippingPlanes: [clipPlane],
+  });
+  const waterMesh = new THREE.InstancedMesh(boxGeo, waterMat, Math.max(waterCount, 1));
+
+  let solidIdx = 0;
+  let waterIdx = 0;
+
+  for (let i = 0; i < data.numVoxels; i++) {
     const size = voxelSize(data.voxelFlags[i]);
     const halfSize = (size - 1) * 0.5;
     const vx = data.voxelX[i];
     const vy = data.voxelY[i];
     const vz = data.voxelZ[i];
+    const isWater = (data.voxelFlags[i] & 0x1c) === FLAG_WATER_BITS;
 
     dummy.position.set(vx + halfSize, vz + halfSize, vy + halfSize);
     dummy.scale.set(size, size, size);
     dummy.updateMatrix();
-    mesh.setMatrixAt(i, dummy.matrix);
 
-    const palIdx = data.voxelColor[i] * 3;
-    let r = data.palette[palIdx] / 255;
-    let g = data.palette[palIdx + 1] / 255;
-    let b = data.palette[palIdx + 2] / 255;
+    if (isWater) {
+      waterMesh.setMatrixAt(waterIdx, dummy.matrix);
+      waterIdx++;
+    } else {
+      mesh.setMatrixAt(solidIdx, dummy.matrix);
 
-    // Boost saturation and brightness for cartoony pop
-    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-    const satBoost = 2.2;
-    r = lum + (r - lum) * satBoost;
-    g = lum + (g - lum) * satBoost;
-    b = lum + (b - lum) * satBoost;
-    // Lift brightness
-    const lift = 1.3;
-    r = Math.max(0, Math.min(1, r * lift));
-    g = Math.max(0, Math.min(1, g * lift));
-    b = Math.max(0, Math.min(1, b * lift));
+      const palIdx = data.voxelColor[i] * 3;
+      let r = data.palette[palIdx] / 255;
+      let g = data.palette[palIdx + 1] / 255;
+      let b = data.palette[palIdx + 2] / 255;
 
-    // Stronger AO: floor at 0.2 for deeper crevice shadows
-    const ao = 0.2 + 0.8 * (data.voxelAO[i] / 255);
+      // Boost saturation and brightness for cartoony pop
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      const satBoost = 2.2;
+      r = lum + (r - lum) * satBoost;
+      g = lum + (g - lum) * satBoost;
+      b = lum + (b - lum) * satBoost;
+      const lift = 1.3;
+      r = Math.max(0, Math.min(1, r * lift));
+      g = Math.max(0, Math.min(1, g * lift));
+      b = Math.max(0, Math.min(1, b * lift));
 
-    // Per-voxel brightness jitter: ±15% based on position hash
-    const jitter = 0.85 + 0.3 * hash3(vx, vy, vz);
+      const ao = 0.2 + 0.8 * (data.voxelAO[i] / 255);
+      const jitter = 0.85 + 0.3 * hash3(vx, vy, vz);
 
-    colors[i * 3] = Math.min(r * ao * jitter, 1);
-    colors[i * 3 + 1] = Math.min(g * ao * jitter, 1);
-    colors[i * 3 + 2] = Math.min(b * ao * jitter, 1);
+      colors[solidIdx * 3] = Math.min(r * ao * jitter, 1);
+      colors[solidIdx * 3 + 1] = Math.min(g * ao * jitter, 1);
+      colors[solidIdx * 3 + 2] = Math.min(b * ao * jitter, 1);
+      solidIdx++;
+    }
   }
 
   mesh.instanceMatrix.needsUpdate = true;
   mesh.geometry.setAttribute("color", new THREE.InstancedBufferAttribute(colors, 3));
   scene.add(mesh);
+
+  if (waterCount > 0) {
+    waterMesh.instanceMatrix.needsUpdate = true;
+    waterMesh.renderOrder = 1; // render after opaque
+    scene.add(waterMesh);
+  }
 
   // Entity markers
   if (data.numEntities > 0) {
