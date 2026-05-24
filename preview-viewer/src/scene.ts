@@ -75,16 +75,18 @@ export function createScene(
     clipShadows: true,
   });
 
-  // Separate solid and water voxels
-  const FLAG_WATER_BITS = 0x04; // FlagWater = 1 << 2, occupies bits 2-4
+  // Separate solid, water, and lava voxels
+  const MAT_WATER = 0x04; // FlagWater = 1 << 2
+  const MAT_LAVA  = 0x08; // FlagLava  = 2 << 2
+  const MAT_MASK  = 0x1c; // bits 2-4
   let solidCount = 0;
   let waterCount = 0;
+  let lavaCount = 0;
   for (let i = 0; i < data.numVoxels; i++) {
-    if ((data.voxelFlags[i] & 0x1c) === FLAG_WATER_BITS) {
-      waterCount++;
-    } else {
-      solidCount++;
-    }
+    const mat = data.voxelFlags[i] & MAT_MASK;
+    if (mat === MAT_WATER) waterCount++;
+    else if (mat === MAT_LAVA) lavaCount++;
+    else solidCount++;
   }
 
   // Solid voxels
@@ -92,17 +94,34 @@ export function createScene(
   const dummy = new THREE.Object3D();
   const colors = new Float32Array(solidCount * 3);
 
-  // Water voxels
+  // Water/lava cubes — shrunk 2% inward to avoid z-fighting with adjacent solids
   const waterMat = new THREE.MeshLambertMaterial({
     color: 0x2266cc,
     transparent: true,
-    opacity: 0.45,
+    opacity: 0.5,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
     clippingPlanes: [clipPlane],
   });
   const waterMesh = new THREE.InstancedMesh(boxGeo, waterMat, Math.max(waterCount, 1));
 
+  const lavaMat = new THREE.MeshBasicMaterial({
+    color: 0xff4400,
+    transparent: true,
+    opacity: 0.9,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+    clippingPlanes: [clipPlane],
+  });
+  const lavaMesh = new THREE.InstancedMesh(boxGeo, lavaMat, Math.max(lavaCount, 1));
+
   let solidIdx = 0;
   let waterIdx = 0;
+  let lavaIdx = 0;
 
   for (let i = 0; i < data.numVoxels; i++) {
     const size = voxelSize(data.voxelFlags[i]);
@@ -110,15 +129,23 @@ export function createScene(
     const vx = data.voxelX[i];
     const vy = data.voxelY[i];
     const vz = data.voxelZ[i];
-    const isWater = (data.voxelFlags[i] & 0x1c) === FLAG_WATER_BITS;
+    const matBits = data.voxelFlags[i] & MAT_MASK;
 
     dummy.position.set(vx + halfSize, vz + halfSize, vy + halfSize);
     dummy.scale.set(size, size, size);
     dummy.updateMatrix();
 
-    if (isWater) {
-      waterMesh.setMatrixAt(waterIdx, dummy.matrix);
-      waterIdx++;
+    if (matBits === MAT_WATER || matBits === MAT_LAVA) {
+      // Shrink slightly inward to avoid coplanar faces with solid geometry
+      const shrink = size * 0.98;
+      dummy.position.set(vx + halfSize, vz + halfSize, vy + halfSize);
+      dummy.scale.set(shrink, shrink, shrink);
+      dummy.updateMatrix();
+      if (matBits === MAT_WATER) {
+        waterMesh.setMatrixAt(waterIdx++, dummy.matrix);
+      } else {
+        lavaMesh.setMatrixAt(lavaIdx++, dummy.matrix);
+      }
     } else {
       mesh.setMatrixAt(solidIdx, dummy.matrix);
 
@@ -127,7 +154,6 @@ export function createScene(
       let g = data.palette[palIdx + 1] / 255;
       let b = data.palette[palIdx + 2] / 255;
 
-      // Boost saturation and brightness for cartoony pop
       const lum = 0.299 * r + 0.587 * g + 0.114 * b;
       const satBoost = 2.2;
       r = lum + (r - lum) * satBoost;
@@ -154,8 +180,13 @@ export function createScene(
 
   if (waterCount > 0) {
     waterMesh.instanceMatrix.needsUpdate = true;
-    waterMesh.renderOrder = 1; // render after opaque
+    waterMesh.renderOrder = 1;
     scene.add(waterMesh);
+  }
+  if (lavaCount > 0) {
+    lavaMesh.instanceMatrix.needsUpdate = true;
+    lavaMesh.renderOrder = 1;
+    scene.add(lavaMesh);
   }
 
   // Entity markers

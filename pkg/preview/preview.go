@@ -48,12 +48,15 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 
 	voxels := ExtractVoxelsAdaptive(gameMap.WorldRoot, worldSize, entityPositions, paletteMap)
 
-	// Collect water volumes and append with a water palette entry
+	// Collect liquid volumes (water + lava)
 	waterPalIdx := uint8(len(palette))
 	palette = append(palette, [3]uint8{30, 100, 200})
-	waterVoxels := CollectWaterVoxels(gameMap.WorldRoot, worldSize, waterPalIdx)
+	lavaPalIdx := uint8(len(palette))
+	palette = append(palette, [3]uint8{255, 80, 10})
+	waterVoxels, lavaVoxels := CollectLiquidVoxels(gameMap.WorldRoot, worldSize, waterPalIdx, lavaPalIdx)
 	voxels = append(voxels, waterVoxels...)
-	log.Debug().Msgf("preview: %d voxels (%d water)", len(voxels), len(waterVoxels))
+	voxels = append(voxels, lavaVoxels...)
+	log.Debug().Msgf("preview: %d voxels (%d water, %d lava)", len(voxels), len(waterVoxels), len(lavaVoxels))
 
 	gridSize := 1 << coordDepth
 	occGrid := BuildOccupancyGrid(voxels, gridSize)
