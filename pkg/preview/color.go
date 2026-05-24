@@ -44,7 +44,10 @@ func SampleTextureColor(ctx context.Context, ref *min.Reference) ([3]uint8, erro
 	var rSum, gSum, bSum, count uint64
 	for y := bounds.Min.Y; y < bounds.Max.Y; y += stepY {
 		for x := bounds.Min.X; x < bounds.Max.X; x += stepX {
-			r, g, b, _ := img.At(x, y).RGBA()
+			r, g, b, a := img.At(x, y).RGBA()
+			if a < 0x8000 {
+				continue // skip transparent pixels
+			}
 			rSum += uint64(r >> 8)
 			gSum += uint64(g >> 8)
 			bSum += uint64(b >> 8)
@@ -56,11 +59,20 @@ func SampleTextureColor(ctx context.Context, ref *min.Reference) ([3]uint8, erro
 		return [3]uint8{128, 128, 128}, nil
 	}
 
-	return [3]uint8{
-		uint8(rSum / count),
-		uint8(gSum / count),
-		uint8(bSum / count),
-	}, nil
+	r := rSum / count
+	g := gSum / count
+	b := bSum / count
+
+	// Lift very dark textures so 3D structure remains visible in the preview.
+	// A true-black texture would be invisible otherwise.
+	const minChannel = 25
+	if r < minChannel && g < minChannel && b < minChannel {
+		if r < minChannel { r = minChannel }
+		if g < minChannel { g = minChannel }
+		if b < minChannel { b = minChannel }
+	}
+
+	return [3]uint8{uint8(r), uint8(g), uint8(b)}, nil
 }
 
 // CollectUsedVSlots walks the octree and returns all unique VSlot texture
@@ -128,10 +140,14 @@ func BuildPalette(
 		color := sampleSlotColor(ctx, processor, slot)
 
 		// Apply VSlot color scale if present.
+		// Clamp scale to 0.15 minimum so "black" surfaces still show some color.
 		if vs.Changed&(1<<maps.VSLOT_COLOR) != 0 {
-			color[0] = clampByte(float32(color[0]) * vs.ColorScale.X)
-			color[1] = clampByte(float32(color[1]) * vs.ColorScale.Y)
-			color[2] = clampByte(float32(color[2]) * vs.ColorScale.Z)
+			sx := max32(vs.ColorScale.X, 0.15)
+			sy := max32(vs.ColorScale.Y, 0.15)
+			sz := max32(vs.ColorScale.Z, 0.15)
+			color[0] = clampByte(float32(color[0]) * sx)
+			color[1] = clampByte(float32(color[1]) * sy)
+			color[2] = clampByte(float32(color[2]) * sz)
 		}
 
 		if len(palette) >= 255 {
@@ -173,6 +189,13 @@ func sampleSlotColor(ctx context.Context, processor *min.Processor, slot *maps.S
 	}
 
 	return color
+}
+
+func max32(a, b float32) float32 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func clampByte(v float32) uint8 {

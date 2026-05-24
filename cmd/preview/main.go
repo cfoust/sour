@@ -31,10 +31,6 @@ func main() {
 		return
 	}
 
-	if len(os.Args) >= 2 && os.Args[1] == "debug" {
-		debugReachable()
-		return
-	}
 
 	if len(os.Args) < 4 {
 		fmt.Fprintf(os.Stderr, "Usage: preview <outdir> <root1> [root2...] -- <map1.ogz> [map2.ogz...]\n")
@@ -178,43 +174,6 @@ func padLeft(s string, width int) string {
 		s = " " + s
 	}
 	return s
-}
-
-func debugReachable() {
-	args := os.Args[2:]
-	dashIdx := findDash(args)
-	if dashIdx < 0 {
-		fmt.Fprintf(os.Stderr, "Error: separate roots and maps with --\n")
-		os.Exit(1)
-	}
-	roots := makeRoots(args[:dashIdx])
-	mapFiles := args[dashIdx+1:]
-	outdir := "."
-	if dashIdx > 0 {
-		outdir = args[0]
-		roots = makeRoots(args[1:dashIdx])
-	}
-	os.MkdirAll(outdir, 0755)
-	ctx := context.Background()
-
-	for _, mapFile := range mapFiles {
-		mapData := readFromRoots(ctx, roots, mapFile)
-		if mapData == nil {
-			continue
-		}
-		name := strings.TrimSuffix(filepath.Base(mapFile), filepath.Ext(mapFile))
-		fmt.Fprintf(os.Stderr, "Generating debug reachable for %s...\n", name)
-
-		data, err := preview.GenerateDebugReachable(ctx, roots, mapData, mapFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			continue
-		}
-
-		outPath := filepath.Join(outdir, name+"_debug.svox")
-		os.WriteFile(outPath, data, 0644)
-		fmt.Fprintf(os.Stderr, "Wrote %s (%d bytes)\n", outPath, len(data))
-	}
 }
 
 func octreeStats() {
