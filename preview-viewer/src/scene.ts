@@ -93,9 +93,21 @@ export function createScene(
     mesh.setMatrixAt(i, dummy.matrix);
 
     const palIdx = data.voxelColor[i] * 3;
-    const r = data.palette[palIdx] / 255;
-    const g = data.palette[palIdx + 1] / 255;
-    const b = data.palette[palIdx + 2] / 255;
+    let r = data.palette[palIdx] / 255;
+    let g = data.palette[palIdx + 1] / 255;
+    let b = data.palette[palIdx + 2] / 255;
+
+    // Boost saturation and brightness for cartoony pop
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    const satBoost = 2.2;
+    r = lum + (r - lum) * satBoost;
+    g = lum + (g - lum) * satBoost;
+    b = lum + (b - lum) * satBoost;
+    // Lift brightness
+    const lift = 1.3;
+    r = Math.max(0, Math.min(1, r * lift));
+    g = Math.max(0, Math.min(1, g * lift));
+    b = Math.max(0, Math.min(1, b * lift));
 
     // Stronger AO: floor at 0.2 for deeper crevice shadows
     const ao = 0.2 + 0.8 * (data.voxelAO[i] / 255);
