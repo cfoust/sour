@@ -79,31 +79,50 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 	skyTop, skyHorizon := ExtractSkyboxColors(ctx, processor, gameMap.Vars)
 	ambient, sunlight := ExtractLightingColors(gameMap.Vars)
 
-	// Compute focus point, radius, and best camera angle.
+	// Compute focus point and radius from entity positions.
 	focusX, focusY, focusZ, focusRadius := computeFocus(entityPositions, worldSize, gridSize)
-	cameraYaw, cameraPitch := FindBestCameraAngle(
-		occGrid,
+
+	// Build finer grid for flood fill (256³) so doorways aren't missed.
+	fillGrid := BuildFillGrid(voxels, gridSize)
+
+	// Compute reachable volume via physics-based flood fill.
+	reachable, clipZ := ComputeReachableVolume(fillGrid, entityPositions, worldSize)
+	log.Debug().Msgf("preview: %d reachable cells, clip Z=%d (fill grid %d³)", len(reachable), clipZ, fillGrid.Size)
+
+	// Build cutaway heightmap. Downsample to 128³ for storage (fits uint8).
+	cutawayMargin := 3
+	cutawayGridSize := 1 << aoGridDepth // 128
+	cutaway := BuildCutawayHeightmapDownsampled(reachable, fillGrid.Size, cutawayGridSize, cutawayMargin)
+	cutawaySize := uint8(cutawayGridSize)
+	defaultClipY := uint16(clipZ << fillGrid.Shift)
+
+	// Find best camera angle using reachable-volume-aware scoring.
+	cameraYaw, cameraPitch := FindBestCameraAngleReachable(
+		fillGrid, reachable, clipZ,
 		float64(focusX), float64(focusY), float64(focusZ),
 		float64(focusRadius),
 	)
 
 	preview := &MapPreview{
-		MaxDepth:    coordDepth,
-		GridSize:    uint16(gridSize),
-		WorldSize:   uint32(worldSize),
-		Palette:     palette,
-		Voxels:      voxels,
-		Entities:    entities,
-		SkyTop:      skyTop,
-		SkyHorizon:  skyHorizon,
-		Ambient:     ambient,
-		Sunlight:    sunlight,
-		FocusX:      focusX,
-		FocusY:      focusY,
-		FocusZ:      focusZ,
-		FocusRadius: focusRadius,
-		CameraYaw:   cameraYaw,
-		CameraPitch: cameraPitch,
+		MaxDepth:     coordDepth,
+		GridSize:     uint16(gridSize),
+		WorldSize:    uint32(worldSize),
+		Palette:      palette,
+		Voxels:       voxels,
+		Entities:     entities,
+		SkyTop:       skyTop,
+		SkyHorizon:   skyHorizon,
+		Ambient:      ambient,
+		Sunlight:     sunlight,
+		FocusX:       focusX,
+		FocusY:       focusY,
+		FocusZ:       focusZ,
+		FocusRadius:  focusRadius,
+		CameraYaw:    cameraYaw,
+		CameraPitch:  cameraPitch,
+		DefaultClipY: defaultClipY,
+		CutawaySize:  cutawaySize,
+		Cutaway:      cutaway,
 	}
 
 	return Encode(preview)

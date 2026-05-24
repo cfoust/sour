@@ -8,23 +8,23 @@ import (
 var magic = [4]byte{'S', 'V', 'O', 'X'}
 
 const (
-	headerSize  = 44 // v3: focus point + radius + camera angle
-	voxelBytes  = 9  // X(2) + Y(2) + Z(2) + PaletteIndex(1) + Flags(1) + AO(1)
-	entityBytes = 7  // X(2) + Y(2) + Z(2) + Type(1)
+	headerSize  = 48 // v4: added DefaultClipY + CutawaySize + padding
+	voxelBytes  = 9
+	entityBytes = 7
 )
 
-// Encode serializes a MapPreview to the .svox binary format (version 3).
+// Encode serializes a MapPreview to the .svox binary format (version 4).
 func Encode(p *MapPreview) ([]byte, error) {
 	numPalette := len(p.Palette)
 	numVoxels := len(p.Voxels)
 	numEntities := len(p.Entities)
+	cutawayLen := int(p.CutawaySize) * int(p.CutawaySize)
 
-	size := headerSize + numPalette*3 + numVoxels*voxelBytes + numEntities*entityBytes
+	size := headerSize + numPalette*3 + numVoxels*voxelBytes + numEntities*entityBytes + cutawayLen
 	buf := make([]byte, size)
 
-	// Header
 	copy(buf[0:4], magic[:])
-	buf[4] = 3 // version 3: focus point + radius
+	buf[4] = 4 // version 4
 	buf[5] = p.MaxDepth
 	binary.LittleEndian.PutUint16(buf[6:8], p.GridSize)
 	binary.LittleEndian.PutUint32(buf[8:12], p.WorldSize)
@@ -43,6 +43,9 @@ func Encode(p *MapPreview) ([]byte, error) {
 	binary.LittleEndian.PutUint16(buf[38:40], p.FocusRadius)
 	binary.LittleEndian.PutUint16(buf[40:42], p.CameraYaw)
 	binary.LittleEndian.PutUint16(buf[42:44], p.CameraPitch)
+	binary.LittleEndian.PutUint16(buf[44:46], p.DefaultClipY)
+	buf[46] = p.CutawaySize
+	// buf[47] reserved
 
 	off := headerSize
 
@@ -71,6 +74,12 @@ func Encode(p *MapPreview) ([]byte, error) {
 		off += entityBytes
 	}
 
+	// Cutaway heightmap
+	if cutawayLen > 0 {
+		copy(buf[off:off+cutawayLen], p.Cutaway)
+		off += cutawayLen
+	}
+
 	return buf, nil
 }
 
@@ -82,7 +91,7 @@ func Decode(data []byte) (*MapPreview, error) {
 	if data[0] != 'S' || data[1] != 'V' || data[2] != 'O' || data[3] != 'X' {
 		return nil, fmt.Errorf("invalid magic bytes")
 	}
-	if data[4] != 3 {
+	if data[4] != 4 {
 		return nil, fmt.Errorf("unsupported version: %d", data[4])
 	}
 
@@ -106,8 +115,11 @@ func Decode(data []byte) (*MapPreview, error) {
 	p.FocusRadius = binary.LittleEndian.Uint16(data[38:40])
 	p.CameraYaw = binary.LittleEndian.Uint16(data[40:42])
 	p.CameraPitch = binary.LittleEndian.Uint16(data[42:44])
+	p.DefaultClipY = binary.LittleEndian.Uint16(data[44:46])
+	p.CutawaySize = data[46]
 
-	expected := headerSize + numPalette*3 + numVoxels*voxelBytes + numEntities*entityBytes
+	cutawayLen := int(p.CutawaySize) * int(p.CutawaySize)
+	expected := headerSize + numPalette*3 + numVoxels*voxelBytes + numEntities*entityBytes + cutawayLen
 	if len(data) < expected {
 		return nil, fmt.Errorf("data too short: need %d, got %d", expected, len(data))
 	}
@@ -142,6 +154,11 @@ func Decode(data []byte) (*MapPreview, error) {
 			Type: PreviewEntityType(data[off+6]),
 		}
 		off += entityBytes
+	}
+
+	if cutawayLen > 0 {
+		p.Cutaway = make([]uint8, cutawayLen)
+		copy(p.Cutaway, data[off:off+cutawayLen])
 	}
 
 	return p, nil

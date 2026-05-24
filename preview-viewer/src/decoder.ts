@@ -25,6 +25,9 @@ export type PreviewData = {
   focusRadius: number;
   cameraYaw: number;   // degrees
   cameraPitch: number; // degrees
+  defaultClipY: number; // grid coordinate for default clip plane
+  cutawaySize: number;  // side length of cutaway heightmap (0 = none)
+  cutaway: Uint8Array;  // per-column max Y heightmap, cutawaySize × cutawaySize
 };
 
 export function decodePreview(buffer: ArrayBuffer): PreviewData {
@@ -42,8 +45,8 @@ export function decodePreview(buffer: ArrayBuffer): PreviewData {
   }
 
   const version = bytes[4];
-  if (version !== 3) {
-    throw new Error(`Unsupported SVOX version: ${version} (expected 3)`);
+  if (version !== 4) {
+    throw new Error(`Unsupported SVOX version: ${version} (expected 4)`);
   }
 
   const maxDepth = bytes[5];
@@ -62,10 +65,12 @@ export function decodePreview(buffer: ArrayBuffer): PreviewData {
   const focusY = view.getUint16(34, true);
   const focusZ = view.getUint16(36, true);
   const focusRadius = view.getUint16(38, true);
-  const cameraYaw = view.getUint16(40, true) / 10;   // tenths → degrees
-  const cameraPitch = view.getUint16(42, true) / 10;  // tenths → degrees
+  const cameraYaw = view.getUint16(40, true) / 10;
+  const cameraPitch = view.getUint16(42, true) / 10;
+  const defaultClipY = view.getUint16(44, true);
+  const cutawaySize = bytes[46];
 
-  let off = 44;
+  let off = 48;
 
   // Palette
   const palette = new Uint8Array(numPalette * 3);
@@ -131,5 +136,10 @@ export function decodePreview(buffer: ArrayBuffer): PreviewData {
     focusRadius,
     cameraYaw,
     cameraPitch,
+    defaultClipY,
+    cutawaySize,
+    cutaway: cutawaySize > 0
+      ? new Uint8Array(buffer, off, cutawaySize * cutawaySize)
+      : new Uint8Array(0),
   };
 }

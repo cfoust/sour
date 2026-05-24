@@ -80,10 +80,33 @@ export function createScene(
   fillLight.position.set(-gridSize, gridSize * 0.5, -gridSize);
   scene.add(fillLight);
 
-  // Clipping plane for cross-section
+  // Per-column cutaway: determine which voxels to show.
+  // If a cutaway heightmap exists, filter voxels above the cutaway surface.
+  const hasCutaway = data.cutawaySize > 0;
+  const cutawayShift = Math.log2(gridSize / (data.cutawaySize || 1));
+
+  function isAboveCutaway(sauX: number, sauY: number, sauZ: number): boolean {
+    if (!hasCutaway) return false;
+    const cx = sauX >> cutawayShift;
+    const cy = sauY >> cutawayShift;
+    if (cx < 0 || cx >= data.cutawaySize || cy < 0 || cy >= data.cutawaySize)
+      return false;
+    const maxZ = data.cutaway[cy * data.cutawaySize + cx];
+    // Scale maxZ from AO grid to coord grid
+    return (sauZ >> cutawayShift) > maxZ;
+  }
+
+  // First pass: count visible voxels
+  let visibleCount = 0;
+  for (let i = 0; i < data.numVoxels; i++) {
+    if (!isAboveCutaway(data.voxelX[i], data.voxelY[i], data.voxelZ[i])) {
+      visibleCount++;
+    }
+  }
+
+  // Clipping plane for manual cross-section (slider)
   const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), gridSize);
 
-  // Voxels via InstancedMesh
   const boxGeo = new THREE.BoxGeometry(1, 1, 1);
   const voxelMat = new THREE.MeshLambertMaterial({
     vertexColors: true,
@@ -91,35 +114,34 @@ export function createScene(
     clipShadows: true,
   });
 
-  const numVoxels = data.numVoxels;
-  const mesh = new THREE.InstancedMesh(boxGeo, voxelMat, numVoxels);
-
+  const mesh = new THREE.InstancedMesh(boxGeo, voxelMat, visibleCount);
   const dummy = new THREE.Object3D();
-  const colors = new Float32Array(numVoxels * 3);
+  const colors = new Float32Array(visibleCount * 3);
 
-  for (let i = 0; i < numVoxels; i++) {
+  let idx = 0;
+  for (let i = 0; i < data.numVoxels; i++) {
+    if (isAboveCutaway(data.voxelX[i], data.voxelY[i], data.voxelZ[i])) {
+      continue;
+    }
+
     const size = voxelSize(data.voxelFlags[i]);
     const halfSize = (size - 1) * 0.5;
 
-    // Position: corner + half-size offset to center the scaled cube
-    // Sauerbraten (x, y, z) → Three.js (x, z, y)
     dummy.position.set(
       data.voxelX[i] + halfSize,
-      data.voxelZ[i] + halfSize,
-      data.voxelY[i] + halfSize
+      data.voxelZ[i] + halfSize, // Sauer Z → Three Y
+      data.voxelY[i] + halfSize  // Sauer Y → Three Z
     );
     dummy.scale.set(size, size, size);
     dummy.updateMatrix();
-    mesh.setMatrixAt(i, dummy.matrix);
+    mesh.setMatrixAt(idx, dummy.matrix);
 
-    // Color from palette with subtle AO
     const palIdx = data.voxelColor[i] * 3;
-    // AO: soften the effect so colors stay visible
-    // ao=0 → 0.4 brightness, ao=255 → 1.0 brightness
     const ao = 0.4 + 0.6 * (data.voxelAO[i] / 255);
-    colors[i * 3] = (data.palette[palIdx] / 255) * ao;
-    colors[i * 3 + 1] = (data.palette[palIdx + 1] / 255) * ao;
-    colors[i * 3 + 2] = (data.palette[palIdx + 2] / 255) * ao;
+    colors[idx * 3] = (data.palette[palIdx] / 255) * ao;
+    colors[idx * 3 + 1] = (data.palette[palIdx + 1] / 255) * ao;
+    colors[idx * 3 + 2] = (data.palette[palIdx + 2] / 255) * ao;
+    idx++;
   }
 
   mesh.instanceMatrix.needsUpdate = true;

@@ -70,4 +70,7 @@ type MapPreview struct {
 	FocusRadius uint16 // suggested orbit distance in grid units
 	CameraYaw   uint16 // initial yaw in tenths of degrees (0-3599)
 	CameraPitch uint16 // initial pitch in tenths of degrees (0-900)
+	DefaultClipY uint16 // default clip height in grid coords (from reachable volume analysis)
+	CutawaySize  uint8  // side length of cutaway heightmap (0 = no heightmap)
+	Cutaway      []uint8 // per-column max Y heightmap, CutawaySize × CutawaySize entries
 }

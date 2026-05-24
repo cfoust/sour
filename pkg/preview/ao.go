@@ -2,9 +2,12 @@ package preview
 
 import "math"
 
-// aoGridDepth is the resolution of the occupancy grid.
-// Using 128³ (depth 7) keeps memory at ~2MB regardless of coordDepth.
+// aoGridDepth is the resolution of the AO occupancy grid (128³ = ~2MB).
 const aoGridDepth = 7
+
+// fillGridDepth is the resolution for the flood fill grid (256³ = ~16MB).
+// Finer than AO so doorways and corridors aren't missed.
+const fillGridDepth = 8
 
 // OccupancyGrid is a 3D boolean grid used for AO and camera placement.
 type OccupancyGrid struct {
@@ -13,9 +16,19 @@ type OccupancyGrid struct {
 	Occupied []bool
 }
 
-// BuildOccupancyGrid creates a fixed-resolution occupancy grid from voxels.
+// BuildOccupancyGrid creates an occupancy grid at AO resolution from voxels.
 func BuildOccupancyGrid(voxels []Voxel, gridSize int) *OccupancyGrid {
-	aoSize := 1 << aoGridDepth
+	return BuildOccupancyGridAtDepth(voxels, gridSize, aoGridDepth)
+}
+
+// BuildFillGrid creates an occupancy grid at flood fill resolution from voxels.
+func BuildFillGrid(voxels []Voxel, gridSize int) *OccupancyGrid {
+	return BuildOccupancyGridAtDepth(voxels, gridSize, fillGridDepth)
+}
+
+// BuildOccupancyGridAtDepth creates an occupancy grid at a given depth.
+func BuildOccupancyGridAtDepth(voxels []Voxel, gridSize int, depth int) *OccupancyGrid {
+	aoSize := 1 << depth
 	shift := 0
 	for s := gridSize; s > aoSize; s >>= 1 {
 		shift++
@@ -87,10 +100,9 @@ func ComputeAO(voxels []Voxel, grid *OccupancyGrid) {
 	}
 }
 
-// FindBestCameraAngle samples candidate camera positions on a sphere around
-// the focus point and picks the (yaw, pitch) with the clearest line of sight.
-// Returns yaw in tenths of degrees (0-3599) and pitch in tenths of degrees (0-900).
-func FindBestCameraAngle(grid *OccupancyGrid, focusX, focusY, focusZ, radius float64) (uint16, uint16) {
+// FindBestCameraAngleReachable samples candidate camera positions and picks
+// the angle that maximizes visibility of the reachable play area after cutaway.
+func FindBestCameraAngleReachable(grid *OccupancyGrid, reachable map[gridPos]bool, clipZ int, focusX, focusY, focusZ, radius float64) (uint16, uint16) {
 	bestYaw, bestPitch := 0.0, 30.0
 	bestScore := math.MaxInt32
 
@@ -104,7 +116,7 @@ func FindBestCameraAngle(grid *OccupancyGrid, focusX, focusY, focusZ, radius flo
 			camY := focusY + math.Cos(pitchRad)*math.Sin(yawRad)*radius
 			camZ := focusZ + math.Sin(pitchRad)*radius
 
-			score := rayMarchScore(grid, camX, camY, camZ, focusX, focusY, focusZ)
+			score := ScoreCameraAngleWithReachable(grid, reachable, clipZ, camX, camY, camZ, focusX, focusY, focusZ)
 
 			if score < bestScore {
 				bestScore = score
@@ -117,52 +129,4 @@ func FindBestCameraAngle(grid *OccupancyGrid, focusX, focusY, focusZ, radius flo
 	return uint16(bestYaw * 10), uint16(bestPitch * 10)
 }
 
-// rayMarchScore counts occupied cells along a ray from camera to focus.
-// Also heavily penalizes if the camera itself is inside geometry.
-func rayMarchScore(grid *OccupancyGrid, cx, cy, cz, fx, fy, fz float64) int {
-	dx := fx - cx
-	dy := fy - cy
-	dz := fz - cz
-	dist := math.Sqrt(dx*dx + dy*dy + dz*dz)
-	if dist < 1 {
-		return 0
-	}
-
-	steps := int(dist) + 1
-	if steps > 200 {
-		steps = 200
-	}
-
-	score := 0
-
-	// Heavy penalty if camera position is in geometry
-	gx := int(cx) >> grid.Shift
-	gy := int(cy) >> grid.Shift
-	gz := int(cz) >> grid.Shift
-	if grid.Get(gx, gy, gz) {
-		score += 1000
-	}
-
-	// March from camera toward focus, count hits
-	stepX := dx / float64(steps)
-	stepY := dy / float64(steps)
-	stepZ := dz / float64(steps)
-
-	for i := 0; i < steps; i++ {
-		px := cx + stepX*float64(i)
-		py := cy + stepY*float64(i)
-		pz := cz + stepZ*float64(i)
-
-		gx := int(px) >> grid.Shift
-		gy := int(py) >> grid.Shift
-		gz := int(pz) >> grid.Shift
-
-		if grid.Get(gx, gy, gz) {
-			// Hits near the camera are worse than hits near the focus
-			weight := steps - i
-			score += weight
-		}
-	}
-
-	return score
-}
+// Old rayMarchScore removed — replaced by ScoreCameraAngleWithReachable in reachable.go
