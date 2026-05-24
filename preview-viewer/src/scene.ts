@@ -31,7 +31,7 @@ export function createScene(
   const focusX = data.focusX;
   const focusY = data.focusZ; // Sauer Z → Three Y
   const focusZ = data.focusY; // Sauer Y → Three Z
-  const orbitRadius = data.focusRadius * 2;
+  const orbitRadius = data.focusRadius;
 
   // Camera from baked angle
   const yawRad = (data.cameraYaw * Math.PI) / 180;

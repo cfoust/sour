@@ -22,8 +22,39 @@ func BuildOccupancyGrid(voxels []Voxel, gridSize int) *OccupancyGrid {
 }
 
 // BuildFillGrid creates an occupancy grid at flood fill resolution from voxels.
+// Unlike the AO grid, this also marks lava and death-material cells as
+// occupied so the flood fill treats them as impassable.
 func BuildFillGrid(voxels []Voxel, gridSize int) *OccupancyGrid {
-	return BuildOccupancyGridAtDepth(voxels, gridSize, fillGridDepth)
+	grid := BuildOccupancyGridAtDepth(voxels, gridSize, fillGridDepth)
+
+	// Mark lava/death voxels as occupied (they're barriers to the player)
+	shift := grid.Shift
+	for _, v := range voxels {
+		matBits := v.Flags & 0x1C // bits 2-4
+		if matBits != FlagLava && matBits != FlagDeath {
+			continue
+		}
+		size := v.Size()
+		ax := int(v.X) >> shift
+		ay := int(v.Y) >> shift
+		az := int(v.Z) >> shift
+		asize := size >> shift
+		if asize < 1 {
+			asize = 1
+		}
+		for dz := 0; dz < asize; dz++ {
+			for dy := 0; dy < asize; dy++ {
+				for dx := 0; dx < asize; dx++ {
+					x, y, z := ax+dx, ay+dy, az+dz
+					if x < grid.Size && y < grid.Size && z < grid.Size {
+						grid.Occupied[grid.idx(x, y, z)] = true
+					}
+				}
+			}
+		}
+	}
+
+	return grid
 }
 
 // BuildOccupancyGridAtDepth creates an occupancy grid at a given depth.

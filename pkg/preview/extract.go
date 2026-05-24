@@ -276,10 +276,12 @@ func classifyCube(c *maps.Cube) byte {
 
 	mat := c.Material
 	switch {
-	case mat&maps.MATF_VOLUME == maps.MAT_WATER:
-		flags |= FlagWater
+	case mat&maps.MAT_DEATH != 0:
+		flags |= FlagDeath
 	case mat&maps.MATF_VOLUME == maps.MAT_LAVA:
 		flags |= FlagLava
+	case mat&maps.MATF_VOLUME == maps.MAT_WATER:
+		flags |= FlagWater
 	case mat&maps.MATF_VOLUME == maps.MAT_GLASS:
 		flags |= FlagGlass
 	case mat&maps.MATF_CLIP == maps.MAT_CLIP:

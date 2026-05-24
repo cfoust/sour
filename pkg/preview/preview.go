@@ -62,6 +62,7 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 
 	// 2. Flood fill for reachable volume
 	fillGrid := BuildFillGrid(voxels, gridSize)
+	AddBarriersFromOctree(fillGrid, gameMap.WorldRoot, worldSize)
 	reachable, _ := ComputeReachableVolume(fillGrid, entityPositions, worldSize)
 	log.Debug().Msgf("preview: %d reachable cells (fill grid %d³)", len(reachable), fillGrid.Size)
 
@@ -129,7 +130,7 @@ func findOptimalView(
 	occlusionPct := float64(occluded) / float64(total)
 	log.Debug().Msgf("preview: %.0f%% of play area occluded from above", occlusionPct*100)
 
-	if occlusionPct > 0.5 {
+	if occlusionPct > 0.3 {
 		// Search for the clip height that maximizes visible play area.
 		// Scan Z levels in discrete steps through the reachable range.
 		zMin, zMax := gridMax, 0
@@ -178,11 +179,11 @@ func findOptimalView(
 }
 
 func findBestAngle(grid *OccupancyGrid, reachable map[gridPos]bool, clipZ int, focusX, focusY, focusZ, radius float64) (uint16, uint16) {
-	bestYaw, bestPitch := 0.0, 30.0
+	bestYaw, bestPitch := 0.0, 45.0
 	bestScore := math.MaxInt32
 
 	for yawDeg := 0.0; yawDeg < 360; yawDeg += 5 {
-		for _, pitchDeg := range []float64{20, 30, 40, 50} {
+		for _, pitchDeg := range []float64{45, 55, 65} {
 			yawRad := yawDeg * math.Pi / 180
 			pitchRad := pitchDeg * math.Pi / 180
 
@@ -234,7 +235,7 @@ func computeFocus(positions []worldPos, worldSize, gridSize int) (uint16, uint16
 	if idx >= len(dists) {
 		idx = len(dists) - 1
 	}
-	radius := float32(dists[idx]) * scale * 1.4 // 40% margin
+	radius := float32(dists[idx]) * scale * 2.8 // 2x orbit distance with 40% margin
 	if radius < 32 {
 		radius = 32
 	}

@@ -22,10 +22,11 @@ const (
 const (
 	FlagSolid  byte = 1 << 0
 	FlagNormal byte = 1 << 1
-	FlagWater  byte = 1 << 2
-	FlagLava   byte = 2 << 2
-	FlagGlass  byte = 3 << 2
-	FlagClip   byte = 4 << 2
+	FlagWater byte = 1 << 2
+	FlagLava  byte = 2 << 2
+	FlagGlass byte = 3 << 2
+	FlagClip  byte = 4 << 2
+	FlagDeath byte = 5 << 2
 
 	FlagSizeShift = 5
 	FlagSizeMask  = 0x7 << FlagSizeShift
