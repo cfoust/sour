@@ -163,6 +163,59 @@ func loadVSlot(rd *reader, vs *VSlot, changed int32) {
 	}
 }
 
+// calcVertDataSize computes the total bytes of per-vertex data that follows
+// a SurfaceInfo, matching the C++ save/load format exactly.
+func calcVertDataSize(vertmask int, numVertsRaw int) int {
+	layerverts := int(numVertsRaw & int(MAXFACEVERTS))
+	hasDup := numVertsRaw&int(LAYER_DUP) != 0
+
+	hasxyz := vertmask&0x04 != 0
+	hasuv := vertmask&0x40 != 0
+	hasnorm := vertmask&0x80 != 0
+
+	size := 0
+
+	if layerverts == 4 {
+		if hasxyz && vertmask&0x01 != 0 {
+			size += 8 // compressed xyz: 4 uint16
+			hasxyz = false
+		}
+		if hasuv && vertmask&0x02 != 0 {
+			size += 8 // compressed uv: 4 uint16
+			if hasDup {
+				size += 8 // dup layer uv
+			}
+			hasuv = false
+		}
+	}
+	if hasnorm && vertmask&0x08 != 0 {
+		size += 2 // shared norm
+		hasnorm = false
+	}
+	if hasxyz || hasuv || hasnorm {
+		for k := 0; k < layerverts; k++ {
+			if hasxyz {
+				size += 4
+			}
+			if hasuv {
+				size += 4
+			}
+			if hasnorm {
+				size += 2
+			}
+		}
+	}
+	if hasDup {
+		for k := 0; k < layerverts; k++ {
+			if hasuv {
+				size += 4
+			}
+		}
+	}
+
+	return size
+}
+
 func convertOldMaterial(mat int) uint16 {
 	return uint16(((mat & 7) << MATF_VOLUME_SHIFT) | (((mat >> 3) & 3) << MATF_CLIP_SHIFT) | (((mat >> 5) & 7) << MATF_FLAG_SHIFT))
 }
@@ -320,48 +373,12 @@ func loadCube(rd *reader, c *Cube, size int) error {
 					continue
 				}
 
-				layerverts := int(surf.NumVerts & MAXFACEVERTS)
-
-				hasxyz := vertmask&0x04 != 0
-				hasuv := vertmask&0x40 != 0
-				hasnorm := vertmask&0x80 != 0
-
-				if layerverts == 4 {
-					if hasxyz && vertmask&0x01 != 0 {
-						rd.skip(8) // 4 uint16: c1, r1, c2, r2
-						hasxyz = false
-					}
-					if hasuv && vertmask&0x02 != 0 {
-						rd.skip(8) // 4 uint16: v0.u, v0.v, v2.u, v2.v
-						if surf.NumVerts&LAYER_DUP != 0 {
-							rd.skip(8) // 4 more uint16: b0.u, b0.v, b2.u, b2.v
-						}
-						hasuv = false
-					}
-				}
-				if hasnorm && vertmask&0x08 != 0 {
-					rd.skip(2) // 1 uint16: shared norm
-					hasnorm = false
-				}
-				if hasxyz || hasuv || hasnorm {
-					for k := 0; k < layerverts; k++ {
-						if hasxyz {
-							rd.skip(4) // 2 uint16: vc, vr
-						}
-						if hasuv {
-							rd.skip(4) // 2 uint16: u, v
-						}
-						if hasnorm {
-							rd.skip(2) // 1 uint16: norm
-						}
-					}
-				}
-				if surf.NumVerts&LAYER_DUP != 0 {
-					for k := 0; k < layerverts; k++ {
-						if hasuv {
-							rd.skip(4) // 2 uint16: u, v
-						}
-					}
+				// Calculate per-vertex data size and read it as a blob
+				vertDataSize := calcVertDataSize(vertmask, int(surf.NumVerts))
+				if vertDataSize > 0 {
+					vdata := make([]byte, vertDataSize)
+					rd.read(vdata)
+					c.VertData[i] = vdata
 				}
 
 				_ = numverts
