@@ -234,7 +234,7 @@ func renderPreviews() {
 	files := os.Args[3:]
 	os.MkdirAll(outdir, 0755)
 
-	size := 512
+	size := 2048
 
 	// Try GPU renderer first
 	glRenderer := preview.NewGLRenderer(size, size)
