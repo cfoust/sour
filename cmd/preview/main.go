@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"image"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -233,6 +234,17 @@ func renderPreviews() {
 	files := os.Args[3:]
 	os.MkdirAll(outdir, 0755)
 
+	size := 512
+
+	// Try GPU renderer first
+	glRenderer := preview.NewGLRenderer(size, size)
+	if glRenderer != nil {
+		fmt.Fprintf(os.Stderr, "Using GPU renderer\n")
+		defer glRenderer.Close()
+	} else {
+		fmt.Fprintf(os.Stderr, "GPU unavailable, using software renderer\n")
+	}
+
 	for _, file := range files {
 		data, err := os.ReadFile(file)
 		if err != nil {
@@ -248,7 +260,12 @@ func renderPreviews() {
 		name := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
 		fmt.Fprintf(os.Stderr, "Rendering %s...\n", name)
 
-		img := preview.Render(p, preview.RenderConfig{Width: 512, Height: 512})
+		var img *image.RGBA
+		if glRenderer != nil {
+			img = glRenderer.RenderGL(p)
+		} else {
+			img = preview.Render(p, preview.RenderConfig{Width: size, Height: size})
+		}
 
 		outPath := filepath.Join(outdir, name+".png")
 		f, err := os.Create(outPath)
