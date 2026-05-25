@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -33,6 +34,11 @@ func main() {
 
 	if len(os.Args) >= 2 && os.Args[1] == "debug" {
 		debugReachable()
+		return
+	}
+
+	if len(os.Args) >= 2 && os.Args[1] == "render" {
+		renderPreviews()
 		return
 	}
 
@@ -216,6 +222,44 @@ func padLeft(s string, width int) string {
 		s = " " + s
 	}
 	return s
+}
+
+func renderPreviews() {
+	if len(os.Args) < 4 {
+		fmt.Fprintf(os.Stderr, "Usage: preview render <outdir> <file1.svox> [file2.svox...]\n")
+		os.Exit(1)
+	}
+	outdir := os.Args[2]
+	files := os.Args[3:]
+	os.MkdirAll(outdir, 0755)
+
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", file, err)
+			continue
+		}
+		p, err := preview.Decode(data)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error decoding %s: %v\n", file, err)
+			continue
+		}
+
+		name := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+		fmt.Fprintf(os.Stderr, "Rendering %s...\n", name)
+
+		img := preview.Render(p, preview.RenderConfig{Width: 512, Height: 512})
+
+		outPath := filepath.Join(outdir, name+".png")
+		f, err := os.Create(outPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating %s: %v\n", outPath, err)
+			continue
+		}
+		png.Encode(f, img)
+		f.Close()
+		fmt.Fprintf(os.Stderr, "Wrote %s\n", outPath)
+	}
 }
 
 func octreeStats() {

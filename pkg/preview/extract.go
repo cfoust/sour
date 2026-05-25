@@ -232,6 +232,16 @@ func emitLeaves(c *maps.Cube, ox, oy, oz, depth, targetDepth, maxCoordDepth int,
 	})
 }
 
+// isSkyCube returns true if all 6 faces use the sky texture (skybox boundary).
+func isSkyCube(c *maps.Cube) bool {
+	for _, t := range c.Texture {
+		if t != maps.DEFAULT_SKY {
+			return false
+		}
+	}
+	return true
+}
+
 // emitVoxel emits a single voxel for an entirely solid leaf cube.
 func emitVoxel(c *maps.Cube, ox, oy, oz, depth, maxCoordDepth int, paletteMap map[uint16]uint8, voxels *[]Voxel) {
 	if c.IsEmpty() {
@@ -320,6 +330,10 @@ func dominantPaletteIndex(c *maps.Cube, paletteMap map[uint16]uint8) uint8 {
 		if t != maps.DEFAULT_SKY {
 			texCounts[t]++
 		}
+	}
+	// If all faces are sky, return 0 (sky marker — renderer skips these)
+	if len(texCounts) == 0 {
+		return 0
 	}
 	var dominantTex uint16 = maps.DEFAULT_GEOM
 	bestCount := 0
