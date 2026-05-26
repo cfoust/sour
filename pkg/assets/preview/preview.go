@@ -45,9 +45,24 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 	palette, paletteMap := BuildPalette(ctx, processor, usedVSlots)
 
 	worldSize := int(gameMap.Header.WorldSize)
+	gridSize := 1 << coordDepth
 	entityPositions := extractEntityPositions(gameMap.Entities)
 
-	voxels := ExtractVoxelsAdaptive(gameMap.WorldRoot, worldSize, entityPositions, paletteMap)
+	// 1. Compute reachability BEFORE voxel extraction so we can use it
+	//    to drive adaptive detail (high density near the play area).
+	fillGrid := BuildFillGridFromOctree(gameMap.WorldRoot, worldSize)
+	AddBarriersFromOctree(fillGrid, gameMap.WorldRoot, worldSize)
+	reachable, _ := ComputeReachableVolume(fillGrid, entityPositions, worldSize)
+	log.Debug().Msgf("preview: %d reachable cells (fill grid %d³)", len(reachable), fillGrid.Size)
+
+	// 2. Build play area proximity grid for adaptive extraction
+	var playArea *PlayAreaGrid
+	if len(reachable) > 0 {
+		playArea = BuildPlayAreaGrid(reachable, fillGrid.Size, worldSize)
+	}
+
+	// 3. Extract voxels with play-area-driven density
+	voxels := ExtractVoxelsAdaptive(gameMap.WorldRoot, worldSize, playArea, fillGrid, paletteMap)
 
 	// Collect liquid volumes (water + lava)
 	waterPalIdx := uint8(len(palette))
@@ -57,9 +72,17 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 	waterVoxels, lavaVoxels := CollectLiquidVoxels(gameMap.WorldRoot, worldSize, waterPalIdx, lavaPalIdx)
 	voxels = append(voxels, waterVoxels...)
 	voxels = append(voxels, lavaVoxels...)
-	log.Debug().Msgf("preview: %d voxels (%d water, %d lava)", len(voxels), len(waterVoxels), len(lavaVoxels))
+	log.Debug().Msgf("preview: %d voxels before simplification (%d water, %d lava)", len(voxels), len(waterVoxels), len(lavaVoxels))
 
-	gridSize := 1 << coordDepth
+	// 4. Simplify: error-driven octree collapse to target count.
+	// Preserves thin exposed features (bridges) while aggressively
+	// merging solid blocks and continuous surfaces.
+	const targetVoxelCount = 500000
+	if len(voxels) > targetVoxelCount {
+		voxels = SimplifyVoxels(voxels, targetVoxelCount)
+		log.Debug().Msgf("preview: %d voxels after simplification", len(voxels))
+	}
+
 	occGrid := BuildOccupancyGrid(voxels, gridSize)
 	ComputeAO(voxels, occGrid)
 
@@ -67,14 +90,8 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 	skyTop, skyHorizon := ExtractSkyboxColors(ctx, processor, gameMap.Vars)
 	ambient, sunlight := ExtractLightingColors(gameMap.Vars)
 
-	// 1. Focus on 90th percentile entity centroid
+	// 4. Focus on 90th percentile entity centroid
 	focusX, focusY, focusZ, focusRadius := computeFocus(entityPositions, worldSize, gridSize)
-
-	// 2. Flood fill for reachable volume
-	fillGrid := BuildFillGrid(voxels, gridSize)
-	AddBarriersFromOctree(fillGrid, gameMap.WorldRoot, worldSize)
-	reachable, _ := ComputeReachableVolume(fillGrid, entityPositions, worldSize)
-	log.Debug().Msgf("preview: %d reachable cells (fill grid %d³)", len(reachable), fillGrid.Size)
 
 	// 3. Find optimal flat clip plane and camera angle
 	clipY, cameraYaw, cameraPitch := findOptimalView(

@@ -5,17 +5,19 @@ import (
 )
 
 // Edge byte layout (from Sauerbraten):
-//   byte = (end << 4) | start
-//   start = byte & 0xF   (low coordinate, 0-8)
-//   end   = byte >> 4    (high coordinate, 0-8)
+//
+//	byte = (end << 4) | start
+//	start = byte & 0xF   (low coordinate, 0-8)
+//	end   = byte >> 4    (high coordinate, 0-8)
 //
 // 12 edges indexed as edges[dim*4 + y*2 + x]:
-//   X-axis (0-3), x=Y/8, y=Z/8:
-//     0: (Y=0, Z=0)  1: (Y=8, Z=0)  2: (Y=0, Z=8)  3: (Y=8, Z=8)
-//   Y-axis (4-7), x=Z/8, y=X/8:
-//     4: (X=0, Z=0)  5: (X=0, Z=8)  6: (X=8, Z=0)  7: (X=8, Z=8)
-//   Z-axis (8-11), x=X/8, y=Y/8:
-//     8: (X=0, Y=0)  9: (X=8, Y=0)  10: (X=0, Y=8)  11: (X=8, Y=8)
+//
+//	X-axis (0-3), x=Y/8, y=Z/8:
+//	  0: (Y=0, Z=0)  1: (Y=8, Z=0)  2: (Y=0, Z=8)  3: (Y=8, Z=8)
+//	Y-axis (4-7), x=Z/8, y=X/8:
+//	  4: (X=0, Z=0)  5: (X=0, Z=8)  6: (X=8, Z=0)  7: (X=8, Z=8)
+//	Z-axis (8-11), x=X/8, y=Y/8:
+//	  8: (X=0, Y=0)  9: (X=8, Y=0)  10: (X=0, Y=8)  11: (X=8, Y=8)
 
 func edgeStart(e byte) float64 { return float64(e & 0xF) }
 func edgeEnd(e byte) float64   { return float64(e >> 4) }
@@ -69,8 +71,7 @@ func doesSubCellIntersect(c *maps.Cube, xLo, xHi, yLo, yHi, zLo, zHi float64) bo
 		return false
 	}
 
-	// Y-axis: deformed Y range sampled at corners of (X, Z) sub-cell
-	// Note: edges[5]=(X=0,Z=8), edges[6]=(X=8,Z=0) — not the naive order
+	// Y-axis
 	minStart, maxEnd = 8.0, 0.0
 	for _, tx := range xTs {
 		for _, tz := range zTs {
@@ -90,7 +91,7 @@ func doesSubCellIntersect(c *maps.Cube, xLo, xHi, yLo, yHi, zLo, zHi float64) bo
 		return false
 	}
 
-	// Z-axis: deformed Z range sampled at corners of (X, Y) sub-cell
+	// Z-axis
 	minStart, maxEnd = 8.0, 0.0
 	for _, tx := range xTs {
 		for _, ty := range yTs {
@@ -113,22 +114,21 @@ func doesSubCellIntersect(c *maps.Cube, xLo, xHi, yLo, yHi, zLo, zHi float64) bo
 	return true
 }
 
-// emitDeformedCube subdivides a deformed cube and emits sub-cells that
-// intersect the deformed geometry volume. Uses a conservative overlap test
-// that never misses thin geometry (bridges, slabs, trim).
-func emitDeformedCube(c *maps.Cube, ox, oy, oz, depth, targetDepth, maxCoordDepth int, paletteMap map[uint16]uint8, voxels *[]Voxel) {
+// emitDeformedCube subdivides a deformed cube into sub-cells and emits those
+// that intersect the deformed geometry volume. Subdivision is capped at 1
+// level (2×2×2 = 8 sub-cells). The post-extraction simplifier (SimplifyVoxels)
+// handles further LOD reduction using error-driven octree collapse.
+func emitDeformedCube(c *maps.Cube, ox, oy, oz, depth, targetDepth, maxCoordDepth int, paletteMap map[uint16]uint8, grid *OccupancyGrid, voxels *[]Voxel) {
 	span := 1 << (maxCoordDepth - depth)
 	if span < 1 {
 		span = 1
 	}
 
-	// Subdivision depth from adaptive system, capped at 2 (4×4×4 = 64 max sub-cells).
 	subdiv := targetDepth - depth
-	if subdiv > 1 {
-		subdiv = 1
+	if subdiv > 3 {
+		subdiv = 3 // 8×8×8 matches Sauerbraten's edge resolution
 	}
 	if subdiv <= 0 {
-		// At target depth — emit as full voxel, no subdivision.
 		flags := classifyCube(c)
 		palIdx := dominantPaletteIndex(c, paletteMap)
 		sizeLog2 := maxCoordDepth - depth
@@ -158,7 +158,6 @@ func emitDeformedCube(c *maps.Cube, ox, oy, oz, depth, targetDepth, maxCoordDept
 	for dz := 0; dz < steps; dz++ {
 		for dy := 0; dy < steps; dy++ {
 			for dx := 0; dx < steps; dx++ {
-				// Sub-cell bounds in cube-local coords [0, 8]
 				xLo := float64(dx) * cubeStep
 				xHi := float64(dx+1) * cubeStep
 				yLo := float64(dy) * cubeStep

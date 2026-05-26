@@ -1,6 +1,6 @@
 sauerbraten_dir := "input/roots/sauerbraten"
 quadropolis_dir := "input/quadropolis"
-sour := "go run ../cmd/sour assets"
+sour := "go run ../cmd/sour --debug assets"
 quadropolis := "go run ../cmd/quadropolis"
 
 # Download Sauerbraten game data from SVN at a specific revision

@@ -42,16 +42,21 @@ func GenerateDebugReachable(ctx context.Context, roots []assets.Root, mapData []
 	worldSize := int(gameMap.Header.WorldSize)
 	entityPositions := extractDebugEntityPositions(gameMap.Entities)
 
-	voxels := ExtractVoxelsAdaptive(gameMap.WorldRoot, worldSize, entityPositions, paletteMap)
-
 	gridSize := 1 << coordDepth
+
+	fillGrid := BuildFillGridFromOctree(gameMap.WorldRoot, worldSize)
+	AddBarriersFromOctree(fillGrid, gameMap.WorldRoot, worldSize)
+	reachable, clipZ := ComputeReachableVolume(fillGrid, entityPositions, worldSize)
+
+	var playArea *PlayAreaGrid
+	if len(reachable) > 0 {
+		playArea = BuildPlayAreaGrid(reachable, fillGrid.Size, worldSize)
+	}
+
+	voxels := ExtractVoxelsAdaptive(gameMap.WorldRoot, worldSize, playArea, fillGrid, paletteMap)
+
 	occGrid := BuildOccupancyGrid(voxels, gridSize)
 	ComputeAO(voxels, occGrid)
-
-	fillGrid := BuildFillGrid(voxels, gridSize)
-	AddBarriersFromOctree(fillGrid, gameMap.WorldRoot, worldSize)
-
-	reachable, clipZ := ComputeReachableVolume(fillGrid, entityPositions, worldSize)
 	log.Info().Msgf("debug: %d reachable cells, clip Z=%d (fill grid %d³, shift=%d)", len(reachable), clipZ, fillGrid.Size, fillGrid.Shift)
 
 	greenIdx := uint8(len(palette))
