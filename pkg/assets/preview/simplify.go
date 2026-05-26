@@ -2,30 +2,59 @@ package preview
 
 import "container/heap"
 
-// SimplifyVoxels reduces a voxel set to at most targetCount voxels using
-// error-driven octree collapse, inspired by Garland & Heckbert (1997),
-// "Surface Simplification Using Quadric Error Metrics."
-//
-// The algorithm starts with the full-detail voxel set and iteratively merges
-// the cheapest octree sibling groups. Eight sibling voxels sharing a parent
-// position collapse into one voxel at double the size. The collapse error is
-// the number of empty child cells that become filled — a solid 2×2×2 block
-// (8/8 children) collapses for free (error=0), while a thin bridge slab
-// (1/8 children) has error=7 and is preserved until the very end.
-//
-// This gives a single tuning parameter (targetCount) that automatically
-// allocates detail to visually important features.
 type voxelKey struct {
 	x, y, z int
 	size    int
 }
 
-func SimplifyVoxels(voxels []Voxel, targetCount int) []Voxel {
+// SimplifyVoxels reduces a voxel set to at most targetCount voxels using
+// error-driven octree collapse, inspired by Garland & Heckbert (1997),
+// "Surface Simplification Using Quadric Error Metrics."
+//
+// The collapse error for merging 8 sibling voxels into one parent is:
+//
+//	error = emptyCells × parentSize² × proximityWeight
+//
+// This captures three key principles:
+//   - emptyCells: solid blocks (0 empty) merge for free; thin features (7 empty) are expensive
+//   - parentSize²: large blocks have proportionally more visual impact (screen-space area)
+//   - proximityWeight: play-area geometry is 10× more expensive to simplify
+//
+// The result: small, distant, solid merges happen first. Large, near, thin
+// features are preserved until the very end.
+func SimplifyVoxels(voxels []Voxel, targetCount int, playArea *PlayAreaGrid) []Voxel {
 	if len(voxels) <= targetCount {
 		return voxels
 	}
 
-	// Use a map from position to voxel for the live set.
+	// Maximum size of a merged block. Prevents cascading merges from
+	// creating absurdly large cubes that dominate the scene.
+	const maxMergeSize = 32
+
+	proximityWeight := func(x, y, z, size int) int {
+		if playArea == nil {
+			return 1
+		}
+		cx, cy, cz := x+size/2, y+size/2, z+size/2
+		if playArea.Get(cx, cy, cz) {
+			return 10
+		}
+		for _, corner := range [8][3]int{
+			{x, y, z}, {x + size, y, z}, {x, y + size, z}, {x + size, y + size, z},
+			{x, y, z + size}, {x + size, y, z + size}, {x, y + size, z + size}, {x + size, y + size, z + size},
+		} {
+			if playArea.Get(corner[0], corner[1], corner[2]) {
+				return 10
+			}
+		}
+		return 1
+	}
+
+	collapseError := func(emptyCount, parentSize, weight int) int {
+		return emptyCount * parentSize * parentSize * weight
+	}
+
+	// Build the live voxel set.
 	live := make(map[voxelKey]*Voxel, len(voxels))
 	for i := range voxels {
 		v := &voxels[i]
@@ -38,87 +67,85 @@ func SimplifyVoxels(voxels []Voxel, targetCount int) []Voxel {
 		return voxels
 	}
 
+	// Compute dominant palette index and flags for a group of children.
+	groupPalette := func(keys []voxelKey) (uint8, byte) {
+		palCounts := make(map[uint8]int)
+		var bestFlags byte
+		for _, ck := range keys {
+			v := live[ck]
+			palCounts[v.PaletteIndex]++
+			bestFlags = v.Flags
+		}
+		bestPal := uint8(0)
+		bestCount := 0
+		for p, c := range palCounts {
+			if c > bestCount {
+				bestCount = c
+				bestPal = p
+			}
+		}
+		return bestPal, bestFlags
+	}
+
+	// Build a collapse candidate for a parent position with given children.
+	makeCandidate := func(px, py, pz, parentSize int, children []voxelKey) *collapseCandidate {
+		if len(children) < 2 || parentSize > maxMergeSize {
+			return nil
+		}
+		// All children must be the same size
+		childSize := children[0].size
+		for _, c := range children {
+			if c.size != childSize {
+				return nil
+			}
+		}
+
+		emptyCount := 8 - len(children)
+		weight := proximityWeight(px, py, pz, parentSize)
+		palIdx, flags := groupPalette(children)
+
+		return &collapseCandidate{
+			parentX:    px,
+			parentY:    py,
+			parentZ:    pz,
+			parentSize: parentSize,
+			childKeys:  children,
+			error:      collapseError(emptyCount, parentSize, weight),
+			saved:      len(children) - 1,
+			palIdx:     palIdx,
+			flags:      flags,
+		}
+	}
+
 	// Build initial collapse candidates.
-	// A collapse merges all voxels that share a parent octree cell.
-	// Parent of (x, y, z, size) is at (x & ^(2*size-1), ..., 2*size).
+	type parentKey struct {
+		x, y, z int
+		size    int
+	}
+	groups := make(map[parentKey][]voxelKey)
+	for k := range live {
+		parentSize := k.size * 2
+		if parentSize > maxMergeSize {
+			continue
+		}
+		mask := ^(parentSize - 1)
+		pk := parentKey{k.x & mask, k.y & mask, k.z & mask, parentSize}
+		groups[pk] = append(groups[pk], k)
+	}
+
 	pq := &collapseHeap{}
 	heap.Init(pq)
-
-	buildCandidates := func() {
-		// Group voxels by parent position
-		type parentKey struct {
-			x, y, z int
-			size    int // parent size = child size * 2
-		}
-		groups := make(map[parentKey][]voxelKey)
-
-		for k := range live {
-			parentSize := k.size * 2
-			mask := ^(parentSize - 1)
-			pk := parentKey{k.x & mask, k.y & mask, k.z & mask, parentSize}
-			groups[pk] = append(groups[pk], k)
-		}
-
-		pq = &collapseHeap{}
-		for pk, children := range groups {
-			if len(children) < 2 {
-				continue // need at least 2 children to save voxels
-			}
-			// All children must be the same size
-			childSize := children[0].size
-			allSame := true
-			for _, c := range children {
-				if c.size != childSize {
-					allSame = false
-					break
-				}
-			}
-			if !allSame {
-				continue
-			}
-
-			// Collapse error = empty cells that get filled
-			emptyCount := 8 - len(children)
-			saved := len(children) - 1
-
-			// Pick the most common palette index among children
-			palCounts := make(map[uint8]int)
-			var bestFlags byte
-			for _, ck := range children {
-				v := live[ck]
-				palCounts[v.PaletteIndex]++
-				bestFlags = v.Flags
-			}
-			bestPal := uint8(0)
-			bestPalCount := 0
-			for p, c := range palCounts {
-				if c > bestPalCount {
-					bestPalCount = c
-					bestPal = p
-				}
-			}
-
-			cand := &collapseCandidate{
-				parentX:    pk.x,
-				parentY:    pk.y,
-				parentZ:    pk.z,
-				parentSize: pk.size,
-				childKeys:  children,
-				error:      emptyCount,
-				saved:      saved,
-				palIdx:     bestPal,
-				flags:      bestFlags,
-			}
+	for pk, children := range groups {
+		cand := makeCandidate(pk.x, pk.y, pk.z, pk.size, children)
+		if cand != nil {
 			heap.Push(pq, cand)
 		}
 	}
 
-	buildCandidates()
-
 	for count > targetCount && pq.Len() > 0 {
 		cand := heap.Pop(pq).(*collapseCandidate)
 
-		// Verify all children still exist (may have been collapsed already)
+		// Verify all children still exist
 		valid := true
 		for _, ck := range cand.childKeys {
 			if _, ok := live[ck]; !ok {
@@ -150,73 +177,42 @@ func SimplifyVoxels(voxels []Voxel, targetCount int) []Voxel {
 
 		pk := voxelKey{cand.parentX, cand.parentY, cand.parentZ, cand.parentSize}
 		live[pk] = parentVoxel
-
 		count -= cand.saved
 
 		// Check if the new parent can form a group with its siblings
 		grandparentSize := cand.parentSize * 2
-		mask := ^(grandparentSize - 1)
-		gpX, gpY, gpZ := cand.parentX&mask, cand.parentY&mask, cand.parentZ&mask
+		if grandparentSize <= maxMergeSize {
+			mask := ^(grandparentSize - 1)
+			gpX, gpY, gpZ := cand.parentX&mask, cand.parentY&mask, cand.parentZ&mask
 
-		// Find siblings of the new parent
-		var siblings []voxelKey
-		for dx := 0; dx < 2; dx++ {
-			for dy := 0; dy < 2; dy++ {
-				for dz := 0; dz < 2; dz++ {
-					sk := voxelKey{
-						gpX + dx*cand.parentSize,
-						gpY + dy*cand.parentSize,
-						gpZ + dz*cand.parentSize,
-						cand.parentSize,
-					}
-					if _, ok := live[sk]; ok {
-						siblings = append(siblings, sk)
+			var siblings []voxelKey
+			for dx := 0; dx < 2; dx++ {
+				for dy := 0; dy < 2; dy++ {
+					for dz := 0; dz < 2; dz++ {
+						sk := voxelKey{
+							gpX + dx*cand.parentSize,
+							gpY + dy*cand.parentSize,
+							gpZ + dz*cand.parentSize,
+							cand.parentSize,
+						}
+						if _, ok := live[sk]; ok {
+							siblings = append(siblings, sk)
+						}
 					}
 				}
 			}
-		}
 
-		if len(siblings) >= 2 {
-			emptyCount := 8 - len(siblings)
-			saved := len(siblings) - 1
-
-			palCounts := make(map[uint8]int)
-			var bestFlags byte
-			for _, sk := range siblings {
-				v := live[sk]
-				palCounts[v.PaletteIndex]++
-				bestFlags = v.Flags
+			newCand := makeCandidate(gpX, gpY, gpZ, grandparentSize, siblings)
+			if newCand != nil {
+				heap.Push(pq, newCand)
 			}
-			bestPal := uint8(0)
-			bestPalCount := 0
-			for p, c := range palCounts {
-				if c > bestPalCount {
-					bestPalCount = c
-					bestPal = p
-				}
-			}
-
-			newCand := &collapseCandidate{
-				parentX:    gpX,
-				parentY:    gpY,
-				parentZ:    gpZ,
-				parentSize: grandparentSize,
-				childKeys:  siblings,
-				error:      emptyCount,
-				saved:      saved,
-				palIdx:     bestPal,
-				flags:      bestFlags,
-			}
-			heap.Push(pq, newCand)
 		}
 	}
 
-	// Collect results
 	result := make([]Voxel, 0, len(live))
 	for _, v := range live {
 		result = append(result, *v)
 	}
-
 	return result
 }
 
@@ -225,15 +221,15 @@ type collapseCandidate struct {
 	parentX, parentY, parentZ int
 	parentSize                int
 	childKeys                 []voxelKey
-	error                     int // empty cells filled by merge (0-7)
-	saved                     int // voxels saved by merge (children - 1)
+	error                     int
+	saved                     int
 	palIdx                    uint8
 	flags                     byte
-	index                     int // heap index
+	index                     int
 }
 
-// collapseHeap is a min-heap of collapse candidates, ordered by error.
-// At equal error, prefer merges that save more voxels.
+// collapseHeap is a min-heap ordered by error (ascending),
+// then by saved (descending) to prefer more efficient merges.
 type collapseHeap []*collapseCandidate
 
 func (h collapseHeap) Len() int { return len(h) }
@@ -241,7 +237,7 @@ func (h collapseHeap) Less(i, j int) bool {
 	if h[i].error != h[j].error {
 		return h[i].error < h[j].error
 	}
-	return h[i].saved > h[j].saved // prefer saving more voxels at equal error
+	return h[i].saved > h[j].saved
 }
 func (h collapseHeap) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]

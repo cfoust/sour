@@ -77,9 +77,10 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 	// 4. Simplify: error-driven octree collapse to target count.
 	// Preserves thin exposed features (bridges) while aggressively
 	// merging solid blocks and continuous surfaces.
-	const targetVoxelCount = 500000
+	// 9 bytes per voxel in SVOX format; target ≤600KB files.
+	const targetVoxelCount = 65000
 	if len(voxels) > targetVoxelCount {
-		voxels = SimplifyVoxels(voxels, targetVoxelCount)
+		voxels = SimplifyVoxels(voxels, targetVoxelCount, playArea)
 		log.Debug().Msgf("preview: %d voxels after simplification", len(voxels))
 	}
 
