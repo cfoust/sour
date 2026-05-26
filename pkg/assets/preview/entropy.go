@@ -2,9 +2,11 @@ package preview
 
 import "math"
 
-// entropySampleRes is the ray grid resolution for viewpoint entropy.
-// 48×48 = 2304 rays per candidate angle — enough for stable estimates.
-const entropySampleRes = 48
+// Ray grid resolutions for coarse and fine entropy passes.
+const (
+	entropyCoarseRes = 24 // 24×24 = 576 rays — fast screening
+	entropyFineRes   = 32 // 32×32 = 1024 rays — refinement
+)
 
 // viewpointEntropy casts a grid of rays from a candidate camera position and
 // computes the Shannon entropy of the projected area distribution of visible
@@ -17,6 +19,7 @@ func viewpointEntropy(
 	focusX, focusY, focusZ float64,
 	solidLk *voxelLookup,
 	gridSize int,
+	sampleRes int,
 ) float64 {
 	fwd := normalize([3]float64{focusX - camX, focusY - camY, focusZ - camZ})
 	worldUp := [3]float64{0, 0, 1}
@@ -28,12 +31,12 @@ func viewpointEntropy(
 
 	counts := make(map[int]int)
 	totalHits := 0
-	totalRays := entropySampleRes * entropySampleRes
+	totalRays := sampleRes * sampleRes
 
-	for py := 0; py < entropySampleRes; py++ {
-		for px := 0; px < entropySampleRes; px++ {
-			u := (2.0*float64(px)/float64(entropySampleRes) - 1.0) * halfTan
-			v := (1.0 - 2.0*float64(py)/float64(entropySampleRes)) * halfTan
+	for py := 0; py < sampleRes; py++ {
+		for px := 0; px < sampleRes; px++ {
+			u := (2.0*float64(px)/float64(sampleRes) - 1.0) * halfTan
+			v := (1.0 - 2.0*float64(py)/float64(sampleRes)) * halfTan
 
 			dir := normalize([3]float64{
 				fwd[0] + right[0]*u + up[0]*v,

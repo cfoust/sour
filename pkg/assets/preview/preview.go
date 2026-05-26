@@ -190,10 +190,11 @@ func findOptimalView(
 	return
 }
 
-// findBestAngle searches candidate camera angles and picks the one that
-// maximizes viewpoint entropy — the Shannon entropy of the projected area
-// distribution of visible voxels (Vázquez et al. 2001).
-// Pitch range 15–60° covers everything from near-horizontal to steep overhead.
+// findBestAngle uses a two-phase entropy search to find the best camera angle.
+// Phase 1 (coarse): 15° yaw steps, 3 pitch values, low-res rays → fast screening.
+// Phase 2 (fine): ±10° yaw, ±5° pitch around the best coarse result, higher-res rays.
+// Pitch is constrained to 35–55° (the 3/4 isometric sweet spot) so different maps
+// get distinct yaw angles rather than all converging on steep overhead views.
 func findBestAngle(voxels []Voxel, gridSize, clipZ int, focusX, focusY, focusZ, radius float64) (uint16, uint16) {
 	solidLk, _ := buildLookupFromSlice(voxels, clipZ)
 
@@ -202,43 +203,61 @@ func findBestAngle(voxels []Voxel, gridSize, clipZ int, focusX, focusY, focusZ, 
 		entropy    float64
 	}
 
-	var candidates []candidate
-	for yawDeg := 0.0; yawDeg < 360; yawDeg += 5 {
-		for pitchDeg := 15.0; pitchDeg <= 60; pitchDeg += 5 {
-			candidates = append(candidates, candidate{yaw: yawDeg, pitch: pitchDeg})
+	evalCandidates := func(candidates []candidate, res int) {
+		var wg sync.WaitGroup
+		for i := range candidates {
+			wg.Add(1)
+			go func(idx int) {
+				defer wg.Done()
+				c := &candidates[idx]
+				yawRad := c.yaw * math.Pi / 180
+				pitchRad := c.pitch * math.Pi / 180
+				camX := focusX + math.Cos(pitchRad)*math.Cos(yawRad)*radius
+				camY := focusY + math.Cos(pitchRad)*math.Sin(yawRad)*radius
+				camZ := focusZ + math.Sin(pitchRad)*radius
+				c.entropy = viewpointEntropy(camX, camY, camZ, focusX, focusY, focusZ, solidLk, gridSize, res)
+			}(i)
+		}
+		wg.Wait()
+	}
+
+	bestOf := func(candidates []candidate) candidate {
+		best := candidates[0]
+		for _, c := range candidates[1:] {
+			if c.entropy > best.entropy {
+				best = c
+			}
+		}
+		return best
+	}
+
+	// Phase 1: coarse scan — 24 yaw × 3 pitch = 72 candidates, 24×24 rays
+	var coarse []candidate
+	for yawDeg := 0.0; yawDeg < 360; yawDeg += 15 {
+		for _, pitchDeg := range []float64{35, 45, 55} {
+			coarse = append(coarse, candidate{yaw: yawDeg, pitch: pitchDeg})
 		}
 	}
+	evalCandidates(coarse, entropyCoarseRes)
+	best := bestOf(coarse)
 
-	var wg sync.WaitGroup
-	for i := range candidates {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			c := &candidates[idx]
-			yawRad := c.yaw * math.Pi / 180
-			pitchRad := c.pitch * math.Pi / 180
-
-			camX := focusX + math.Cos(pitchRad)*math.Cos(yawRad)*radius
-			camY := focusY + math.Cos(pitchRad)*math.Sin(yawRad)*radius
-			camZ := focusZ + math.Sin(pitchRad)*radius
-
-			c.entropy = viewpointEntropy(camX, camY, camZ, focusX, focusY, focusZ, solidLk, gridSize)
-		}(i)
-	}
-	wg.Wait()
-
-	bestYaw, bestPitch := 0.0, 35.0
-	bestEntropy := -1.0
-	for _, c := range candidates {
-		if c.entropy > bestEntropy {
-			bestEntropy = c.entropy
-			bestYaw = c.yaw
-			bestPitch = c.pitch
+	// Phase 2: refine — ±10° yaw in 5° steps, ±5° pitch in 5° steps, 32×32 rays
+	var fine []candidate
+	for yawOff := -10.0; yawOff <= 10; yawOff += 5 {
+		for pitchOff := -5.0; pitchOff <= 5; pitchOff += 5 {
+			yaw := math.Mod(best.yaw+yawOff+360, 360)
+			pitch := best.pitch + pitchOff
+			if pitch < 30 || pitch > 55 {
+				continue
+			}
+			fine = append(fine, candidate{yaw: yaw, pitch: pitch})
 		}
 	}
+	evalCandidates(fine, entropyFineRes)
+	best = bestOf(fine)
 
-	log.Debug().Msgf("preview: best angle yaw=%.0f pitch=%.0f entropy=%.2f", bestYaw, bestPitch, bestEntropy)
-	return uint16(bestYaw * 10), uint16(bestPitch * 10)
+	log.Debug().Msgf("preview: best angle yaw=%.0f pitch=%.0f entropy=%.2f", best.yaw, best.pitch, best.entropy)
+	return uint16(best.yaw * 10), uint16(best.pitch * 10)
 }
 
 func computeFocus(positions []worldPos, worldSize, gridSize int) (uint16, uint16, uint16, uint16) {
