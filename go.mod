@@ -42,9 +42,10 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/mod v0.21.0 // indirect
+	golang.org/x/image v0.41.0 // indirect
+	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/net v0.30.0 // indirect
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/term v0.28.0 // indirect
-	golang.org/x/text v0.19.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 )

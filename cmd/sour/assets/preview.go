@@ -85,27 +85,20 @@ func (cmd *PreviewCmd) run(ctx context.Context, roots []pkgassets.Root) error {
 			continue
 		}
 
-		// Generate SVOX
-		svoxData, err := preview.Generate(ctx, roots, mapData, ogzFile)
+		result, err := preview.Generate(ctx, roots, mapData, ogzFile)
 		if err != nil {
 			log.Warn().Err(err).Msgf("failed to generate preview for %s", name)
 			continue
 		}
 
-		// Write .svox
+		// Write simplified .svox for web viewer
 		svoxPath := filepath.Join(cmd.Outdir, name+".svox")
-		if err := os.WriteFile(svoxPath, svoxData, 0644); err != nil {
+		if err := os.WriteFile(svoxPath, result.SVOX, 0644); err != nil {
 			return fmt.Errorf("writing %s: %w", svoxPath, err)
 		}
 
-		// Render still
-		prev, err := preview.Decode(svoxData)
-		if err != nil {
-			log.Warn().Err(err).Msgf("failed to decode preview for %s", name)
-			continue
-		}
-
-		img := preview.RenderPreview(prev, 1024, 1024)
+		// Render still from full-detail preview
+		img := preview.RenderPreview(result.Full, 1024, 1024)
 		jpgPath := filepath.Join(cmd.Outdir, name+".jpg")
 		f, err := os.Create(jpgPath)
 		if err != nil {
@@ -117,8 +110,15 @@ func (cmd *PreviewCmd) run(ctx context.Context, roots []pkgassets.Root) error {
 		}
 		f.Close()
 
-		log.Info().Msgf("preview: %s (%d bytes svox, %s)",
-			name, len(svoxData), humanSize(jpgPath))
+		// Render animated GIF
+		gifData := preview.RenderGIF(result.Full, 256, 256)
+		gifPath := filepath.Join(cmd.Outdir, name+".gif")
+		if err := os.WriteFile(gifPath, gifData, 0644); err != nil {
+			return fmt.Errorf("writing %s: %w", gifPath, err)
+		}
+
+		log.Info().Msgf("preview: %s (%d bytes svox, %s, %s)",
+			name, len(result.SVOX), humanSize(jpgPath), humanSize(gifPath))
 		built++
 	}
 

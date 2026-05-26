@@ -16,7 +16,16 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile string) ([]byte, error) {
+// GenerateResult holds both the full-detail preview (for rendering stills/GIFs)
+// and the simplified SVOX bytes (for the web viewer).
+type GenerateResult struct {
+	// Full is the full-detail preview, used for rendering stills and GIFs.
+	Full *MapPreview
+	// SVOX is the simplified preview encoded as SVOX bytes for the web viewer.
+	SVOX []byte
+}
+
+func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile string) (*GenerateResult, error) {
 	gameMap, err := maps.FromGZ(mapData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse map: %w", err)
@@ -72,17 +81,7 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 	waterVoxels, lavaVoxels := CollectLiquidVoxels(gameMap.WorldRoot, worldSize, waterPalIdx, lavaPalIdx)
 	voxels = append(voxels, waterVoxels...)
 	voxels = append(voxels, lavaVoxels...)
-	log.Debug().Msgf("preview: %d voxels before simplification (%d water, %d lava)", len(voxels), len(waterVoxels), len(lavaVoxels))
-
-	// 4. Simplify: error-driven octree collapse to target count.
-	// Preserves thin exposed features (bridges) while aggressively
-	// merging solid blocks and continuous surfaces.
-	// 9 bytes per voxel in SVOX format; target ≤600KB files.
-	const targetVoxelCount = 65000
-	if len(voxels) > targetVoxelCount {
-		voxels = SimplifyVoxels(voxels, targetVoxelCount, playArea)
-		log.Debug().Msgf("preview: %d voxels after simplification", len(voxels))
-	}
+	log.Debug().Msgf("preview: %d voxels (%d water, %d lava)", len(voxels), len(waterVoxels), len(lavaVoxels))
 
 	occGrid := BuildOccupancyGrid(voxels, gridSize)
 	ComputeAO(voxels, occGrid)
@@ -102,27 +101,45 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 	// Convert clipY from fill grid Z to coord grid Z
 	clipYCoord := uint16(clipY << fillGrid.Shift)
 
-	preview := &MapPreview{
-		MaxDepth:    coordDepth,
-		GridSize:    uint16(gridSize),
-		WorldSize:   uint32(worldSize),
-		Palette:     palette,
-		Voxels:      voxels,
-		Entities:    entities,
-		SkyTop:      skyTop,
-		SkyHorizon:  skyHorizon,
-		Ambient:     ambient,
-		Sunlight:    sunlight,
-		FocusX:      focusX,
-		FocusY:      focusY,
-		FocusZ:      focusZ,
-		FocusRadius: focusRadius,
-		CameraYaw:   cameraYaw,
-		CameraPitch: cameraPitch,
-		ClipY:       clipYCoord,
+	makePreview := func(v []Voxel) *MapPreview {
+		return &MapPreview{
+			MaxDepth:    coordDepth,
+			GridSize:    uint16(gridSize),
+			WorldSize:   uint32(worldSize),
+			Palette:     palette,
+			Voxels:      v,
+			Entities:    entities,
+			SkyTop:      skyTop,
+			SkyHorizon:  skyHorizon,
+			Ambient:     ambient,
+			Sunlight:    sunlight,
+			FocusX:      focusX,
+			FocusY:      focusY,
+			FocusZ:      focusZ,
+			FocusRadius: focusRadius,
+			CameraYaw:   cameraYaw,
+			CameraPitch: cameraPitch,
+			ClipY:       clipYCoord,
+		}
 	}
 
-	return Encode(preview)
+	// Full-detail preview for rendering stills and GIFs
+	full := makePreview(voxels)
+
+	// Simplified preview for the SVOX web viewer (≤600KB)
+	const targetVoxelCount = 65000
+	svoxVoxels := voxels
+	if len(voxels) > targetVoxelCount {
+		svoxVoxels = SimplifyVoxels(voxels, targetVoxelCount, playArea)
+		log.Debug().Msgf("preview: %d voxels after simplification (SVOX)", len(svoxVoxels))
+	}
+	svoxPreview := makePreview(svoxVoxels)
+	svoxBytes, err := Encode(svoxPreview)
+	if err != nil {
+		return nil, fmt.Errorf("encoding SVOX: %w", err)
+	}
+
+	return &GenerateResult{Full: full, SVOX: svoxBytes}, nil
 }
 
 // findOptimalView computes the best clip plane and camera angle.

@@ -409,7 +409,7 @@ func (p *Packager) buildPreview(ctx context.Context, params BuildParams, mapFile
 		return
 	}
 
-	svoxData, err := preview.Generate(ctx, params.Roots, mapData, mapFile)
+	result, err := preview.Generate(ctx, params.Roots, mapData, mapFile)
 	if err != nil {
 		log.Warn().Err(err).Msgf("preview: failed to generate for %s", name)
 		return
@@ -418,33 +418,36 @@ func (p *Packager) buildPreview(ctx context.Context, params BuildParams, mapFile
 	previewDir := filepath.Join(p.Outdir, "previews")
 	os.MkdirAll(previewDir, 0755)
 
+	// Write simplified SVOX for web viewer
 	svoxPath := filepath.Join(previewDir, name+".svox")
-	if err := os.WriteFile(svoxPath, svoxData, 0644); err != nil {
+	if err := os.WriteFile(svoxPath, result.SVOX, 0644); err != nil {
 		log.Warn().Err(err).Msgf("preview: failed to write svox for %s", name)
 		return
 	}
 
-	prev, err := preview.Decode(svoxData)
-	if err != nil {
-		log.Warn().Err(err).Msgf("preview: failed to decode svox for %s", name)
-		return
-	}
-
-	// RenderPreview uses the GPU render service if started, otherwise software
-	img := preview.RenderPreview(prev, 1024, 1024)
+	// Render still from full-detail preview
+	img := preview.RenderPreview(result.Full, 1024, 1024)
 	jpgPath := filepath.Join(previewDir, name+".jpg")
 	f, err := os.Create(jpgPath)
 	if err != nil {
 		log.Warn().Err(err).Msgf("preview: failed to create jpg for %s", name)
 		return
 	}
-	defer f.Close()
 	if err := jpeg.Encode(f, img, &jpeg.Options{Quality: 85}); err != nil {
+		f.Close()
 		log.Warn().Err(err).Msgf("preview: failed to encode jpg for %s", name)
 		return
 	}
+	f.Close()
 
-	log.Info().Msgf("preview: %s (%d bytes svox)", name, len(svoxData))
+	// Render animated GIF (256×256, full orbit)
+	gifData := preview.RenderGIF(result.Full, 256, 256)
+	gifPath := filepath.Join(previewDir, name+".gif")
+	if err := os.WriteFile(gifPath, gifData, 0644); err != nil {
+		log.Warn().Err(err).Msgf("preview: failed to write gif for %s", name)
+	}
+
+	log.Info().Msgf("preview: %s (%d bytes svox)", name, len(result.SVOX))
 }
 
 // DumpIndex serializes the packager state to a CBOR .index.source file.
