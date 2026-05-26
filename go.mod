@@ -11,7 +11,7 @@ require (
 	github.com/go-redis/redis/v9 v9.0.0-rc.2
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mileusna/useragent v1.2.1
-	github.com/petermattis/goid v0.0.0-20241025130422-66cb2e6d7274
+	github.com/petermattis/goid v0.0.0-20260330135022-df67b199bc81
 	github.com/repeale/fp-go v0.11.1
 	github.com/rs/zerolog v1.28.0
 	github.com/sasha-s/go-deadlock v0.3.5
@@ -30,6 +30,9 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/go-gl/gl v0.0.0-20260331235117-4566fea9a276 // indirect
+	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20260406072232-3ac4aa2bb164 // indirect
+	github.com/go-gl/mathgl v1.2.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect

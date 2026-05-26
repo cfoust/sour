@@ -98,7 +98,7 @@ export type AssetIndex = {
 
 export type SlimIndex = {
   mods: GameMod[]
-  maps: Array<[name: string, id: string]>
+  maps: Array<[name: string, id: string, sourceBase: string]>
 }
 
 export enum LoadStateType {

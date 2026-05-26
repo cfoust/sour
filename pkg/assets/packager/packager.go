@@ -3,6 +3,7 @@ package packager
 import (
 	"context"
 	"fmt"
+	"image/jpeg"
 	"os"
 	"path"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cfoust/sour/pkg/assets"
+	"github.com/cfoust/sour/pkg/assets/preview"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/rs/zerolog/log"
@@ -382,6 +384,63 @@ func (p *Packager) BuildMap(ctx context.Context, params BuildParams, mapFile, na
 
 	p.Maps = append(p.Maps, gameMap)
 	return &gameMap, nil
+}
+
+// buildPreview generates a .svox and .jpg preview for a map.
+// Files are written as {bundleHash}.svox and {bundleHash}.jpg.
+// Failures are logged as warnings — previews are non-essential.
+func (p *Packager) buildPreview(ctx context.Context, params BuildParams, mapFile, name string) {
+	var mapData []byte
+	for _, root := range params.Roots {
+		if root.Exists(ctx, mapFile) {
+			data, err := root.ReadFile(ctx, mapFile)
+			if err == nil {
+				mapData = data
+				break
+			}
+		}
+	}
+	if mapData == nil {
+		log.Debug().Msgf("preview: could not read %s", mapFile)
+		return
+	}
+
+	svoxData, err := preview.Generate(ctx, params.Roots, mapData, mapFile)
+	if err != nil {
+		log.Warn().Err(err).Msgf("preview: failed to generate for %s", name)
+		return
+	}
+
+	previewDir := filepath.Join(p.Outdir, "previews")
+	os.MkdirAll(previewDir, 0755)
+
+	svoxPath := filepath.Join(previewDir, name+".svox")
+	if err := os.WriteFile(svoxPath, svoxData, 0644); err != nil {
+		log.Warn().Err(err).Msgf("preview: failed to write svox for %s", name)
+		return
+	}
+
+	prev, err := preview.Decode(svoxData)
+	if err != nil {
+		log.Warn().Err(err).Msgf("preview: failed to decode svox for %s", name)
+		return
+	}
+
+	// RenderPreview uses the GPU render service if started, otherwise software
+	img := preview.RenderPreview(prev, 1024, 1024)
+	jpgPath := filepath.Join(previewDir, name+".jpg")
+	f, err := os.Create(jpgPath)
+	if err != nil {
+		log.Warn().Err(err).Msgf("preview: failed to create jpg for %s", name)
+		return
+	}
+	defer f.Close()
+	if err := jpeg.Encode(f, img, &jpeg.Options{Quality: 85}); err != nil {
+		log.Warn().Err(err).Msgf("preview: failed to encode jpg for %s", name)
+		return
+	}
+
+	log.Info().Msgf("preview: %s (%d bytes svox)", name, len(svoxData))
 }
 
 // DumpIndex serializes the packager state to a CBOR .index.source file.

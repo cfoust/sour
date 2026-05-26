@@ -1,6 +1,7 @@
 import * as React from 'react'
 import styled from '@emotion/styled'
 import { t } from './theme'
+import { usePreviewStill } from '../preview/urls'
 
 const Wrapper = styled.div`
   position: absolute;
@@ -48,8 +49,10 @@ type Props = {
 
 export default function MapThumb({ imageUrl, name }: Props) {
   const [failed, setFailed] = React.useState(false)
+  const stillUrl = usePreviewStill(name)
+  const src = stillUrl || imageUrl
 
-  if (!imageUrl || failed) {
+  if (!src || failed) {
     return (
       <Missing>
         <Stripes />
@@ -61,7 +64,7 @@ export default function MapThumb({ imageUrl, name }: Props) {
   return (
     <Wrapper>
       <Img
-        src={imageUrl}
+        src={src}
         alt={name}
         loading="lazy"
         onError={() => setFailed(true)}

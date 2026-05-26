@@ -26,6 +26,8 @@ import * as log from '../logging'
 
 import type { GameState } from '../types'
 import { GameStateType, DownloadingType } from '../types'
+import { registerMapSources } from '../preview/urls'
+import { CONFIG } from '../config'
 
 import type { PromiseSet } from '../utils'
 import { breakPromise, BROWSER } from '../utils'
@@ -494,7 +496,6 @@ export default function useAssets(
     worker.onmessage = (evt) => {
       const { data } = evt
       const message: Response = data
-
       if (message.op === AssetResponseType.State) {
         const { overall, type } = message
 
@@ -556,12 +557,18 @@ export default function useAssets(
           if (result.type === ResultType.Index) {
             const { index } = result
             indexRef.current = index
-
             const lookup: ModLookup = {}
             for (const mod of index.mods) {
               lookup[mod.id] = mod
             }
             modLookupRef.current = lookup
+
+            // Build map→source lookup for preview URLs
+            const mapSources: Record<string, string> = {}
+            for (const [name, , sourceBase] of index.maps) {
+              if (!mapSources[name]) mapSources[name] = sourceBase
+            }
+            registerMapSources(mapSources)
 
             resolve(null)
             return
@@ -586,6 +593,14 @@ export default function useAssets(
     }
 
     assetWorkerRef.current = worker
+
+    // Load asset index immediately so the menu has map→source data
+    // for preview URLs before the game/WASM starts.
+    const envRequest = addRequest('environment')
+    worker.postMessage({
+      op: AssetRequestType.Environment,
+      assetSources: CONFIG.assets,
+    })
   }, [])
 
   React.useEffect(() => {

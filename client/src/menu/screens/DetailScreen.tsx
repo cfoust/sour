@@ -7,6 +7,9 @@ import MapThumb from '../MapThumb'
 import ModePill from '../ModePill'
 import MapCard from '../MapCard'
 import type { BrowseMapEntry } from '../../catalog/types'
+import { usePreviewSvox } from '../../preview/urls'
+
+const VoxelViewer = React.lazy(() => import('../../preview/VoxelViewer'))
 
 const Wrap = styled.div`
   display: flex;
@@ -316,6 +319,7 @@ type Props = {
 }
 
 export default function DetailScreen({ map, allMaps, onBack, onPlay, onOpenAuthor, onOpenMap }: Props) {
+  const svoxUrl = usePreviewSvox(map.name)
   const year = yearFromDate(map.date)
   const [first, rest] = splitName(map.name)
 
@@ -331,11 +335,22 @@ export default function DetailScreen({ map, allMaps, onBack, onPlay, onOpenAutho
       </BackBar>
 
       <HeroImg>
-        {map.imageUrl ? (
-          <HeroImage src={map.imageUrl} alt={map.name} />
-        ) : (
-          <HeroLabel>{map.name}.ogz</HeroLabel>
-        )}
+        {(() => {
+          if (svoxUrl) {
+            return (
+              <React.Suspense fallback={
+                map.imageUrl ? <HeroImage src={map.imageUrl} alt={map.name} /> : <HeroLabel>{map.name}.ogz</HeroLabel>
+              }>
+                <VoxelViewer svoxUrl={svoxUrl} showClipSlider />
+              </React.Suspense>
+            )
+          }
+          return map.imageUrl ? (
+            <HeroImage src={map.imageUrl} alt={map.name} />
+          ) : (
+            <HeroLabel>{map.name}.ogz</HeroLabel>
+          )
+        })()}
         <HeroOverlay />
         <HeroStamps>
           <span>{map.name.toUpperCase()}</span>

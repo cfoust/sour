@@ -614,13 +614,23 @@ async function processRequest(
   }
 }
 
+function assetBaseUrl(source: string): string {
+  let s = source.startsWith('!') ? source.slice(1) : source
+  const lastSlash = s.lastIndexOf('/')
+  return lastSlash >= 0 ? s.slice(0, lastSlash + 1) : s
+}
+
 function slimifyIndex(index: AssetIndex): SlimIndex {
+  const maps: Array<[string, string, string]> = []
+  for (const source of index.sources) {
+    const base = assetBaseUrl(source.source)
+    for (const map of source.maps) {
+      maps.push([map.name, map.id, base])
+    }
+  }
   return {
     mods: R.chain((source) => source.mods, index.sources),
-    maps: R.map(
-      ({ name, id }: GameMap) => [name, id],
-      R.chain((source) => source.maps, index.sources)
-    ),
+    maps,
   }
 }
 

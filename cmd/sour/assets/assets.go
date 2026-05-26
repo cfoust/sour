@@ -6,6 +6,7 @@ import (
 
 	pkgassets "github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/assets/packager"
+	"github.com/cfoust/sour/pkg/assets/preview"
 )
 
 // Cmd is the top-level subcommand for asset operations.
@@ -13,9 +14,10 @@ type Cmd struct {
 	Root  []string `help:"Asset source roots." name:"root" short:"r"`
 	Cache string   `help:"Cache directory." default:"cache/"`
 
-	Bundle BundleCmd `cmd:"" help:"Build assets from a YAML manifest."`
-	Index  IndexCmd  `cmd:"" help:"Index a directory into a raw .index.source."`
-	Info   InfoCmd   `cmd:"" help:"Inspect assets, roots, and indexes."`
+	Bundle  BundleCmd  `cmd:"" help:"Build assets from a YAML manifest."`
+	Index   IndexCmd   `cmd:"" help:"Index a directory into a raw .index.source."`
+	Info    InfoCmd    `cmd:"" help:"Inspect assets, roots, and indexes."`
+	Preview PreviewCmd `cmd:"" help:"Generate map previews (.svox + .jpg)."`
 }
 
 func (cmd *Cmd) LoadRoots() (context.Context, []pkgassets.Root, pkgassets.Store, error) {
@@ -54,5 +56,16 @@ func (cmd *BundleCmd) Run(parent *Cmd) error {
 	}
 	cache := pkgassets.FSStore(parent.Cache)
 	os.MkdirAll(parent.Cache, 0755)
-	return packager.RunManifest(context.Background(), manifest, cmd.Root, cache)
+
+	// Start GPU render service for preview generation.
+	// Poll() blocks on main thread (macOS GL requirement),
+	// so we run the build in a background goroutine.
+	preview.NewRenderService()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- packager.RunManifest(context.Background(), manifest, cmd.Root, cache)
+		preview.Shutdown()
+	}()
+	preview.Poll(1024, 1024)
+	return <-errCh
 }
