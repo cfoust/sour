@@ -33,8 +33,6 @@ import type { PromiseSet } from '../utils'
 import { breakPromise, BROWSER } from '../utils'
 import { getModImage } from './utils'
 
-import { CONFIG } from '../config'
-
 enum NodeType {
   Game,
   Map,
