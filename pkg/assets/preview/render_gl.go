@@ -330,6 +330,10 @@ func (r *GLRenderer) RenderGL(p *MapPreview) *image.RGBA {
 		if v.PaletteIndex == 0 {
 			continue
 		}
+		mat := v.Flags & 0x1c
+		if mat == FlagClip || mat == FlagDeath {
+			continue
+		}
 
 		size := float32(v.Size())
 		halfSize := (size - 1) * 0.5
@@ -339,8 +343,6 @@ func (r *GLRenderer) RenderGL(p *MapPreview) *image.RGBA {
 			float32(v.Z) + halfSize,
 			float32(v.Y) + halfSize,
 		}
-
-		mat := v.Flags & 0x1c
 		if mat == FlagWater {
 			waterInstances = append(waterInstances, glInstance{
 				offset: off, scale: [3]float32{size, size, size},

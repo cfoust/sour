@@ -6,6 +6,7 @@ import (
 	"math"
 	"path/filepath"
 	"sort"
+	"sync"
 
 	C "github.com/cfoust/sour/pkg/game/constants"
 	"github.com/cfoust/sour/pkg/assets"
@@ -77,7 +78,7 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 
 	// 3. Find optimal flat clip plane and camera angle
 	clipY, cameraYaw, cameraPitch := findOptimalView(
-		fillGrid, reachable, entityPositions, worldSize,
+		fillGrid, reachable, voxels, gridSize,
 		float64(focusX), float64(focusY), float64(focusZ), float64(focusRadius),
 	)
 	// Convert clipY from fill grid Z to coord grid Z
@@ -107,29 +108,33 @@ func Generate(ctx context.Context, roots []assets.Root, mapData []byte, mapFile 
 }
 
 // findOptimalView computes the best clip plane and camera angle.
-// If >50% of the play area is occluded from above, it searches for the
-// clip height that maximizes visible reachable cells. Otherwise no clip.
+// Uses a visual grid (excluding clip/death material) for occlusion checks,
+// and viewpoint entropy (Vázquez et al. 2001) for angle selection.
 func findOptimalView(
-	grid *OccupancyGrid,
+	fillGrid *OccupancyGrid,
 	reachable map[gridPos]bool,
-	entityPositions []worldPos,
-	worldSize int,
+	voxels []Voxel,
+	gridSize int,
 	focusX, focusY, focusZ, focusRadius float64,
 ) (clipZ int, yaw uint16, pitch uint16) {
-	gridMax := grid.Size
+	gridMax := fillGrid.Size
 	clipZ = gridMax // default: no clip
 
 	if len(reachable) == 0 {
-		yaw, pitch = findBestAngle(grid, reachable, gridMax, focusX, focusY, focusZ, focusRadius)
+		clipZCoord := gridSize
+		yaw, pitch = findBestAngle(voxels, gridSize, clipZCoord, focusX, focusY, focusZ, focusRadius)
 		return
 	}
 
-	// Count how many reachable cells are occluded from directly above
+	// Build visual grid excluding invisible materials for occlusion check
+	visualGrid := BuildVisualGrid(voxels, gridSize)
+
+	// Count how many reachable cells are visually occluded from above
 	occluded := 0
 	total := len(reachable)
 	for p := range reachable {
 		for z := p.Z + 1; z < gridMax; z++ {
-			if grid.Get(p.X, p.Y, z) {
+			if visualGrid.Get(p.X, p.Y, z) {
 				occluded++
 				break
 			}
@@ -140,8 +145,6 @@ func findOptimalView(
 	log.Debug().Msgf("preview: %.0f%% of play area occluded from above", occlusionPct*100)
 
 	if occlusionPct > 0.5 {
-		// Search for the clip height that maximizes visible play area.
-		// Scan Z levels in discrete steps through the reachable range.
 		zMin, zMax := gridMax, 0
 		for p := range reachable {
 			if p.Z < zMin {
@@ -155,16 +158,15 @@ func findOptimalView(
 		bestVisible := 0
 		bestClip := gridMax
 
-		// Try each Z level from just above the play area down to mid-play area
 		for testZ := zMax + 3; testZ >= zMin; testZ-- {
 			visible := 0
 			for p := range reachable {
 				if p.Z > testZ {
-					continue // this reachable cell is above the clip
+					continue
 				}
 				blocked := false
 				for z := p.Z + 1; z <= testZ; z++ {
-					if grid.Get(p.X, p.Y, z) {
+					if visualGrid.Get(p.X, p.Y, z) {
 						blocked = true
 						break
 					}
@@ -183,32 +185,59 @@ func findOptimalView(
 		log.Debug().Msgf("preview: optimal clip Z=%d reveals %d/%d reachable cells", clipZ, bestVisible, total)
 	}
 
-	yaw, pitch = findBestAngle(grid, reachable, clipZ, focusX, focusY, focusZ, focusRadius)
+	clipZCoord := clipZ << fillGrid.Shift
+	yaw, pitch = findBestAngle(voxels, gridSize, clipZCoord, focusX, focusY, focusZ, focusRadius)
 	return
 }
 
-func findBestAngle(grid *OccupancyGrid, reachable map[gridPos]bool, clipZ int, focusX, focusY, focusZ, radius float64) (uint16, uint16) {
-	bestYaw, bestPitch := 0.0, 45.0
-	bestScore := math.MaxInt32
+// findBestAngle searches candidate camera angles and picks the one that
+// maximizes viewpoint entropy — the Shannon entropy of the projected area
+// distribution of visible voxels (Vázquez et al. 2001).
+// Pitch range 15–60° covers everything from near-horizontal to steep overhead.
+func findBestAngle(voxels []Voxel, gridSize, clipZ int, focusX, focusY, focusZ, radius float64) (uint16, uint16) {
+	solidLk, _ := buildLookupFromSlice(voxels, clipZ)
 
+	type candidate struct {
+		yaw, pitch float64
+		entropy    float64
+	}
+
+	var candidates []candidate
 	for yawDeg := 0.0; yawDeg < 360; yawDeg += 5 {
-		for _, pitchDeg := range []float64{45, 50, 55} {
-			yawRad := yawDeg * math.Pi / 180
-			pitchRad := pitchDeg * math.Pi / 180
+		for pitchDeg := 15.0; pitchDeg <= 60; pitchDeg += 5 {
+			candidates = append(candidates, candidate{yaw: yawDeg, pitch: pitchDeg})
+		}
+	}
+
+	var wg sync.WaitGroup
+	for i := range candidates {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			c := &candidates[idx]
+			yawRad := c.yaw * math.Pi / 180
+			pitchRad := c.pitch * math.Pi / 180
 
 			camX := focusX + math.Cos(pitchRad)*math.Cos(yawRad)*radius
 			camY := focusY + math.Cos(pitchRad)*math.Sin(yawRad)*radius
 			camZ := focusZ + math.Sin(pitchRad)*radius
 
-			score := ScoreCameraAngleWithReachable(grid, reachable, clipZ, camX, camY, camZ, focusX, focusY, focusZ)
-			if score < bestScore {
-				bestScore = score
-				bestYaw = yawDeg
-				bestPitch = pitchDeg
-			}
+			c.entropy = viewpointEntropy(camX, camY, camZ, focusX, focusY, focusZ, solidLk, gridSize)
+		}(i)
+	}
+	wg.Wait()
+
+	bestYaw, bestPitch := 0.0, 35.0
+	bestEntropy := -1.0
+	for _, c := range candidates {
+		if c.entropy > bestEntropy {
+			bestEntropy = c.entropy
+			bestYaw = c.yaw
+			bestPitch = c.pitch
 		}
 	}
 
+	log.Debug().Msgf("preview: best angle yaw=%.0f pitch=%.0f entropy=%.2f", bestYaw, bestPitch, bestEntropy)
 	return uint16(bestYaw * 10), uint16(bestPitch * 10)
 }
 

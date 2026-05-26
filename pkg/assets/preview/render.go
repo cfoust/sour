@@ -20,25 +20,28 @@ type voxelLookup struct {
 	sizes   []int // cached sizes per voxel
 }
 
-func buildLookup(p *MapPreview, clipZ int, focusX, focusY, focusZ, radius float64) (*voxelLookup, *voxelLookup) {
+func buildLookupFromSlice(voxels []Voxel, clipZ int) (*voxelLookup, *voxelLookup) {
 	solid := &voxelLookup{
-		entries: make(map[[3]int32]int, len(p.Voxels)),
-		sizes:   make([]int, len(p.Voxels)),
+		entries: make(map[[3]int32]int, len(voxels)),
+		sizes:   make([]int, len(voxels)),
 	}
 	liquid := &voxelLookup{
 		entries: make(map[[3]int32]int),
-		sizes:   make([]int, len(p.Voxels)),
+		sizes:   make([]int, len(voxels)),
 	}
-	for i := range p.Voxels {
-		v := &p.Voxels[i]
+	for i := range voxels {
+		v := &voxels[i]
 		if int(v.Z) >= clipZ {
 			continue
 		}
-		size := v.Size()
 		if v.PaletteIndex == 0 {
 			continue
 		}
 		mat := v.Flags & 0x1c
+		if mat == FlagClip || mat == FlagDeath {
+			continue
+		}
+		size := v.Size()
 		if mat == FlagWater || mat == FlagLava {
 			liquid.sizes[i] = size
 			liquid.entries[[3]int32{int32(v.X), int32(v.Y), int32(v.Z)}] = i + 1
@@ -48,6 +51,10 @@ func buildLookup(p *MapPreview, clipZ int, focusX, focusY, focusZ, radius float6
 		}
 	}
 	return solid, liquid
+}
+
+func buildLookup(p *MapPreview, clipZ int, focusX, focusY, focusZ, radius float64) (*voxelLookup, *voxelLookup) {
+	return buildLookupFromSlice(p.Voxels, clipZ)
 }
 
 // hit tests a point against the voxel lookup. Returns voxel index or -1.

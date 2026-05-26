@@ -106,6 +106,53 @@ func (g *OccupancyGrid) Get(x, y, z int) bool {
 	return g.Occupied[g.idx(x, y, z)]
 }
 
+// BuildVisualGrid creates an occupancy grid at flood fill resolution that
+// excludes invisible materials (clip, death) and non-occluding materials
+// (water, lava). Used for occlusion checks where only visible geometry matters.
+func BuildVisualGrid(voxels []Voxel, gridSize int) *OccupancyGrid {
+	aoSize := 1 << fillGridDepth
+	shift := 0
+	for s := gridSize; s > aoSize; s >>= 1 {
+		shift++
+	}
+
+	g := &OccupancyGrid{
+		Size:     aoSize,
+		Shift:    shift,
+		Occupied: make([]bool, aoSize*aoSize*aoSize),
+	}
+
+	for _, v := range voxels {
+		if v.PaletteIndex == 0 {
+			continue
+		}
+		mat := v.Flags & 0x1c
+		if mat == FlagClip || mat == FlagDeath || mat == FlagWater || mat == FlagLava {
+			continue
+		}
+		size := v.Size()
+		ax := int(v.X) >> shift
+		ay := int(v.Y) >> shift
+		az := int(v.Z) >> shift
+		asize := size >> shift
+		if asize < 1 {
+			asize = 1
+		}
+		for dz := 0; dz < asize; dz++ {
+			for dy := 0; dy < asize; dy++ {
+				for dx := 0; dx < asize; dx++ {
+					x, y, z := ax+dx, ay+dy, az+dz
+					if x < aoSize && y < aoSize && z < aoSize {
+						g.Occupied[g.idx(x, y, z)] = true
+					}
+				}
+			}
+		}
+	}
+
+	return g
+}
+
 // ComputeAO computes ambient occlusion using a prebuilt occupancy grid.
 func ComputeAO(voxels []Voxel, grid *OccupancyGrid) {
 	for i := range voxels {
