@@ -127,14 +127,14 @@ void main() {
     float ao = 0.2 + 0.8 * vAO;
     outgoingLight *= ao;
 
-    // sRGB output transfer (Three.js applies this automatically)
-    vec3 srgb = mix(
-        pow(outgoingLight, vec3(0.41666)) * 1.055 - vec3(0.055),
-        outgoingLight * 12.92,
-        vec3(lessThanEqual(outgoingLight, vec3(0.0031308)))
+    // Exposure + ACES filmic tonemap (Narkowicz 2015 fit)
+    vec3 x = outgoingLight * 1.3;
+    vec3 mapped = clamp(
+        (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14),
+        0.0, 1.0
     );
-
-    fragColor = vec4(srgb, uAlpha);
+    // Linear to sRGB gamma
+    fragColor = vec4(pow(mapped, vec3(1.0/2.2)), uAlpha);
 }
 ` + "\x00"
 
@@ -327,14 +327,6 @@ func (r *GLRenderer) RenderGL(p *MapPreview) *image.RGBA {
 		if int(v.Z) >= clipZ {
 			continue
 		}
-		if v.PaletteIndex == 0 {
-			continue
-		}
-		mat := v.Flags & 0x1c
-		if mat == FlagClip || mat == FlagDeath {
-			continue
-		}
-
 		size := float32(v.Size())
 		halfSize := (size - 1) * 0.5
 
@@ -343,6 +335,8 @@ func (r *GLRenderer) RenderGL(p *MapPreview) *image.RGBA {
 			float32(v.Z) + halfSize,
 			float32(v.Y) + halfSize,
 		}
+
+		mat := v.Flags & 0x1c
 		if mat == FlagWater {
 			waterInstances = append(waterInstances, glInstance{
 				offset: off, scale: [3]float32{size, size, size},
@@ -366,11 +360,11 @@ func (r *GLRenderer) RenderGL(p *MapPreview) *image.RGBA {
 		cg := float32(p.Palette[palIdx][1]) / 255
 		cb := float32(p.Palette[palIdx][2]) / 255
 
-		// Saturation + brightness boost
+		// Saturation boost — ACES in shader handles overshoot
 		lum := float32(0.299)*cr + float32(0.587)*cg + float32(0.114)*cb
-		cr = clampF32((lum+(cr-lum)*2.2)*1.3, 0, 1)
-		cg = clampF32((lum+(cg-lum)*2.2)*1.3, 0, 1)
-		cb = clampF32((lum+(cb-lum)*2.2)*1.3, 0, 1)
+		cr = clampF32(lum+(cr-lum)*1.8, 0, 1)
+		cg = clampF32(lum+(cg-lum)*1.8, 0, 1)
+		cb = clampF32(lum+(cb-lum)*1.8, 0, 1)
 
 		jitter := 0.85 + 0.3*jitterHash(int(v.X), int(v.Y), int(v.Z))
 		cr *= jitter
@@ -420,27 +414,33 @@ func (r *GLRenderer) RenderGL(p *MapPreview) *image.RGBA {
 		return out.Normalize()
 	}
 
-	// Match the Three.js scene lighting:
-	// HemisphereLight(0x8899cc, 0x554433, 0.5) — direction is (0, 1, 0) in world
-	// DirectionalLight(0xffeedd, 1.2) at (gridSize*1.5, gridSize*2, gridSize*0.5)
-	// DirectionalLight(0x6688aa, 0.4) at (-gridSize, gridSize*0.3, -gridSize)
-
-	// Hemisphere: Three.js sets direction = (0, 1, 0) (world up)
+	// Camera-relative lighting: key light over viewer's right shoulder,
+	// fill from the opposite side. Hemisphere stays world-aligned.
 	setVec3(r.program, "uHemiDir", transformDir(mgl32.Vec3{0, 1, 0}))
-	// Colors are color * intensity
-	// Three.js internally multiplies color * intensity for the uniform.
-	setVec3(r.program, "uHemiSkyColor", mgl32.Vec3{0.533 * 0.5, 0.6 * 0.5, 0.8 * 0.5})
-	setVec3(r.program, "uHemiGroundColor", mgl32.Vec3{0.333 * 0.5, 0.267 * 0.5, 0.2 * 0.5})
+	setVec3(r.program, "uHemiSkyColor", mgl32.Vec3{0.27, 0.30, 0.40})
+	setVec3(r.program, "uHemiGroundColor", mgl32.Vec3{0.17, 0.14, 0.10})
 
-	// Directional lights: Three.js normalizes the position as the direction
-	gs := float32(gridSize)
-	sunWorldDir := mgl32.Vec3{gs * 1.5, gs * 2, gs * 0.5}.Normalize()
+	// Key light: 30° right of camera, 40° elevation (in Sauer coords → GL)
+	keyYaw := yawRad - math.Pi/6
+	keyElev := 40.0 * math.Pi / 180.0
+	sunWorldDir := mgl32.Vec3{
+		float32(math.Cos(keyElev) * math.Cos(keyYaw)),
+		float32(math.Sin(keyElev)),
+		float32(math.Cos(keyElev) * math.Sin(keyYaw)),
+	}.Normalize()
 	setVec3(r.program, "uDirLight0Dir", transformDir(sunWorldDir))
-	setVec3(r.program, "uDirLight0Color", mgl32.Vec3{1.0 * 1.2, 0.933 * 1.2, 0.867 * 1.2})
+	setVec3(r.program, "uDirLight0Color", mgl32.Vec3{1.2, 1.12, 1.04})
 
-	fillWorldDir := mgl32.Vec3{-gs, gs * 0.3, -gs}.Normalize()
+	// Fill light: opposite side, low angle
+	fillYaw := yawRad + math.Pi*2/3
+	fillElev := 10.0 * math.Pi / 180.0
+	fillWorldDir := mgl32.Vec3{
+		float32(math.Cos(fillElev) * math.Cos(fillYaw)),
+		float32(math.Sin(fillElev)),
+		float32(math.Cos(fillElev) * math.Sin(fillYaw)),
+	}.Normalize()
 	setVec3(r.program, "uDirLight1Dir", transformDir(fillWorldDir))
-	setVec3(r.program, "uDirLight1Color", mgl32.Vec3{0.4 * 0.4, 0.533 * 0.4, 0.667 * 0.4})
+	setVec3(r.program, "uDirLight1Color", mgl32.Vec3{0.16, 0.21, 0.27})
 
 	// Backface culling like Three.js
 	gl.Enable(gl.CULL_FACE)
@@ -466,11 +466,18 @@ func (r *GLRenderer) RenderGL(p *MapPreview) *image.RGBA {
 	gl.Disable(gl.BLEND)
 	gl.Disable(gl.CULL_FACE)
 
+	// Read depth buffer for edge emphasis
+	depthBuf := make([]float32, w*h)
+	gl.ReadPixels(0, 0, int32(w), int32(h), gl.DEPTH_COMPONENT, gl.FLOAT, gl.Ptr(depthBuf))
+
 	// Read back pixels
 	pixels := make([]uint8, w*h*4)
 	gl.ReadPixels(0, 0, int32(w), int32(h), gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(pixels))
 
 	gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
+
+	// Post-processing: edge emphasis + vignette (CPU-side on readback)
+	applyGLPostProcess(pixels, depthBuf, w, h, float64(gridSize))
 
 	// Convert to image.RGBA (OpenGL is bottom-up, flip Y)
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
@@ -483,6 +490,59 @@ func (r *GLRenderer) RenderGL(p *MapPreview) *image.RGBA {
 	}
 
 	return img
+}
+
+// applyGLPostProcess applies edge emphasis and vignette to GL-rendered pixels.
+// Linearizes the GL depth buffer so edge detection uses world-space distances
+// with the same scale factor as the software renderer.
+func applyGLPostProcess(pixels []uint8, depthBuf []float32, w, h int, gridSize float64) {
+	near := 0.1
+	far := gridSize * 10
+
+	// Linearize GL depth buffer (hyperbolic → world units)
+	linearDepth := make([]float64, w*h)
+	for i, d := range depthBuf {
+		zNDC := 2*float64(d) - 1
+		linearDepth[i] = 2 * near * far / (far + near - zNDC*(far-near))
+	}
+
+	// Sobel edge detection on linearized depth
+	for py := 1; py < h-1; py++ {
+		for px := 1; px < w-1; px++ {
+			gx := -linearDepth[(py-1)*w+(px-1)] + linearDepth[(py-1)*w+(px+1)] +
+				-2*linearDepth[py*w+(px-1)] + 2*linearDepth[py*w+(px+1)] +
+				-linearDepth[(py+1)*w+(px-1)] + linearDepth[(py+1)*w+(px+1)]
+			gy := -linearDepth[(py-1)*w+(px-1)] - 2*linearDepth[(py-1)*w+px] - linearDepth[(py-1)*w+(px+1)] +
+				linearDepth[(py+1)*w+(px-1)] + 2*linearDepth[(py+1)*w+px] + linearDepth[(py+1)*w+(px+1)]
+
+			edge := math.Sqrt(gx*gx + gy*gy)
+			darken := 1.0 - math.Min(0.5, edge*0.02)
+
+			i := (py*w + px) * 4
+			pixels[i] = uint8(float64(pixels[i]) * darken)
+			pixels[i+1] = uint8(float64(pixels[i+1]) * darken)
+			pixels[i+2] = uint8(float64(pixels[i+2]) * darken)
+		}
+	}
+
+	// Vignette (same as software renderer)
+	cx, cy := float64(w)/2, float64(h)/2
+	maxDist := math.Sqrt(cx*cx + cy*cy)
+	for py := 0; py < h; py++ {
+		for px := 0; px < w; px++ {
+			dx := float64(px) - cx
+			dy := float64(py) - cy
+			dist := math.Sqrt(dx*dx+dy*dy) / maxDist
+			v := 1.0 - math.Max(0, (dist-0.5))*1.2
+			if v < 0.3 {
+				v = 0.3
+			}
+			i := (py*w + px) * 4
+			pixels[i] = uint8(float64(pixels[i]) * v)
+			pixels[i+1] = uint8(float64(pixels[i+1]) * v)
+			pixels[i+2] = uint8(float64(pixels[i+2]) * v)
+		}
+	}
 }
 
 func (r *GLRenderer) drawInstances(instances []glInstance) {

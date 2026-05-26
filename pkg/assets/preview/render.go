@@ -122,13 +122,27 @@ func Render(p *MapPreview, cfg RenderConfig) *image.RGBA {
 	halfTan := math.Tan(fov / 2)
 	aspect := float64(w) / float64(h)
 
-	// Lighting (match viewer)
-	sunDir := normalize([3]float64{1.5, 0.5, 2.0})
-	sunColor := [3]float64{1.0 * 1.2, 0.93 * 1.2, 0.87 * 1.2}
-	fillDir := normalize([3]float64{-1, -1, 0.3})
-	fillColor := [3]float64{0.4 * 0.4, 0.53 * 0.4, 0.67 * 0.4}
-	hemiSky := [3]float64{0.53 * 0.5, 0.6 * 0.5, 0.8 * 0.5}
-	hemiGround := [3]float64{0.33 * 0.5, 0.27 * 0.5, 0.2 * 0.5}
+	// Camera-relative lighting: key light over the viewer's right shoulder,
+	// fill from the opposite side. Creates consistent 3/4-key modeling
+	// regardless of the chosen camera yaw.
+	keyYaw := yawRad - math.Pi/6
+	keyElev := 40.0 * math.Pi / 180.0
+	sunDir := normalize([3]float64{
+		math.Cos(keyElev) * math.Cos(keyYaw),
+		math.Cos(keyElev) * math.Sin(keyYaw),
+		math.Sin(keyElev),
+	})
+	sunColor := [3]float64{1.2, 1.12, 1.04}
+	fillYaw := yawRad + math.Pi*2/3
+	fillElev := 10.0 * math.Pi / 180.0
+	fillDir := normalize([3]float64{
+		math.Cos(fillElev) * math.Cos(fillYaw),
+		math.Cos(fillElev) * math.Sin(fillYaw),
+		math.Sin(fillElev),
+	})
+	fillColor := [3]float64{0.16, 0.21, 0.27}
+	hemiSky := [3]float64{0.27, 0.30, 0.40}
+	hemiGround := [3]float64{0.17, 0.14, 0.10}
 
 	skyR := math.Min(1, float64(p.SkyTop[0])/255*1.5+0.05)
 	skyG := math.Min(1, float64(p.SkyTop[1])/255*1.5+0.05)
@@ -142,8 +156,10 @@ func Render(p *MapPreview, cfg RenderConfig) *image.RGBA {
 
 	// Render to float buffer for post-processing — parallelize by row
 	buf := make([][3]float64, w*h)
+	depthBuf := make([]float64, w*h)
+	skyDist := float64(gridSize) * 2
 
-	// Shade a solid voxel hit
+	// Shade a solid voxel hit (outputs HDR linear, tonemapped later)
 	shadeVoxel := func(vox *Voxel, dir [3]float64) [3]float64 {
 		palIdx := int(vox.PaletteIndex)
 		if palIdx >= len(p.Palette) {
@@ -153,10 +169,11 @@ func Render(p *MapPreview, cfg RenderConfig) *image.RGBA {
 		cg := float64(p.Palette[palIdx][1]) / 255
 		cb := float64(p.Palette[palIdx][2]) / 255
 
+		// Saturation boost — ACES tonemap gracefully compresses any overshoot
 		lum := 0.299*cr + 0.587*cg + 0.114*cb
-		cr = math.Max(0, math.Min(1, (lum+(cr-lum)*2.2)*1.3))
-		cg = math.Max(0, math.Min(1, (lum+(cg-lum)*2.2)*1.3))
-		cb = math.Max(0, math.Min(1, (lum+(cb-lum)*2.2)*1.3))
+		cr = math.Max(0, lum+(cr-lum)*1.8)
+		cg = math.Max(0, lum+(cg-lum)*1.8)
+		cb = math.Max(0, lum+(cb-lum)*1.8)
 
 		ao := 0.2 + 0.8*float64(vox.AO)/255
 		jitter := 0.85 + 0.3*jitterHash(int(vox.X), int(vox.Y), int(vox.Z))
@@ -172,10 +189,11 @@ func Render(p *MapPreview, cfg RenderConfig) *image.RGBA {
 		lg += sunColor[1]*sunDot + fillColor[1]*fillDot
 		lb += sunColor[2]*sunDot + fillColor[2]*fillDot
 
+		// HDR output — no clamping, ACES handles it
 		return [3]float64{
-			math.Min(1, cr*lr*ao*jitter),
-			math.Min(1, cg*lg*ao*jitter),
-			math.Min(1, cb*lb*ao*jitter),
+			cr * lr * ao * jitter,
+			cg * lg * ao * jitter,
+			cb * lb * ao * jitter,
 		}
 	}
 
@@ -239,13 +257,23 @@ func Render(p *MapPreview, cfg RenderConfig) *image.RGBA {
 					}
 
 					buf[idx] = bg
+					if solidIdx >= 0 {
+						depthBuf[idx] = solidDist
+					} else {
+						depthBuf[idx] = skyDist
+					}
+					if liquidIdx >= 0 && liquidDist < depthBuf[idx] {
+						depthBuf[idx] = liquidDist
+					}
 				}
 			}
 		}(startRow, endRow)
 	}
 	wg.Wait()
 
-	// Post-processing: vignette for diorama look
+	// Post-processing pipeline
+	applyEdgeEmphasis(buf, depthBuf, w, h)
+	applyACES(buf, w, h)
 	applyVignette(buf, w, h)
 	out := buf
 
@@ -439,6 +467,53 @@ func tiltShiftBlur(buf [][3]float64, w, h int) [][3]float64 {
 	}
 
 	return out
+}
+
+// applyEdgeEmphasis runs a Sobel filter on the depth buffer and darkens
+// pixels at geometry boundaries. Improves readability at thumbnail scale.
+func applyEdgeEmphasis(buf [][3]float64, depth []float64, w, h int) {
+	for py := 1; py < h-1; py++ {
+		for px := 1; px < w-1; px++ {
+			// Sobel X
+			gx := -depth[(py-1)*w+(px-1)] + depth[(py-1)*w+(px+1)] +
+				-2*depth[py*w+(px-1)] + 2*depth[py*w+(px+1)] +
+				-depth[(py+1)*w+(px-1)] + depth[(py+1)*w+(px+1)]
+			// Sobel Y
+			gy := -depth[(py-1)*w+(px-1)] - 2*depth[(py-1)*w+px] - depth[(py-1)*w+(px+1)] +
+				depth[(py+1)*w+(px-1)] + 2*depth[(py+1)*w+px] + depth[(py+1)*w+(px+1)]
+
+			edge := math.Sqrt(gx*gx + gy*gy)
+			darken := 1.0 - math.Min(0.5, edge*0.02)
+			idx := py*w + px
+			buf[idx][0] *= darken
+			buf[idx][1] *= darken
+			buf[idx][2] *= darken
+		}
+	}
+}
+
+// acesTonemap applies the ACES filmic tone curve (Narkowicz 2015 fit).
+// Maps HDR linear values to [0,1] with a pleasing S-curve.
+func acesTonemap(x float64) float64 {
+	// clamp negative
+	if x < 0 {
+		x = 0
+	}
+	mapped := (x * (2.51*x + 0.03)) / (x*(2.43*x+0.59) + 0.14)
+	if mapped > 1 {
+		return 1
+	}
+	return mapped
+}
+
+// applyACES applies ACES filmic tonemapping with exposure compensation.
+func applyACES(buf [][3]float64, w, h int) {
+	const exposure = 1.3
+	for i := range buf {
+		buf[i][0] = acesTonemap(buf[i][0] * exposure)
+		buf[i][1] = acesTonemap(buf[i][1] * exposure)
+		buf[i][2] = acesTonemap(buf[i][2] * exposure)
+	}
 }
 
 // applyVignette darkens corners for a diorama look.

@@ -64,12 +64,14 @@ func Poll(width, height int) {
 			var img *image.RGBA
 			if renderer != nil {
 				img = renderer.RenderGL(req.Preview)
+				log.Debug().Msg("preview: rendered with GPU")
 			}
 			if img == nil {
 				img = Render(req.Preview, RenderConfig{
 					Width:  req.Width,
 					Height: req.Height,
 				})
+				log.Debug().Msg("preview: rendered with software")
 			}
 			req.Result <- img
 

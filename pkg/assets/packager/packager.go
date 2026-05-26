@@ -383,6 +383,10 @@ func (p *Packager) BuildMap(ctx context.Context, params BuildParams, mapFile, na
 	}
 
 	p.Maps = append(p.Maps, gameMap)
+
+	// Generate preview (.svox + .jpg) — non-fatal
+	p.buildPreview(ctx, params, mapFile, name)
+
 	return &gameMap, nil
 }
 

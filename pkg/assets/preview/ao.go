@@ -153,28 +153,38 @@ func BuildVisualGrid(voxels []Voxel, gridSize int) *OccupancyGrid {
 	return g
 }
 
-// ComputeAO computes ambient occlusion using a prebuilt occupancy grid.
+// ComputeAO computes ambient occlusion using multi-radius hemisphere sampling.
+// Samples at 3 radii (1, 3, 7) with distance-weighted falloff for smoother,
+// more spatially-aware occlusion than single-radius neighbor counting.
 func ComputeAO(voxels []Voxel, grid *OccupancyGrid) {
+	// 14 sample directions: 6 axis-aligned + 8 diagonal
+	type dir3 = [3]int
+	dirs := [14]dir3{
+		{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1},
+		{1, 1, 1}, {1, 1, -1}, {1, -1, 1}, {1, -1, -1},
+		{-1, 1, 1}, {-1, 1, -1}, {-1, -1, 1}, {-1, -1, -1},
+	}
+	radii := [3]int{1, 3, 7}
+	weights := [3]float64{0.50, 0.30, 0.20}
+
 	for i := range voxels {
 		size := voxels[i].Size()
 		cx := (int(voxels[i].X) + size/2) >> grid.Shift
 		cy := (int(voxels[i].Y) + size/2) >> grid.Shift
 		cz := (int(voxels[i].Z) + size/2) >> grid.Shift
 
-		count := 0
-		for dz := -1; dz <= 1; dz++ {
-			for dy := -1; dy <= 1; dy++ {
-				for dx := -1; dx <= 1; dx++ {
-					if dx == 0 && dy == 0 && dz == 0 {
-						continue
-					}
-					if grid.Get(cx+dx, cy+dy, cz+dz) {
-						count++
-					}
+		occlusion := 0.0
+		for ri, r := range radii {
+			hits := 0
+			for _, d := range dirs {
+				if grid.Get(cx+d[0]*r, cy+d[1]*r, cz+d[2]*r) {
+					hits++
 				}
 			}
+			occlusion += weights[ri] * float64(hits) / 14.0
 		}
-		voxels[i].AO = uint8(255 - count*255/26)
+
+		voxels[i].AO = uint8((1.0 - occlusion) * 255)
 	}
 }
 
