@@ -440,11 +440,15 @@ func (p *Packager) buildPreview(ctx context.Context, params BuildParams, mapFile
 	}
 	f.Close()
 
-	// Render animated GIF (256×256, full orbit)
-	gifData := preview.RenderGIF(result.Full, 256, 256)
-	gifPath := filepath.Join(previewDir, name+".gif")
-	if err := os.WriteFile(gifPath, gifData, 0644); err != nil {
-		log.Warn().Err(err).Msgf("preview: failed to write gif for %s", name)
+	// Render animated WebP (256×256, full orbit)
+	webpData, err := preview.RenderWebP(result.Full, 256, 256)
+	if err != nil {
+		log.Warn().Err(err).Msgf("preview: failed to render webp for %s", name)
+	} else {
+		webpPath := filepath.Join(previewDir, name+".webp")
+		if err := os.WriteFile(webpPath, webpData, 0644); err != nil {
+			log.Warn().Err(err).Msgf("preview: failed to write webp for %s", name)
+		}
 	}
 
 	log.Info().Msgf("preview: %s (%d bytes svox)", name, len(result.SVOX))
