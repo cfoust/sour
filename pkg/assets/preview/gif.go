@@ -12,12 +12,23 @@ import (
 	xdraw "golang.org/x/image/draw"
 )
 
+// WebPAvailable reports whether animated WebP generation is supported.
+func WebPAvailable() bool {
+	return ExternalTools.Img2webp != ""
+}
+
 // RenderWebP renders an animated WebP of a full 360° orbit around the preview.
 // Uses 120 frames at 3° yaw increments, fixed pitch from the preview's
 // computed camera angle. Frames are rendered via RenderPreview (GPU if
 // available), downscaled to the target size, and assembled into a looping
 // animated WebP using img2webp.
+//
+// Returns an error if img2webp is not installed.
 func RenderWebP(p *MapPreview, width, height int) ([]byte, error) {
+	if ExternalTools.Img2webp == "" {
+		return nil, fmt.Errorf("img2webp not found (install with: brew install webp)")
+	}
+
 	const (
 		numFrames = 120
 		yawStep   = 360.0 / numFrames
@@ -70,7 +81,7 @@ func RenderWebP(p *MapPreview, width, height int) ([]byte, error) {
 	}
 	args = append(args, "-o", outPath)
 
-	cmd := exec.Command("img2webp", args...)
+	cmd := exec.Command(ExternalTools.Img2webp, args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("img2webp failed: %w\n%s", err, string(out))
 	}

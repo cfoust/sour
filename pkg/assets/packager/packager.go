@@ -440,14 +440,16 @@ func (p *Packager) buildPreview(ctx context.Context, params BuildParams, mapFile
 	}
 	f.Close()
 
-	// Render animated WebP (256×256, full orbit)
-	webpData, err := preview.RenderWebP(result.Full, 256, 256)
-	if err != nil {
-		log.Warn().Err(err).Msgf("preview: failed to render webp for %s", name)
-	} else {
-		webpPath := filepath.Join(previewDir, name+".webp")
-		if err := os.WriteFile(webpPath, webpData, 0644); err != nil {
-			log.Warn().Err(err).Msgf("preview: failed to write webp for %s", name)
+	// Render animated WebP (256×256, full orbit) if img2webp is available
+	if preview.WebPAvailable() {
+		webpData, err := preview.RenderWebP(result.Full, 256, 256)
+		if err != nil {
+			log.Warn().Err(err).Msgf("preview: failed to render webp for %s", name)
+		} else {
+			webpPath := filepath.Join(previewDir, name+".webp")
+			if err := os.WriteFile(webpPath, webpData, 0644); err != nil {
+				log.Warn().Err(err).Msgf("preview: failed to write webp for %s", name)
+			}
 		}
 	}
 

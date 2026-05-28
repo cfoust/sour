@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/cfoust/sour/pkg/assets/preview"
 )
 
 var imageExtensions = map[string]bool{
@@ -30,16 +32,15 @@ func IsImageCompressible(path string, minSize int64) bool {
 	return info.Size() >= minSize
 }
 
-// CompressImage uses ImageMagick to resize an image to 50%.
+// CompressImage uses ImageMagick to resize an image to 25% (two 50% passes).
 // Returns nil if ImageMagick is not installed (skips silently).
 func CompressImage(src, dst string) error {
-	convertPath, err := exec.LookPath("convert")
-	if err != nil {
-		// ImageMagick not installed, skip
+	preview.DetectTools()
+	convertPath := preview.ExternalTools.ImageMagick
+	if convertPath == "" {
 		return nil
 	}
 
-	// Two-pass resize like the Python code
 	cmd := exec.Command(convertPath, src, "-resize", "50%", dst)
 	if err := cmd.Run(); err != nil {
 		return err

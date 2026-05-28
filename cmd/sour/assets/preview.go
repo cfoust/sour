@@ -110,17 +110,22 @@ func (cmd *PreviewCmd) run(ctx context.Context, roots []pkgassets.Root) error {
 		}
 		f.Close()
 
-		// Render animated WebP
-		webpData, err := preview.RenderWebP(result.Full, 256, 256)
-		if err != nil {
-			log.Warn().Err(err).Msgf("failed to render webp for %s", name)
-		} else {
-			webpPath := filepath.Join(cmd.Outdir, name+".webp")
-			if err := os.WriteFile(webpPath, webpData, 0644); err != nil {
-				return fmt.Errorf("writing %s: %w", webpPath, err)
+		// Render animated WebP if img2webp is available
+		if preview.WebPAvailable() {
+			webpData, err := preview.RenderWebP(result.Full, 256, 256)
+			if err != nil {
+				log.Warn().Err(err).Msgf("failed to render webp for %s", name)
+			} else {
+				webpPath := filepath.Join(cmd.Outdir, name+".webp")
+				if err := os.WriteFile(webpPath, webpData, 0644); err != nil {
+					return fmt.Errorf("writing %s: %w", webpPath, err)
+				}
+				log.Info().Msgf("preview: %s (%d bytes svox, %s, %s)",
+					name, len(result.SVOX), humanSize(jpgPath), humanSize(webpPath))
 			}
-			log.Info().Msgf("preview: %s (%d bytes svox, %s, %s)",
-				name, len(result.SVOX), humanSize(jpgPath), humanSize(webpPath))
+		} else {
+			log.Info().Msgf("preview: %s (%d bytes svox, %s)",
+				name, len(result.SVOX), humanSize(jpgPath))
 		}
 		built++
 	}
