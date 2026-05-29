@@ -7,7 +7,6 @@ import MapThumb from '../MapThumb'
 import ModePill from '../ModePill'
 import MapCard from '../MapCard'
 import type { BrowseMapEntry } from '../../catalog/types'
-import { usePreviewSvox } from '../../preview/urls'
 
 const VoxelViewer = React.lazy(() => import('../../preview/VoxelViewer'))
 
@@ -319,7 +318,7 @@ type Props = {
 }
 
 export default function DetailScreen({ map, allMaps, onBack, onPlay, onOpenAuthor, onOpenMap }: Props) {
-  const svoxUrl = usePreviewSvox(map.name)
+  const svoxUrl = map.svoxUrl || null
   const year = yearFromDate(map.date)
   const [first, rest] = splitName(map.name)
 
@@ -444,7 +443,7 @@ export default function DetailScreen({ map, allMaps, onBack, onPlay, onOpenAutho
               {sameAuthor.map(other => (
                 <SameAuthorItem key={other.name} onClick={() => onOpenMap(other)}>
                   <SameAuthorThumb>
-                    <MapThumb imageUrl={other.imageUrl} name={other.name} />
+                    <MapThumb imageUrl={other.imageUrl} stillUrl={other.stillUrl} webpUrl={other.webpUrl} name={other.name} />
                   </SameAuthorThumb>
                   <SameAuthorInfo>
                     <SameAuthorName>{other.name}</SameAuthorName>

@@ -23,6 +23,8 @@ type Catalog struct {
 }
 
 // ResolvedMapEntry has image/gif hashes replaced with full URLs.
+// Preview fields (StillURL, WebPURL, SvoxURL) are populated by the server
+// at startup by scanning asset directories — catalog sources don't set them.
 type ResolvedMapEntry struct {
 	Author      string   `json:"author,omitempty"`
 	Date        string   `json:"date,omitempty"`
@@ -32,6 +34,9 @@ type ResolvedMapEntry struct {
 	ImageURLs   []string `json:"imageUrls,omitempty"`
 	Modes       []string `json:"modes,omitempty"`
 	Players     string   `json:"players,omitempty"`
+	StillURL    string   `json:"stillUrl,omitempty"`
+	WebPURL     string   `json:"webpUrl,omitempty"`
+	SvoxURL     string   `json:"svoxUrl,omitempty"`
 }
 
 // ResolvedModEntry has image hash replaced with a full URL.

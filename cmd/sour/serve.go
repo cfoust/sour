@@ -54,20 +54,21 @@ func serveCommand(configs []string) error {
 		log.Fatal().Msg("no cache directory specified")
 	}
 
-	// Check for assets installed via homebrew
-	if homebrew, ok := os.LookupEnv("HOMEBREW_PREFIX"); ok {
-		source := filepath.Join(
-			homebrew,
-			"share/sour/assets/.index.source",
-		)
-
-		if _, err := os.Stat(source); err == nil {
-			serverConfig.Assets = append(
-				serverConfig.Assets,
-				"fs:"+source,
-			)
-		}
-	}
+	// TODO: re-enable once preview URL stamping handles multiple roots properly
+	// // Check for assets installed via homebrew
+	// if homebrew, ok := os.LookupEnv("HOMEBREW_PREFIX"); ok {
+	// 	source := filepath.Join(
+	// 		homebrew,
+	// 		"share/sour/assets/.index.source",
+	// 	)
+	//
+	// 	if _, err := os.Stat(source); err == nil {
+	// 		serverConfig.Assets = append(
+	// 			serverConfig.Assets,
+	// 			"fs:"+source,
+	// 		)
+	// 	}
+	// }
 
 	// Also check the current directory for built assets
 	if current, err := os.Getwd(); err == nil {
@@ -247,6 +248,20 @@ func serveCommand(configs []string) error {
 	var mergedCatalogJSON []byte
 	if mergedCatalog != nil {
 		mergedCatalog.FilterAvailable(uniqueMaps)
+
+		// Stamp preview URLs onto catalog entries. Each served root may
+		// have previews at /assets/{N}/previews/. Later roots override.
+		// The frontend handles 404s gracefully if a preview doesn't exist.
+		for i := range servedRoots {
+			prefix := fmt.Sprintf("/assets/%d/previews/", i)
+			for name, entry := range mergedCatalog.Maps {
+				entry.StillURL = prefix + name + ".jpg"
+				entry.WebPURL = prefix + name + ".webp"
+				entry.SvoxURL = prefix + name + ".svox"
+				mergedCatalog.Maps[name] = entry
+			}
+		}
+
 		mergedCatalogJSON, err = json.Marshal(mergedCatalog)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to marshal merged catalog")

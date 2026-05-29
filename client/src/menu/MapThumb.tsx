@@ -1,7 +1,6 @@
 import * as React from 'react'
 import styled from '@emotion/styled'
 import { t } from './theme'
-import { usePreviewStill } from '../preview/urls'
 
 const Wrapper = styled.div`
   position: absolute;
@@ -44,15 +43,21 @@ const Stripes = styled.div`
 
 type Props = {
   imageUrl?: string
+  stillUrl?: string
+  webpUrl?: string
   name: string
+  hovering?: boolean
 }
 
-export default function MapThumb({ imageUrl, name }: Props) {
+export default function MapThumb({ imageUrl, stillUrl, webpUrl, name, hovering }: Props) {
   const [failed, setFailed] = React.useState(false)
-  const stillUrl = usePreviewStill(name)
-  const src = stillUrl || imageUrl
 
-  if (!src || failed) {
+  // Prefer generated still over catalog image
+  const staticSrc = stillUrl || imageUrl
+  // On hover, switch to animated WebP if available
+  const src = hovering && webpUrl ? webpUrl : staticSrc
+
+  if (!staticSrc || failed) {
     return (
       <Missing>
         <Stripes />

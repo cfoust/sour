@@ -128,11 +128,16 @@ type Props = {
 
 export default function MapCard({ map, onOpen, onPlay }: Props) {
   const year = yearFromDate(map.date)
+  const [hovering, setHovering] = React.useState(false)
 
   return (
-    <Card onClick={() => onOpen?.(map)}>
+    <Card
+      onClick={() => onOpen?.(map)}
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+    >
       <Thumb className="map-card-thumb">
-        <MapThumb imageUrl={map.imageUrl} name={map.name} />
+        <MapThumb imageUrl={map.imageUrl} stillUrl={map.stillUrl} webpUrl={map.webpUrl} name={map.name} hovering={hovering} />
         <Scrim />
         {year && <YearBadge>{year}</YearBadge>}
         {map.modes && map.modes.length > 0 && (
