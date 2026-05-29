@@ -21,6 +21,7 @@ import (
 
 	pkgassets "github.com/cfoust/sour/pkg/assets"
 	"github.com/cfoust/sour/pkg/assets/packager"
+	"github.com/cfoust/sour/pkg/assets/preview"
 
 	"github.com/alecthomas/kong"
 	"github.com/fxamacker/cbor/v2"
@@ -633,6 +634,17 @@ func parseNodeFilter(specs []string) (func(int) bool, error) {
 }
 
 func (cmd *BuildCmd) Run() error {
+	preview.NewRenderService()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- cmd.run()
+		preview.Shutdown()
+	}()
+	preview.Poll(1024, 1024)
+	return <-errCh
+}
+
+func (cmd *BuildCmd) run() error {
 	ctx := context.Background()
 
 	os.MkdirAll(cmd.Outdir, 0755)

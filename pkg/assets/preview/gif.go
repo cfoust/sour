@@ -14,6 +14,7 @@ import (
 
 // WebPAvailable reports whether animated WebP generation is supported.
 func WebPAvailable() bool {
+	DetectTools()
 	return ExternalTools.Img2webp != ""
 }
 
