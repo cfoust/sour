@@ -112,7 +112,7 @@ func (cmd *PreviewCmd) run(ctx context.Context, roots []pkgassets.Root) error {
 
 		// Render animated WebP if img2webp is available
 		if preview.WebPAvailable() {
-			webpData, err := preview.RenderWebP(result.Full, 256, 256)
+			webpData, err := preview.RenderWebP(result.Full, 512, 512)
 			if err != nil {
 				log.Warn().Err(err).Msgf("failed to render webp for %s", name)
 			} else {

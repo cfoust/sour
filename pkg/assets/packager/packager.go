@@ -442,7 +442,7 @@ func (p *Packager) buildPreview(ctx context.Context, params BuildParams, mapFile
 
 	// Render animated WebP (256×256, full orbit) if img2webp is available
 	if preview.WebPAvailable() {
-		webpData, err := preview.RenderWebP(result.Full, 256, 256)
+		webpData, err := preview.RenderWebP(result.Full, 512, 512)
 		if err != nil {
 			log.Warn().Err(err).Msgf("preview: failed to render webp for %s", name)
 		} else {
